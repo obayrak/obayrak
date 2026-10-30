@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circuit Element Checker — Educational Tool</title>
+<style>
+:root{--bg:#060e18;--s1:#0c1a27;--s2:#112030;--bd:#1a3048;--ac:#00d4ff;--ac2:#00ff88;--warn:#ffb347;--bad:#ff4757;--text:#c5daea;--t2:#6a8fa8;--mono:'Courier New',monospace;--good:#00ff88}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+.hdr{background:var(--s1);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.hdr h1{font-size:17px;font-weight:500;color:var(--ac);letter-spacing:.3px}
+.hdr p{font-size:11px;color:var(--t2)}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--ac2);animation:blink 2s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--ac2)}50%{opacity:.4;box-shadow:none}}
+.tabs{display:flex;gap:2px;padding:10px 16px 0;background:var(--s1);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--bd) transparent}
+.tab{padding:7px 13px;background:none;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;color:var(--t2);font-size:11.5px;cursor:pointer;white-space:nowrap;transition:all .18s;display:flex;align-items:center;gap:5px;font-family:inherit}
+.tab:hover{color:var(--text);background:var(--s2)}
+.tab.on{color:var(--ac);background:var(--bg);border-color:var(--bd);border-bottom:1px solid var(--bg);margin-bottom:-1px}
+.tab svg{flex-shrink:0}
+.panel{display:none;padding:16px 20px;max-width:1200px;margin:0 auto}
+.panel.on{display:block}
+.comp-header{margin-bottom:14px}
+.comp-header h2{font-size:22px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:10px}
+.comp-header p{font-size:13px;color:var(--t2);margin-top:4px;line-height:1.55}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.25);color:var(--ac);margin-top:6px;margin-right:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.full{grid-column:1/-1}
+@media(max-width:820px){.grid,.grid3{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:14px 16px}
+.card-title{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.card-title::before{content:'';width:3px;height:11px;background:var(--ac);border-radius:2px;flex-shrink:0}
+.svgbox{background:#06111e;border:1px solid #0e2538;border-radius:8px;overflow:hidden;position:relative}
+.svgbox svg{display:block;width:100%;height:auto}
+.meter{background:#040d04;border:1.5px solid #0a220a;border-radius:8px;padding:10px 14px;font-family:var(--mono);margin-bottom:10px;position:relative;overflow:hidden}
+.meter::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(0,255,68,.04),transparent 60%);pointer-events:none}
+.m-label{font-size:9px;color:#3a6a3a;letter-spacing:1px;margin-bottom:3px}
+.m-val{font-size:28px;color:#00ff44;letter-spacing:2px;transition:all .3s;text-shadow:0 0 10px rgba(0,255,68,.25)}
+.m-unit{font-size:12px;color:#3a6a3a;margin-left:3px}
+.m-mode{font-size:9px;color:#2a5a2a;margin-top:2px}
+.steps{list-style:none;display:flex;flex-direction:column;gap:7px}
+.step{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;background:var(--s2);border-radius:7px;border-left:3px solid transparent;transition:all .3s;font-size:12.5px;line-height:1.45}
+.step.on{border-left-color:var(--ac);background:rgba(0,212,255,.06)}
+.step.done{border-left-color:var(--ac2);opacity:.65}
+.step.warn{border-left-color:var(--warn)}
+.sn{width:18px;height:18px;border-radius:50%;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;color:var(--t2);transition:all .3s}
+.step.on .sn{background:var(--ac);color:#000}
+.step.done .sn{background:var(--ac2);color:#000}
+.step.warn .sn{background:var(--warn);color:#000}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.rb{border-radius:7px;padding:9px 10px;font-size:11.5px}
+.rb .rl{font-size:9px;opacity:.7;margin-bottom:2px}
+.rb .rv{font-size:13px;font-weight:600;font-family:var(--mono)}
+.rb.good{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.25);color:var(--good)}
+.rb.bad{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.25);color:var(--bad)}
+.rb.warn{background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.25);color:var(--warn)}
+.rb.info{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);color:var(--ac)}
+.safety{background:rgba(255,179,71,.07);border:1px solid rgba(255,179,71,.22);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--warn);display:flex;gap:8px;align-items:flex-start;margin-top:10px;line-height:1.5}
+.ctrls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{padding:7px 15px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--text);font-size:12px;cursor:pointer;transition:all .18s;font-family:inherit}
+.btn:hover{background:var(--bd)}
+.btn.pri{border-color:var(--ac);color:var(--ac)}
+.btn.pri:hover{background:rgba(0,212,255,.1)}
+.btn.g{border-color:var(--ac2);color:var(--ac2)}
+.btn.g:hover{background:rgba(0,255,136,.08)}
+.cc-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.cc-sel{padding:5px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--s2);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;appearance:none;-webkit-appearance:none}
+.cc-label{font-size:10px;color:var(--t2);min-width:52px}
+.cc-swatch{width:26px;height:26px;border-radius:4px;border:1px solid rgba(255,255,255,.12);flex-shrink:0}
+.cc-result{background:#040d04;border:1px solid #0a220a;border-radius:7px;padding:10px 14px;font-family:var(--mono);margin-top:8px}
+.cc-r-label{font-size:9px;color:#3a6a3a;margin-bottom:2px}
+.cc-r-val{font-size:22px;color:#00ff44;letter-spacing:1px}
+@keyframes capCharge{0%{stroke-dashoffset:300}100%{stroke-dashoffset:0}}
+@keyframes probeDown{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+@keyframes flowR{0%{stroke-dashoffset:200}100%{stroke-dashoffset:0}}
+@keyframes flowL{0%{stroke-dashoffset:-200}100%{stroke-dashoffset:0}}
+@keyframes glow{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes ledGlow{0%,100%{r:12;opacity:.7}50%{r:22;opacity:.3}}
+@keyframes spinCoil{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-40}}
+@keyframes buzzerPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.08);opacity:1}}
+@keyframes waveFlow{0%{stroke-dashoffset:120}100%{stroke-dashoffset:0}}
+@keyframes acWave{0%{stroke-dashoffset:300}100%{stroke-dashoffset:0}}
+.scope{background:#040e04;border:1px solid #0a200a;border-radius:6px;padding:6px 8px;margin-top:8px;overflow:hidden}
+.scope svg{display:block;width:100%}
+.tog{display:flex;align-items:center;gap:8px;margin-top:8px}
+.tog-track{position:relative;width:38px;height:20px;background:var(--bd);border-radius:10px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog-track.on{background:var(--ac)}
+.tog-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
+.tog-track.on .tog-thumb{transform:translateX(18px)}
+.tog-label{font-size:12px;color:var(--t2)}
+.probe-red{animation:probeDown 2.5s ease-in-out infinite}
+.probe-blk{animation:probeDown 2.5s ease-in-out infinite .4s}
+.slide-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.slide-row label{font-size:11px;color:var(--t2);min-width:60px}
+.slide-row input[type=range]{flex:1;accent-color:var(--ac)}
+.slide-row span{font-size:11px;color:var(--ac);min-width:40px;font-family:var(--mono)}
+.pill-row{display:flex;gap:5px;margin-top:8px}
+.pill{padding:4px 12px;border-radius:20px;font-size:11px;border:1px solid var(--bd);background:none;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .15px}
+.pill.on{background:var(--ac);color:#000;border-color:var(--ac)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px;margin-top:8px}
+.kv dt{color:var(--t2)}
+.kv dd{color:var(--text);font-family:var(--mono)}
+.ic-pins{font-size:11px;width:100%;border-collapse:collapse;margin-top:8px}
+.ic-pins th{color:var(--t2);text-align:left;padding:4px 8px;border-bottom:1px solid var(--bd);font-weight:500}
+.ic-pins td{padding:4px 8px;border-bottom:1px solid rgba(26,48,72,.4)}
+.pin-ok{color:var(--good)}
+.pin-x{color:var(--bad)}
+.divider{border:none;border-top:1px solid var(--bd);margin:10px 0}
+
+/* Readability + Day/Night theme */
+body{font-size:15px}.hdr{padding:12px 20px}.hdr h1{font-size:21px}.hdr p{font-size:13px}.tabs{padding:10px 16px 0}.tab{padding:9px 15px;font-size:14px;gap:6px}.panel{padding:20px}.comp-header h2{font-size:25px}.comp-header p{font-size:15px;line-height:1.65}.badge{font-size:12px;padding:3px 11px}.card{padding:16px 18px}.card-title{font-size:12px;letter-spacing:1.1px}.step{font-size:14px;line-height:1.6;padding:10px 12px}.sn{width:21px;height:21px;font-size:11px}.rb{font-size:13px}.rb .rl{font-size:11px}.rb .rv{font-size:15px}.kv{font-size:14px}.ic-pins{font-size:13px}.ic-pins th,.ic-pins td{padding:6px 8px}.btn{padding:9px 16px;font-size:14px}.cc-label{font-size:12px}.cc-sel{padding:7px 9px;font-size:14px}.tog-label{font-size:14px}.slide-row label,.slide-row span{font-size:13px}.m-label{font-size:11px}.m-val{font-size:31px}.m-unit{font-size:14px}.m-mode{font-size:11px}.theme-controls{margin-left:auto;display:flex;gap:7px;flex-shrink:0}.theme-btn{border:1px solid var(--bd);background:var(--s2);color:var(--text);border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer;font-family:inherit;transition:all .18s}.theme-btn:hover{border-color:var(--ac);color:var(--ac)}.theme-btn.active{border-color:var(--ac);color:var(--ac);background:rgba(0,212,255,.10)}body.day{--bg:#f4f7fa;--s1:#fff;--s2:#edf2f6;--bd:#c7d2dc;--ac:#087ea4;--ac2:#07854f;--warn:#b86b00;--bad:#c62839;--text:#263746;--t2:#5d7080;--good:#07854f}body.day .svgbox{background:#eef3f7;border-color:#cbd7e0}body.day .meter,body.day .cc-result{background:#f1f8f2;border-color:#b9d2bd}body.day .scope{background:#f1f8f2;border-color:#b9d2bd}body.day .theme-btn.day{border-color:var(--ac);color:var(--ac);background:rgba(8,126,164,.10)}body.night .theme-btn.night{border-color:var(--ac);color:var(--ac);background:rgba(0,212,255,.10)}@media(max-width:700px){.hdr{flex-wrap:wrap}.theme-controls{margin-left:auto}.theme-btn{padding:7px 10px;font-size:12px}.hdr h1{font-size:19px}.hdr p{font-size:12px}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="pulse"></div>
+  <div>
+    <h1>Circuit Element Checker</h1>
+    <p>Interactive guide to testing electronic components with a digital multimeter</p>
+  </div>
+  <div class="theme-controls"><button class="theme-btn day" onclick="setTheme('day')">☀ Day</button><button class="theme-btn night active" onclick="setTheme('night')">☾ Night</button></div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab on" onclick="sw('resistor',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="5" width="11" height="4" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="7" x2="0" y2="7" stroke="currentColor" stroke-width="1.2"/><line x1="12" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.2"/></svg>
+    Resistor
+  </button>
+  <button class="tab" onclick="sw('capacitor',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><line x1="5" y1="2" x2="5" y2="11" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="11" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="6.5" x2="5" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="6.5" x2="13" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
+    Capacitor
+  </button>
+  <button class="tab" onclick="sw('inductor',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M0 7 Q1.5 3 3 7 Q4.5 3 6 7 Q7.5 3 9 7 Q10.5 3 12 7" stroke="currentColor" stroke-width="1.2" fill="none"/><line x1="0" y1="7" x2="0" y2="9" stroke="currentColor" stroke-width="1.2"/><line x1="12" y1="7" x2="12" y2="9" stroke="currentColor" stroke-width="1.2"/></svg>
+    Inductor
+  </button>
+  <button class="tab" onclick="sw('diode',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><polygon points="2,3 10,6.5 2,10" stroke="currentColor" stroke-width="1.1" fill="none"/><line x1="10" y1="3" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="0" y1="6.5" x2="2" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="10" y1="6.5" x2="13" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
+    Diode
+  </button>
+  <button class="tab" onclick="sw('bjt',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="7" cy="6.5" r="5" stroke="currentColor" stroke-width="1.1"/><line x1="4" y1="6.5" x2="2" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="4" x2="11" y2="1" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="9" x2="11" y2="12" stroke="currentColor" stroke-width="1.2"/></svg>
+    BJT Transistor
+  </button>
+  <button class="tab" onclick="sw('mosfet',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.1"/><line x1="7" y1="4" x2="7" y2="9" stroke="currentColor" stroke-width="1.8"/><line x1="0" y1="6.5" x2="5" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="4" x2="13" y2="1" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="9" x2="13" y2="12" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="6.5" x2="5.5" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
+    MOSFET
+  </button>
+  <button class="tab" onclick="sw('led',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><polygon points="2,3 9,6.5 2,10" stroke="currentColor" stroke-width="1.1" fill="none"/><line x1="9" y1="3" x2="9" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="2" x2="12" y2="0" stroke="currentColor" stroke-width="1"/><line x1="11" y1="4" x2="13" y2="3" stroke="currentColor" stroke-width="1"/></svg>
+    LED
+  </button>
+  <button class="tab" onclick="sw('fuse',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="4" width="9" height="5" rx="2" stroke="currentColor" stroke-width="1.1"/><line x1="0" y1="6.5" x2="2" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="11" y1="6.5" x2="13" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="6.5" x2="8" y2="6.5" stroke="currentColor" stroke-width="1.2"/></svg>
+    Fuse
+  </button>
+  <button class="tab" onclick="sw('switch',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="2" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.1"/><circle cx="11" cy="6.5" r="1.5" stroke="currentColor" stroke-width="1.1"/><line x1="0" y1="6.5" x2="3.5" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="9.5" y1="6.5" x2="13" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="3.5" y1="6.5" x2="9" y2="3.5" stroke="currentColor" stroke-width="1.2"/></svg>
+    Switch
+  </button>
+  <button class="tab" onclick="sw('ic',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="2" width="7" height="9" rx="1" stroke="currentColor" stroke-width="1.1"/><line x1="0" y1="4" x2="3" y2="4" stroke="currentColor" stroke-width="1.1"/><line x1="0" y1="7" x2="3" y2="7" stroke="currentColor" stroke-width="1.1"/><line x1="10" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1.1"/><line x1="10" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.1"/></svg>
+    IC Chip
+  </button>
+  <button class="tab" onclick="sw('voltmeter',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.1"/><line x1="6.5" y1="6.5" x2="10" y2="3.5" stroke="currentColor" stroke-width="1.3"/><line x1="3" y1="9" x2="10" y2="9" stroke="currentColor" stroke-width=".8"/><text x="5" y="8" font-size="4" fill="currentColor" font-family="sans-serif">V</text></svg>
+    Voltmeter
+  </button>
+  <button class="tab" onclick="sw('buzzer',this)">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.1"/><path d="M9 4 Q12 6.5 9 9" stroke="currentColor" stroke-width="1.1" fill="none"/><line x1="1" y1="6.5" x2="0" y2="6.5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="10.5" x2="5" y2="13" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="2.5" x2="5" y2="0" stroke="currentColor" stroke-width="1.2"/></svg>
+    Buzzer
+  </button>
+</div>
+
+<!-- ══════════════════════════ RESISTOR ══════════════════════════ -->
+<div class="panel on" id="p-resistor">
+  <div class="comp-header">
+    <h2>🎨 Resistor</h2>
+    <p>A passive component that limits current flow. Measured in ohms (Ω). Tested with multimeter in resistance mode — always de-powered.</p>
+    <span class="badge">Resistance mode (Ω)</span><span class="badge">Continuity mode</span><span class="badge">Color code decoding</span>
+  </div>
+  <div class="grid3">
+    <div class="card full">
+      <div class="card-title">Live probe animation</div>
+      <div class="grid">
+        <div class="svgbox">
+          <svg id="r-svg" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+            <defs><filter id="gf"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <rect x="110" y="8" width="100" height="58" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/>
+            <rect x="116" y="14" width="88" height="32" rx="4" fill="#040d04" stroke="#0a200a"/>
+            <text id="r-mv" x="160" y="35" text-anchor="middle" font-family="'Courier New',monospace" font-size="17" fill="#00ff44">—</text>
+            <text x="160" y="48" text-anchor="middle" font-family="'Courier New',monospace" font-size="9" fill="#2a5a2a">RESISTANCE Ω</text>
+            <rect x="125" y="50" width="14" height="10" rx="2" fill="#1a3a1a"/><rect x="145" y="50" width="14" height="10" rx="2" fill="#1a3a1a"/><rect x="165" y="50" width="14" height="10" rx="2" fill="#1a3a1a"/>
+            <line x1="20" y1="130" x2="70" y2="130" stroke="#888" stroke-width="2"/>
+            <line x1="250" y1="130" x2="300" y2="130" stroke="#888" stroke-width="2"/>
+            <rect x="70" y="117" width="180" height="26" rx="5" fill="#d4a96a" stroke="#8a6840" stroke-width="1.5"/>
+            <rect x="72" y="119" width="176" height="8" rx="3" fill="rgba(255,255,255,.07)"/>
+            <rect x="92" y="117" width="14" height="26" fill="#8B4513" opacity=".95"/>
+            <rect x="115" y="117" width="14" height="26" fill="#000" opacity=".9"/>
+            <rect x="150" y="117" width="14" height="26" fill="#f00"/>
+            <rect x="182" y="117" width="14" height="26" fill="#ffd700"/>
+            <rect x="70" y="120" width="12" height="20" rx="2" fill="#b88040"/>
+            <rect x="238" y="120" width="12" height="20" rx="2" fill="#b88040"/>
+            <circle cx="20" cy="130" r="4" fill="#666"/><circle cx="300" cy="130" r="4" fill="#666"/>
+            <g class="probe-red"><rect x="288" y="64" width="10" height="28" rx="3" fill="#cc3333"/><polygon points="288,90 298,90 293,112" fill="#ff4444"/><line x1="293" y1="112" x2="293" y2="128" stroke="#ff6666" stroke-width="1.5" stroke-dasharray="4 2"/><line x1="293" y1="62" x2="259" y2="10" stroke="#ff4444" stroke-width="1.5"/><text x="258" y="8" font-size="9" fill="#ff4444" font-family="sans-serif">V/Ω +</text></g>
+            <g class="probe-blk"><rect x="12" y="64" width="10" height="28" rx="3" fill="#2a2a2a"/><polygon points="12,90 22,90 17,112" fill="#555"/><line x1="17" y1="112" x2="17" y2="128" stroke="#888" stroke-width="1.5" stroke-dasharray="4 2"/><line x1="17" y1="62" x2="54" y2="10" stroke="#555" stroke-width="1.5"/><text x="26" y="8" font-size="9" fill="#666" font-family="sans-serif">COM −</text></g>
+            <path id="r-flow" d="M20 130 L70 130 L250 130 L300 130" stroke="#00ff44" stroke-width="1.8" stroke-dasharray="10 8" fill="none" opacity="0" style="animation:flowR 1.2s linear infinite"></path>
+            <text x="160" y="165" text-anchor="middle" font-size="11" fill="#4a7a9a" font-family="sans-serif">1 kΩ resistor (Brown–Black–Red–Gold)</text>
+            <text x="160" y="180" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">Tolerance: ±5%  →  range 950Ω – 1050Ω</text>
+          </svg>
+        </div>
+        <div>
+          <div class="meter">
+            <div class="m-label">MULTIMETER — RESISTANCE MODE</div>
+            <div><span id="r-disp" class="m-val">1.002</span><span class="m-unit">kΩ</span></div>
+            <div class="m-mode">Range: 2kΩ auto  |  DC off  |  probes stable</div>
+          </div>
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">Color code decoder</div>
+            <div class="cc-row"><span class="cc-label">Band 1:</span><select class="cc-sel" id="b1" onchange="calcR()"><option value="0" data-c="#1a1a1a">Black (0)</option><option value="1" data-c="#8B4513" selected>Brown (1)</option><option value="2" data-c="#f00">Red (2)</option><option value="3" data-c="#ff8c00">Orange (3)</option><option value="4" data-c="#ffd700">Yellow (4)</option><option value="5" data-c="#228b22">Green (5)</option><option value="6" data-c="#00f">Blue (6)</option><option value="7" data-c="#8b008b">Violet (7)</option><option value="8" data-c="#888">Gray (8)</option><option value="9" data-c="#fff">White (9)</option></select><div class="cc-swatch" id="sw1" style="background:#8B4513"></div></div>
+            <div class="cc-row"><span class="cc-label">Band 2:</span><select class="cc-sel" id="b2" onchange="calcR()"><option value="0" data-c="#1a1a1a" selected>Black (0)</option><option value="1" data-c="#8B4513">Brown (1)</option><option value="2" data-c="#f00">Red (2)</option><option value="3" data-c="#ff8c00">Orange (3)</option><option value="4" data-c="#ffd700">Yellow (4)</option><option value="5" data-c="#228b22">Green (5)</option><option value="6" data-c="#00f">Blue (6)</option><option value="7" data-c="#8b008b">Violet (7)</option><option value="8" data-c="#888">Gray (8)</option><option value="9" data-c="#fff">White (9)</option></select><div class="cc-swatch" id="sw2" style="background:#111"></div></div>
+            <div class="cc-row"><span class="cc-label">Multiplier:</span><select class="cc-sel" id="b3" onchange="calcR()"><option value="1" data-c="#1a1a1a">Black (×1)</option><option value="10" data-c="#8B4513">Brown (×10)</option><option value="100" data-c="#f00" selected>Red (×100)</option><option value="1000" data-c="#ff8c00">Orange (×1k)</option><option value="10000" data-c="#ffd700">Yellow (×10k)</option><option value="100000" data-c="#228b22">Green (×100k)</option><option value="1000000" data-c="#00f">Blue (×1M)</option><option value="0.1" data-c="#aaa">Silver (×0.1)</option><option value="0.01" data-c="#c0a040">Gold (×0.01)</option></select><div class="cc-swatch" id="sw3" style="background:#f00"></div></div>
+            <div class="cc-row"><span class="cc-label">Tolerance:</span><select class="cc-sel" id="b4" onchange="calcR()"><option value="5" data-c="#c0a040" selected>Gold (±5%)</option><option value="10" data-c="#aaa">Silver (±10%)</option><option value="1" data-c="#8B4513">Brown (±1%)</option><option value="2" data-c="#f00">Red (±2%)</option><option value="0.5" data-c="#228b22">Green (±0.5%)</option><option value="0.25" data-c="#00f">Blue (±0.25%)</option></select><div class="cc-swatch" id="sw4" style="background:#c0a040"></div></div>
+            <div class="cc-result"><div class="cc-r-label">NOMINAL VALUE</div><div id="cc-out" class="cc-r-val">1 kΩ ±5%</div><div id="cc-range" style="font-size:10px;color:#2a5a2a;margin-top:3px">Acceptable range: 950 Ω – 1050 Ω</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="r-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Power OFF the circuit completely. Never measure resistance in a live circuit — damage guaranteed.</span></li>
+        <li class="step"><span class="sn">1</span><span>Set multimeter dial to <b>Ω (resistance)</b> mode. Select a range above the expected value or use auto-range.</span></li>
+        <li class="step"><span class="sn">2</span><span>Discharge any nearby capacitors. Touch probes together — display should read near 0 Ω (lead resistance).</span></li>
+        <li class="step"><span class="sn">3</span><span>Touch the <b>red probe</b> to one resistor lead and <b>black probe</b> to the other. Polarity does not matter for resistors.</span></li>
+        <li class="step"><span class="sn">4</span><span>Read the displayed value. It should be within the tolerance band of the color-coded value.</span></li>
+        <li class="step"><span class="sn">5</span><span>If checking in-circuit, disconnect at least one lead to eliminate parallel paths that skew the reading.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('r-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('r-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>Never apply voltage while measuring resistance. The meter applies its own small internal voltage. External voltage destroys the meter.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected readings &amp; fault diagnosis</div>
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Good</div><div class="rv">~Rated Ω</div><div style="font-size:10px;margin-top:3px">Within tolerance band</div></div>
+        <div class="rb bad"><div class="rl">✘ Open circuit</div><div class="rv">OL / ∞</div><div style="font-size:10px;margin-top:3px">Internal break — replace</div></div>
+        <div class="rb bad"><div class="rl">✘ Short circuit</div><div class="rv">~0 Ω</div><div style="font-size:10px;margin-top:3px">Burned out — replace</div></div>
+        <div class="rb warn"><div class="rl">⚠ Drifted value</div><div class="rv">Out of tol.</div><div style="font-size:10px;margin-top:3px">Replace if critical</div></div>
+      </div>
+      <hr class="divider">
+      <div class="card-title" style="margin-top:8px">Common resistor types</div>
+      <dl class="kv"><dt>Carbon film</dt><dd>±5% tolerance, most common</dd><dt>Metal film</dt><dd>±1% or better, lower noise</dd><dt>Wire wound</dt><dd>High power, near-exact value</dd><dt>SMD (0402–2512)</dt><dd>Numeric code on body</dd></dl>
+      <hr class="divider">
+      <div style="font-size:11px;color:var(--t2)">SMD code example: <span style="font-family:var(--mono);color:var(--ac)">103</span> = 10 × 10³ = 10 kΩ</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ CAPACITOR ══════════════════════════ -->
+<div class="panel" id="p-capacitor">
+  <div class="comp-header">
+    <h2>⚡ Capacitor</h2>
+    <p>Stores electrical charge between two conductive plates. Measured in farads (F). Check with multimeter in capacitance mode or observe charge/discharge behavior.</p>
+    <span class="badge">Capacitance mode (F)</span><span class="badge">Resistance check</span><span class="badge">ESR check</span>
+  </div>
+  <div class="grid3">
+    <div class="card full">
+      <div class="card-title">Live probe animation — charge behavior</div>
+      <div class="grid">
+        <div class="svgbox">
+          <svg id="c-svg" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+            <rect x="110" y="8" width="100" height="58" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/>
+            <rect x="116" y="14" width="88" height="32" rx="4" fill="#040d04"/>
+            <text id="c-mv" x="160" y="33" text-anchor="middle" font-family="'Courier New',monospace" font-size="14" fill="#00ff44">—</text>
+            <text x="160" y="47" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">CAPACITANCE (F)</text>
+            <rect x="125" y="95" width="70" height="90" rx="8" fill="#2a3a5a" stroke="#3a4a6a" stroke-width="1.5"/>
+            <rect x="125" y="95" width="20" height="90" rx="8 0 0 8" fill="#1a2a4a"/>
+            <text x="135" y="145" text-anchor="middle" font-size="16" fill="#aaa" font-family="sans-serif">−</text>
+            <text x="175" y="145" text-anchor="middle" font-size="18" fill="#8ab" font-family="sans-serif">+</text>
+            <line x1="170" y1="185" x2="170" y2="200" stroke="#ccc" stroke-width="2"/>
+            <line x1="140" y1="185" x2="140" y2="200" stroke="#888" stroke-width="2"/>
+            <clipPath id="cc"><rect x="126" y="96" width="68" height="88" rx="7"/></clipPath>
+            <rect id="c-charge" x="126" y="183" width="68" height="0" rx="0" fill="rgba(0,255,136,.12)" clip-path="url(#cc)" style="transition:height 2s ease,y 2s ease"/>
+            <g class="probe-red"><line x1="170" y1="70" x2="170" y2="184" stroke="#ff4444" stroke-width="1.8" stroke-dasharray="5 3"/><rect x="163" y="50" width="14" height="22" rx="3" fill="#cc3333"/><polygon points="163,72 177,72 170,84" fill="#ff4444"/><text x="160" y="48" text-anchor="middle" font-size="9" fill="#ff4444" font-family="sans-serif">+ RED</text></g>
+            <g class="probe-blk"><line x1="140" y1="70" x2="140" y2="184" stroke="#888" stroke-width="1.8" stroke-dasharray="5 3"/><rect x="133" y="50" width="14" height="22" rx="3" fill="#333"/><polygon points="133,72 147,72 140,84" fill="#555"/><text x="140" y="48" text-anchor="middle" font-size="9" fill="#666" font-family="sans-serif">− BLK</text></g>
+            <text x="160" y="15" text-anchor="middle" font-size="9" fill="#3a6a8a" font-family="sans-serif">100 µF / 25V Electrolytic</text>
+          </svg>
+        </div>
+        <div>
+          <div class="meter">
+            <div class="m-label">CAPACITANCE MODE</div>
+            <div><span id="c-disp" class="m-val">100.4</span><span class="m-unit">µF</span></div>
+            <div class="m-mode">Range: 200µF  |  Discharge cap before measuring!</div>
+          </div>
+          <div class="scope">
+            <div style="font-size:9px;color:#2a5a2a;margin-bottom:4px">CHARGE CURVE — V vs time</div>
+            <svg viewBox="0 0 240 80" xmlns="http://www.w3.org/2000/svg">
+              <line x1="10" y1="10" x2="10" y2="70" stroke="#1a3a1a" stroke-width="1"/>
+              <line x1="10" y1="70" x2="235" y2="70" stroke="#1a3a1a" stroke-width="1"/>
+              <line x1="10" y1="30" x2="235" y2="30" stroke="#0a200a" stroke-width=".5"/>
+              <line x1="10" y1="50" x2="235" y2="50" stroke="#0a200a" stroke-width=".5"/>
+              <path d="M10 68 Q50 68 80 35 Q110 12 140 8 L235 8" stroke="#00ff44" stroke-width="1.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" style="animation:capCharge 2.5s ease forwards infinite"/>
+              <text x="8" y="9" font-size="7" fill="#2a5a2a" font-family="monospace">Vcc</text>
+              <text x="230" y="73" font-size="7" fill="#2a5a2a" font-family="monospace">t</text>
+              <text x="12" y="42" font-size="7" fill="#1a4a1a" font-family="monospace">63%</text>
+              <line x1="80" y1="30" x2="80" y2="70" stroke="#3a6a3a" stroke-width=".5" stroke-dasharray="3 2"/>
+              <text x="76" y="78" font-size="7" fill="#2a5a2a" font-family="monospace">τ=RC</text>
+            </svg>
+          </div>
+          <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5">After 1 time constant τ=RC, voltage reaches 63.2% of supply. After 5τ, fully charged.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="c-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Fully discharge capacitor first: short leads with a 1kΩ resistor for several seconds. Never short directly — spark risk.</span></li>
+        <li class="step"><span class="sn">1</span><span>Set multimeter to capacitance mode (F symbol). Choose a range above the rated value.</span></li>
+        <li class="step"><span class="sn">2</span><span>For electrolytic caps: insert into meter's cap socket (CX). Match polarity — <b>+</b> lead to <b>+</b> terminal.</span></li>
+        <li class="step"><span class="sn">3</span><span>Alternatively: touch <b>red probe</b> to positive lead (+, longer leg or marked side), <b>black</b> to negative.</span></li>
+        <li class="step"><span class="sn">4</span><span>Read the capacitance. Typical tolerance is ±20%, so 100µF cap reads 80–120µF.</span></li>
+        <li class="step"><span class="sn">5</span><span>For ESR (equivalent series resistance) testing, use a dedicated ESR meter or LCR meter.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('c-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('c-steps')">↺ Reset</button><button class="btn g" onclick="chargeAnim()">⚡ Charge demo</button></div>
+      <div class="safety">⚠️ <span>Large electrolytic caps (1000µF+) hold lethal charge in high-voltage circuits. Always discharge before handling. Never reverse polarity.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected readings &amp; fault diagnosis</div>
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Good cap</div><div class="rv">≈Rated µF</div><div style="font-size:10px;margin-top:3px">Within ±20%</div></div>
+        <div class="rb bad"><div class="rl">✘ Open</div><div class="rv">0 / OL</div><div style="font-size:10px;margin-top:3px">Internal break</div></div>
+        <div class="rb bad"><div class="rl">✘ Shorted</div><div class="rv">0 Ω (in Ω mode)</div><div style="font-size:10px;margin-top:3px">Dielectric failed</div></div>
+        <div class="rb warn"><div class="rl">⚠ High ESR</div><div class="rv">&gt;1Ω typical</div><div style="font-size:10px;margin-top:3px">Dry electrolyte</div></div>
+      </div>
+      <hr class="divider">
+      <dl class="kv"><dt>Ceramic</dt><dd>Tolerance ±5–20%, NP (no polarity)</dd><dt>Electrolytic</dt><dd>Polarity sensitive, ±20%, 85°C/105°C</dd><dt>Film</dt><dd>±1–5%, high stability</dd><dt>Tantalum</dt><dd>Small, stable, polarity critical</dd></dl>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ INDUCTOR ══════════════════════════ -->
+<div class="panel" id="p-inductor">
+  <div class="comp-header"><h2>🌀 Inductor</h2><p>Stores energy in a magnetic field. Measured in henries (H). Basic check: continuity + DC resistance. Full inductance requires an LCR meter.</p><span class="badge">Continuity mode</span><span class="badge">Resistance (Ω)</span><span class="badge">LCR meter (H)</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Probe animation</div>
+      <div class="svgbox">
+        <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="55" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="15" fill="#00ff44">2.4 Ω</text>
+          <text x="160" y="45" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">DCR — RESISTANCE MODE</text>
+          <line x1="20" y1="120" x2="55" y2="120" stroke="#888" stroke-width="2"/><line x1="265" y1="120" x2="300" y2="120" stroke="#888" stroke-width="2"/>
+          <path d="M55 120 Q65 100 75 120 Q85 100 95 120 Q105 100 115 120 Q125 100 135 120 Q145 100 155 120 Q165 100 175 120 Q185 100 195 120 Q205 100 215 120 Q225 100 235 120 Q245 100 255 120 L265 120" stroke="#c8a030" stroke-width="2.5" fill="none" style="animation:spinCoil 0.8s linear infinite"/>
+          <line x1="55" y1="128" x2="265" y2="128" stroke="#888" stroke-width="3" stroke-dasharray="8 4"/>
+          <circle cx="20" cy="120" r="4" fill="#666"/><circle cx="300" cy="120" r="4" fill="#666"/>
+          <g class="probe-red"><rect x="287" y="60" width="10" height="26" rx="3" fill="#cc3333"/><polygon points="287,84 297,84 292,108" fill="#ff4444"/><line x1="292" y1="108" x2="292" y2="118" stroke="#ff6666" stroke-width="1.5"/><line x1="292" y1="58" x2="260" y2="12" stroke="#ff4444" stroke-width="1.2"/><text x="255" y="10" font-size="9" fill="#ff4444" font-family="sans-serif">+</text></g>
+          <g class="probe-blk"><rect x="13" y="60" width="10" height="26" rx="3" fill="#222"/><polygon points="13,84 23,84 18,108" fill="#555"/><line x1="18" y1="108" x2="18" y2="118" stroke="#888" stroke-width="1.5"/><line x1="18" y1="58" x2="52" y2="12" stroke="#555" stroke-width="1.2"/><text x="30" y="10" font-size="9" fill="#666" font-family="sans-serif">−</text></g>
+          <path d="M20 120 L55 120 L265 120 L300 120" stroke="#00d4ff" stroke-width="1.5" fill="none" stroke-dasharray="10 8" style="animation:flowR 0.8s linear infinite"/>
+          <text x="160" y="160" text-anchor="middle" font-size="11" fill="#4a7a9a" font-family="sans-serif">Air-core inductor — iron-core below</text>
+          <text x="160" y="175" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">DCR ≈ 2.4 Ω | Inductance: 100 µH</text>
+        </svg>
+      </div>
+      <div class="meter" style="margin-top:10px"><div class="m-label">RESISTANCE MODE (DCR check)</div><div><span class="m-val">2.4</span><span class="m-unit">Ω</span></div><div class="m-mode">Continuity beeps ON  |  coil is intact</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="l-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Inductors in power circuits can hold high back-EMF voltages. Power off and discharge any associated caps.</span></li>
+        <li class="step"><span class="sn">1</span><span><b>Continuity test first:</b> set meter to continuity (beep) mode. Touch probes to each lead. Coil should beep — confirms winding is intact.</span></li>
+        <li class="step"><span class="sn">2</span><span><b>DC resistance:</b> switch to Ω mode. Measure DCR. Should be low — milliohms to a few ohms. Check datasheet.</span></li>
+        <li class="step"><span class="sn">3</span><span><b>Inductance:</b> requires an LCR meter. Set to L mode and measure in henries or millihenries.</span></li>
+        <li class="step"><span class="sn">4</span><span>Check for shorted turns: DCR significantly lower than datasheet indicates shorted windings.</span></li>
+        <li class="step"><span class="sn">5</span><span>Visually inspect for burn marks, cracked core, or loose wire on toroid/bobbin.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('l-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('l-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>Switching an inductor off abruptly causes a voltage spike (back-EMF) that can be many times the supply voltage. Always include a flyback diode in inductive circuits.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected readings</div>
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Good coil</div><div class="rv">Beep + low Ω</div></div>
+        <div class="rb bad"><div class="rl">✘ Open winding</div><div class="rv">OL / no beep</div></div>
+        <div class="rb warn"><div class="rl">⚠ Shorted turns</div><div class="rv">DCR too low</div></div>
+        <div class="rb info"><div class="rl">ℹ LCR reading</div><div class="rv">L in µH/mH/H</div></div>
+      </div>
+      <hr class="divider">
+      <dl class="kv"><dt>Air core</dt><dd>Low inductance, no saturation</dd><dt>Iron core</dt><dd>High inductance, can saturate</dd><dt>Ferrite core</dt><dd>High freq, low loss</dd><dt>Toroid</dt><dd>Low EMI, common in PSUs</dd></dl>
+    </div>
+    <div class="card">
+      <div class="card-title">Impedance vs frequency</div>
+      <div class="scope">
+        <div style="font-size:9px;color:#2a5a2a;margin-bottom:4px">IMPEDANCE Z = 2πfL — rises with frequency</div>
+        <svg viewBox="0 0 240 90" xmlns="http://www.w3.org/2000/svg">
+          <line x1="15" y1="5" x2="15" y2="80" stroke="#1a3a1a" stroke-width="1"/><line x1="15" y1="80" x2="235" y2="80" stroke="#1a3a1a" stroke-width="1"/>
+          <path d="M15 78 Q60 70 100 50 Q150 20 235 5" stroke="#00d4ff" stroke-width="1.5" fill="none"/>
+          <text x="12" y="10" font-size="7" fill="#2a5a2a" font-family="monospace">Z↑</text><text x="230" y="84" font-size="7" fill="#2a5a2a" font-family="monospace">f→</text>
+          <text x="90" y="88" text-anchor="middle" font-size="7" fill="#2a4a5a" font-family="monospace">XL = 2πfL</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ DIODE ══════════════════════════ -->
+<div class="panel" id="p-diode">
+  <div class="comp-header"><h2>▶ Diode</h2><p>Allows current in one direction only. Test with diode mode: forward biased shows ~0.6V (silicon), reverse biased shows OL.</p><span class="badge">Diode mode</span><span class="badge">Forward voltage Vf</span><span class="badge">Reverse blocking</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Forward / reverse bias animation</div>
+      <div class="svgbox">
+        <svg id="d-svg" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="55" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text id="d-mv" x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="16" fill="#00ff44">0.624 V</text>
+          <text x="160" y="45" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">DIODE MODE — FORWARD BIASED</text>
+          <line x1="20" y1="130" x2="95" y2="130" stroke="#888" stroke-width="2"/><line x1="225" y1="130" x2="300" y2="130" stroke="#888" stroke-width="2"/>
+          <polygon points="95,108 95,152 155,130" fill="#2a4a8a" stroke="#4a6aaa" stroke-width="1.5"/>
+          <line x1="155" y1="108" x2="155" y2="152" stroke="#4a6aaa" stroke-width="3"/><line x1="155" y1="130" x2="225" y2="130" stroke="#888" stroke-width="2"/>
+          <text x="85" y="175" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">Anode (A)</text>
+          <text x="235" y="175" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">Cathode (K)</text>
+          <text x="155" y="100" text-anchor="middle" font-size="9" fill="#3a7a5a" font-family="sans-serif">▶ fwd current →</text>
+          <g class="probe-red"><rect x="12" y="60" width="10" height="26" rx="3" fill="#cc3333"/><polygon points="12,84 22,84 17,108" fill="#ff4444"/><line x1="17" y1="108" x2="17" y2="128" stroke="#ff6666" stroke-width="1.5"/><text x="8" y="58" font-size="9" fill="#ff4444" font-family="sans-serif">+</text></g>
+          <g class="probe-blk"><rect x="290" y="60" width="10" height="26" rx="3" fill="#222"/><polygon points="290,84 300,84 295,108" fill="#555"/><line x1="295" y1="108" x2="295" y2="128" stroke="#888" stroke-width="1.5"/><text x="292" y="58" font-size="9" fill="#666" font-family="sans-serif">−</text></g>
+          <path id="d-flow" d="M20 130 L95 130 L225 130 L300 130" stroke="#00ff88" stroke-width="2" fill="none" stroke-dasharray="12 8" style="animation:flowR 0.7s linear infinite"/>
+          <text x="160" y="210" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">Forward biased: current flows (red→anode, blk→cathode)</text>
+        </svg>
+      </div>
+      <div class="ctrls" style="margin-top:8px"><button class="btn pri" onclick="dMode(true)">Forward bias</button><button class="btn" onclick="dMode(false)">Reverse bias</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="d-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Remove diode from circuit or disconnect one end to avoid parallel paths affecting reading.</span></li>
+        <li class="step"><span class="sn">1</span><span>Set multimeter to <b>diode mode</b> (symbol: ▶|). Meter applies small forward current (~1 mA) and measures voltage.</span></li>
+        <li class="step"><span class="sn">2</span><span><b>Forward bias:</b> Touch <b>red</b> to <b>Anode</b> (+, unmarked end), <b>black</b> to <b>Cathode</b> (−, banded end).</span></li>
+        <li class="step"><span class="sn">3</span><span>Meter should display 0.5–0.7V (silicon) or 0.2–0.3V (germanium).</span></li>
+        <li class="step"><span class="sn">4</span><span><b>Reverse bias:</b> Swap probes. Meter should show <b>OL</b> (open, no current).</span></li>
+        <li class="step"><span class="sn">5</span><span>If both directions show 0 → shorted. Both show OL → open. Both = replace.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('d-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('d-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>Never exceed reverse breakdown voltage (PIV). Zener diodes intentionally conduct in reverse — test them in Ω mode or with a variable voltage source.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected readings — diode mode</div>
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Fwd (silicon)</div><div class="rv">0.55–0.70 V</div></div>
+        <div class="rb good"><div class="rl">✔ Fwd (germanium)</div><div class="rv">0.20–0.35 V</div></div>
+        <div class="rb good"><div class="rl">✔ Reverse bias</div><div class="rv">OL (any type)</div></div>
+        <div class="rb good"><div class="rl">✔ Schottky fwd</div><div class="rv">0.15–0.45 V</div></div>
+        <div class="rb bad"><div class="rl">✘ Both directions 0</div><div class="rv">Shorted</div></div>
+        <div class="rb bad"><div class="rl">✘ Both OL</div><div class="rv">Open (broken)</div></div>
+      </div>
+      <hr class="divider">
+      <dl class="kv"><dt>1N4148</dt><dd>Signal diode, 0.6V fwd</dd><dt>1N4001–7</dt><dd>Rectifier, 1A / 50–1000V PIV</dd><dt>1N5819</dt><dd>Schottky, fast, low Vf</dd><dt>Zener</dt><dd>Regulated reverse breakdown</dd></dl>
+    </div>
+    <div class="card">
+      <div class="card-title">Diode I-V characteristic</div>
+      <div class="scope">
+        <svg viewBox="0 0 240 90" xmlns="http://www.w3.org/2000/svg">
+          <line x1="80" y1="5" x2="80" y2="80" stroke="#1a3a1a" stroke-width="1"/><line x1="10" y1="65" x2="235" y2="65" stroke="#1a3a1a" stroke-width="1"/>
+          <path d="M80 65 Q120 64 140 60 Q155 52 165 25 Q170 10 175 5" stroke="#00ff44" stroke-width="1.5" fill="none"/>
+          <path d="M80 65 L10 67" stroke="#00ff44" stroke-width="1" fill="none"/>
+          <path d="M10 67 Q8 69 8 80" stroke="#ff4757" stroke-width="1" fill="none"/>
+          <text x="145" y="84" font-size="7" fill="#2a5a2a" font-family="monospace">0.6V</text>
+          <text x="75" y="8" font-size="7" fill="#2a5a2a" font-family="monospace">I↑</text><text x="225" y="70" font-size="7" fill="#2a5a2a" font-family="monospace">V→</text>
+          <text x="15" y="63" font-size="7" fill="#ff4757" font-family="monospace">PIV</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ BJT ══════════════════════════ -->
+<div class="panel" id="p-bjt">
+  <div class="comp-header"><h2>🔺 BJT Transistor</h2><p>Bipolar Junction Transistor — NPN or PNP. Two diode junctions (B-E and B-C). Test each junction like a diode. Also measure hFE (current gain).</p><span class="badge">Diode junction test</span><span class="badge">hFE (gain) mode</span><span class="badge">NPN / PNP</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">BJT junction diagram</div>
+      <div class="pill-row"><button class="pill on" id="npn-btn" onclick="bjtType('NPN')">NPN</button><button class="pill" id="pnp-btn" onclick="bjtType('PNP')">PNP</button></div>
+      <div class="svgbox" style="margin-top:10px">
+        <svg id="bjt-svg" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="160" cy="120" r="55" fill="#0e1e0e" stroke="#2a3a5a" stroke-width="1.5"/>
+          <line x1="50" y1="120" x2="105" y2="120" stroke="#8ab" stroke-width="2.5"/>
+          <line x1="105" y1="120" x2="145" y2="90" stroke="#8ab" stroke-width="2"/><line x1="145" y1="90" x2="200" y2="50" stroke="#8ab" stroke-width="2"/>
+          <line x1="105" y1="120" x2="145" y2="150" stroke="#8ab" stroke-width="2"/><line x1="145" y1="150" x2="200" y2="190" stroke="#8ab" stroke-width="2"/>
+          <polygon id="bjt-arrow" points="190,183 200,193 185,195" fill="#8ab"/>
+          <line x1="105" y1="90" x2="105" y2="150" stroke="#4a6a8a" stroke-width="3"/>
+          <text x="40" y="123" text-anchor="middle" font-size="11" fill="#00d4ff" font-family="sans-serif">B</text>
+          <text x="210" y="46" font-size="11" fill="#8ab" font-family="sans-serif">C</text>
+          <text x="210" y="198" font-size="11" fill="#8ab" font-family="sans-serif">E</text>
+          <text id="bjt-type-lbl" x="160" y="125" text-anchor="middle" font-size="12" fill="#3a5a7a" font-family="sans-serif">NPN</text>
+          <g class="probe-red"><rect x="42" y="70" width="10" height="22" rx="3" fill="#cc3333"/><polygon points="42,92 52,92 47,105" fill="#ff4444"/><line x1="47" y1="105" x2="47" y2="118" stroke="#ff6666" stroke-width="1.5"/><text x="47" y="68" text-anchor="middle" font-size="8" fill="#ff4444" font-family="sans-serif">RED→B</text></g>
+          <g class="probe-blk" style="animation-delay:.6s"><rect x="216" y="155" width="10" height="22" rx="3" fill="#222"/><polygon points="216,177 226,177 221,190" fill="#555"/><line x1="221" y1="190" x2="215" y2="195" stroke="#888" stroke-width="1.5"/><text x="230" y="155" font-size="8" fill="#666" font-family="sans-serif">BLK→E</text></g>
+          <text x="160" y="208" text-anchor="middle" font-size="9" fill="#3a5a7a" font-family="sans-serif">B→E junction: 0.6V fwd  |  B→C junction: 0.6V fwd</text>
+        </svg>
+      </div>
+      <div class="meter" style="margin-top:8px"><div class="m-label">B-E JUNCTION — DIODE MODE</div><div><span class="m-val">0.618</span><span class="m-unit">V</span></div><div class="m-mode">NPN: Red→B, Black→E</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="bjt-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Identify pinout from datasheet. Common TO-92: EBC or CBE left-to-right (varies by part).</span></li>
+        <li class="step"><span class="sn">1</span><span>Set to <b>diode mode</b>. Test B-E: Red→Base, Black→Emitter. Expect 0.55–0.70V (silicon NPN).</span></li>
+        <li class="step"><span class="sn">2</span><span>Test B-C: Red→Base, Black→Collector. Expect similar 0.55–0.70V.</span></li>
+        <li class="step"><span class="sn">3</span><span>Reverse both tests: should show OL. Any low reading = shorted junction.</span></li>
+        <li class="step"><span class="sn">4</span><span><b>hFE gain:</b> Insert into meter's hFE socket. Switch to hFE mode. Typical: 100–500.</span></li>
+        <li class="step"><span class="sn">5</span><span><b>For PNP:</b> all probe polarities reverse. Red→Emitter, Black→Base for B-E junction forward.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('bjt-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('bjt-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>High-power transistors (TO-220, TO-3) may have collector connected to the metal tab. Isolate from heatsink before testing.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Junction test matrix — NPN</div>
+      <table class="ic-pins">
+        <thead><tr><th>Red probe</th><th>Black probe</th><th>Expected</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Base</td><td>Emitter</td><td>0.6 V</td><td class="pin-ok">✔ Good</td></tr>
+          <tr><td>Base</td><td>Collector</td><td>0.6 V</td><td class="pin-ok">✔ Good</td></tr>
+          <tr><td>Emitter</td><td>Base</td><td>OL</td><td class="pin-ok">✔ Good</td></tr>
+          <tr><td>Collector</td><td>Base</td><td>OL</td><td class="pin-ok">✔ Good</td></tr>
+          <tr><td>Collector</td><td>Emitter</td><td>OL / high Ω</td><td class="pin-ok">✔ Good</td></tr>
+        </tbody>
+      </table>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ hFE good</div><div class="rv">50–600 typical</div></div>
+        <div class="rb bad"><div class="rl">✘ All junctions 0</div><div class="rv">Shorted (blown)</div></div>
+        <div class="rb bad"><div class="rl">✘ All OL</div><div class="rv">Open junction</div></div>
+        <div class="rb warn"><div class="rl">⚠ C-E leaky</div><div class="rv">Low Ω C↔E</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Common BJT pinouts</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7"><b style="color:var(--text)">TO-92:</b> BC547/BC548: EBC  |  2N2222: EBC  |  2N3904: EBC<br><br><b style="color:var(--text)">TO-220:</b> Facing tab side: B C E (TIP31, TIP41)<br><br><b style="color:var(--text)">TO-3:</b> Two pins: B and E; Case = Collector<br><br>Always verify with datasheet — pinouts are NOT standardized.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ MOSFET ══════════════════════════ -->
+<div class="panel" id="p-mosfet">
+  <div class="comp-header"><h2>🔷 MOSFET</h2><p>Voltage-controlled transistor. Test body diode, gate isolation, and channel resistance (Rds_on). N-channel and P-channel types.</p><span class="badge">Body diode test</span><span class="badge">Gate insulation</span><span class="badge">Rds_on check</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">MOSFET symbol &amp; gate control</div>
+      <div class="svgbox">
+        <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="52" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text id="mos-mv" x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="15" fill="#00ff44">OL</text>
+          <text x="160" y="44" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">DIODE MODE — GATE OPEN</text>
+          <line x1="50" y1="110" x2="110" y2="110" stroke="#aac" stroke-width="2"/>
+          <rect x="110" y="90" width="4" height="50" rx="1" fill="#5a7aaa" stroke="#8aaccc"/>
+          <line x1="120" y1="90" x2="120" y2="100" stroke="#8ab" stroke-width="3"/><line x1="120" y1="107" x2="120" y2="113" stroke="#8ab" stroke-width="3"/><line x1="120" y1="120" x2="120" y2="130" stroke="#8ab" stroke-width="3"/><line x1="120" y1="137" x2="120" y2="145" stroke="#8ab" stroke-width="3"/>
+          <line x1="120" y1="90" x2="200" y2="90" stroke="#8ab" stroke-width="2"/><line x1="200" y1="90" x2="200" y2="40" stroke="#8ab" stroke-width="2"/>
+          <line x1="120" y1="145" x2="200" y2="145" stroke="#8ab" stroke-width="2"/><line x1="200" y1="145" x2="200" y2="190" stroke="#8ab" stroke-width="2"/>
+          <polygon points="112,116 120,108 120,124" fill="#8ab"/>
+          <polygon points="200,120 200,140 180,130" fill="none" stroke="#5a7a5a" stroke-width="1.2"/><line x1="180" y1="118" x2="180" y2="143" stroke="#5a7a5a" stroke-width="1.5"/>
+          <text x="40" y="114" font-size="11" fill="#00d4ff" font-family="sans-serif">G</text><text x="208" y="38" font-size="11" fill="#8ab" font-family="sans-serif">D</text><text x="208" y="198" font-size="11" fill="#8ab" font-family="sans-serif">S</text>
+          <text x="160" y="210" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">N-channel Enhancement MOSFET (e.g., IRF540)</text>
+          <rect id="mos-ch" x="114" y="90" width="6" height="56" fill="rgba(0,255,136,0)" style="transition:fill .5s"/>
+          <g class="probe-blk"><rect x="185" y="52" width="10" height="22" rx="3" fill="#222"/><polygon points="185,74 195,74 190,88" fill="#555"/><text x="190" y="50" text-anchor="middle" font-size="8" fill="#666" font-family="sans-serif">BLK→D</text></g>
+          <g class="probe-red" style="transform-origin:200px 190px"><rect x="185" y="158" width="10" height="22" rx="3" fill="#cc3333"/><polygon points="185,158 195,158 190,146" fill="#ff4444"/><text x="190" y="210" text-anchor="middle" font-size="8" fill="#ff4444" font-family="sans-serif">RED→S</text></g>
+        </svg>
+      </div>
+      <div class="slide-row"><label>Gate V:</label><input type="range" min="0" max="15" value="0" step="0.5" id="vgs-slider" oninput="updateMosfet(this.value)"><span id="vgs-out">0.0 V</span></div>
+      <div style="font-size:11px;color:var(--t2);margin-top:6px" id="mos-status">Gate = 0V → channel OFF → OL drain-to-source</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="mos-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Static electricity can destroy gate oxide. Handle with ESD precautions — touch grounded metal before handling.</span></li>
+        <li class="step"><span class="sn">1</span><span><b>Body diode test:</b> Set to diode mode. Red→Source, Black→Drain (N-ch). Expect ~0.5–0.7V.</span></li>
+        <li class="step"><span class="sn">2</span><span>Reverse: Red→Drain, Black→Source. Should show OL.</span></li>
+        <li class="step"><span class="sn">3</span><span><b>Gate isolation:</b> Red→Gate, Black→Source. Meter should show OL (very high resistance — MΩ).</span></li>
+        <li class="step"><span class="sn">4</span><span><b>Threshold test:</b> Briefly touch Gate to Drain. Then measure D-S in Ω mode — should show low resistance (channel ON).</span></li>
+        <li class="step"><span class="sn">5</span><span>Touch Gate to Source to discharge → channel turns OFF → D-S returns to OL.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('mos-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('mos-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>Floating gate = unpredictable behavior. Always include a gate pull-down (10kΩ to GND) in MOSFET circuits.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Expected readings (N-channel)</div>
+      <table class="ic-pins">
+        <thead><tr><th>Test</th><th>Probe +</th><th>Probe −</th><th>Expected</th></tr></thead>
+        <tbody>
+          <tr><td>Body diode fwd</td><td>Source</td><td>Drain</td><td class="pin-ok">0.5–0.7 V</td></tr>
+          <tr><td>Body diode rev</td><td>Drain</td><td>Source</td><td class="pin-ok">OL</td></tr>
+          <tr><td>Gate insulation</td><td>Gate</td><td>Source</td><td class="pin-ok">OL (MΩ)</td></tr>
+          <tr><td>G tied to D (ON)</td><td>Drain</td><td>Source</td><td class="pin-ok">Low Ω</td></tr>
+          <tr><td>G tied to S (OFF)</td><td>Drain</td><td>Source</td><td class="pin-ok">OL</td></tr>
+        </tbody>
+      </table>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb bad"><div class="rl">✘ G-S or G-D low</div><div class="rv">Gate shorted</div></div>
+        <div class="rb bad"><div class="rl">✘ D-S always 0</div><div class="rv">Channel shorted</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">N-channel vs P-channel</div>
+      <dl class="kv"><dt>N-channel</dt><dd>ON when Vgs &gt; Vth (+2 to +4V)</dd><dt>P-channel</dt><dd>ON when Vgs &lt; −Vth (−2 to −4V)</dd><dt>Logic-level</dt><dd>Vth &lt; 2.5V, works with 3.3V MCU</dd><dt>Enhancement</dt><dd>OFF by default (most common)</dd><dt>Depletion</dt><dd>ON by default, rare</dd></dl>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ LED ══════════════════════════ -->
+<div class="panel" id="p-led">
+  <div class="comp-header"><h2>💡 LED</h2><p>Light-Emitting Diode. Forward voltage Vf varies by color (1.8V red to 3.3V blue/white). Always use current-limiting resistor.</p><span class="badge">Diode mode</span><span class="badge">Forward voltage Vf</span><span class="badge">Current limiting</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">LED probe animation</div>
+      <div class="svgbox">
+        <svg id="led-svg" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="52" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="15" fill="#00ff44" id="led-mv">2.05 V</text>
+          <text x="160" y="44" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">DIODE MODE — Vf FORWARD</text>
+          <line x1="20" y1="130" x2="95" y2="130" stroke="#888" stroke-width="2"/><line x1="225" y1="130" x2="300" y2="130" stroke="#888" stroke-width="2"/>
+          <polygon points="95,108 95,152 155,130" fill="#2a6a2a" stroke="#3a8a3a" stroke-width="1.5" id="led-body"/>
+          <line x1="155" y1="108" x2="155" y2="152" stroke="#3a8a3a" stroke-width="3" id="led-bar"/>
+          <line id="lr1" x1="165" y1="108" x2="178" y2="95" stroke="#00ff44" stroke-width="1.5" opacity="0" style="animation:glow 1s ease-in-out infinite"/>
+          <line id="lr2" x1="170" y1="115" x2="186" y2="106" stroke="#00ff44" stroke-width="1.5" opacity="0" style="animation:glow 1s ease-in-out infinite .2s"/>
+          <line id="lr3" x1="165" y1="122" x2="182" y2="118" stroke="#00ff44" stroke-width="1.5" opacity="0" style="animation:glow 1s ease-in-out infinite .4s"/>
+          <circle id="led-glow" cx="125" cy="130" r="0" fill="rgba(0,255,68,0)" style="animation:ledGlow 1s ease-in-out infinite"/>
+          <text x="80" y="172" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">+ Anode (longer leg)</text>
+          <text x="240" y="172" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">− Cathode (flat side)</text>
+          <g class="probe-red"><rect x="9" y="62" width="10" height="26" rx="3" fill="#cc3333"/><polygon points="9,86 19,86 14,110" fill="#ff4444"/><line x1="14" y1="110" x2="14" y2="128" stroke="#ff6666" stroke-width="1.5"/></g>
+          <g class="probe-blk"><rect x="290" y="62" width="10" height="26" rx="3" fill="#222"/><polygon points="290,86 300,86 295,110" fill="#555"/><line x1="295" y1="110" x2="295" y2="128" stroke="#888" stroke-width="1.5"/></g>
+          <path d="M20 130 L95 130 L225 130 L300 130" stroke="#00ff44" stroke-width="2" fill="none" stroke-dasharray="12 8" style="animation:flowR 0.6s linear infinite"/>
+          <text x="160" y="210" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">Green LED: Vf ≈ 2.0–2.2V | 20mA typical If</text>
+        </svg>
+      </div>
+      <div class="ctrls" style="margin-top:8px">
+        <button class="btn pri" onclick="ledColor('r')">🔴 Red</button>
+        <button class="btn pri" onclick="ledColor('g')">🟢 Green</button>
+        <button class="btn pri" onclick="ledColor('b')">🔵 Blue</button>
+        <button class="btn pri" onclick="ledColor('w')">⚪ White</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="led-steps">
+        <li class="step on warn"><span class="sn">!</span><span>Never connect LED directly to voltage source without a current-limiting resistor. Exceeding max current destroys the LED instantly.</span></li>
+        <li class="step"><span class="sn">1</span><span>Set multimeter to <b>diode mode</b>. The meter's ~1–2mA test current is safe and may briefly light the LED.</span></li>
+        <li class="step"><span class="sn">2</span><span>Touch <b>red probe</b> to <b>longer leg (anode +)</b> and <b>black</b> to <b>shorter leg (cathode −)</b>.</span></li>
+        <li class="step"><span class="sn">3</span><span>LED may dim-glow. Meter shows Vf — 1.8–2.2V (red/yellow/green), 2.8–3.4V (blue/white).</span></li>
+        <li class="step"><span class="sn">4</span><span>Swap probes → should show OL.</span></li>
+        <li class="step"><span class="sn">5</span><span><b>R calc:</b> R = (Vsupply − Vf) / If. For 5V, green LED (2.1V), 20mA: R = (5−2.1)/0.02 = 145Ω → use 150Ω.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('led-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('led-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>High-power LEDs (1W+) generate significant heat. Use proper heatsinking. Thermal runaway can occur if current is not limited.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">LED Vf by color</div>
+      <div class="rg" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="rb info"><div class="rl">🔴 Red</div><div class="rv">1.8–2.0V</div></div>
+        <div class="rb info"><div class="rl">🟠 Orange</div><div class="rv">2.0–2.1V</div></div>
+        <div class="rb info"><div class="rl">🟡 Yellow</div><div class="rv">2.0–2.2V</div></div>
+        <div class="rb good"><div class="rl">🟢 Green</div><div class="rv">2.0–2.5V</div></div>
+        <div class="rb info" style="background:rgba(0,100,255,.1);border-color:rgba(0,100,255,.3);color:#6ab"><div class="rl">🔵 Blue</div><div class="rv">2.8–3.4V</div></div>
+        <div class="rb info" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2);color:#ccc"><div class="rl">⚪ White</div><div class="rv">3.0–3.5V</div></div>
+      </div>
+      <hr class="divider">
+      <div class="card-title" style="margin-top:8px">Resistor calculator</div>
+      <div class="slide-row"><label>Supply V:</label><input type="range" min="3" max="12" value="5" step="0.5" id="led-v" oninput="calcLedR()"><span id="led-v-out" style="font-size:11px;color:var(--ac);min-width:35px">5.0V</span></div>
+      <div class="slide-row"><label>Vf:</label><input type="range" min="1.5" max="3.5" value="2.1" step="0.1" id="led-vf" oninput="calcLedR()"><span id="led-vf-out" style="font-size:11px;color:var(--ac);min-width:35px">2.1V</span></div>
+      <div class="slide-row"><label>If (mA):</label><input type="range" min="5" max="30" value="20" step="1" id="led-if" oninput="calcLedR()"><span id="led-if-out" style="font-size:11px;color:var(--ac);min-width:35px">20mA</span></div>
+      <div class="cc-result" style="margin-top:8px"><div class="cc-r-label">SERIES RESISTOR</div><div id="led-r-out" class="cc-r-val">145 Ω → use 150Ω</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ FUSE ══════════════════════════ -->
+<div class="panel" id="p-fuse">
+  <div class="comp-header"><h2>🔌 Fuse</h2><p>Overcurrent protection device. A good fuse reads 0Ω, a blown fuse reads OL. Never bypass a blown fuse without finding the root cause.</p><span class="badge">Continuity mode</span><span class="badge">Resistance (Ω)</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Good fuse vs blown fuse animation</div>
+      <div class="svgbox">
+        <svg id="f-svg" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="52" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text id="f-mv" x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="15" fill="#00ff44">0.2 Ω</text>
+          <text id="f-mode-txt" x="160" y="44" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">CONTINUITY MODE — BEEP ♪</text>
+          <line x1="20" y1="120" x2="80" y2="120" stroke="#888" stroke-width="2"/><line x1="240" y1="120" x2="300" y2="120" stroke="#888" stroke-width="2"/>
+          <rect x="80" y="105" width="160" height="30" rx="12" fill="#e8d8b0" stroke="#c0a870" stroke-width="1.5"/>
+          <rect x="80" y="108" width="160" height="10" rx="8 8 0 0" fill="rgba(255,255,255,.1)"/>
+          <rect x="78" y="107" width="20" height="26" rx="4" fill="#888"/><rect x="222" y="107" width="20" height="26" rx="4" fill="#888"/>
+          <line id="f-wire" x1="98" y1="120" x2="222" y2="120" stroke="#c0a830" stroke-width="1.5"/>
+          <text id="f-x" x="160" y="123" text-anchor="middle" font-size="12" fill="rgba(255,71,87,0)" font-family="sans-serif" style="transition:all .4s">✘ BLOWN</text>
+          <circle cx="20" cy="120" r="4" fill="#666"/><circle cx="300" cy="120" r="4" fill="#666"/>
+          <g class="probe-red"><rect x="287" y="65" width="10" height="24" rx="3" fill="#cc3333"/><polygon points="287,87 297,87 292,107" fill="#ff4444"/><line x1="292" y1="107" x2="292" y2="118" stroke="#ff6666" stroke-width="1.5"/></g>
+          <g class="probe-blk"><rect x="12" y="65" width="10" height="24" rx="3" fill="#222"/><polygon points="12,87 22,87 17,107" fill="#555"/><line x1="17" y1="107" x2="17" y2="118" stroke="#888" stroke-width="1.5"/></g>
+          <path id="f-flow" d="M20 120 L300 120" stroke="#00ff44" stroke-width="2" fill="none" stroke-dasharray="12 8" style="animation:flowR 0.7s linear infinite"/>
+        </svg>
+      </div>
+      <div class="ctrls" style="margin-top:8px">
+        <button class="btn g" onclick="fuseState(true)">✔ Good fuse</button>
+        <button class="btn" style="border-color:var(--bad);color:var(--bad)" onclick="fuseState(false)">✘ Blown fuse</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="f-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Remove fuse from its holder before testing. Never test in-circuit — parallel paths give false readings.</span></li>
+        <li class="step"><span class="sn">1</span><span>Visually inspect fuse first. Blown glass fuses often show burn marks or broken wire inside.</span></li>
+        <li class="step"><span class="sn">2</span><span>Set multimeter to <b>continuity mode</b>. Touch probes to each end cap of the fuse.</span></li>
+        <li class="step"><span class="sn">3</span><span><b>Good fuse:</b> meter beeps and shows 0.1–0.5 Ω.</span></li>
+        <li class="step"><span class="sn">4</span><span><b>Blown fuse:</b> no beep, shows OL.</span></li>
+        <li class="step"><span class="sn">5</span><span>Before replacing, find WHY it blew. Replace with same amperage AND voltage rating. Never uprate.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('f-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('f-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>NEVER replace a blown fuse with a higher-amperage fuse or short it with wire. The fuse protects wiring from fire.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Fuse types &amp; ratings</div>
+      <dl class="kv"><dt>Fast-blow (F)</dt><dd>Blows immediately at rated current</dd><dt>Slow-blow (T)</dt><dd>Tolerates brief surges (motors)</dd><dt>Glass tube</dt><dd>5×20mm or 3AG (6.3×32mm)</dd><dt>Ceramic tube</dt><dd>Higher interrupt rating</dd><dt>Automotive</dt><dd>Mini/standard/maxi blade</dd><dt>SMD/PTC</dt><dd>Resettable polyfuse or one-shot</dd></dl>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Intact</div><div class="rv">0.1–0.5 Ω</div></div>
+        <div class="rb bad"><div class="rl">✘ Blown</div><div class="rv">OL, no beep</div></div>
+        <div class="rb warn"><div class="rl">⚠ Marginal</div><div class="rv">&gt;1 Ω — corroded</div></div>
+        <div class="rb info"><div class="rl">ℹ PTC resettable</div><div class="rv">High Ω when tripped</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ SWITCH ══════════════════════════ -->
+<div class="panel" id="p-switch">
+  <div class="comp-header"><h2>🔘 Switch</h2><p>Mechanical contact device. Open = OL, closed = near-0Ω and beep. Test all positions and poles.</p><span class="badge">Continuity mode</span><span class="badge">Contact resistance</span><span class="badge">All poles</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Switch state animation</div>
+      <div class="svgbox">
+        <svg id="sw-svg" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+          <rect x="110" y="8" width="100" height="52" rx="7" fill="#0e1e0e" stroke="#1a3a1a"/><rect x="116" y="14" width="88" height="28" rx="4" fill="#040d04"/>
+          <text id="sw-mv" x="160" y="32" text-anchor="middle" font-family="'Courier New',monospace" font-size="15" fill="#00ff44">OL</text>
+          <text id="sw-mode" x="160" y="44" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">CONTINUITY — SWITCH OPEN</text>
+          <line x1="20" y1="130" x2="100" y2="130" stroke="#888" stroke-width="2"/><line x1="220" y1="130" x2="300" y2="130" stroke="#888" stroke-width="2"/>
+          <circle cx="100" cy="130" r="6" fill="#888" stroke="#aaa" stroke-width="1"/><circle cx="220" cy="130" r="6" fill="#888" stroke="#aaa" stroke-width="1"/>
+          <line id="sw-arm" x1="100" y1="130" x2="210" y2="100" stroke="#aaa" stroke-width="3" stroke-linecap="round"/>
+          <path id="sw-flow" d="M20 130 L300 130" stroke="#00ff44" stroke-width="2" fill="none" stroke-dasharray="12 8" opacity="0"/>
+          <text id="sw-lbl" x="160" y="165" text-anchor="middle" font-size="12" fill="#aa3333" font-family="sans-serif">OPEN — no continuity</text>
+          <text x="100" y="150" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">COM</text><text x="220" y="150" text-anchor="middle" font-size="10" fill="#6a8aaa" font-family="sans-serif">NO</text>
+          <g class="probe-red"><rect x="287" y="65" width="10" height="24" rx="3" fill="#cc3333"/><polygon points="287,87 297,87 292,107" fill="#ff4444"/><line x1="292" y1="107" x2="292" y2="128" stroke="#ff6666" stroke-width="1.5"/></g>
+          <g class="probe-blk"><rect x="10" y="65" width="10" height="24" rx="3" fill="#222"/><polygon points="10,87 20,87 15,107" fill="#555"/><line x1="15" y1="107" x2="15" y2="128" stroke="#888" stroke-width="1.5"/></g>
+        </svg>
+      </div>
+      <div class="ctrls" style="margin-top:8px"><button class="btn g" onclick="swState(true)">Close switch</button><button class="btn pri" onclick="swState(false)">Open switch</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="sw-steps">
+        <li class="step warn on"><span class="sn">!</span><span>Power OFF. Disconnect at least one wire from the switch to avoid false readings from parallel paths.</span></li>
+        <li class="step"><span class="sn">1</span><span>Set multimeter to <b>continuity mode</b> (beep).</span></li>
+        <li class="step"><span class="sn">2</span><span>Probes across COM and NO. In <b>open position</b>: meter must show OL, no beep.</span></li>
+        <li class="step"><span class="sn">3</span><span>Actuate to <b>closed position</b>: meter must beep and show near-0Ω (&lt;1Ω is good).</span></li>
+        <li class="step"><span class="sn">4</span><span>For DPDT or multi-pole switches: test each pole independently.</span></li>
+        <li class="step"><span class="sn">5</span><span>Rapidly toggle switch while monitoring. Intermittent continuity indicates worn contacts — replace.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('sw-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('sw-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>High-voltage / high-current switches (relays, contactors) can arc dangerously when contacts open under load.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Switch types</div>
+      <dl class="kv"><dt>SPST</dt><dd>1 pole, 1 throw — simple on/off</dd><dt>SPDT</dt><dd>COM → NO or NC (3 terminals)</dd><dt>DPDT</dt><dd>2 independent poles, ganged</dd><dt>Momentary NO</dt><dd>Opens when released</dd><dt>Momentary NC</dt><dd>Closes when released</dd><dt>Rotary</dt><dd>Multiple positions — test each</dd></dl>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Closed good</div><div class="rv">&lt;1 Ω + beep</div></div>
+        <div class="rb good"><div class="rl">✔ Open good</div><div class="rv">OL / no beep</div></div>
+        <div class="rb bad"><div class="rl">✘ Always closed</div><div class="rv">Stuck / welded</div></div>
+        <div class="rb warn"><div class="rl">⚠ High contact R</div><div class="rv">&gt;5 Ω — corroded</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ IC CHIP ══════════════════════════ -->
+<div class="panel" id="p-ic">
+  <div class="comp-header"><h2>🖥️ IC Chip</h2><p>Integrated circuits contain many transistors and components. Basic checks: power supply verification, static test of outputs, swap with known-good reference.</p><span class="badge">DC voltage check</span><span class="badge">Logic level test</span><span class="badge">Supply current</span></div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">DIP IC package — probe points</div>
+      <div class="svgbox">
+        <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+          <rect x="80" y="60" width="160" height="120" rx="5" fill="#1a1a2a" stroke="#2a2a4a" stroke-width="1.5"/>
+          <path d="M145 60 Q160 75 175 60" fill="none" stroke="#3a3a5a" stroke-width="1.5"/>
+          <circle cx="90" cy="72" r="4" fill="none" stroke="#6a6a8a" stroke-width="1"/>
+          <text x="160" y="118" text-anchor="middle" font-size="13" fill="#4a6a8a" font-family="'Courier New',monospace">NE555</text>
+          <text x="160" y="132" text-anchor="middle" font-size="9" fill="#3a4a6a" font-family="sans-serif">Timer IC</text>
+          <line x1="80" y1="80" x2="40" y2="80" stroke="#888" stroke-width="2"/><text x="35" y="83" text-anchor="end" font-size="9" fill="#6a8aaa" font-family="sans-serif">1 GND</text>
+          <line x1="80" y1="100" x2="40" y2="100" stroke="#888" stroke-width="2"/><text x="35" y="103" text-anchor="end" font-size="9" fill="#6a8aaa" font-family="sans-serif">2 TRIG</text>
+          <line x1="80" y1="120" x2="40" y2="120" stroke="#888" stroke-width="2"/><text x="35" y="123" text-anchor="end" font-size="9" fill="#00ff44" font-family="sans-serif">3 OUT</text>
+          <line x1="80" y1="140" x2="40" y2="140" stroke="#888" stroke-width="2"/><text x="35" y="143" text-anchor="end" font-size="9" fill="#6a8aaa" font-family="sans-serif">4 RST</text>
+          <line x1="240" y1="80" x2="280" y2="80" stroke="#ff4444" stroke-width="2"/><text x="285" y="83" font-size="9" fill="#ff6666" font-family="sans-serif">8 VCC</text>
+          <line x1="240" y1="100" x2="280" y2="100" stroke="#888" stroke-width="2"/><text x="285" y="103" font-size="9" fill="#6a8aaa" font-family="sans-serif">7 DISCH</text>
+          <line x1="240" y1="120" x2="280" y2="120" stroke="#888" stroke-width="2"/><text x="285" y="123" font-size="9" fill="#6a8aaa" font-family="sans-serif">6 THR</text>
+          <line x1="240" y1="140" x2="280" y2="140" stroke="#888" stroke-width="2"/><text x="285" y="143" font-size="9" fill="#6a8aaa" font-family="sans-serif">5 CTRL</text>
+          <g class="probe-red"><rect x="270" y="38" width="10" height="24" rx="3" fill="#cc3333"/><polygon points="270,60 280,60 275,76" fill="#ff4444"/><line x1="275" y1="76" x2="275" y2="78" stroke="#ff6666" stroke-width="1.5"/></g>
+          <g class="probe-blk"><rect x="30" y="38" width="10" height="24" rx="3" fill="#222"/><polygon points="30,60 40,60 35,76" fill="#555"/><line x1="35" y1="76" x2="35" y2="78" stroke="#888" stroke-width="1.5"/></g>
+          <text x="160" y="200" text-anchor="middle" font-size="10" fill="#3a5a7a" font-family="sans-serif">Check VCC (pin 8) = +5V to +15V  |  GND (pin 1) = 0V</text>
+          <text x="160" y="215" text-anchor="middle" font-size="9" fill="#3a4a5a" font-family="sans-serif">Output (pin 3): HIGH ≈ VCC−1.5V  |  LOW ≈ 0V</text>
+        </svg>
+      </div>
+      <div class="meter" style="margin-top:8px"><div class="m-label">DC VOLTAGE MODE — VCC CHECK</div><div><span class="m-val">+5.02</span><span class="m-unit">V DC</span></div><div class="m-mode">Pin 8 (VCC) ref. to Pin 1 (GND)  |  Supply nominal</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="ic-steps">
+        <li class="step warn on"><span class="sn">!</span><span>ICs can look fine but fail electrically. Hot to touch = bad. Cold when should be warm = not getting power. Always check supply first.</span></li>
+        <li class="step"><span class="sn">1</span><span>Power ON. Set meter to <b>DC voltage</b>. Measure GND pin to VCC pin. Must equal supply voltage ±5%.</span></li>
+        <li class="step"><span class="sn">2</span><span>Check <b>supply current</b>: if much higher than datasheet Icc, IC may be shorted internally.</span></li>
+        <li class="step"><span class="sn">3</span><span>Probe <b>input pins:</b> verify correct logic levels. Floating inputs cause unpredictable behavior.</span></li>
+        <li class="step"><span class="sn">4</span><span>Probe <b>output pins</b> with expected inputs applied. Compare to truth table or timing diagram.</span></li>
+        <li class="step"><span class="sn">5</span><span><b>Swap test:</b> replace IC with known-good identical part. If problem disappears → IC was faulty.</span></li>
+      </ol>
+      <div class="ctrls"><button class="btn pri" onclick="animSteps('ic-steps')">▶ Animate steps</button><button class="btn" onclick="resetSteps('ic-steps')">↺ Reset</button></div>
+      <div class="safety">⚠️ <span>CMOS ICs are ESD-sensitive. Handle with ESD wrist strap. Never insert/remove ICs while power is on.</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pin-level test log — NE555</div>
+      <table class="ic-pins">
+        <thead><tr><th>Pin</th><th>Name</th><th>Expected</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>GND</td><td>0.00 V</td><td class="pin-ok">✔ 0.01 V</td></tr>
+          <tr><td>2</td><td>TRIG</td><td>&lt; 1/3 VCC</td><td class="pin-ok">✔ 1.2 V</td></tr>
+          <tr><td>3</td><td>OUT</td><td>0 or VCC−1.5V</td><td class="pin-ok">✔ 3.6 V</td></tr>
+          <tr><td>4</td><td>RESET</td><td>&gt; 1V = run</td><td class="pin-ok">✔ 4.8 V</td></tr>
+          <tr><td>5</td><td>CTRL</td><td>2/3 VCC ≈ 3.3V</td><td class="pin-ok">✔ 3.31 V</td></tr>
+          <tr><td>6</td><td>THRESH</td><td>&gt; 2/3 VCC</td><td class="pin-ok">✔ 3.8 V</td></tr>
+          <tr><td>7</td><td>DISCH</td><td>Open or 0V</td><td class="pin-ok">✔ 0.1 V</td></tr>
+          <tr><td>8</td><td>VCC</td><td>+5V to +15V</td><td class="pin-ok">✔ 5.02 V</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Logic family voltage levels</div>
+      <dl class="kv"><dt>TTL (7400)</dt><dd>Vin: 0V / 5V  |  Vout: 0.4V / 2.4V</dd><dt>CMOS 4000</dt><dd>Works 3V–18V, rail-to-rail</dd><dt>HC/HCT</dt><dd>5V logic, faster than 4000-series</dd><dt>3.3V logic</dt><dd>STM32, ESP32, RPi GPIO</dd><dt>1.8V logic</dt><dd>Modern SoCs — careful level shifting!</dd></dl>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb bad"><div class="rl">✘ VCC absent</div><div class="rv">Check power rail</div></div>
+        <div class="rb bad"><div class="rl">✘ Output stuck</div><div class="rv">IC failed or input issue</div></div>
+        <div class="rb warn"><div class="rl">⚠ IC very hot</div><div class="rv">Excessive current</div></div>
+        <div class="rb info"><div class="rl">ℹ Best method</div><div class="rv">Swap with known good</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ VOLTMETER ════════════════════════════════ -->
+<div class="panel" id="p-voltmeter">
+  <div class="comp-header">
+    <h2>🔋 Voltmeter</h2>
+    <p>A voltmeter (or multimeter in V mode) measures electrical potential difference between two points. It operates in DC mode for batteries and circuits, AC mode for mains and signals. Always connect in <b>parallel</b> with the component under test — never in series.</p>
+    <span class="badge">DC voltage (V DC)</span>
+    <span class="badge">AC voltage (V AC)</span>
+    <span class="badge">Range selection</span>
+    <span class="badge">Probe placement</span>
+  </div>
+
+  <div class="grid3">
+    <!-- Animation card (full width) -->
+    <div class="card full">
+      <div class="card-title">Live probe animation — voltage measurement modes</div>
+      <div class="grid">
+        <!-- SVG -->
+        <div class="svgbox">
+          <svg id="vm-svg" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+            <!-- Multimeter body -->
+            <rect x="95" y="6" width="130" height="78" rx="9" fill="#0e1e0e" stroke="#1a3a1a" stroke-width="1.5"/>
+            <rect x="103" y="14" width="114" height="42" rx="5" fill="#040d04" stroke="#0a200a"/>
+            <!-- Display -->
+            <text id="vm-display" x="160" y="40" text-anchor="middle" font-family="'Courier New',monospace" font-size="22" fill="#00ff44" letter-spacing="1">12.04</text>
+            <text id="vm-unit-lbl" x="160" y="52" text-anchor="middle" font-size="9" fill="#2a5a2a" font-family="sans-serif">V DC</text>
+            <!-- Mode buttons row -->
+            <rect x="106" y="62" width="20" height="12" rx="2" fill="#0e2a0e" stroke="#1a4a1a"/>
+            <text x="116" y="71" text-anchor="middle" font-size="7" fill="#3a8a3a" font-family="monospace">DC</text>
+            <rect x="130" y="62" width="20" height="12" rx="2" fill="#0e2a0e" stroke="#1a4a1a"/>
+            <text x="140" y="71" text-anchor="middle" font-size="7" fill="#3a8a3a" font-family="monospace">AC</text>
+            <rect x="154" y="62" width="28" height="12" rx="2" fill="#0e2a0e" stroke="#1a4a1a"/>
+            <text x="168" y="71" text-anchor="middle" font-size="7" fill="#3a8a3a" font-family="monospace">RANGE</text>
+            <rect x="186" y="62" width="22" height="12" rx="2" fill="#0e2a0e" stroke="#1a4a1a"/>
+            <text x="197" y="71" text-anchor="middle" font-size="7" fill="#3a8a3a" font-family="monospace">AUTO</text>
+            <!-- Source / component under test (battery) -->
+            <!-- Positive terminal -->
+            <rect x="30" y="140" width="50" height="36" rx="5" fill="#1a2a3a" stroke="#2a4a6a"/>
+            <rect x="30" y="140" width="50" height="14" rx="5 5 0 0" fill="#243a4a"/>
+            <text x="55" y="152" text-anchor="middle" font-size="8" fill="#3a7a9a" font-family="sans-serif">9V</text>
+            <text x="55" y="165" text-anchor="middle" font-size="9" fill="#8ab" font-family="sans-serif">BATT</text>
+            <!-- Battery terminals -->
+            <rect x="46" y="137" width="6" height="5" rx="1" fill="#ccc"/><!-- + -->
+            <rect x="63" y="138" width="4" height="3" rx="1" fill="#888"/><!-- − -->
+            <!-- Wire from battery to component -->
+            <line x1="55" y1="176" x2="55" y2="210" stroke="#888" stroke-width="1.5"/>
+            <line x1="55" y1="210" x2="240" y2="210" stroke="#888" stroke-width="1.5"/>
+            <line x1="240" y1="210" x2="240" y2="176" stroke="#888" stroke-width="1.5"/>
+            <!-- Resistor load symbol (under test) -->
+            <rect x="215" y="140" width="50" height="36" rx="5" fill="#1a1a0a" stroke="#2a2a0a"/>
+            <rect x="220" y="147" width="40" height="22" rx="3" fill="#d4a96a" stroke="#8a6840"/>
+            <rect x="224" y="150" width="8" height="16" fill="#8B4513" opacity=".9"/>
+            <rect x="235" y="150" width="8" height="16" fill="#f00"/>
+            <rect x="245" y="150" width="8" height="16" fill="#000" opacity=".9"/>
+            <text x="240" y="168" text-anchor="middle" font-size="7" fill="#5a7a5a" font-family="sans-serif">LOAD</text>
+            <!-- Voltage measurement wires (parallel connection) -->
+            <!-- Red wire from battery + to meter -->
+            <line x1="52" y1="137" x2="52" y2="108" stroke="#ff4444" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <line x1="52" y1="108" x2="135" y2="108" stroke="#ff4444" stroke-width="1.5"/>
+            <!-- Black wire from battery − to meter -->
+            <line x1="67" y1="138" x2="67" y2="116" stroke="#888" stroke-width="1.5" stroke-dasharray="4 2"/>
+            <line x1="67" y1="116" x2="125" y2="116" stroke="#888" stroke-width="1.5"/>
+            <!-- Meter jacks -->
+            <rect x="108" y="82" width="12" height="10" rx="2" fill="#880000"/>
+            <text x="114" y="90" text-anchor="middle" font-size="7" fill="#ff6666" font-family="sans-serif">V</text>
+            <rect x="124" y="82" width="12" height="10" rx="2" fill="#222"/>
+            <text x="130" y="90" text-anchor="middle" font-size="7" fill="#888" font-family="sans-serif">−</text>
+            <!-- Probe tips on measurement points -->
+            <g class="probe-red">
+              <polygon points="128,104 140,104 134,116" fill="#ff4444"/>
+              <rect x="128" y="86" width="12" height="18" rx="3" fill="#cc3333"/>
+            </g>
+            <g class="probe-blk">
+              <polygon points="116,112 128,112 122,124" fill="#555"/>
+              <rect x="116" y="94" width="12" height="18" rx="3" fill="#222"/>
+            </g>
+            <!-- High-impedance annotation -->
+            <text x="160" y="130" text-anchor="middle" font-size="8" fill="#2a5a7a" font-family="sans-serif">⟵ voltmeter always in PARALLEL ⟶</text>
+            <!-- Waveform for AC (hidden initially) -->
+            <path id="vm-wave" d="M30 190 Q42 175 54 190 Q66 205 78 190 Q90 175 102 190 Q114 205 126 190" stroke="#ffb347" stroke-width="1.5" fill="none" opacity="0" style="animation:waveFlow 1s linear infinite"/>
+            <text id="vm-ac-lbl" x="75" y="215" text-anchor="middle" font-size="8" fill="rgba(255,179,71,0)" font-family="sans-serif" style="transition:all .4s">AC waveform</text>
+          </svg>
+        </div>
+
+        <div>
+          <!-- Meter display -->
+          <div class="meter">
+            <div class="m-label" id="vm-m-label">VOLTMETER — DC MODE</div>
+            <div><span id="vm-disp" class="m-val">12.04</span><span class="m-unit" id="vm-m-unit">V</span></div>
+            <div class="m-mode" id="vm-m-mode">Auto-range  |  Red=+, Black=−  |  High impedance input</div>
+          </div>
+
+          <!-- Mode selector -->
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">Measurement mode</div>
+            <div class="pill-row">
+              <button class="pill on" id="vm-dc-btn" onclick="vmMode('dc')">V DC</button>
+              <button class="pill" id="vm-ac-btn" onclick="vmMode('ac')">V AC</button>
+              <button class="pill" id="vm-ac-true-btn" onclick="vmMode('trms')">True RMS</button>
+            </div>
+            <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.6" id="vm-mode-desc">
+              <b style="color:var(--text)">DC mode:</b> measures steady-state voltage polarity. Shows sign (+/−). Use for batteries, regulators, logic rails, sensor outputs.
+            </div>
+          </div>
+
+          <!-- Range card -->
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">Range selection guide</div>
+            <div class="slide-row">
+              <label>Expected V:</label>
+              <input type="range" min="0" max="250" value="12" step="1" id="vm-range-slider" oninput="vmRange(this.value)">
+              <span id="vm-range-out" style="min-width:48px">12 V</span>
+            </div>
+            <div class="cc-result" style="margin-top:8px">
+              <div class="cc-r-label">RECOMMENDED RANGE</div>
+              <div id="vm-range-rec" class="cc-r-val">20 V DC</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="vm-steps">
+        <li class="step warn on"><span class="sn">!</span><span>A voltmeter is ALWAYS connected in <b>parallel</b> (across) the component or point you're measuring. Never in series — that creates a short through the meter.</span></li>
+        <li class="step"><span class="sn">1</span><span>Insert probes: <b>Red → V/VΩ jack</b>, <b>Black → COM jack</b>. Select <b>V DC</b> or <b>V AC</b> mode on the dial.</span></li>
+        <li class="step"><span class="sn">2</span><span><b>Range:</b> if unknown, start at highest range and step down. Auto-range meters handle this automatically.</span></li>
+        <li class="step"><span class="sn">3</span><span>Touch <b>red probe</b> to the positive point (higher potential) and <b>black probe</b> to the reference point (GND or lower potential).</span></li>
+        <li class="step"><span class="sn">4</span><span>Read the display. A negative sign means polarity is reversed — swap probes if needed. For AC, sign doesn't apply.</span></li>
+        <li class="step"><span class="sn">5</span><span>To measure voltage <b>across a component</b> in a live circuit: probe both leads of that component simultaneously while circuit is running.</span></li>
+        <li class="step"><span class="sn">6</span><span>For <b>AC mains (120V/230V):</b> use CAT II or CAT III rated meter only. Keep probes away from each other and from ground while inserting.</span></li>
+      </ol>
+      <div class="ctrls">
+        <button class="btn pri" onclick="animSteps('vm-steps')">▶ Animate steps</button>
+        <button class="btn" onclick="resetSteps('vm-steps')">↺ Reset</button>
+      </div>
+      <div class="safety">⚠️ <span>NEVER put a voltmeter in series in a circuit. The internal resistance is ~10MΩ — it will block all current. Also never exceed the meter's max input voltage (typically 600–1000V). AC mains can kill.</span></div>
+    </div>
+
+    <!-- Results / readings card -->
+    <div class="card">
+      <div class="card-title">Expected readings — common scenarios</div>
+      <table class="ic-pins">
+        <thead><tr><th>What you're measuring</th><th>Mode</th><th>Expected</th></tr></thead>
+        <tbody>
+          <tr><td>AA alkaline battery</td><td>V DC</td><td class="pin-ok">1.5 V (fresh) / &lt;1.2V (weak)</td></tr>
+          <tr><td>9V PP3 battery</td><td>V DC</td><td class="pin-ok">8.4–9.5 V</td></tr>
+          <tr><td>Li-ion cell</td><td>V DC</td><td class="pin-ok">3.0 V (dead) – 4.2 V (full)</td></tr>
+          <tr><td>5V logic rail (USB/MCU)</td><td>V DC</td><td class="pin-ok">4.75–5.25 V</td></tr>
+          <tr><td>3.3V logic rail</td><td>V DC</td><td class="pin-ok">3.15–3.45 V</td></tr>
+          <tr><td>Car battery</td><td>V DC</td><td class="pin-ok">12.6 V (resting) / 14.4 V (charging)</td></tr>
+          <tr><td>UK mains socket</td><td>V AC</td><td class="pin-ok">220–240 V RMS</td></tr>
+          <tr><td>US mains socket</td><td>V AC</td><td class="pin-ok">110–120 V RMS</td></tr>
+        </tbody>
+      </table>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb bad"><div class="rl">✘ Reading 0V</div><div class="rv">No power / broken rail</div></div>
+        <div class="rb bad"><div class="rl">✘ OL / overload</div><div class="rv">Exceeded range — step up</div></div>
+        <div class="rb warn"><div class="rl">⚠ Negative reading</div><div class="rv">Probes reversed (DC)</div></div>
+        <div class="rb info"><div class="rl">ℹ Loading effect</div><div class="rv">High-Z source may read falsely</div></div>
+      </div>
+    </div>
+
+    <!-- DC vs AC scope display + info -->
+    <div class="card">
+      <div class="card-title">DC vs AC waveform comparison</div>
+      <div class="scope">
+        <div style="font-size:9px;color:#2a5a2a;margin-bottom:4px">DC — flat line at constant potential</div>
+        <svg viewBox="0 0 240 55" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="5" x2="10" y2="50" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="50" x2="235" y2="50" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="22" x2="235" y2="22" stroke="#00ff44" stroke-width="1.8"/>
+          <text x="14" y="19" font-size="7" fill="#2a6a2a" font-family="monospace">+12V</text>
+          <line x1="10" y1="38" x2="235" y2="38" stroke="#1a3a1a" stroke-width=".5" stroke-dasharray="3 2"/>
+          <text x="14" y="46" font-size="7" fill="#1a4a1a" font-family="monospace">0V (ref)</text>
+          <text x="225" y="53" font-size="7" fill="#2a5a2a" font-family="monospace">t→</text>
+        </svg>
+      </div>
+      <div class="scope" style="margin-top:6px">
+        <div style="font-size:9px;color:#3a5a2a;margin-bottom:4px">AC — sinusoidal, symmetric about 0V</div>
+        <svg viewBox="0 0 240 70" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="5" x2="10" y2="65" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="65" x2="235" y2="65" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="35" x2="235" y2="35" stroke="#1a4a1a" stroke-width=".5" stroke-dasharray="3 2"/>
+          <!-- Sine wave -->
+          <path d="M10 35 Q28 5 46 35 Q64 65 82 35 Q100 5 118 35 Q136 65 154 35 Q172 5 190 35 Q208 65 226 35" stroke="#ffb347" stroke-width="1.8" fill="none" style="animation:acWave 2s linear infinite" stroke-dasharray="300" stroke-dashoffset="300"/>
+          <text x="13" y="15" font-size="7" fill="#6a5a2a" font-family="monospace">+Vpeak</text>
+          <text x="13" y="48" font-size="7" fill="#6a5a2a" font-family="monospace">−Vpeak</text>
+          <text x="200" y="32" font-size="7" fill="#4a4a2a" font-family="monospace">Vrms</text>
+          <line x1="10" y1="26" x2="235" y2="26" stroke="#4a4a1a" stroke-width=".5" stroke-dasharray="2 3"/>
+          <text x="225" y="68" font-size="7" fill="#2a5a2a" font-family="monospace">t→</text>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5">Vrms = Vpeak / √2 ≈ 0.707 × Vpeak. Mains 230V AC has a peak of ~325V. A basic AC voltmeter measures RMS of a pure sine wave. True-RMS mode is needed for non-sinusoidal waveforms (PWM, clipped signals).</div>
+    </div>
+
+    <!-- Probe placement tips -->
+    <div class="card">
+      <div class="card-title">Probe placement rules</div>
+      <dl class="kv">
+        <dt>Always parallel</dt><dd>Connect across the load, never in series</dd>
+        <dt>Red → +, Black → −</dt><dd>For DC: polarity matters for sign</dd>
+        <dt>Black → GND</dt><dd>Reference point for all DC measurements</dd>
+        <dt>One hand rule</dt><dd>High voltage: keep one hand in pocket to prevent current crossing the chest</dd>
+        <dt>Float check</dt><dd>Measure supply with no load first, then with load</dd>
+        <dt>Drop check</dt><dd>Voltage across wire should be ≈0V — high = bad connection</dd>
+      </dl>
+      <hr class="divider">
+      <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5"><b style="color:var(--text)">Voltage divider loading:</b> A voltmeter with 10MΩ input impedance placed across a 10MΩ resistor will read only 50% of the true voltage due to the divider effect. Use a high-impedance FET probe or electrometer for very high-Z circuits.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ BUZZER ════════════════════════════════ -->
+<div class="panel" id="p-buzzer">
+  <div class="comp-header">
+    <h2>🔔 Buzzer</h2>
+    <p>An electro-acoustic transducer that converts electrical energy into sound. Two types: <b>active</b> (internal oscillator — just apply DC voltage) and <b>passive</b> (requires an external AC/PWM signal to produce sound). Test with DC voltage and continuity/resistance check.</p>
+    <span class="badge">DC voltage test</span>
+    <span class="badge">Continuity / Ω</span>
+    <span class="badge">Active vs passive</span>
+    <span class="badge">Polarity</span>
+  </div>
+
+  <div class="grid3">
+    <!-- Animation card -->
+    <div class="card full">
+      <div class="card-title">Live probe animation — buzzer test</div>
+      <div class="grid">
+        <!-- SVG -->
+        <div class="svgbox">
+          <svg id="bz-svg" viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg">
+            <!-- Meter -->
+            <rect x="95" y="6" width="130" height="60" rx="8" fill="#0e1e0e" stroke="#1a3a1a"/>
+            <rect x="103" y="14" width="114" height="36" rx="5" fill="#040d04" stroke="#0a200a"/>
+            <text id="bz-display" x="160" y="37" text-anchor="middle" font-family="'Courier New',monospace" font-size="18" fill="#00ff44">4.98 V</text>
+            <text id="bz-unit-lbl" x="160" y="50" text-anchor="middle" font-size="8" fill="#2a5a2a" font-family="sans-serif">DC VOLTAGE — BUZZER TERMINALS</text>
+            <!-- Buzzer body (cylindrical top view) -->
+            <ellipse cx="160" cy="158" rx="52" ry="16" fill="#1a1a1a" stroke="#3a3a3a"/>
+            <rect x="108" y="142" width="104" height="56" fill="#222" stroke="#3a3a3a"/>
+            <!-- Buzzer side grill -->
+            <line x1="120" y1="148" x2="120" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <line x1="135" y1="145" x2="135" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <line x1="150" y1="144" x2="150" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <line x1="165" y1="144" x2="165" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <line x1="180" y1="145" x2="180" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <line x1="195" y1="148" x2="195" y2="196" stroke="#2a2a2a" stroke-width="1"/>
+            <!-- Bottom plate -->
+            <ellipse cx="160" cy="196" rx="52" ry="16" fill="#1a1a1a" stroke="#3a3a3a"/>
+            <!-- Top membrane grill holes -->
+            <circle cx="148" cy="158" r="4" fill="none" stroke="#333" stroke-width="1"/>
+            <circle cx="160" cy="155" r="3" fill="none" stroke="#333" stroke-width="1"/>
+            <circle cx="172" cy="158" r="4" fill="none" stroke="#333" stroke-width="1"/>
+            <circle cx="160" cy="162" r="3" fill="none" stroke="#333" stroke-width="1"/>
+            <!-- Positive mark -->
+            <text x="108" y="140" font-size="11" fill="#ff6666" font-family="sans-serif">+</text>
+            <!-- Leads -->
+            <line x1="125" y1="196" x2="125" y2="220" stroke="#ff4444" stroke-width="2"/><!-- red + -->
+            <line x1="195" y1="196" x2="195" y2="220" stroke="#666" stroke-width="2"/><!-- blk − -->
+            <text x="125" y="230" text-anchor="middle" font-size="8" fill="#ff4444" font-family="sans-serif">+ (red/long)</text>
+            <text x="195" y="230" text-anchor="middle" font-size="8" fill="#888" font-family="sans-serif">− (blk/short)</text>
+            <!-- Buzzer glow (active when on) -->
+            <ellipse id="bz-glow" cx="160" cy="158" rx="0" ry="0" fill="rgba(0,212,255,0)" style="transition:all .5s"/>
+            <!-- Sound waves (hidden by default) -->
+            <path id="bz-wave1" d="M215 148 Q228 158 215 168" stroke="rgba(0,212,255,0)" stroke-width="1.5" fill="none" style="transition:stroke .4s;animation:buzzerPulse 0.6s ease-in-out infinite"/>
+            <path id="bz-wave2" d="M225 140 Q244 158 225 176" stroke="rgba(0,212,255,0)" stroke-width="1.5" fill="none" style="transition:stroke .4s;animation:buzzerPulse 0.6s ease-in-out infinite .15s"/>
+            <path id="bz-wave3" d="M235 132 Q260 158 235 184" stroke="rgba(0,212,255,0)" stroke-width="1.5" fill="none" style="transition:stroke .4s;animation:buzzerPulse 0.6s ease-in-out infinite .3s"/>
+            <!-- Red probe -->
+            <g class="probe-red">
+              <rect x="114" y="68" width="10" height="24" rx="3" fill="#cc3333"/>
+              <polygon points="114,90 124,90 119,106" fill="#ff4444"/>
+              <line x1="119" y1="106" x2="119" y2="118" stroke="#ff6666" stroke-width="1.5" stroke-dasharray="4 2"/>
+              <text x="110" y="66" font-size="8" fill="#ff4444" font-family="sans-serif">+</text>
+            </g>
+            <!-- Black probe -->
+            <g class="probe-blk">
+              <rect x="196" y="68" width="10" height="24" rx="3" fill="#222"/>
+              <polygon points="196,90 206,90 201,106" fill="#555"/>
+              <line x1="201" y1="106" x2="201" y2="118" stroke="#888" stroke-width="1.5" stroke-dasharray="4 2"/>
+              <text x="204" y="66" font-size="8" fill="#666" font-family="sans-serif">−</text>
+            </g>
+            <!-- Flow line (current) -->
+            <path id="bz-flow" d="M119 118 L119 196 L201 196 L201 118" stroke="#00ff44" stroke-width="1.5" fill="none" stroke-dasharray="10 8" opacity="0" style="animation:flowR 0.8s linear infinite"/>
+          </svg>
+        </div>
+
+        <div>
+          <!-- Meter display -->
+          <div class="meter">
+            <div class="m-label" id="bz-m-label">DC VOLTAGE AT BUZZER TERMINALS</div>
+            <div><span id="bz-disp" class="m-val">4.98</span><span class="m-unit">V</span></div>
+            <div class="m-mode" id="bz-m-mode">Active buzzer — supply present — should emit tone</div>
+          </div>
+
+          <!-- Type toggle -->
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">Buzzer type</div>
+            <div class="pill-row">
+              <button class="pill on" id="bz-active-btn" onclick="bzType('active')">Active</button>
+              <button class="pill" id="bz-passive-btn" onclick="bzType('passive')">Passive</button>
+            </div>
+            <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.6" id="bz-type-desc">
+              <b style="color:var(--text)">Active buzzer:</b> contains an internal oscillator. Apply rated DC voltage (typically 3–12V) and it immediately produces a fixed tone. Polarity matters — red/longer leg = +. Resistance: 16–100Ω.
+            </div>
+          </div>
+
+          <!-- Test buttons -->
+          <div class="card" style="margin-top:10px">
+            <div class="card-title">Simulate test</div>
+            <div class="ctrls">
+              <button class="btn g" onclick="bzState(true)">▶ Apply voltage (sound ON)</button>
+              <button class="btn pri" onclick="bzState(false)">⏹ Remove voltage</button>
+            </div>
+            <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5" id="bz-status">
+              Status: <span style="color:var(--t2)">No voltage applied — buzzer silent</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="card">
+      <div class="card-title">Step-by-step procedure</div>
+      <ol class="steps" id="bz-steps">
+        <li class="step warn on"><span class="sn">!</span><span>First determine if the buzzer is <b>active</b> (self-oscillating) or <b>passive</b> (needs AC/PWM signal). This determines the test method.</span></li>
+        <li class="step"><span class="sn">1</span><span><b>Visual ID:</b> Active buzzers usually have a sticker or sealed top. Check the datasheet or PCB silkscreen. Active: connect DC and it buzzes. Passive: silence with DC, needs PWM.</span></li>
+        <li class="step"><span class="sn">2</span><span><b>Resistance check:</b> Set meter to Ω mode. Measure across buzzer terminals. Active buzzer: 16–100Ω. Passive piezo: can be very high (MΩ) or low (8–32Ω for electromagnetic).</span></li>
+        <li class="step"><span class="sn">3</span><span><b>DC voltage test (active):</b> Set meter to V DC. Apply rated voltage (3V, 5V, or 12V — check label). Measure voltage at terminals. Should equal supply. Buzzer should emit tone.</span></li>
+        <li class="step"><span class="sn">4</span><span><b>Passive buzzer test:</b> Connect a signal generator or MCU PWM (1–4 kHz) to the buzzer. No DC-only tone. If still silent with PWM signal present at correct voltage → buzzer is faulty.</span></li>
+        <li class="step"><span class="sn">5</span><span><b>Polarity check:</b> Most buzzers are polarity-sensitive. Red wire or longer leg = positive (+). Reversing polarity on an active buzzer usually makes it silent (not damaged). Some electromagnetic types are non-polar.</span></li>
+        <li class="step"><span class="sn">6</span><span><b>Continuity / quick test:</b> Touch a 9V battery briefly to an active buzzer — it should beep immediately. This is the fastest functional test on the bench.</span></li>
+      </ol>
+      <div class="ctrls">
+        <button class="btn pri" onclick="animSteps('bz-steps')">▶ Animate steps</button>
+        <button class="btn" onclick="resetSteps('bz-steps')">↺ Reset</button>
+      </div>
+      <div class="safety">⚠️ <span>Do not exceed the buzzer's rated voltage — this destroys the internal oscillator of active buzzers or the piezo disc of passive ones. Typical max is 12–15V.</span></div>
+    </div>
+
+    <!-- Expected readings -->
+    <div class="card">
+      <div class="card-title">Expected readings — test matrix</div>
+      <table class="ic-pins">
+        <thead><tr><th>Test</th><th>Active buzzer</th><th>Passive buzzer</th></tr></thead>
+        <tbody>
+          <tr><td>Resistance (Ω)</td><td class="pin-ok">16–100 Ω</td><td class="pin-ok">8–32 Ω (EM) or MΩ (piezo)</td></tr>
+          <tr><td>DC voltage + polarity</td><td class="pin-ok">Buzzes loudly</td><td><span style="color:var(--t2)">Silent (needs PWM)</span></td></tr>
+          <tr><td>DC voltage reversed</td><td><span style="color:var(--t2)">Silent (polarity wrong)</span></td><td><span style="color:var(--t2)">May buzz faintly</span></td></tr>
+          <tr><td>PWM 2kHz signal</td><td class="pin-ok">Buzzes (frequency fixed)</td><td class="pin-ok">Buzzes at PWM frequency</td></tr>
+          <tr><td>No voltage at all</td><td><span style="color:var(--t2)">Silent (correct)</span></td><td><span style="color:var(--t2)">Silent (correct)</span></td></tr>
+          <tr><td>OL resistance</td><td class="pin-x">✘ Open coil / broken</td><td class="pin-x">✘ Piezo cracked</td></tr>
+        </tbody>
+      </table>
+      <hr class="divider">
+      <div class="rg">
+        <div class="rb good"><div class="rl">✔ Good active</div><div class="rv">Beeps with DC</div></div>
+        <div class="rb good"><div class="rl">✔ Good passive</div><div class="rv">Beeps with PWM</div></div>
+        <div class="rb bad"><div class="rl">✘ Silent with V</div><div class="rv">Faulty or wrong type</div></div>
+        <div class="rb bad"><div class="rl">✘ OL resistance</div><div class="rv">Open — replace</div></div>
+        <div class="rb warn"><div class="rl">⚠ Weak tone</div><div class="rv">Low voltage / partial fail</div></div>
+        <div class="rb info"><div class="rl">ℹ 9V battery test</div><div class="rv">Fastest bench check</div></div>
+      </div>
+    </div>
+
+    <!-- Active vs passive deep dive -->
+    <div class="card">
+      <div class="card-title">Active vs passive — key differences</div>
+      <dl class="kv">
+        <dt>Active — drive</dt><dd>DC only — apply Vcc and GND</dd>
+        <dt>Active — tone</dt><dd>Fixed frequency (usually 2–4 kHz)</dd>
+        <dt>Active — MCU</dt><dd>Toggle a digital GPIO HIGH/LOW</dd>
+        <dt>Passive — drive</dt><dd>Requires PWM or AC square wave</dd>
+        <dt>Passive — tone</dt><dd>Frequency = PWM frequency (tunable)</dd>
+        <dt>Passive — MCU</dt><dd>Use tone() / PWM peripheral</dd>
+        <dt>Identification</dt><dd>Active has sticker on top; passive is often open/bare</dd>
+        <dt>Resistance check</dt><dd>Active ≈ 16–100 Ω; passive piezo = very high (cap-like)</dd>
+      </dl>
+      <hr class="divider">
+      <div class="scope">
+        <div style="font-size:9px;color:#2a5a2a;margin-bottom:4px">PASSIVE BUZZER — needs PWM input</div>
+        <svg viewBox="0 0 240 60" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="5" x2="10" y2="55" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="55" x2="235" y2="55" stroke="#1a3a1a" stroke-width="1"/>
+          <line x1="10" y1="30" x2="235" y2="30" stroke="#0a1a0a" stroke-width=".5" stroke-dasharray="3 2"/>
+          <!-- PWM square wave -->
+          <path d="M10 48 L10 12 L40 12 L40 48 L70 48 L70 12 L100 12 L100 48 L130 48 L130 12 L160 12 L160 48 L190 48 L190 12 L220 12 L220 48 L235 48" stroke="#00d4ff" stroke-width="1.5" fill="none"/>
+          <text x="13" y="10" font-size="7" fill="#2a5a7a" font-family="monospace">HIGH</text>
+          <text x="13" y="52" font-size="7" fill="#2a5a7a" font-family="monospace">LOW</text>
+          <text x="130" y="58" text-anchor="middle" font-size="7" fill="#2a4a5a" font-family="monospace">PWM ~2kHz → audible tone</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Wiring diagram card -->
+    <div class="card">
+      <div class="card-title">Typical wiring — active buzzer with Arduino</div>
+      <div class="svgbox">
+        <svg viewBox="0 0 320 160" xmlns="http://www.w3.org/2000/svg">
+          <!-- MCU block -->
+          <rect x="20" y="40" width="80" height="80" rx="5" fill="#0e1a0e" stroke="#1a3a1a"/>
+          <text x="60" y="68" text-anchor="middle" font-size="10" fill="#3a7a3a" font-family="'Courier New',monospace">Arduino</text>
+          <text x="60" y="82" text-anchor="middle" font-size="9" fill="#2a5a2a" font-family="sans-serif">Uno / Nano</text>
+          <!-- Pin labels on MCU -->
+          <text x="100" y="75" font-size="8" fill="#4a8a4a" font-family="monospace">D8 →</text>
+          <text x="100" y="95" font-size="8" fill="#4a4a4a" font-family="monospace">GND →</text>
+          <!-- Wires -->
+          <line x1="118" y1="73" x2="190" y2="73" stroke="#ff4444" stroke-width="1.5"/>
+          <line x1="118" y1="93" x2="190" y2="93" stroke="#555" stroke-width="1.5"/>
+          <!-- Buzzer body -->
+          <ellipse cx="210" cy="83" rx="22" ry="28" fill="#222" stroke="#444"/>
+          <ellipse cx="210" cy="73" rx="22" ry="8" fill="#1a1a1a" stroke="#3a3a3a"/>
+          <!-- Holes -->
+          <circle cx="204" cy="80" r="2.5" fill="none" stroke="#333"/>
+          <circle cx="216" cy="80" r="2.5" fill="none" stroke="#333"/>
+          <circle cx="210" cy="88" r="2.5" fill="none" stroke="#333"/>
+          <!-- + mark -->
+          <text x="189" y="70" font-size="9" fill="#ff6666" font-family="sans-serif">+</text>
+          <!-- Output wire to nothing (ground) -->
+          <line x1="232" y1="93" x2="280" y2="93" stroke="#555" stroke-width="1.5"/>
+          <line x1="280" y1="93" x2="280" y2="130" stroke="#555" stroke-width="1.5"/>
+          <line x1="268" y1="130" x2="292" y2="130" stroke="#555" stroke-width="2"/>
+          <line x1="271" y1="135" x2="289" y2="135" stroke="#555" stroke-width="1.5"/>
+          <line x1="274" y1="140" x2="286" y2="140" stroke="#555" stroke-width="1"/>
+          <!-- Code hint -->
+          <rect x="20" y="130" width="160" height="26" rx="3" fill="#040d04" stroke="#0a1a0a"/>
+          <text x="28" y="142" font-size="8" fill="#2a7a2a" font-family="'Courier New',monospace">digitalWrite(8, HIGH); // ON</text>
+          <text x="28" y="153" font-size="8" fill="#2a7a2a" font-family="'Courier New',monospace">digitalWrite(8, LOW);  // OFF</text>
+          <!-- Current flow arrows -->
+          <path d="M118 73 L190 73" stroke="#ff4444" stroke-width="1" fill="none" stroke-dasharray="6 4" style="animation:flowR 1s linear infinite"/>
+        </svg>
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-top:8px;line-height:1.5">For a <b style="color:var(--text)">passive buzzer</b> on Arduino, use <span style="font-family:var(--mono);color:var(--ac)">tone(8, 2000)</span> to generate 2kHz PWM and <span style="font-family:var(--mono);color:var(--ac)">noTone(8)</span> to stop.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────────────────────
+function sw(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('p-' + id).classList.add('on');
+  el.classList.add('on');
+}
+
+// ── Step animation ─────────────────────────────────────────────
+const stepTimers = {};
+function animSteps(id) {
+  resetSteps(id);
+  const steps = document.querySelectorAll('#' + id + ' .step');
+  let i = 0;
+  function next() {
+    if (i > 0) { steps[i-1].classList.remove('on'); steps[i-1].classList.add('done'); }
+    if (i < steps.length) { steps[i].classList.add('on'); i++; stepTimers[id] = setTimeout(next, 1800); }
+  }
+  next();
+}
+function resetSteps(id) {
+  clearTimeout(stepTimers[id]);
+  document.querySelectorAll('#' + id + ' .step').forEach((s,i) => {
+    s.classList.remove('on','done');
+    if (i === 0) s.classList.add('on');
+  });
+}
+
+// ── Resistor color code ────────────────────────────────────────
+function calcR() {
+  const b1 = parseInt(document.getElementById('b1').value);
+  const b2 = parseInt(document.getElementById('b2').value);
+  const b3 = parseFloat(document.getElementById('b3').value);
+  const b4 = parseFloat(document.getElementById('b4').value);
+  ['b1','b2','b3','b4'].forEach(id => {
+    const sel = document.getElementById(id);
+    const c = sel.options[sel.selectedIndex].getAttribute('data-c');
+    document.getElementById('sw'+id[1]).style.background = c;
+  });
+  const val = (b1 * 10 + b2) * b3;
+  const lo = (val * (1 - b4/100)).toFixed(2);
+  const hi = (val * (1 + b4/100)).toFixed(2);
+  document.getElementById('cc-out').textContent = fmt(val) + ' ±' + b4 + '%';
+  document.getElementById('cc-range').textContent = 'Acceptable range: ' + fmt(lo) + ' – ' + fmt(hi);
+}
+function fmt(v) {
+  v = parseFloat(v);
+  if (v >= 1e6) return (v/1e6).toPrecision(3) + ' MΩ';
+  if (v >= 1e3) return (v/1e3).toPrecision(3) + ' kΩ';
+  return v.toPrecision(3) + ' Ω';
+}
+
+// ── Capacitor charge animation ─────────────────────────────────
+function chargeAnim() {
+  const el = document.getElementById('c-charge');
+  el.style.height = '0'; el.style.y = '183';
+  requestAnimationFrame(() => { el.style.height = '87'; el.style.y = '96'; });
+  setTimeout(() => { el.style.height = '0'; el.style.y = '183'; }, 3000);
+}
+
+// ── Diode mode ─────────────────────────────────────────────────
+function dMode(fwd) {
+  const mv = document.getElementById('d-mv');
+  const flow = document.getElementById('d-flow');
+  const lastTxt = document.querySelector('#d-svg text:last-child');
+  if (fwd) {
+    mv.textContent = '0.624 V'; mv.style.color = '#00ff44';
+    flow.style.opacity = '1';
+    lastTxt.textContent = 'Forward biased: current flows (red→anode, blk→cathode)';
+  } else {
+    mv.textContent = 'OL'; mv.style.color = '#ff4757';
+    flow.style.opacity = '0';
+    lastTxt.textContent = 'Reverse biased: current BLOCKED → OL reading';
+  }
+}
+
+// ── BJT type toggle ────────────────────────────────────────────
+function bjtType(t) {
+  document.getElementById('npn-btn').className = 'pill' + (t==='NPN'?' on':'');
+  document.getElementById('pnp-btn').className = 'pill' + (t==='PNP'?' on':'');
+  document.getElementById('bjt-type-lbl').textContent = t;
+  const arrow = document.getElementById('bjt-arrow');
+  if (t === 'PNP') arrow.setAttribute('points', '215,150 200,148 202,163');
+  else arrow.setAttribute('points', '190,183 200,193 185,195');
+}
+
+// ── MOSFET gate slider ─────────────────────────────────────────
+function updateMosfet(v) {
+  v = parseFloat(v);
+  document.getElementById('vgs-out').textContent = v.toFixed(1) + ' V';
+  const on = v >= 4;
+  document.getElementById('mos-mv').textContent = on ? '0.08 Ω' : 'OL';
+  document.getElementById('mos-mv').style.color = on ? '#00ff44' : '#ff4757';
+  document.getElementById('mos-status').textContent = on
+    ? 'Gate = ' + v.toFixed(1) + 'V > Vth → channel ON → Rds_on ≈ 0.08Ω'
+    : 'Gate = ' + v.toFixed(1) + 'V < Vth (4V) → channel OFF → OL';
+  document.getElementById('mos-ch').style.fill = on ? 'rgba(0,255,136,.35)' : 'rgba(0,255,136,0)';
+}
+
+// ── LED color ──────────────────────────────────────────────────
+const ledData = {r:{c:'#ff3333',v:'1.85 V'},g:{c:'#00cc44',v:'2.05 V'},b:{c:'#4488ff',v:'3.18 V'},w:{c:'#ccccff',v:'3.28 V'}};
+function ledColor(k) {
+  const d = ledData[k];
+  document.getElementById('led-mv').textContent = d.v;
+  document.getElementById('led-body').setAttribute('fill', d.c);
+  document.getElementById('led-bar').setAttribute('stroke', d.c);
+  ['lr1','lr2','lr3'].forEach(id => { document.getElementById(id).setAttribute('stroke',d.c); document.getElementById(id).style.opacity='0.9'; });
+}
+
+// ── LED resistor calculator ────────────────────────────────────
+function calcLedR() {
+  const vs = parseFloat(document.getElementById('led-v').value);
+  const vf = parseFloat(document.getElementById('led-vf').value);
+  const If = parseFloat(document.getElementById('led-if').value) / 1000;
+  document.getElementById('led-v-out').textContent = vs.toFixed(1) + 'V';
+  document.getElementById('led-vf-out').textContent = vf.toFixed(1) + 'V';
+  document.getElementById('led-if-out').textContent = (If*1000).toFixed(0) + 'mA';
+  const R = (vs - vf) / If;
+  const std = [10,12,15,18,22,27,33,39,47,56,68,82,100,120,150,180,220,270,330,390,470,560,680,820,1000,1200,1500,1800,2200,2700,3300];
+  const best = std.reduce((a,b) => Math.abs(b - R) < Math.abs(a - R) ? b : a);
+  document.getElementById('led-r-out').textContent = Math.round(R) + ' Ω → use ' + best + 'Ω (E12)';
+}
+
+// ── Fuse state ─────────────────────────────────────────────────
+function fuseState(good) {
+  const mv = document.getElementById('f-mv');
+  const wire = document.getElementById('f-wire');
+  const flow = document.getElementById('f-flow');
+  const x = document.getElementById('f-x');
+  const modetxt = document.getElementById('f-mode-txt');
+  if (good) {
+    mv.textContent = '0.2 Ω'; mv.style.color = '#00ff44';
+    wire.style.opacity = '1'; flow.style.opacity = '1';
+    x.style.fill = 'rgba(255,71,87,0)';
+    modetxt.textContent = 'CONTINUITY MODE — BEEP ♪';
+  } else {
+    mv.textContent = 'OL'; mv.style.color = '#ff4757';
+    wire.style.opacity = '0.15'; flow.style.opacity = '0';
+    x.style.fill = '#ff4757';
+    modetxt.textContent = 'CONTINUITY MODE — BLOWN (silent)';
+  }
+}
+
+// ── Switch state ───────────────────────────────────────────────
+function swState(closed) {
+  const arm = document.getElementById('sw-arm');
+  const mv = document.getElementById('sw-mv');
+  const mode = document.getElementById('sw-mode');
+  const flow = document.getElementById('sw-flow');
+  const lbl = document.getElementById('sw-lbl');
+  if (closed) {
+    arm.setAttribute('x2','215'); arm.setAttribute('y2','130');
+    mv.textContent = '0.1 Ω'; mv.style.color = '#00ff44';
+    mode.textContent = 'CONTINUITY — SWITCH CLOSED — BEEP ♪';
+    flow.style.opacity = '1';
+    lbl.textContent = 'CLOSED — continuity confirmed'; lbl.style.fill = '#00aa44';
+  } else {
+    arm.setAttribute('x2','210'); arm.setAttribute('y2','100');
+    mv.textContent = 'OL'; mv.style.color = '#ff4757';
+    mode.textContent = 'CONTINUITY — SWITCH OPEN';
+    flow.style.opacity = '0';
+    lbl.textContent = 'OPEN — no continuity'; lbl.style.fill = '#aa3333';
+  }
+}
+
+// ── VOLTMETER: mode switch ─────────────────────────────────────
+function vmMode(mode) {
+  document.getElementById('vm-dc-btn').className = 'pill' + (mode==='dc'?' on':'');
+  document.getElementById('vm-ac-btn').className = 'pill' + (mode==='ac'?' on':'');
+  document.getElementById('vm-ac-true-btn').className = 'pill' + (mode==='trms'?' on':'');
+  const disp = document.getElementById('vm-disp');
+  const unit = document.getElementById('vm-m-unit');
+  const lbl = document.getElementById('vm-m-label');
+  const modeDesc = document.getElementById('vm-mode-desc');
+  const acLbl = document.getElementById('vm-ac-lbl');
+  const wave = document.getElementById('vm-wave');
+  if (mode === 'dc') {
+    disp.textContent = '12.04'; disp.style.color = '#00ff44';
+    unit.textContent = 'V'; lbl.textContent = 'VOLTMETER — DC MODE';
+    document.getElementById('vm-m-mode').textContent = 'Auto-range  |  Red=+, Black=−  |  High impedance input';
+    modeDesc.innerHTML = '<b style="color:var(--text)">DC mode:</b> measures steady-state voltage polarity. Shows sign (+/−). Use for batteries, regulators, logic rails, sensor outputs.';
+    if (wave) { wave.style.opacity='0'; }
+    if (acLbl) acLbl.style.fill='rgba(255,179,71,0)';
+  } else if (mode === 'ac') {
+    disp.textContent = '230.1'; disp.style.color = '#ffb347';
+    unit.textContent = 'V'; lbl.textContent = 'VOLTMETER — AC MODE (RMS)';
+    document.getElementById('vm-m-mode').textContent = 'AC RMS  |  No polarity  |  Mains / signal measurement';
+    modeDesc.innerHTML = '<b style="color:var(--text)">AC mode:</b> displays RMS voltage of a sinusoidal AC signal. Correct for measuring mains power (50/60 Hz). Shows apparent RMS, calibrated for pure sine waves only.';
+    if (wave) { wave.style.opacity='1'; }
+    if (acLbl) acLbl.style.fill='rgba(255,179,71,0.7)';
+  } else {
+    disp.textContent = '231.6'; disp.style.color = '#ffb347';
+    unit.textContent = 'V'; lbl.textContent = 'VOLTMETER — TRUE RMS MODE';
+    document.getElementById('vm-m-mode').textContent = 'True RMS  |  Accurate for non-sinusoidal waveforms (PWM, clipped)';
+    modeDesc.innerHTML = '<b style="color:var(--text)">True RMS:</b> uses a hardware RMS converter to accurately measure any waveform shape — PWM, triangular, clipped sine. Essential for VFD motor drives, UPS inverters, switching supplies.';
+    if (wave) { wave.style.opacity='1'; }
+    if (acLbl) acLbl.style.fill='rgba(255,179,71,0.7)';
+  }
+}
+
+// ── VOLTMETER: range recommendation ───────────────────────────
+function vmRange(v) {
+  v = parseFloat(v);
+  document.getElementById('vm-range-out').textContent = v + ' V';
+  const ranges = [200,20,2,0.2,0.02];
+  const modeRanges = [[0.02,'20 mV DC'],[0.2,'200 mV DC'],[2,'2 V DC'],[20,'20 V DC'],[200,'200 V DC'],[1000,'1000 V DC']];
+  let rec = '1000 V DC';
+  for (const [lim, label] of modeRanges) { if (v <= lim * 1.2) { rec = label; break; } }
+  document.getElementById('vm-range-rec').textContent = rec;
+}
+
+// ── BUZZER: type toggle ────────────────────────────────────────
+function bzType(type) {
+  document.getElementById('bz-active-btn').className = 'pill' + (type==='active'?' on':'');
+  document.getElementById('bz-passive-btn').className = 'pill' + (type==='passive'?' on':'');
+  const desc = document.getElementById('bz-type-desc');
+  const mLabel = document.getElementById('bz-m-label');
+  const mMode = document.getElementById('bz-m-mode');
+  if (type === 'active') {
+    desc.innerHTML = '<b style="color:var(--text)">Active buzzer:</b> contains an internal oscillator. Apply rated DC voltage (typically 3–12V) and it immediately produces a fixed tone. Polarity matters — red/longer leg = +. Resistance: 16–100Ω.';
+    mLabel.textContent = 'DC VOLTAGE AT BUZZER TERMINALS';
+    mMode.textContent = 'Active buzzer — supply present — should emit tone';
+  } else {
+    desc.innerHTML = '<b style="color:var(--text)">Passive buzzer:</b> no internal oscillator. Requires an external PWM or AC signal to vibrate the membrane. Apply DC → silence. Apply 1–4 kHz square wave → produces tone at that frequency. Electromagnetic type: 8–32Ω. Piezo type: very high impedance (capacitive).';
+    mLabel.textContent = 'PWM SIGNAL AT BUZZER TERMINALS';
+    mMode.textContent = 'Passive buzzer — needs PWM signal to produce sound';
+  }
+  bzState(false); // reset state on type change
+}
+
+// ── BUZZER: voltage on/off state ───────────────────────────────
+function bzState(on) {
+  const disp = document.getElementById('bz-disp');
+  const flow = document.getElementById('bz-flow');
+  const glow = document.getElementById('bz-glow');
+  const w1 = document.getElementById('bz-wave1');
+  const w2 = document.getElementById('bz-wave2');
+  const w3 = document.getElementById('bz-wave3');
+  const status = document.getElementById('bz-status');
+  const isActive = document.getElementById('bz-active-btn').classList.contains('on');
+  if (on) {
+    disp.textContent = isActive ? '4.98' : '4.97';
+    disp.style.color = '#00ff44';
+    flow.style.opacity = '1';
+    glow.setAttribute('rx','55'); glow.setAttribute('ry','18');
+    glow.setAttribute('fill','rgba(0,212,255,0.12)');
+    const waveCol = isActive ? 'rgba(0,212,255,0.9)' : 'rgba(255,179,71,0.9)';
+    w1.style.stroke = waveCol; w2.style.stroke = waveCol; w3.style.stroke = waveCol;
+    status.innerHTML = 'Status: <span style="color:var(--ac)">' + (isActive ? '🔊 BUZZING — active oscillator running at ~3kHz' : '🔊 BUZZING — driven by external PWM signal') + '</span>';
+  } else {
+    disp.textContent = '0.00';
+    disp.style.color = '#3a6a3a';
+    flow.style.opacity = '0';
+    glow.setAttribute('rx','0'); glow.setAttribute('ry','0');
+    glow.setAttribute('fill','rgba(0,212,255,0)');
+    w1.style.stroke = 'rgba(0,212,255,0)'; w2.style.stroke = 'rgba(0,212,255,0)'; w3.style.stroke = 'rgba(0,212,255,0)';
+    status.innerHTML = 'Status: <span style="color:var(--t2)">No voltage applied — buzzer silent</span>';
+  }
+}
+
+// ── Init ────────────────────────────────────────────────────────
+calcR();
+calcLedR();
+// Resistor meter cycling
+let rVals = ['0.998','1.001','1.002','0.999','1.000']; let ri = 0;
+setInterval(() => {
+  const el = document.getElementById('r-disp');
+  if (el) { el.textContent = rVals[ri % rVals.length]; ri++; }
+}, 800);
+
+// Day / Night theme
+function setTheme(mode){const isDay=mode==='day';document.body.classList.toggle('day',isDay);document.body.classList.toggle('night',!isDay);document.querySelector('.theme-btn.day')?.classList.toggle('active',isDay);document.querySelector('.theme-btn.night')?.classList.toggle('active',!isDay);try{localStorage.setItem('circuitCheckerTheme',mode)}catch(e){}}
+(function(){let m='night';try{m=localStorage.getItem('circuitCheckerTheme')||'night'}catch(e){}setTheme(m)})();
+</script>
+</body>
+</html>

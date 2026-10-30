@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XRF·Analyzer — Spectrum → Element Identification</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#05070a;
+    --panel:#0d131b;
+    --panel-2:#111925;
+    --line:#1c2732;
+    --line-soft:#151e28;
+    --text:#e7edf3;
+    --text-dim:#7c8a99;
+    --text-faint:#4d5a68;
+    --amber:#ffb454;
+    --amber-dim:#7a5b30;
+    --copper:#ff8a3d;
+    --cyan:#5ec8d8;
+    --violet:#c792ea;
+    --mint:#7fd88f;
+    --rose:#f07178;
+    --gold:#e8c56b;
+    --good:#7fd88f;
+    --warn:#e8c56b;
+    --danger:#f07178;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #0c1420 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #0a1118 0%, transparent 55%),
+      var(--void);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .chassis{max-width:1240px;margin:0 auto;}
+
+  /* ---- header ---- */
+  .instrument-header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:1px solid var(--line);
+    padding-bottom:16px;margin-bottom:0px;
+    flex-wrap:wrap;gap:14px;
+  }
+  .brand-block .eyebrow{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;
+    color:var(--amber);text-transform:uppercase;margin-bottom:6px;
+  }
+  .brand-block h1{
+    font-size:26px;margin:0;font-weight:800;letter-spacing:-.01em;
+    color:var(--text);
+  }
+  .brand-block h1 span{color:var(--text-dim);font-weight:600;}
+  .brand-block p{margin:6px 0 0;color:var(--text-dim);font-size:13px;max-width:560px;line-height:1.5;}
+  .status-strip{display:flex;gap:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);}
+  .status-strip .dot-row{display:flex;align-items:center;gap:6px;}
+  .led{width:7px;height:7px;border-radius:50%;background:var(--text-faint);box-shadow:none;}
+  .led.on{background:var(--mint);box-shadow:0 0 8px 1px rgba(127,216,143,.6);}
+  .led.amber{background:var(--amber);box-shadow:0 0 8px 1px rgba(255,180,84,.6);}
+
+  /* ---- tab nav ---- */
+  .tab-nav{
+    display:flex;gap:2px;margin:0 0 20px;border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    background:transparent;border:none;color:var(--text-faint);padding:11px 18px;cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s ease;
+  }
+  .tab-btn:hover{color:var(--text-dim);}
+  .tab-btn.active{color:var(--amber);border-bottom-color:var(--amber);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* ---- layout ---- */
+  .deck{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start;}
+  @media (max-width:880px){.deck{grid-template-columns:1fr;}}
+
+  .card{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;
+  }
+  .card + .card{margin-top:16px;}
+  .card-title{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--text-dim);margin:0 0 14px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .card-title .tag{color:var(--text-faint);font-weight:400;letter-spacing:.04em;text-transform:none;}
+
+  /* ---- controls ---- */
+  .btn{
+    width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--line);
+    background:var(--panel-2);color:var(--text);font-family:'Inter',sans-serif;font-weight:600;
+    font-size:13px;cursor:pointer;transition:.15s ease;text-align:left;
+  }
+  .btn:hover{border-color:var(--amber-dim);background:#161f2a;}
+  .btn.primary{
+    background:linear-gradient(180deg,#3a2a15,#241a0c);border-color:var(--amber-dim);color:var(--amber);
+  }
+  .btn.primary:hover{border-color:var(--amber);}
+  .btn.small{width:auto;padding:7px 12px;font-size:12px;display:inline-block;}
+  .btn-row{display:flex;flex-direction:column;gap:8px;}
+  input[type=file]{display:none;}
+  .file-hint{font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.5;}
+  .file-hint code{color:var(--text-dim);background:var(--void);padding:1px 4px;border-radius:2px;}
+
+  .field{margin-top:16px;}
+  .field label{
+    display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:6px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .field label b{color:var(--text);font-weight:600;}
+  input[type=range]{
+    width:100%;accent-color:var(--amber);height:4px;
+  }
+  select, input[type=number]{
+    background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);
+    padding:7px 8px;font-family:'IBM Plex Mono',monospace;font-size:12px;width:100%;
+  }
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .checkline{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;margin-top:10px;}
+  .checkline input{accent-color:var(--amber);}
+  .source-meta{
+    margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);line-height:1.9;
+  }
+  .source-meta span{color:var(--text);}
+
+  /* ---- spectrum panel ---- */
+  .spectrum-card{padding:18px 18px 6px;}
+  #spectrumPlot{width:100%;height:420px;}
+  .plot-toolbar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding-bottom:14px;margin-bottom:14px;
+    border-bottom:1px dashed var(--line);
+  }
+  .plot-toolbar .mini-field{min-width:110px;}
+  .plot-toolbar .mini-field label{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--text-faint);margin-bottom:4px;display:block;
+  }
+  .plot-legend-note{
+    display:flex;gap:18px;flex-wrap:wrap;padding:10px 4px 14px;
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-faint);
+  }
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:6px;vertical-align:middle;}
+
+  /* ---- results row ---- */
+  .results-row{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-top:16px;}
+  @media (max-width:880px){.results-row{grid-template-columns:1fr;}}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{
+    text-align:left;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--text-faint);font-weight:500;
+    padding:6px 8px;border-bottom:1px solid var(--line);
+  }
+  td{padding:8px 8px;border-bottom:1px solid var(--line-soft);font-family:'IBM Plex Mono',monospace;color:var(--text);}
+  tr:last-child td{border-bottom:none;}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover td{background:rgba(255,180,84,.05);}
+  .el-chip{
+    display:inline-flex;align-items:center;gap:6px;font-weight:700;
+  }
+  .el-dot{width:8px;height:8px;border-radius:50%;}
+  .conf{
+    font-size:10px;padding:2px 6px;border-radius:10px;font-family:'Inter',sans-serif;font-weight:700;
+    letter-spacing:.02em;
+  }
+  .conf.high{background:rgba(127,216,143,.14);color:var(--mint);}
+  .conf.med{background:rgba(232,197,107,.14);color:var(--gold);}
+  .conf.low{background:rgba(240,113,120,.14);color:var(--rose);}
+  .muted{color:var(--text-faint);}
+  .empty-note{color:var(--text-faint);font-size:12.5px;padding:14px 4px;font-family:'Inter',sans-serif;}
+
+  #compChart{width:100%;height:210px;}
+
+  /* ---- zeff card ---- */
+  .zeff-row{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:center;}
+  @media (max-width:700px){.zeff-row{grid-template-columns:1fr;}}
+  .zeff-readout{
+    text-align:center;padding:18px 10px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--void);
+  }
+  .zeff-readout .num{
+    font-family:'IBM Plex Mono',monospace;font-size:42px;font-weight:700;color:var(--amber);
+    line-height:1;
+  }
+  .zeff-readout .lbl{font-size:11px;color:var(--text-dim);margin-top:8px;font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;}
+  .formula-box{
+    font-size:13px;color:var(--text-dim);line-height:1.7;
+  }
+  .formula-box .katex-display{margin:10px 0;}
+
+  /* ---- pipeline card ---- */
+  .pipeline-scroll{overflow-x:auto;}
+  .pipeline-scroll table{min-width:760px;}
+  .arrow-col{color:var(--text-faint);text-align:center;font-size:11px;}
+
+  /* ---- notes ---- */
+  .notes-card p{font-size:12.5px;color:var(--text-dim);line-height:1.75;margin:0 0 10px;}
+  .notes-card p:last-child{margin-bottom:0;}
+  .notes-card b{color:var(--text);}
+
+  /* ---- theory / manual content ---- */
+  .doc-grid{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;}
+  @media (max-width:880px){.doc-grid{grid-template-columns:1fr;}}
+  .toc{position:sticky;top:20px;}
+  .toc .card-title{margin-bottom:10px;}
+  .toc a{
+    display:block;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-dim);
+    text-decoration:none;padding:6px 0;border-left:2px solid var(--line);padding-left:10px;
+  }
+  .toc a:hover{color:var(--amber);border-left-color:var(--amber-dim);}
+  .doc-section{margin-bottom:26px;}
+  .doc-section h2{
+    font-size:15px;font-weight:700;color:var(--text);margin:0 0 4px;
+    font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;
+  }
+  .doc-section .eyebrow-num{color:var(--amber);margin-right:8px;}
+  .doc-section p{font-size:13px;color:var(--text-dim);line-height:1.8;margin:10px 0;}
+  .doc-section p b{color:var(--text);}
+  .doc-section ul, .doc-section ol{font-size:13px;color:var(--text-dim);line-height:1.85;padding-left:20px;margin:10px 0;}
+  .doc-section li b{color:var(--text);}
+  .formula-block{
+    background:var(--void);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;margin:14px 0;overflow-x:auto;
+  }
+  .callout{
+    border-left:3px solid var(--amber-dim);background:rgba(255,180,84,.05);
+    padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0;font-size:12.5px;color:var(--text-dim);
+    line-height:1.7;margin:14px 0;
+  }
+  .callout b{color:var(--amber);}
+  .step-num{
+    display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+    border-radius:50%;background:var(--panel-2);border:1px solid var(--line);color:var(--amber);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;margin-right:8px;flex-shrink:0;
+  }
+  .manual-step{display:flex;gap:4px;margin:12px 0;}
+  .manual-step .body{flex:1;}
+  .manual-step .body b{color:var(--text);display:block;font-size:13px;margin-bottom:2px;}
+  .manual-step .body p{margin:2px 0 0;}
+  kbd{
+    font-family:'IBM Plex Mono',monospace;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:3px;padding:1px 5px;font-size:11px;color:var(--text);
+  }
+
+  footer{
+    margin-top:22px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--text-faint);font-family:'IBM Plex Mono',monospace;
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  }
+  footer a{color:var(--text-dim);}
+
+  /* ---- batch tab ---- */
+  .batch-file-row{
+    display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;
+  }
+  .batch-file-row:last-child{border-bottom:none;}
+  .batch-file-row .fname{flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .batch-file-row .fstatus{color:var(--text-faint);font-size:11px;}
+  .batch-file-row .fremove{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;}
+  .batch-dropzone{
+    border:1px dashed var(--line);border-radius:var(--radius);padding:22px 14px;text-align:center;
+    color:var(--text-faint);font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;
+    transition:.15s ease;
+  }
+  .batch-dropzone:hover{border-color:var(--amber-dim);color:var(--text-dim);}
+  .batch-dropzone.drag{border-color:var(--amber);color:var(--amber);background:rgba(255,180,84,.04);}
+  .match-bar-track{
+    width:100%;height:6px;border-radius:3px;background:var(--void);border:1px solid var(--line);overflow:hidden;
+  }
+  .match-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--amber-dim),var(--amber));}
+  .match-row{padding:10px 0;border-bottom:1px solid var(--line-soft);}
+  .match-row:last-child{border-bottom:none;}
+  .match-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  .match-row-top .mname{color:var(--text);font-weight:600;}
+  .match-row-top .mscore{color:var(--amber);}
+  .match-detail{font-size:11px;color:var(--text-faint);margin-top:5px;font-family:'IBM Plex Mono',monospace;}
+</style>
+</head>
+<body>
+<div class="chassis">
+
+  <div class="instrument-header">
+    <div class="brand-block">
+      <div class="eyebrow">Energy-Dispersive XRF · Analysis Module</div>
+      <h1>XRF·ANALYZER <span>/ spectrum → element ID</span></h1>
+      <p>Load a spectrum, detect peaks, match characteristic X-ray lines against a reference library, and estimate elemental composition and effective atomic number.</p>
+    </div>
+    <div class="status-strip">
+      <div class="dot-row"><span class="led on" id="ledData"></span>DATA</div>
+      <div class="dot-row"><span class="led" id="ledPeaks"></span>PEAKS</div>
+      <div class="dot-row"><span class="led amber" id="ledMatch"></span>MATCH</div>
+    </div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="tabAnalyzer">Analyzer</button>
+    <button class="tab-btn" data-tab="tabBatch">Batch</button>
+    <button class="tab-btn" data-tab="tabCalibration">Calibration</button>
+    <button class="tab-btn" data-tab="tabTheory">Theory</button>
+    <button class="tab-btn" data-tab="tabManual">User manual</button>
+  </div>
+
+  <!-- ================= ANALYZER TAB ================= -->
+  <div class="tab-panel active" id="tabAnalyzer">
+  <div class="deck">
+    <!-- ============ CONTROL DECK ============ -->
+    <div>
+      <div class="card">
+        <div class="card-title">Spectrum Source</div>
+        <div class="field" style="margin-top:0;">
+          <label>Demo sample <b id="demoMaterialTag"></b></label>
+          <select id="demoMaterialSelect"></select>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn primary" id="btnDemo">▶ Load demo spectrum</button>
+          <button class="btn" id="btnUpload">↑ Upload spectrum file</button>
+          <input type="file" id="fileInput" accept=".csv,.txt,.mca">
+        </div>
+        <div class="file-hint" id="fileHint">Demo spectra are drawn from a built-in database of synthetic material profiles (see dropdown above), generated from the same reference X-ray line database used for identification — not measured data. Accepts uploads as: energy+counts CSV, raw channel+counts CSV (set calibration below), or an Amptek-style <code>.mca</code> file — calibration is read automatically if present in the file.</div>
+
+        <div class="field">
+          <label>Uploaded data is</label>
+          <select id="dataFormat">
+            <option value="energy">Energy (keV) + counts</option>
+            <option value="channel">Channel # + counts (needs calibration)</option>
+          </select>
+        </div>
+        <div class="field" id="calibFields" style="display:none;">
+          <label>Gain <b id="gainVal">14.0 eV/ch</b></label>
+          <input type="range" id="gainSlider" min="1" max="50" step="0.5" value="14">
+          <label style="margin-top:10px;">Offset <b id="offsetVal">0.000 keV</b></label>
+          <input type="range" id="offsetSlider" min="-1" max="1" step="0.005" value="0">
+          <div class="file-hint">E (keV) = offset + gain × channel / 1000. Defaults match a typical Amptek X-123 (~14 eV/ch). A file's own <code>&lt;&lt;CALIBRATION&gt;&gt;</code> block overrides these.</div>
+        </div>
+
+        <div class="field">
+          <label>Peak sensitivity <b id="threshVal">2.5%</b></label>
+          <input type="range" id="threshSlider" min="0.5" max="8" step="0.1" value="2.5">
+        </div>
+        <div class="field">
+          <label>Line match tolerance <b id="tolVal">±50 eV</b></label>
+          <input type="range" id="tolSlider" min="20" max="150" step="5" value="50">
+        </div>
+
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="btn primary" id="btnAnalyze">⚙ Run analysis</button>
+          <button class="btn" id="btnExport">⬇ Export results (.csv)</button>
+        </div>
+
+        <div class="source-meta" id="sourceMeta">
+          points: <span>—</span><br>
+          range: <span>—</span><br>
+          peaks found: <span>—</span>
+        </div>
+      </div>
+
+      <div class="card notes-card">
+        <div class="card-title">Method notes</div>
+        <p><b>Peak matching</b> compares each detected peak to the nearest tabulated Kα1 / Kβ1 / Lα1 line within the tolerance window; it does not resolve overlapping lines from different elements. Reference energies are experimental values from <a href="https://physics.nist.gov/PhysRefData/XrayTrans" target="_blank" style="color:var(--amber);">NIST SRD-128</a> (Deslattes et al., <i>Rev. Mod. Phys.</i> 75, 35 (2003)).</p>
+        <p><b>FWHM finder</b> — each peak's width is measured directly from its half-max crossing points rather than assumed; the integration window sizes itself to the peak actually observed. If a clean crossing isn't found (peak at the edge of the loaded range, or an unresolved neighbor), it falls back to a generic detector-resolution curve — see the <b>meas</b> / <b>calc</b> tag in the peak table's FWHM column.</p>
+        <p><b>Escape peaks</b> — an unidentified peak sitting ~1.740 keV below a confirmed K line (the Si Kα energy) is flagged as a likely Si detector escape peak of that element, not a separate species, and is excluded from composition.</p>
+        <p><b>Kβ cross-check</b> — every Kα1-identified element is checked for its expected Kβ1 line at the tabulated energy and roughly the expected intensity ratio; mismatches are flagged as a possible overlap or misidentification.</p>
+        <p><b>Composition</b> is a semi-quantitative estimate from net peak area scaled by an approximate K/L-shell fluorescence yield — there is no fundamental-parameters or self-absorption / matrix correction, so treat fractions as relative order-of-magnitude, not a calibrated assay. Error bars are a √N counting-statistics estimate, not a full uncertainty budget. Fit per-element sensitivity factors from known reference standards in the <b>Calibration</b> tab to replace this estimate with a standard-referenced one.</p>
+        <p><b>Z<sub>eff</sub></b> follows the electron-fraction exponent model, defaulting to <i>m</i> = 2.94 (the commonly used value for photoelectric-dominated attenuation) — adjustable in the Zeff card if you need to match a different published exponent or energy regime.</p>
+        <p><b>Confidence-weighted normalization</b> (optional, off by default) scales each identified element's contribution to the relative composition estimate by how tightly its line matched the reference energy — a peak near the edge of your tolerance window counts for less than one sitting right on the tabulated value. It never affects <b>calib.</b> rows, since those sensitivity factors were fit against the unweighted estimate.</p>
+        <p><b>Material match</b> scores the identified composition against a library of known material profiles (the same synthetic demo materials, plus any Calibration-tab standards with a fitted result) by comparing normalized element fractions — a coarse fingerprint match, not a certified material ID. See the card below the composition chart.</p>
+        <p>See the <b>Theory</b> tab for the full derivation and the <b>User manual</b> tab for a step-by-step walkthrough.</p>
+      </div>
+    </div>
+
+    <!-- ============ MAIN PANEL ============ -->
+    <div>
+      <div class="card spectrum-card">
+        <div class="card-title">Spectrum <span class="tag" id="specTag">no data loaded</span></div>
+
+        <div class="plot-toolbar">
+          <div class="mini-field" style="min-width:90px;">
+            <label>E min (keV)</label>
+            <input type="number" id="xMinInput" step="0.1">
+          </div>
+          <div class="mini-field" style="min-width:90px;">
+            <label>E max (keV)</label>
+            <input type="number" id="xMaxInput" step="0.1">
+          </div>
+          <div class="mini-field">
+            <label>Magnitude (Y axis)</label>
+            <select id="yScaleSelect">
+              <option value="linear">Linear counts</option>
+              <option value="log">Log counts</option>
+            </select>
+          </div>
+          <button class="btn small" id="btnResetView">↺ Reset view</button>
+          <label class="checkline"><input type="checkbox" id="chkBaseline"> show baseline</label>
+          <label class="checkline"><input type="checkbox" id="chkShade" checked> shade net peak areas</label>
+        </div>
+
+        <div id="spectrumPlot"></div>
+        <div class="plot-legend-note" id="plotLegend"></div>
+      </div>
+
+      <div class="results-row">
+        <div class="card">
+          <div class="card-title">Peak → Element Table <span class="tag" id="peakCountTag"></span></div>
+          <div id="peakTableWrap">
+            <div class="empty-note">Run analysis to populate identified peaks.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Relative Composition <span class="tag">mass fraction, est.</span></div>
+          <label class="checkline" style="margin-top:0;margin-bottom:10px;"><input type="checkbox" id="chkConfWeight"> confidence-weighted normalization</label>
+          <div id="compChart"></div>
+          <div id="compTableWrap"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Material Match <span class="tag" id="matchCountTag">closest known profiles</span></div>
+        <div id="materialMatchWrap">
+          <div class="empty-note">Run analysis to compare the identified composition against known material profiles.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Calculation Pipeline <span class="tag">area → ω(Z) → w → mass % → Zeff</span></div>
+        <div class="pipeline-scroll" id="pipelineWrap">
+          <div class="empty-note">Run analysis to see the step-by-step composition and Z<sub>eff</sub> calculation.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Effective Atomic Number <span class="tag" id="zeffMTag">m = 2.94</span></div>
+        <div class="zeff-row">
+          <div class="zeff-readout">
+            <div class="num" id="zeffNum">—</div>
+            <div class="lbl">Z<sub>eff</sub></div>
+          </div>
+          <div class="formula-box">
+            <div id="zeffFormula"></div>
+            <div id="zeffContribNote" class="muted" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">Composition-weighted, using electron-fraction contributions <i>f</i><sub>i</sub> of each identified element.</div>
+            <div class="field" style="margin-top:14px;max-width:260px;">
+              <label>Exponent <b>m</b> <span class="muted" style="font-weight:400;">(2.5–4.5)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input type="number" id="zeffMInput" value="2.94" step="0.01" min="2.5" max="4.5" style="width:100%;">
+                <button class="btn small" id="btnZeffMReset" title="Reset to the standard photoelectric-regime value">↺ 2.94</button>
+              </div>
+              <div class="file-hint" style="margin-top:6px;">2.94 is the commonly used fit for photoelectric-dominated attenuation in the XRF energy range (see Theory §6). Adjust only if you have a reason to — e.g. matching a published value for a different energy regime or interaction type.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <span>XRF·Analyzer — reference-line matching is educational/estimative, not a certified assay method.</span>
+        <span>Companion to material-characterization workflows (e.g. verifying elemental content of 3D-printed metal/composite parts).</span>
+      </footer>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= BATCH TAB ================= -->
+  <div class="tab-panel" id="tabBatch">
+  <div class="deck">
+    <div>
+      <div class="card">
+        <div class="card-title">Batch Input</div>
+        <div class="batch-dropzone" id="batchDropzone">
+          drop spectrum files here, or click to browse<br>
+          <span class="muted" style="font-size:10.5px;">.csv / .txt / .mca — any number of files</span>
+        </div>
+        <input type="file" id="batchFileInput" accept=".csv,.txt,.mca" multiple style="display:none;">
+        <div class="file-hint" style="margin-top:10px;">Every file runs through the Analyzer tab's current peak sensitivity, line match tolerance, and calibration/gain-offset settings — set those first, then load a batch. Files use the "Uploaded data is" format currently selected in the Analyzer tab.</div>
+        <div class="btn-row" style="margin-top:14px;">
+          <button class="btn primary" id="btnRunBatch">⚙ Run batch analysis</button>
+          <button class="btn" id="btnExportBatch">⬇ Export batch summary (.csv)</button>
+          <button class="btn" id="btnClearBatch">✕ Clear all</button>
+        </div>
+      </div>
+      <div class="card notes-card">
+        <div class="card-title">Notes</div>
+        <p>Each file is processed independently through the same pipeline as the Analyzer tab: baseline, peak detection, element matching, escape/Kβ flags, composition, Z<sub>eff</sub>, and — if a standard's known composition matches a loaded file — a material-match score.</p>
+        <p>Loading a batch does not change what's shown in the Analyzer tab; click a row in the results table to load that file into the Analyzer for a closer look.</p>
+        <p>Composition and Z<sub>eff</sub> use whichever Calibration-tab factors are currently active, same as the Analyzer.</p>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Loaded Files <span class="tag" id="batchFileCountTag">0 files</span></div>
+        <div id="batchFileListWrap"><div class="empty-note">No files loaded yet.</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Batch Results <span class="tag" id="batchResultCountTag"></span></div>
+        <div id="batchResultsWrap"><div class="empty-note">Load files and run batch analysis.</div></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= CALIBRATION TAB ================= -->
+  <div class="tab-panel" id="tabCalibration">
+  <div class="deck">
+    <div>
+      <div class="card">
+        <div class="card-title">Calibration Mode</div>
+        <p class="file-hint" style="margin-bottom:12px;line-height:1.6;">Load spectra of 2–3 certified or well-characterized reference materials, enter their known composition, and fit a per-element sensitivity factor <code>k</code> (mass % = k × w<sub>i</sub>, where w<sub>i</sub> = net area / ω(Z)). This replaces the relative, yield-only estimate with a standard-referenced one for any element the standards cover.</p>
+        <label class="checkline"><input type="checkbox" id="chkCalibActive"> use calibration factors in Analyzer</label>
+        <div class="file-hint" id="calibStatusHint" style="margin-top:10px;">No calibration fitted yet.</div>
+      </div>
+      <div class="card notes-card">
+        <div class="card-title">Notes</div>
+        <p>Detection uses the Analyzer tab's current <b>peak sensitivity</b> and <b>line match tolerance</b> settings — set those first, then come back and fit.</p>
+        <p>The fit is a simple least-squares line through the origin per element (no intercept, no matrix correction): a linear "FP-lite" sensitivity curve, not a full fundamental-parameters model. It works best when standards span a composition range similar to your unknowns.</p>
+        <p>Elements without a fitted factor still fall back to the relative yield-normalized estimate in the Analyzer tab; the composition table there flags each row <b>calib.</b> or <b>est.</b> accordingly.</p>
+        <p>Reference standards with a known composition also feed the Analyzer's <b>Material Match</b> card as user-defined profiles, alongside the built-in demo materials.</p>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Reference Standards <span class="tag" id="calibStdCountTag">0 added</span></div>
+        <div id="calibStandardsList"></div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" id="btnAddStandard">+ Add reference standard</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Fit &amp; Results <span class="tag">per-element sensitivity factors</span></div>
+        <div class="btn-row" style="margin-bottom:14px;">
+          <button class="btn primary" id="btnFitCalibration">⚙ Fit calibration</button>
+        </div>
+        <div id="calibResultsWrap"><div class="empty-note">Add standards with known composition and loaded spectra, then fit.</div></div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- ================= THEORY TAB ================= -->
+  <div class="tab-panel" id="tabTheory">
+    <div class="doc-grid">
+      <div class="toc card">
+        <div class="card-title">On this page</div>
+        <a href="#th-1">1 · Why atoms emit X-rays</a>
+        <a href="#th-2">2 · Moseley's law</a>
+        <a href="#th-3">3 · Peaks → net area</a>
+        <a href="#th-4">4 · Area → mass fraction</a>
+        <a href="#th-5">5 · Fluorescence yield</a>
+        <a href="#th-6">6 · Effective atomic number</a>
+        <a href="#th-7">7 · Where the model breaks</a>
+      </div>
+      <div>
+        <div class="card">
+          <div class="doc-section" id="th-1">
+            <h2><span class="eyebrow-num">01</span>Why atoms emit characteristic X-rays</h2>
+            <p>When an incident photon (from an X-ray tube or radioisotope source) or electron has enough energy to eject an inner-shell electron — typically K or L shell — the atom is left in an excited, ionized state. An electron from a higher shell falls into the vacancy, and the energy difference between the two shells is released either as a photon (<b>fluorescence</b>) or transferred to another electron which is ejected instead (the competing <b>Auger effect</b>).</p>
+            <p>Because inner-shell binding energies are set by the nuclear charge and are only weakly perturbed by chemical bonding, the emitted photon energy is essentially a fingerprint of the element — this is what makes XRF an elemental identification technique rather than a molecular one.</p>
+          </div>
+
+          <div class="doc-section" id="th-2">
+            <h2><span class="eyebrow-num">02</span>Moseley's law</h2>
+            <p>The energy of the Kα line scales approximately with the square of atomic number, a relationship first established empirically by Henry Moseley in 1913:</p>
+            <div class="formula-block" id="thFormula1"></div>
+            <p>where <i>R</i>·h is the Rydberg energy (13.6 eV) and <i>σ</i> is a screening constant (≈1 for Kα). This is why heavier elements produce higher-energy characteristic lines, and why a single detector spanning a few keV to a few tens of keV can cover most of the periodic table from Na to U using K lines for light/mid-Z elements and L lines for the heaviest ones.</p>
+          </div>
+
+          <div class="doc-section" id="th-3">
+            <h2><span class="eyebrow-num">03</span>From a spectrum to a peak's net area</h2>
+            <p>A raw spectrum is a histogram of detected photon counts per energy (or channel) bin, sitting on top of a smoothly varying background — mostly bremsstrahlung continuum from the excitation source, plus scatter. Before a peak's intensity means anything, that background has to be estimated and subtracted.</p>
+            <p>This tool estimates a local baseline <i>B(E)</i> using a rolling-minimum filter (the lowest count value in a window around each point), then integrates the background-subtracted signal across a window of ±1.8× the peak's FWHM around its centroid:</p>
+            <div class="formula-block" id="thFormula2"></div>
+            <p>The FWHM Γ itself is measured directly from each peak — walking outward from the centroid until the net signal crosses half its net height on both sides, and linearly interpolating the exact crossing energy. This adapts the integration window to the peak actually observed (broader for a detector-resolution-limited peak sitting on more noise, narrower for a clean high-statistics one) rather than assuming every peak matches a generic curve. When a clean crossing isn't found on both sides — the peak sits at the edge of the loaded range, or a neighboring peak's shoulder keeps the signal above half-max before the true edge — the tool falls back to a generic Si-drift-detector resolution model, ω(E) = 45 + 55·√(E/5.9) eV. The peak table's FWHM column marks each value <b>meas</b> or <b>calc</b> accordingly.</p>
+            <p>The shaded regions in the Analyzer's spectrum plot are exactly this integral, visualized.</p>
+          </div>
+
+          <div class="doc-section" id="th-4">
+            <h2><span class="eyebrow-num">04</span>From net area to mass fraction</h2>
+            <p>Net peak area is proportional to the number of characteristic photons a detector recorded — but that number depends on far more than how much of the element is present. It also depends on the fluorescence yield, the incident spectrum's intensity at the absorption edge, self-absorption of both the exciting radiation and the emitted line within the sample, detector efficiency at that energy, and geometry. A rigorous treatment (the <b>Sherman equation</b>, the basis of fundamental-parameters XRF software) accounts for all of these self-consistently, iterating over an assumed composition until predicted and measured intensities match.</p>
+            <p>This tool implements a deliberately simplified version: it corrects only for fluorescence yield, which is the single largest Z-dependent factor, and assumes everything else is roughly comparable across elements in the sample. For element <i>i</i> with tabulated fluorescence yield ω<sub>i</sub> and net line area A<sub>i</sub>:</p>
+            <div class="formula-block" id="thFormula3"></div>
+            <p>the un-normalized weight is then renormalized across all identified elements to give a mass-fraction percentage. Optionally, <b>confidence-weighted normalization</b> (a checkbox above the composition chart, off by default) first scales each element's un-normalized weight by a factor that decays with how far its matched peak sat from the tabulated line, relative to the tolerance window in use — a soft, monotonic penalty floored at 0.3× so a borderline-but-accepted match still contributes, not a rigorous likelihood treatment. It only touches the relative estimate; elements with a fitted Calibration-tab factor are never reweighted this way, since <i>k</i> was fit against the unweighted quantity.</p>
+            <div class="callout"><b>What this ignores:</b> absorption-edge jump ratios, matrix self-absorption (a Fe-rich matrix absorbs a Si Kα photon far more strongly than its own Fe Kα), the shape of the exciting spectrum, and detector efficiency. Expect correct <i>ordering</i> of major vs. trace elements, not calibrated percentages.</div>
+            <p><b>Error bars</b> on the composition chart come from Poisson counting statistics: each net peak area's uncertainty is estimated as √N from the raw (gross, background-included) counts summed over the integration window, then carried through ω(Z) or the calibration factor <i>k</i> to a mass-fraction σ. This uses only the dominant, peak-specific term — it does not propagate baseline-fit uncertainty or the covariance introduced by normalizing across elements, so treat the bars as a lower bound on the true uncertainty, not a complete error budget.</p>
+          </div>
+
+          <div class="doc-section" id="th-5">
+            <h2><span class="eyebrow-num">05</span>Fluorescence yield ω(Z)</h2>
+            <p>Not every inner-shell vacancy produces a photon — for light elements, the competing Auger effect dominates, so ω is small; for heavy elements, radiative decay dominates and ω approaches 1. This tool uses the empirical Bambynek-type approximation:</p>
+            <div class="formula-block" id="thFormula4"></div>
+            <p>The K-shell form is used for Kα/Kβ line matches, the (cruder) L-shell form for Lα/Lβ matches. Both are smooth fits to tabulated experimental yields, not first-principles results.</p>
+          </div>
+
+          <div class="doc-section" id="th-6">
+            <h2><span class="eyebrow-num">06</span>Effective atomic number Z<sub>eff</sub></h2>
+            <p>For a mixture or compound, there's no single "atomic number" — but for photon interactions dominated by the photoelectric effect (whose cross-section scales roughly as Z<sup>4–5</sup>), it's useful to define a single effective Z that a pure element would need to have to produce the same attenuation. The standard exponent model first weights each constituent by its share of the compound's total electron count, not its mass share, since photoelectric attenuation scales with electron density:</p>
+            <div class="formula-block" id="thFormula5"></div>
+            <p>then combines them as:</p>
+            <div class="formula-block" id="thFormula6"></div>
+            <p>The exponent <i>m</i> defaults to 2.94, the commonly cited average fit for this regime; it's meaningful only where photoelectric absorption dominates over Compton scattering — roughly the energy range XRF itself operates in, not MeV-scale gamma transport. The Zeff card's exponent field lets you override it (2.5–4.5) if you're working from a different published fit or energy range — the tool doesn't validate which value is "correct" for your case, so treat any non-default <i>m</i> as your own judgment call, not a built-in recommendation.</p>
+          </div>
+
+          <div class="doc-section" id="th-7">
+            <h2><span class="eyebrow-num">07</span>Where the model breaks down</h2>
+            <ul>
+              <li><b>Overlapping lines:</b> if two elements' lines fall within the tolerance window of each other (e.g. Ba Lα and Ti Kα both sit near 4.5 keV), the matcher picks the closer one and silently ignores the possibility of an overlap.</li>
+              <li><b>No matrix correction:</b> composition estimates from this tool should be read as "roughly this element is present, roughly this much more than that one" — not as calibrated assay values.</li>
+              <li><b>Detector resolution model is generic:</b> the FWHM-vs-energy curve used for peak windowing is a reasonable Si-drift-detector approximation, not your specific instrument's measured resolution.</li>
+              <li><b>Fluorescence yield formulas are smooth empirical fits</b>, not tabulated per-element values — accurate to maybe 10–20% for most elements, worse near shell-structure irregularities.</li>
+              <li><b>Reference line energies</b> are experimental values from NIST SRD-128 where a direct or combined measurement exists; a handful of light-element Kα1/Kα2 pairs are NIST-reported only as an unresolved KL2,3 blend and are stored here as a single Kα1 entry.</li>
+              <li><b>Escape/Kβ heuristics are approximate:</b> the Si-escape flag uses a fixed 1.740 keV shift and the Kβ cross-check uses a single representative Kβ/Kα ratio (~0.13) with a wide tolerance band — both are meant to catch gross misidentifications, not to be quantitatively precise across all Z.</li>
+              <li><b>Material match is a coarse fingerprint,</b> not a certified ID: it compares normalized element fractions against a small built-in/user library using cosine similarity, with no consideration of trace-element specifications, heat-treatment, or alloy grade boundaries.</li>
+            </ul>
+            <p>For research-grade quantification, the right next step is a fundamental-parameters package (e.g. the Sherman-equation-based tools bundled with most commercial XRF instruments) calibrated against certified reference materials.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MANUAL TAB ================= -->
+  <div class="tab-panel" id="tabManual">
+    <div class="doc-grid">
+      <div class="toc card">
+        <div class="card-title">On this page</div>
+        <a href="#m-1">1 · Loading a spectrum</a>
+        <a href="#m-2">2 · Calibration (channel data)</a>
+        <a href="#m-3">3 · Detection settings</a>
+        <a href="#m-4">4 · Reading the plot</a>
+        <a href="#m-5">5 · Reading the tables</a>
+        <a href="#m-6">6 · Calibration mode</a>
+        <a href="#m-7">7 · Exporting results</a>
+        <a href="#m-8">8 · Batch mode</a>
+        <a href="#m-9">9 · Material match</a>
+        <a href="#m-10">10 · Troubleshooting</a>
+      </div>
+      <div>
+        <div class="card">
+          <div class="doc-section" id="m-1">
+            <h2><span class="eyebrow-num">01</span>Loading a spectrum</h2>
+            <div class="manual-step"><span class="step-num">1</span><div class="body"><b>Try the demo first.</b><p>Pick a sample from the <kbd>Demo sample</kbd> dropdown — a built-in database of synthetic material profiles (stainless steel, brass, bronze, gold-plated jewelry, solder, soil, and the original Si/S/Ar/Fe/Cu reference) — then click <kbd>Load demo spectrum</kbd> to see the full pipeline run against it. This confirms the tool is working before you bring in real data.</p></div></div>
+            <div class="manual-step"><span class="step-num">2</span><div class="body"><b>Upload your own file.</b><p>Click <kbd>Upload spectrum file</kbd>. Three formats are accepted automatically: a two-column CSV of energy (keV) and counts; a two-column CSV of channel number and counts (set the format dropdown to "Channel # + counts"); or a raw Amptek-style <code>.mca</code> text export, which is detected automatically by its <code>&lt;&lt;DATA&gt;&gt;</code> block.</p></div></div>
+            <div class="manual-step"><span class="step-num">3</span><div class="body"><b>.mca calibration.</b><p>If the file contains a <code>&lt;&lt;CALIBRATION&gt;&gt;</code> block, it's read and used automatically — you'll see "(calibration read from file)" in the spectrum tag. If not, the tool falls back to the gain/offset sliders described below.</p></div></div>
+          </div>
+
+          <div class="doc-section" id="m-2">
+            <h2><span class="eyebrow-num">02</span>Calibrating raw channel data</h2>
+            <p>Detectors record counts per channel, not per keV directly — a linear calibration converts channel index to energy: <b>E = offset + gain × channel / 1000</b> (gain in eV/channel, offset in keV). If you know your instrument's calibration (check its acquisition software, e.g. Amptek ADMCA reports this under Calibration settings), set:</p>
+            <ul>
+              <li><b>Gain slider</b> — eV per channel. A typical Si-drift detector runs 10–20 eV/ch; 14 eV/ch is a common default.</li>
+              <li><b>Offset slider</b> — the energy (keV) corresponding to channel 0. Usually close to zero, occasionally slightly negative.</li>
+            </ul>
+            <p>If your calibration is off, every matched element will show the same systematic energy shift — check the Δ column in the peak table; if every identified peak is off by roughly the same number of eV in the same direction, adjust the offset first, then gain.</p>
+          </div>
+
+          <div class="doc-section" id="m-3">
+            <h2><span class="eyebrow-num">03</span>Detection settings</h2>
+            <ul>
+              <li><b>Peak sensitivity</b> — the minimum net-signal-to-max ratio a local maximum must clear to count as a peak. Lower it to catch small trace-element peaks; raise it if noise is being flagged as peaks.</li>
+              <li><b>Line match tolerance</b> — how close (in eV) a detected peak's energy must be to a reference line to count as identified. Widen it for lower-resolution detectors or poorly calibrated data; narrow it to avoid false matches when many elements are present.</li>
+            </ul>
+            <p>After changing either slider, click <kbd>Run analysis</kbd> to re-process the currently loaded spectrum.</p>
+          </div>
+
+          <div class="doc-section" id="m-4">
+            <h2><span class="eyebrow-num">04</span>Reading the spectrum plot</h2>
+            <ul>
+              <li><b>E min / E max</b> — set a custom energy window; leave blank and click <kbd>Reset view</kbd> to return to the full range.</li>
+              <li><b>Magnitude (Y axis)</b> — switch to log scale to see small trace peaks alongside a dominant major-element peak on the same plot.</li>
+              <li><b>show baseline</b> — overlays the estimated background used for net-area integration.</li>
+              <li><b>shade net peak areas</b> — fills the region between the baseline and the signal for each detected peak, i.e. exactly what gets integrated into net area.</li>
+              <li>Clicking a row in the peak table zooms the plot to that peak.</li>
+            </ul>
+          </div>
+
+          <div class="doc-section" id="m-5">
+            <h2><span class="eyebrow-num">05</span>Reading the tables</h2>
+            <p><b>Peak table:</b> Δ shows how far the detected peak sits from the matched reference line, in eV — small is good. <b>FWHM</b> is the peak's measured width; a <b>meas</b> tag means it was read directly off that peak's half-max crossing points, a <b>calc</b> tag means no clean crossing was found and the generic detector-resolution curve was used instead — hover the tag for why. The confidence badge is just a visual read of how large Δ is relative to your tolerance setting (high/med/low), not a statistical confidence interval. Rows flagged <b>esc</b> are likely Si detector escape peaks of a nearby identified element, not separate species. A small marker next to a Kα1 row shows whether the expected Kβ1 line was also found at a plausible intensity (✓), was missing (?), or showed an anomalous ratio suggesting a possible overlap (⚠).</p>
+            <p><b>Composition:</b> mass-fraction percentages sum to 100% across <i>identified</i> elements only — anything unmatched, or genuinely absent, isn't represented. Escape peaks are excluded automatically. The <b>confidence-weighted normalization</b> checkbox (off by default) downweights elements whose line match sat near the edge of your tolerance window before renormalizing; a <span class="muted" style="font-size:9px;">×0.xx</span> tag on a row shows it was scaled. It never applies to <b>calib.</b> rows.</p>
+            <p><b>Effective atomic number:</b> the exponent <i>m</i> in the Zeff formula defaults to 2.94 and is adjustable in the Zeff card (2.5–4.5) — use <kbd>↺ 2.94</kbd> to reset. Only change it if you have a specific published value or energy regime in mind; the tool doesn't tell you which value is right for your sample.</p>
+            <p><b>Calculation pipeline:</b> shows the actual numbers at each step from net area through to each element's contribution to Z<sub>eff</sub>, so you can see exactly how a given mass-fraction number was produced rather than trusting it as a black box.</p>
+          </div>
+
+          <div class="doc-section" id="m-6">
+            <h2><span class="eyebrow-num">06</span>Calibration mode</h2>
+            <div class="manual-step"><span class="step-num">1</span><div class="body"><b>Set detection settings first.</b><p>Calibration fitting reuses the Analyzer tab's current peak sensitivity and line match tolerance, so tune those against your demo/real data before fitting.</p></div></div>
+            <div class="manual-step"><span class="step-num">2</span><div class="body"><b>Add reference standards.</b><p>In the Calibration tab, click <kbd>+ Add reference standard</kbd> for each certified or well-characterized material you have (2–3 is enough to get a usable line). Load its spectrum the same way as in the Analyzer, and enter its known composition as element/mass % rows.</p></div></div>
+            <div class="manual-step"><span class="step-num">3</span><div class="body"><b>Fit.</b><p>Click <kbd>Fit calibration</kbd>. For each known element that's also detected as a peak in that standard's spectrum, the tool pools (measured weight, known %) pairs across all standards and fits a sensitivity factor <i>k</i> by least squares through the origin. Elements with only one standard still get a factor but no R².</p></div></div>
+            <div class="manual-step"><span class="step-num">4</span><div class="body"><b>Apply.</b><p>Check <kbd>use calibration factors in Analyzer</kbd>. Any element with a fitted factor now uses it directly for its mass %; the Analyzer's composition and pipeline tables flag those rows <b>calib.</b> — everything else still falls back to the relative yield-normalized estimate.</p></div></div>
+          </div>
+
+          <div class="doc-section" id="m-7">
+            <h2><span class="eyebrow-num">07</span>Exporting results</h2>
+            <p>Click <kbd>Export results (.csv)</kbd> to download the peak table and composition estimate as a single CSV file, suitable for pulling into a lab notebook, spreadsheet, or another one of your analysis tools. The export includes each net area's counting-statistics σ and, when calibration mode is active, which rows used a fitted factor versus the relative estimate.</p>
+          </div>
+
+          <div class="doc-section" id="m-8">
+            <h2><span class="eyebrow-num">08</span>Batch mode</h2>
+            <div class="manual-step"><span class="step-num">1</span><div class="body"><b>Set your detection settings first.</b><p>Batch mode reuses the Analyzer tab's current peak sensitivity, line match tolerance, data-format selection, and gain/offset — dial those in against one representative file (or a demo) before loading a batch.</p></div></div>
+            <div class="manual-step"><span class="step-num">2</span><div class="body"><b>Load files.</b><p>In the Batch tab, drag files onto the dropzone or click it to browse. Any number of energy/channel CSVs or <code>.mca</code> files can be queued; each appears as a row in <b>Loaded Files</b>.</p></div></div>
+            <div class="manual-step"><span class="step-num">3</span><div class="body"><b>Run.</b><p>Click <kbd>Run batch analysis</kbd>. Each file runs independently through the same pipeline as the Analyzer (baseline → peaks → matching → composition → Z<sub>eff</sub> → material match), and a summary row appears per file.</p></div></div>
+            <div class="manual-step"><span class="step-num">4</span><div class="body"><b>Inspect or export.</b><p>Click any result row to load that file into the Analyzer tab for the full peak table, plot, and pipeline view. Or click <kbd>Export batch summary (.csv)</kbd> for a single file listing every sample's top elements, mass %, Z<sub>eff</sub>, and closest material match.</p></div></div>
+          </div>
+
+          <div class="doc-section" id="m-9">
+            <h2><span class="eyebrow-num">09</span>Material match</h2>
+            <p>After running analysis (Analyzer or Batch), the <b>Material Match</b> card scores the identified composition against a small library of known profiles: the built-in demo materials (stainless steel, brass, bronze, gold-plated jewelry, solder, soil) plus any Calibration-tab reference standard that has a known composition entered. The score is a cosine similarity between normalized element-fraction vectors — 100% means the identified elements and their relative proportions line up closely with that profile; lower scores mean partial overlap or different proportions.</p>
+            <p>This is a coarse fingerprint match intended to suggest "this looks like it's in the ballpark of X," not to certify an alloy grade — trace-element specs and heat-treatment aren't represented in the underlying profiles. See Theory §7 for its limitations.</p>
+          </div>
+
+          <div class="doc-section" id="m-10">
+            <h2><span class="eyebrow-num">10</span>Troubleshooting</h2>
+            <ul>
+              <li><b>No peaks found</b> — lower the peak sensitivity slider, or check that your energy axis isn't wildly out of the detector's real range (e.g. channel data loaded without calibration).</li>
+              <li><b>Everything unidentified</b> — widen the line match tolerance, or check for a systematic calibration offset (see §2).</li>
+              <li><b>Composition looks physically implausible</b> — remember the fluorescence-yield-only model in the Theory tab; large Z gaps between major elements are where it's weakest.</li>
+              <li><b>File won't parse</b> — the tool expects plain numeric columns separated by commas, semicolons, or tabs; strip extra metadata rows other than a single header line. The same parser is used in Batch mode and the Calibration tab.</li>
+              <li><b>A real trace element reads as "esc"</b> — the escape-peak heuristic is a fixed-offset check, not a fit; if you believe a flagged peak is real, widen the line match tolerance slightly or check whether it also matches a tabulated line for another element near that energy.</li>
+              <li><b>A calibration factor looks off</b> — check that the standard's known % was entered correctly and that the element's peak was actually detected in that standard's spectrum (add it as a standard, load its spectrum, and look for it in the Analyzer's peak table first if unsure).</li>
+              <li><b>Batch results look empty for a file</b> — that file likely produced zero identified peaks under the current settings; open it via the batch results row to inspect it directly in the Analyzer.</li>
+              <li><b>Material match shows low scores everywhere</b> — expected for anything outside the built-in library (e.g. an unusual alloy); add it as a Calibration-tab standard with its known composition to include it as a match target.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // Reference line database: {Z, sym, name, A, lines:[{t,e}]}
+  // Energies in keV — experimental values from NIST Standard
+  // Reference Database 128, "X-ray Transition Energies"
+  // (Deslattes et al., Rev. Mod. Phys. 75, 35-99 (2003);
+  // https://physics.nist.gov/PhysRefData/XrayTrans).
+  // Kα1=KL3, Kβ1=KM3, Lα1=L3M5, Lβ1=L2M4 in NIST's IUPAC notation.
+  // A few low-Z Kα1/Kα2 lines are NIST-reported as an unresolved
+  // KL2,3 blend, kept as a single Kα1 entry here.
+  // ============================================================
+  const XRAY_DB = [
+    {Z:11,sym:"Na",name:"Sodium",A:22.99,lines:[{t:"Kα1",e:1.04098}]},
+    {Z:12,sym:"Mg",name:"Magnesium",A:24.31,lines:[{t:"Kα1",e:1.253688}]},
+    {Z:13,sym:"Al",name:"Aluminum",A:26.98,lines:[{t:"Kα1",e:1.486708}]},
+    {Z:14,sym:"Si",name:"Silicon",A:28.09,lines:[{t:"Kα1",e:1.739985},{t:"Kβ1",e:1.83596}]},
+    {Z:15,sym:"P",name:"Phosphorus",A:30.97,lines:[{t:"Kα1",e:2.01368}]},
+    {Z:16,sym:"S",name:"Sulfur",A:32.07,lines:[{t:"Kα1",e:2.307885},{t:"Kβ1",e:2.46407}]},
+    {Z:17,sym:"Cl",name:"Chlorine",A:35.45,lines:[{t:"Kα1",e:2.62244}]},
+    {Z:18,sym:"Ar",name:"Argon",A:39.95,lines:[{t:"Kα1",e:2.957682}]},
+    {Z:19,sym:"K",name:"Potassium",A:39.10,lines:[{t:"Kα1",e:3.3139476},{t:"Kβ1",e:3.58963}]},
+    {Z:20,sym:"Ca",name:"Calcium",A:40.08,lines:[{t:"Kα1",e:3.691719},{t:"Kβ1",e:4.01276}]},
+    {Z:21,sym:"Sc",name:"Scandium",A:44.96,lines:[{t:"Kα1",e:4.090735}]},
+    {Z:22,sym:"Ti",name:"Titanium",A:47.87,lines:[{t:"Kα1",e:4.5108991},{t:"Kβ1",e:4.931827}]},
+    {Z:23,sym:"V",name:"Vanadium",A:50.94,lines:[{t:"Kα1",e:4.952216},{t:"Kβ1",e:5.42732}]},
+    {Z:24,sym:"Cr",name:"Chromium",A:52.00,lines:[{t:"Kα1",e:5.4148045},{t:"Kβ1",e:5.946823}]},
+    {Z:25,sym:"Mn",name:"Manganese",A:54.94,lines:[{t:"Kα1",e:5.898801},{t:"Kβ1",e:6.490585}]},
+    {Z:26,sym:"Fe",name:"Iron",A:55.85,lines:[{t:"Kα1",e:6.4040062},{t:"Kβ1",e:7.058175}]},
+    {Z:27,sym:"Co",name:"Cobalt",A:58.93,lines:[{t:"Kα1",e:6.930378},{t:"Kβ1",e:7.649445}]},
+    {Z:28,sym:"Ni",name:"Nickel",A:58.69,lines:[{t:"Kα1",e:7.4782521},{t:"Kβ1",e:8.264775}]},
+    {Z:29,sym:"Cu",name:"Copper",A:63.55,lines:[{t:"Kα1",e:8.0478227},{t:"Kβ1",e:8.905413}]},
+    {Z:30,sym:"Zn",name:"Zinc",A:65.38,lines:[{t:"Kα1",e:8.638906},{t:"Kβ1",e:9.57203}]},
+    {Z:31,sym:"Ga",name:"Gallium",A:69.72,lines:[{t:"Kα1",e:9.251674}]},
+    {Z:32,sym:"Ge",name:"Germanium",A:72.63,lines:[{t:"Kα1",e:9.88652}]},
+    {Z:33,sym:"As",name:"Arsenic",A:74.92,lines:[{t:"Kα1",e:10.5432674}]},
+    {Z:34,sym:"Se",name:"Selenium",A:78.97,lines:[{t:"Kα1",e:11.22252}]},
+    {Z:35,sym:"Br",name:"Bromine",A:79.90,lines:[{t:"Kα1",e:11.92436}]},
+    {Z:37,sym:"Rb",name:"Rubidium",A:85.47,lines:[{t:"Kα1",e:13.39549}]},
+    {Z:38,sym:"Sr",name:"Strontium",A:87.62,lines:[{t:"Kα1",e:14.16520}]},
+    {Z:39,sym:"Y",name:"Yttrium",A:88.91,lines:[{t:"Kα1",e:14.95854}]},
+    {Z:40,sym:"Zr",name:"Zirconium",A:91.22,lines:[{t:"Kα1",e:15.774914}]},
+    {Z:41,sym:"Nb",name:"Niobium",A:92.91,lines:[{t:"Kα1",e:16.61516}]},
+    {Z:42,sym:"Mo",name:"Molybdenum",A:95.95,lines:[{t:"Kα1",e:17.479372},{t:"Kβ1",e:19.60834}]},
+    {Z:47,sym:"Ag",name:"Silver",A:107.87,lines:[{t:"Lα1",e:2.98434},{t:"Kα1",e:22.162917}]},
+    {Z:48,sym:"Cd",name:"Cadmium",A:112.41,lines:[{t:"Lα1",e:3.133755}]},
+    {Z:50,sym:"Sn",name:"Tin",A:118.71,lines:[{t:"Lα1",e:3.444011}]},
+    {Z:51,sym:"Sb",name:"Antimony",A:121.76,lines:[{t:"Lα1",e:3.604756}]},
+    {Z:56,sym:"Ba",name:"Barium",A:137.33,lines:[{t:"Lα1",e:4.46630}]},
+    {Z:73,sym:"Ta",name:"Tantalum",A:180.95,lines:[{t:"Lα1",e:8.14617}]},
+    {Z:74,sym:"W",name:"Tungsten",A:183.84,lines:[{t:"Lα1",e:8.398242}]},
+    {Z:78,sym:"Pt",name:"Platinum",A:195.08,lines:[{t:"Lα1",e:9.44239}]},
+    {Z:79,sym:"Au",name:"Gold",A:196.97,lines:[{t:"Lα1",e:9.71344}]},
+    {Z:80,sym:"Hg",name:"Mercury",A:200.59,lines:[{t:"Lα1",e:9.98891}]},
+    {Z:82,sym:"Pb",name:"Lead",A:207.2,lines:[{t:"Lα1",e:10.55160},{t:"Lβ1",e:12.61380}]},
+    {Z:83,sym:"Bi",name:"Bismuth",A:208.98,lines:[{t:"Lα1",e:10.83894}]},
+    {Z:90,sym:"Th",name:"Thorium",A:232.04,lines:[{t:"Lα1",e:12.967937}]},
+    {Z:92,sym:"U",name:"Uranium",A:238.03,lines:[{t:"Lα1",e:13.61487}]}
+  ];
+
+  // ============================================================
+  // Demo sample database — synthetic material profiles used by
+  // the "Load demo spectrum" control. Each entry lists the
+  // elements present and a representative primary-line amplitude
+  // (arbitrary counts); characteristic energies for every line are
+  // pulled from XRAY_DB itself, so the demo spectra stay internally
+  // consistent with the identification engine. These are synthetic
+  // (Gaussian peaks + a smooth continuum), not measured spectra.
+  // ============================================================
+  const DEMO_MATERIALS = [
+    {key:"feCuOriginal", label:"Fe/Cu reference (original demo)", tagNote:"demo · simulated Fe/Cu-bearing sample",
+      elements:[{sym:"Si",amp:5200},{sym:"S",amp:1400},{sym:"Ar",amp:900},{sym:"Fe",amp:9800},{sym:"Cu",amp:3600}]},
+    {key:"steel304", label:"Stainless steel (AISI 304)", tagNote:"demo · simulated Fe-Cr-Ni stainless steel",
+      elements:[{sym:"Fe",amp:9800},{sym:"Cr",amp:3200},{sym:"Ni",amp:1400},{sym:"Mn",amp:260},{sym:"Si",amp:180}]},
+    {key:"brass", label:"Brass (Cu-Zn)", tagNote:"demo · simulated Cu-Zn brass alloy",
+      elements:[{sym:"Cu",amp:8600},{sym:"Zn",amp:5200},{sym:"Pb",amp:220},{sym:"Fe",amp:140}]},
+    {key:"bronze", label:"Bronze (Cu-Sn)", tagNote:"demo · simulated Cu-Sn bronze",
+      elements:[{sym:"Cu",amp:9000},{sym:"Sn",amp:2400},{sym:"Zn",amp:380},{sym:"Pb",amp:260}]},
+    {key:"goldplate", label:"Gold-plated jewelry (Au/Ag/Cu)", tagNote:"demo · simulated Au-plated base-metal jewelry",
+      elements:[{sym:"Au",amp:6200},{sym:"Ag",amp:1800},{sym:"Cu",amp:3400},{sym:"Zn",amp:900}]},
+    {key:"solder", label:"Solder (Sn-Pb-Ag)", tagNote:"demo · simulated Sn-Pb-Ag solder",
+      elements:[{sym:"Sn",amp:8800},{sym:"Pb",amp:2200},{sym:"Ag",amp:620},{sym:"Cu",amp:340}]},
+    {key:"soil", label:"Soil / geological sample", tagNote:"demo · simulated Ca-Fe-Ti-bearing soil",
+      elements:[{sym:"Ca",amp:4200},{sym:"Fe",amp:3600},{sym:"K",amp:1600},{sym:"Ti",amp:900},{sym:"Sr",amp:260},{sym:"Zr",amp:180},{sym:"Mn",amp:210}]}
+  ];
+
+  const PALETTE = ["#5ec8d8","#ff8a3d","#c792ea","#7fd88f","#f07178","#e8c56b"];
+  function colorFor(sym, colorMap){
+    if(!colorMap[sym]) colorMap[sym] = PALETTE[Object.keys(colorMap).length % PALETTE.length];
+    return colorMap[sym];
+  }
+
+  // ============================================================
+  // State
+  // ============================================================
+  let state = {
+    energies: [], counts: [], baseline: [],
+    peaks: [], matched: [], composition: [], zeffResult: null,
+    colorMap: {},
+    calibration: { active:false, factors:{} },
+    zeffM: 2.94,
+    confidenceWeighted: false
+  };
+
+  // Calibration-tab working state: reference standards being built up in the UI,
+  // kept separate from state.calibration.factors (the fitted result actually
+  // consumed by estimateComposition).
+  let calibStandards = [];
+  let calibNextId = 1;
+
+  // Batch-tab working state: queued files and their per-file results.
+  let batchFiles = [];   // [{id, name, energies, counts, tag}]
+  let batchResults = []; // [{id, name, matched, composition, zeffResult, peaks, bestMatch, error}]
+  let batchNextId = 1;
+
+  const $ = (id)=>document.getElementById(id);
+
+  // ============================================================
+  // Demo spectrum generator
+  // ============================================================
+  function gaussianNoise(){
+    let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function fwhmAt(E){ return 0.045 + 0.055*Math.sqrt(Math.max(E,0.1)/5.9); } // detector resolution model, keV
+
+  // Builds a synthetic spectrum for a given demo-material key by looking up
+  // every listed element's characteristic lines in XRAY_DB and placing a
+  // Gaussian at each tabulated energy, with Kβ1/Lβ1 amplitudes scaled off the
+  // primary (Kα1/Lα1) line using the same representative ratios the Kβ
+  // cross-check uses elsewhere in the tool (a little random scatter is added
+  // so the demo isn't perfectly self-confirming).
+  function generateDemoSpectrum(materialKey){
+    const material = DEMO_MATERIALS.find(m=>m.key===materialKey) || DEMO_MATERIALS[0];
+    const linePeaks = [];
+    let maxLineE = 10.5;
+    material.elements.forEach(item=>{
+      const el = XRAY_DB.find(x=>x.sym===item.sym);
+      if(!el) return;
+      el.lines.forEach(line=>{
+        const isPrimary = (line.t==="Kα1" || line.t==="Lα1");
+        const amp = isPrimary ? item.amp : item.amp*(line.t==="Kβ1"?0.13:0.12)*(0.9+0.2*Math.random());
+        linePeaks.push({e:line.e, amp});
+        if(line.e > maxLineE) maxLineE = line.e;
+      });
+    });
+    const eMin=0.3, eMax=Math.min(28, maxLineE+2.0), N=1400;
+    const energies=[], counts=[];
+    for(let i=0;i<N;i++){
+      const E = eMin + (eMax-eMin)*i/(N-1);
+      let bg = 60*Math.exp(-E/6) + 25*Math.exp(-Math.pow(E-1.0,2)/1.4);
+      let signal = bg;
+      for(const p of linePeaks){
+        const sigma = fwhmAt(p.e)/2.3548;
+        signal += p.amp*Math.exp(-Math.pow(E-p.e,2)/(2*sigma*sigma));
+      }
+      const noisy = Math.max(0, signal + gaussianNoise()*Math.sqrt(Math.max(signal,1))*0.6);
+      energies.push(Math.round(E*10000)/10000);
+      counts.push(Math.round(noisy*10)/10);
+    }
+    return {energies, counts, tagNote: material.tagNote};
+  }
+
+  // ============================================================
+  // Parsing: plain CSV (energy or channel), and Amptek .mca ASCII
+  // ============================================================
+  function parseCSV(text){
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+    const colA=[], colB=[];
+    for(const line of lines){
+      const parts = line.split(/[,;\t]+/).map(s=>s.trim());
+      if(parts.length<2) continue;
+      const a = parseFloat(parts[0]);
+      const b = parseFloat(parts[1]);
+      if(Number.isFinite(a) && Number.isFinite(b)){ colA.push(a); colB.push(b); }
+    }
+    return { colA, colB };
+  }
+
+  function parseMCA(text){
+    const lines = text.split(/\r?\n/);
+    const dataStart = lines.findIndex(l=>/<<DATA>>/i.test(l));
+    const dataEnd = lines.findIndex((l,i)=> i>dataStart && /<<END>>/i.test(l));
+    if(dataStart<0) return null;
+    const counts = [];
+    for(let i=dataStart+1; i<(dataEnd>0?dataEnd:lines.length); i++){
+      const v = parseFloat(lines[i].trim());
+      if(Number.isFinite(v)) counts.push(v);
+    }
+    let calib = null;
+    const calStart = lines.findIndex(l=>/<<CALIBRATION>>/i.test(l));
+    if(calStart>=0){
+      const calEnd = lines.findIndex((l,i)=> i>calStart && /<<[A-Z]/i.test(l));
+      const pts = [];
+      for(let i=calStart+1; i<(calEnd>0?calEnd:lines.length); i++){
+        const m = lines[i].trim().split(/\s+/).map(Number);
+        if(m.length>=2 && Number.isFinite(m[0]) && Number.isFinite(m[1])) pts.push(m);
+      }
+      if(pts.length>=2){
+        const n=pts.length, sx=pts.reduce((s,p)=>s+p[0],0), sy=pts.reduce((s,p)=>s+p[1],0);
+        const sxy=pts.reduce((s,p)=>s+p[0]*p[1],0), sxx=pts.reduce((s,p)=>s+p[0]*p[0],0);
+        const gain = (n*sxy - sx*sy)/(n*sxx - sx*sx);
+        const offset = (sy - gain*sx)/n;
+        calib = {gain, offset};
+      }
+    }
+    return { counts, calib };
+  }
+
+  function channelsToEnergies(counts, gainEvPerCh, offsetKeV){
+    return counts.map((_,ch)=> offsetKeV + (gainEvPerCh/1000)*ch);
+  }
+
+  // Shared file-parse helper: given raw file text/name and the current
+  // Analyzer data-format/calibration settings, returns {energies, counts, tag}
+  // or throws a descriptive Error. Used by the single-file uploader, the
+  // Batch tab, and the Calibration tab's per-standard loader so all three
+  // stay behaviorally identical.
+  function parseSpectrumFile(text, filename){
+    const isMCA = /\.mca$/i.test(filename) || /<<DATA>>/i.test(text);
+    if(isMCA){
+      const mca = parseMCA(text);
+      if(!mca || mca.counts.length<5) throw new Error("no <<DATA>> block with counts found");
+      if(mca.calib){
+        return { energies: mca.counts.map((_,ch)=> mca.calib.offset + mca.calib.gain*ch), counts: mca.counts, tag: filename+" (calibration read from file)" };
+      }
+      const gain = parseFloat($("gainSlider").value), offset = parseFloat($("offsetSlider").value);
+      return { energies: channelsToEnergies(mca.counts, gain, offset), counts: mca.counts, tag: filename+" (calibrated: "+gain+" eV/ch, offset "+offset+" keV)" };
+    }
+    const parsed = parseCSV(text);
+    if(parsed.colA.length<5) throw new Error("could not parse enough numeric rows");
+    if($("dataFormat").value==="channel"){
+      const gain = parseFloat($("gainSlider").value), offset = parseFloat($("offsetSlider").value);
+      const counts = parsed.colB;
+      return { energies: channelsToEnergies(counts, gain, offset), counts, tag: filename+" (calibrated: "+gain+" eV/ch, offset "+offset+" keV)" };
+    }
+    const idx = parsed.colA.map((_,i)=>i).sort((a,b)=>parsed.colA[a]-parsed.colA[b]);
+    return { energies: idx.map(i=>parsed.colA[i]), counts: idx.map(i=>parsed.colB[i]), tag: filename };
+  }
+
+  // ============================================================
+  // Baseline + peak detection
+  // ============================================================
+  function computeBaseline(energies, counts){
+    const n = counts.length;
+    const win = Math.max(5, Math.round(n*0.02));
+    const baseline = new Array(n);
+    for(let i=0;i<n;i++){
+      let lo=Math.max(0,i-win), hi=Math.min(n-1,i+win), m=Infinity;
+      for(let j=lo;j<=hi;j++) if(counts[j]<m) m=counts[j];
+      baseline[i]=m;
+    }
+    return baseline;
+  }
+
+  // ============================================================
+  // Automatic FWHM finder
+  // Walks outward from a peak's centroid, on the baseline-subtracted
+  // signal, until the net counts cross half the peak's net height on
+  // each side, linearly interpolating the exact crossing energy. This
+  // measures the *actual* peak width from the data, rather than relying
+  // solely on the generic fwhmAt(E) detector-resolution curve. Falls
+  // back to fwhmAt(E) when a clean half-max crossing can't be found on
+  // both sides within a reasonable search radius — e.g. the peak sits at
+  // the edge of the loaded range, or a neighboring peak's shoulder pushes
+  // the signal back above half-max before it ever crosses (an unresolved
+  // overlap). A width measured through someone else's peak is worse than
+  // no measurement, so this bails to the model rather than guessing.
+  // ============================================================
+  function measureFWHM(energies, counts, baseline, idx){
+    const n = counts.length;
+    const height = counts[idx]-baseline[idx];
+    if(height<=0) return null;
+    const halfMax = height/2;
+    const dE = Math.abs((energies[Math.min(n-1,idx+1)]-energies[idx])||0.01);
+    const searchLimit = Math.max(6, Math.round(fwhmAt(energies[idx])*4/dE));
+
+    function crossing(jAbove, jBelow){
+      const netAbove = counts[jAbove]-baseline[jAbove];
+      const netBelow = counts[jBelow]-baseline[jBelow];
+      const frac = (halfMax-netBelow)/((netAbove-netBelow)||1e-9);
+      return energies[jBelow] + frac*(energies[jAbove]-energies[jBelow]);
+    }
+
+    let leftE = null;
+    for(let j=idx-1; j>=Math.max(0,idx-searchLimit); j--){
+      if(counts[j]-baseline[j] < halfMax){ leftE = crossing(j+1, j); break; }
+    }
+    let rightE = null;
+    for(let j=idx+1; j<=Math.min(n-1,idx+searchLimit); j++){
+      if(counts[j]-baseline[j] < halfMax){ rightE = crossing(j-1, j); break; }
+    }
+    if(leftE==null || rightE==null) return null;
+    const fwhm = rightE-leftE;
+    return (fwhm>0) ? fwhm : null;
+  }
+
+  function detectPeaks(energies, counts, baseline, sensitivityPct){
+    const n = counts.length;
+    if(n<5) return [];
+    const netMax = Math.max(...counts.map((c,i)=>c-baseline[i]));
+    const threshold = netMax * (sensitivityPct/100);
+    const rawPeaks = [];
+    for(let i=2;i<n-2;i++){
+      const net = counts[i]-baseline[i];
+      if(net<threshold) continue;
+      if(counts[i]>=counts[i-1] && counts[i]>=counts[i+1] && counts[i]>counts[i-2] && counts[i]>counts[i+2]){
+        rawPeaks.push(i);
+      }
+    }
+    rawPeaks.sort((a,b)=>a-b);
+    const merged = [];
+    for(const idx of rawPeaks){
+      const E = energies[idx];
+      if(merged.length && Math.abs(E - energies[merged[merged.length-1]]) < fwhmAt(E)*0.5){
+        if(counts[idx] > counts[merged[merged.length-1]]) merged[merged.length-1] = idx;
+      } else {
+        merged.push(idx);
+      }
+    }
+    return merged.map(idx=>{
+      const E = energies[idx];
+      const fwhmModel = fwhmAt(E);
+      const fwhmMeasured = measureFWHM(energies, counts, baseline, idx);
+      const fwhmUsed = fwhmMeasured || fwhmModel;
+      const halfWin = Math.max(3, Math.round((fwhmUsed*1.8) / ((energies[Math.min(n-1,idx+1)]-energies[idx])||0.01)));
+      const lo = Math.max(0, idx-halfWin), hi = Math.min(n-1, idx+halfWin);
+      let area=0;
+      for(let j=lo;j<hi;j++){
+        const net0=counts[j]-baseline[j], net1=counts[j+1]-baseline[j+1];
+        area += 0.5*(Math.max(net0,0)+Math.max(net1,0))*(energies[j+1]-energies[j]);
+      }
+      // Counting-statistics uncertainty on the net area: a Poisson (sqrt-N) estimate
+      // built from the raw (gross) counts in the same window, scaled onto the
+      // dE-weighted area via the ratio to the unweighted net-count sum. This ignores
+      // baseline-fit uncertainty and is meant as an order-of-magnitude error bar,
+      // not a rigorous variance treatment (see Theory tab, note under composition).
+      let grossSum=0, netSumUnweighted=0;
+      for(let j=lo;j<=hi;j++){
+        grossSum += Math.max(counts[j],0);
+        netSumUnweighted += Math.max(counts[j]-baseline[j],0);
+      }
+      const relSigma = netSumUnweighted>0 ? Math.sqrt(grossSum)/netSumUnweighted : 1;
+      const areaSigma = area * relSigma;
+      return { energy:E, counts:counts[idx], netArea:area, areaSigma:areaSigma, index:idx, idxLo:lo, idxHi:hi,
+        fwhmMeasured:fwhmMeasured, fwhmModel:fwhmModel };
+    }).sort((a,b)=>a.energy-b.energy);
+  }
+
+  // ============================================================
+  // Element matching
+  // ============================================================
+  function matchElements(peaks, tolKeV){
+    return peaks.map(p=>{
+      let best=null, bestDelta=Infinity;
+      for(const el of XRAY_DB){
+        for(const ln of el.lines){
+          const d = Math.abs(ln.e - p.energy);
+          if(d<bestDelta){ bestDelta=d; best={el, line:ln}; }
+        }
+      }
+      const matched = best && bestDelta<=tolKeV;
+      return {
+        ...p,
+        element: matched? best.el : null,
+        line: matched? best.line : null,
+        delta: matched? (p.energy-best.line.e) : null,
+        deltaAbs: matched? bestDelta : null
+      };
+    });
+  }
+
+  // ============================================================
+  // Si escape-peak flagging
+  // An unidentified peak sitting ~SI_KALPHA below a confirmed K
+  // line (above the Si K absorption edge) is very likely a Si
+  // detector escape peak of that element, not a separate species.
+  // ============================================================
+  const SI_KALPHA = 1.740;   // keV, Si Ka1 energy = escape shift
+  const SI_K_EDGE = 1.839;   // keV, Si K absorption edge — escapes only occur above this
+
+  function annotateEscapePeaks(matched, tolKeV){
+    const parents = matched.filter(m=> m.element && m.line.t[0]==="K" && m.energy > SI_K_EDGE + 0.05);
+    matched.forEach(m=>{
+      if(m.element) return; // only reinterpret currently-unidentified peaks
+      for(const p of parents){
+        if(p===m) continue;
+        const expected = p.energy - SI_KALPHA;
+        if(Math.abs(m.energy - expected) <= tolKeV){
+          m.isEscape = true;
+          m.escapeOfSym = p.element.sym;
+          m.escapeParentEnergy = p.energy;
+          break;
+        }
+      }
+    });
+  }
+
+  // ============================================================
+  // Kβ / Kα self-consistency cross-check
+  // For every element identified via Kα1, look for its tabulated
+  // Kβ1 line among the matched peaks and compare the area ratio
+  // to a representative K-shell Kβ/Kα intensity ratio.
+  // ============================================================
+  const KB_KA_RATIO = 0.13;   // representative Kβ1/Kα1 net-area ratio, K shell
+  const KB_KA_BAND = 0.6;     // fractional tolerance band around KB_KA_RATIO
+
+  function crossCheckKbeta(matched){
+    const groups = {};
+    matched.forEach(m=>{
+      if(!m.element) return;
+      const sym = m.element.sym;
+      groups[sym] = groups[sym] || {};
+      if(m.line.t==="Kα1") groups[sym].ka = m;
+      if(m.line.t==="Kβ1") groups[sym].kb = m;
+    });
+    Object.values(groups).forEach(g=>{
+      if(!g.ka) return;
+      const hasKbetaLine = g.ka.element.lines.some(l=>l.t==="Kβ1");
+      if(!hasKbetaLine){
+        g.ka.kbetaStatus = "na";
+      } else if(g.kb){
+        const ratio = g.kb.netArea / g.ka.netArea;
+        const lo = KB_KA_RATIO*(1-KB_KA_BAND), hi = KB_KA_RATIO*(1+KB_KA_BAND);
+        g.ka.kbetaStatus = (ratio>=lo && ratio<=hi) ? "confirmed" : "anomalous";
+        g.ka.kbetaRatio = ratio;
+        g.kb.kbetaStatus = "isKbetaOf";
+      } else {
+        g.ka.kbetaStatus = "unconfirmed";
+      }
+    });
+  }
+
+  function confidenceBadge(deltaAbs, tolKeV){
+    if(deltaAbs==null) return {cls:"low",label:"none"};
+    const r = deltaAbs/tolKeV;
+    if(r<0.35) return {cls:"high",label:"high"};
+    if(r<0.7) return {cls:"med",label:"med"};
+    return {cls:"low",label:"low"};
+  }
+
+  // ============================================================
+  // Fluorescence-yield-scaled composition estimate
+  // ============================================================
+  function yieldFor(lineType, Z){
+    const z4 = Math.pow(Z,4);
+    if(lineType[0]==="K") return z4/(z4+1.12e6);
+    return z4/(z4+6.5e7);
+  }
+
+  // Reduces matched peaks to one representative row per identified element
+  // (net area, ω(Z), and the derived weight w = A/ω plus its counting-stat
+  // sigma). Shared by estimateComposition and the Calibration tab's fitter.
+  // Soft, monotonic penalty on an element's contribution based on how tightly its
+  // representative line matched the reference energy: a peak sitting right on the
+  // tabulated line (deltaAbs ~ 0) keeps full weight; one near the edge of the
+  // tolerance window is downweighted rather than trusted equally. Floored at 0.3
+  // so a borderline-but-still-accepted match contributes rather than vanishing —
+  // this is a heuristic scaling, not a rigorous likelihood/uncertainty model.
+  function confidenceWeightFactor(deltaAbs, tolKeV){
+    if(deltaAbs==null || !(tolKeV>0)) return 1;
+    const ratio = Math.min(1, deltaAbs/tolKeV);
+    return Math.max(0.3, 1 - 0.7*ratio);
+  }
+
+  // opts.confidenceWeighted + opts.tolKeV: when set, each element's weight is
+  // scaled by confidenceWeightFactor before normalization. Off by default, and
+  // the Calibration tab's fitter intentionally calls this without opts so fitted
+  // sensitivity factors are never affected by the Analyzer's confidence setting.
+  function elementWeights(matched, opts){
+    const confWeighted = opts && opts.confidenceWeighted;
+    const tolKeV = opts && opts.tolKeV;
+    const byElement = {};
+    for(const m of matched){
+      if(!m.element || m.isEscape) continue;
+      const sym = m.element.sym;
+      const isPrimary = (m.line.t==="Kα1" || m.line.t==="Lα1");
+      if(!byElement[sym] || (isPrimary && !byElement[sym].isPrimary)){
+        byElement[sym] = { el:m.element, line:m.line, netArea:m.netArea, areaSigma:m.areaSigma||0, isPrimary, deltaAbs:m.deltaAbs };
+      } else if(isPrimary===byElement[sym].isPrimary && m.netArea>byElement[sym].netArea){
+        byElement[sym] = { el:m.element, line:m.line, netArea:m.netArea, areaSigma:m.areaSigma||0, isPrimary, deltaAbs:m.deltaAbs };
+      }
+    }
+    return Object.values(byElement).map(rec=>{
+      const omega = yieldFor(rec.line.t, rec.el.Z);
+      let w = rec.netArea / omega;
+      let weightSigma = (rec.areaSigma||0) / omega;
+      let confFactor = 1;
+      if(confWeighted){
+        confFactor = confidenceWeightFactor(rec.deltaAbs, tolKeV);
+        w *= confFactor;
+        weightSigma *= confFactor;
+      }
+      return { sym:rec.el.sym, name:rec.el.name, Z:rec.el.Z, A:rec.el.A, lineUsed:rec.line.t,
+        netArea:rec.netArea, areaSigma:rec.areaSigma||0, omega, weight:w, weightSigma, confFactor };
+    });
+  }
+
+  // calibFactors: optional {active:bool, factors:{sym:{k,n,r2}}} from Calibration tab.
+  // When active, elements with a fitted sensitivity factor k use massFrac = k * w_i
+  // directly (an absolute, standard-referenced estimate); any remaining identified
+  // elements without a factor still use the relative yield-normalized method, scaled
+  // to fill whatever mass-fraction headroom is left after the calibrated elements.
+  function estimateComposition(matched, calibFactors, opts){
+    const rawBase = elementWeights(matched); // unweighted — basis for calibrated rows (k * w), matches how k was fit
+    const weightedBase = (opts && opts.confidenceWeighted) ? elementWeights(matched, opts) : rawBase;
+
+    const factors = (calibFactors && calibFactors.active) ? calibFactors.factors||{} : null;
+    const calibratedSyms = factors ? rawBase.filter(r=>factors[r.sym]) : [];
+    let rows;
+    if(factors && calibratedSyms.length){
+      const calibRows = calibratedSyms.map(r=>{
+        const k = factors[r.sym].k;
+        return Object.assign({}, r, {
+          massFrac: k*r.weight, massFracSigma: k*r.weightSigma, calibrated:true, kFactor:k
+        });
+      });
+      const sumCalibrated = calibRows.reduce((s,r)=>s+r.massFrac,0);
+      const remaining = Math.max(0, 100-sumCalibrated);
+      const uncal = weightedBase.filter(r=>!factors[r.sym]);
+      const uncalTotalWeight = uncal.reduce((s,r)=>s+r.weight,0) || 1;
+      const uncalRows = uncal.map(r=> Object.assign({}, r, {
+        massFrac: uncal.length? remaining*r.weight/uncalTotalWeight : 0,
+        massFracSigma: uncal.length? remaining*r.weightSigma/uncalTotalWeight : 0,
+        calibrated:false
+      }));
+      rows = calibRows.concat(uncalRows);
+    } else {
+      const total = weightedBase.reduce((s,r)=>s+r.weight,0) || 1;
+      rows = weightedBase.map(r=> Object.assign({}, r, {
+        massFrac: 100*r.weight/total,
+        massFracSigma: 100*r.weightSigma/total,
+        calibrated:false
+      }));
+    }
+    rows.sort((a,b)=>b.massFrac-a.massFrac);
+    return rows;
+  }
+
+  // ============================================================
+  // Zeff (electron-fraction exponent model, m = 2.94)
+  // ============================================================
+  const ZEFF_M_DEFAULT = 2.94;
+  function computeZeff(composition, mExponent){
+    const M = (typeof mExponent==="number" && mExponent>0) ? mExponent : ZEFF_M_DEFAULT;
+    if(!composition.length) return null;
+    const electrons = composition.map(c=> (c.massFrac/100/c.A) * c.Z );
+    const totalE = electrons.reduce((a,b)=>a+b,0) || 1;
+    const rows = composition.map((c,i)=>{
+      const f = electrons[i]/totalE;
+      const term = f*Math.pow(c.Z,M);
+      return { sym:c.sym, f, term };
+    });
+    const sumTerm = rows.reduce((s,r)=>s+r.term,0);
+    const zeff = Math.pow(sumTerm, 1/M);
+    return { zeff, m:M, rows, sumTerm };
+  }
+
+  // ============================================================
+  // Material match: cosine-similarity fingerprint against a small
+  // library of known profiles (built-in demo materials + any
+  // Calibration-tab standard with a known composition entered).
+  // Every profile is reduced to a normalized element-fraction
+  // vector (by mass, on the same basis as the composition table),
+  // and compared to the unknown's own normalized vector over the
+  // union of elements each side mentions. This deliberately ignores
+  // trace-spec and heat-treatment differences — see Theory §7.
+  // ============================================================
+  function materialLibrary(){
+    const profiles = DEMO_MATERIALS.map(m=>{
+      const total = m.elements.reduce((s,e)=>s+e.amp,0) || 1;
+      const frac = {};
+      m.elements.forEach(e=> frac[e.sym] = (frac[e.sym]||0) + e.amp/total );
+      return { label: m.label, source:"demo", frac };
+    });
+    calibStandards.forEach(st=>{
+      const known = st.composition.filter(r=>r.sym && r.pct>0);
+      if(!known.length) return;
+      const total = known.reduce((s,r)=>s+r.pct,0) || 1;
+      const frac = {};
+      known.forEach(r=> frac[r.sym] = (frac[r.sym]||0) + r.pct/total );
+      profiles.push({ label: st.name, source:"standard", frac });
+    });
+    return profiles;
+  }
+
+  function cosineSimilarity(fracA, fracB){
+    const syms = new Set([...Object.keys(fracA), ...Object.keys(fracB)]);
+    let dot=0, magA=0, magB=0;
+    syms.forEach(sym=>{
+      const a = fracA[sym]||0, b = fracB[sym]||0;
+      dot += a*b; magA += a*a; magB += b*b;
+    });
+    if(magA<=0 || magB<=0) return 0;
+    return dot / (Math.sqrt(magA)*Math.sqrt(magB));
+  }
+
+  function matchMaterials(composition, topN){
+    if(!composition.length) return [];
+    const total = composition.reduce((s,c)=>s+c.massFrac,0) || 1;
+    const unknownFrac = {};
+    composition.forEach(c=> unknownFrac[c.sym] = c.massFrac/total );
+    const library = materialLibrary();
+    const scored = library.map(profile=>{
+      const commonSyms = Object.keys(unknownFrac).filter(s=> profile.frac[s]);
+      return {
+        label: profile.label, source: profile.source,
+        score: cosineSimilarity(unknownFrac, profile.frac),
+        commonSyms, extraInSample: Object.keys(unknownFrac).filter(s=>!profile.frac[s]),
+        missingFromSample: Object.keys(profile.frac).filter(s=>!unknownFrac[s])
+      };
+    });
+    scored.sort((a,b)=>b.score-a.score);
+    return scored.slice(0, topN||3);
+  }
+
+  function renderMaterialMatch(composition){
+    const wrap = $("materialMatchWrap");
+    if(!composition.length){
+      wrap.innerHTML = "<div class=\"empty-note\">Run analysis to compare the identified composition against known material profiles.</div>";
+      $("matchCountTag").textContent = "closest known profiles";
+      return;
+    }
+    const matches = matchMaterials(composition, 3);
+    $("matchCountTag").textContent = matches.length+" profile"+(matches.length===1?"":"s")+" scored";
+    wrap.innerHTML = matches.map(m=>{
+      const pct = Math.max(0, Math.min(100, m.score*100));
+      const detailBits = [];
+      if(m.missingFromSample.length) detailBits.push("expects "+m.missingFromSample.join(", ")+" — not seen in sample");
+      if(m.extraInSample.length) detailBits.push("sample also has "+m.extraInSample.join(", ")+" — not in this profile");
+      return "<div class=\"match-row\">"+
+        "<div class=\"match-row-top\"><span class=\"mname\">"+m.label+"<span class=\"muted\" style=\"font-weight:400;\"> · "+(m.source==="standard"?"calibration standard":"demo library")+"</span></span><span class=\"mscore\">"+pct.toFixed(0)+"%</span></div>"+
+        "<div class=\"match-bar-track\"><div class=\"match-bar-fill\" style=\"width:"+pct.toFixed(1)+"%;\"></div></div>"+
+        (detailBits.length? "<div class=\"match-detail\">"+detailBits.join(" · ")+"</div>" : "")+
+      "</div>";
+    }).join("");
+  }
+
+  // ============================================================
+  // Rendering: spectrum
+  // ============================================================
+  function plotBaseLayout(){
+    return {
+      paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+      margin:{l:55,r:20,t:10,b:40},
+      font:{family:"IBM Plex Mono, monospace", size:11, color:"#7c8a99"},
+      xaxis:{title:"Energy (keV)", gridcolor:"#151e28", zerolinecolor:"#1c2732", color:"#7c8a99"},
+      yaxis:{title:"Counts", gridcolor:"#151e28", zerolinecolor:"#1c2732", color:"#7c8a99"},
+      showlegend:false
+    };
+  }
+
+  function renderSpectrum(matched){
+    const traces = [];
+    traces.push({
+      x: state.energies, y: state.counts, type:"scatter", mode:"lines",
+      line:{color:"#ffb454", width:1.4}, hovertemplate:"%{x:.3f} keV<br>%{y:.0f} cts<extra></extra>", name:"spectrum"
+    });
+
+    if($("chkBaseline").checked){
+      traces.push({
+        x: state.energies, y: state.baseline, type:"scatter", mode:"lines",
+        line:{color:"#4d5a68", width:1, dash:"dot"}, hoverinfo:"skip", name:"baseline"
+      });
+    }
+
+    if($("chkShade").checked){
+      matched.forEach(m=>{
+        const c = m.element ? colorFor(m.element.sym, state.colorMap) : (m.isEscape ? "#c792ea" : "#4d5a68");
+        const xs = state.energies.slice(m.idxLo, m.idxHi+1);
+        const ysBase = state.baseline.slice(m.idxLo, m.idxHi+1);
+        const ysSig = state.counts.slice(m.idxLo, m.idxHi+1);
+        traces.push({ x:xs, y:ysBase, type:"scatter", mode:"lines", line:{width:0}, hoverinfo:"skip", showlegend:false });
+        traces.push({ x:xs, y:ysSig, type:"scatter", mode:"lines", line:{width:0}, fill:"tonexty",
+          fillcolor: c+"33", hoverinfo:"skip", showlegend:false });
+      });
+    }
+
+    const isLog = $("yScaleSelect").value === "log";
+    const positiveCounts = state.counts.filter(c=>c>0);
+    // A y=0 shape endpoint is undefined on a log axis (log(0) = -∞) and throws off
+    // Plotly's autorange — floor peak-marker lines/labels at the smallest positive
+    // count in the spectrum (or a small fallback) so log mode autoscales cleanly.
+    const yFloor = isLog ? Math.max(Math.min(...positiveCounts.length?positiveCounts:[1]) * 0.9, 1e-3) : 0;
+
+    const shapes=[], annotations=[];
+    matched.forEach(m=>{
+      const c = m.element ? colorFor(m.element.sym, state.colorMap) : (m.isEscape ? "#c792ea" : "#4d5a68");
+      shapes.push({
+        type:"line", x0:m.energy, x1:m.energy, y0:yFloor, y1:Math.max(...state.counts)*1.02,
+        line:{color:c, width:1, dash: m.element? "solid":"dot"}, opacity:0.65
+      });
+      let label;
+      if(m.element) label = m.element.sym+" "+m.line.t;
+      else if(m.isEscape) label = "esc("+m.escapeOfSym+")";
+      else label = "?";
+      annotations.push({
+        x:m.energy, y:Math.max(m.counts, yFloor), yshift:16, text: label,
+        showarrow:false, font:{color:c, size:10, family:"IBM Plex Mono, monospace"}
+      });
+    });
+
+    const layout = Object.assign(plotBaseLayout(), {shapes, annotations});
+    layout.yaxis = Object.assign({}, layout.yaxis, { type: $("yScaleSelect").value, autorange:true });
+    const xMin = parseFloat($("xMinInput").value), xMax = parseFloat($("xMaxInput").value);
+    if(Number.isFinite(xMin) && Number.isFinite(xMax)) layout.xaxis.range = [xMin, xMax];
+
+    Plotly.newPlot("spectrumPlot", traces, layout, {displayModeBar:false, responsive:true});
+
+    const legend = $("plotLegend");
+    const uniqueEls = [...new Map(matched.filter(m=>m.element).map(m=>[m.element.sym,m.element])).values()];
+    let legendHtml = uniqueEls.map(el=>
+      "<span><span class=\"swatch\" style=\"background:"+colorFor(el.sym,state.colorMap)+"\"></span>"+el.sym+" · "+el.name+"</span>"
+    ).join("");
+    if(matched.some(m=>m.isEscape)){
+      legendHtml += "<span><span class=\"swatch\" style=\"background:#c792ea\"></span>Si escape peak</span>";
+    }
+    legend.innerHTML = legendHtml || "<span class=\"muted\">no lines identified yet</span>";
+  }
+
+  function zoomToPeak(energy){
+    const peak = state.matched.find(m=> Math.abs(m.energy-energy) < 1e-6);
+    const fwhm = peak ? (peak.fwhmMeasured || peak.fwhmModel) : fwhmAt(energy);
+    const width = Math.max(0.4, fwhm*6);
+    $("xMinInput").value = (energy-width).toFixed(2);
+    $("xMaxInput").value = (energy+width).toFixed(2);
+    renderSpectrum(state.matched);
+  }
+
+  // ============================================================
+  // Rendering: tables + composition + pipeline + zeff
+  // ============================================================
+  function kbetaMarker(m){
+    switch(m.kbetaStatus){
+      case "confirmed": return "<span title=\"Kβ found at expected intensity\" style=\"color:var(--mint);\">✓Kβ</span>";
+      case "anomalous": return "<span title=\"Kβ area ratio off — possible overlap\" style=\"color:var(--rose);\">⚠Kβ</span>";
+      case "unconfirmed": return "<span title=\"Expected Kβ not detected\" class=\"muted\">?Kβ</span>";
+      default: return "";
+    }
+  }
+
+  function fwhmCell(m){
+    if(m.fwhmMeasured){
+      return Math.round(m.fwhmMeasured*1000)+" eV <span class=\"muted\" title=\"measured from this peak's half-max crossings\" style=\"font-size:9px;letter-spacing:.04em;\">meas</span>";
+    } else if(m.fwhmModel){
+      return Math.round(m.fwhmModel*1000)+" eV <span class=\"muted\" title=\"detector-resolution model fallback — a clean half-max crossing wasn't found (edge of data or an overlapping neighbor)\" style=\"font-size:9px;letter-spacing:.04em;\">calc</span>";
+    }
+    return "—";
+  }
+
+  function renderPeakTable(matched, tolKeV){
+    const wrap = $("peakTableWrap");
+    if(!matched.length){ wrap.innerHTML = "<div class=\"empty-note\">No peaks above the current sensitivity threshold.</div>"; return; }
+    let rows = matched.map((m,i)=>{
+      const badge = confidenceBadge(m.deltaAbs, tolKeV);
+      let elCell;
+      if(m.element){
+        elCell = "<span class=\"el-chip\"><span class=\"el-dot\" style=\"background:"+colorFor(m.element.sym,state.colorMap)+"\"></span>"+m.element.sym+"<span class=\"muted\" style=\"font-weight:400\"> · "+m.element.name+"</span></span>";
+      } else if(m.isEscape){
+        elCell = "<span class=\"el-chip\" style=\"color:var(--violet);\"><span class=\"el-dot\" style=\"background:#c792ea\"></span>esc · Si escape of "+m.escapeOfSym+"</span>";
+      } else {
+        elCell = "<span class=\"muted\">unidentified</span>";
+      }
+      const kbMark = m.element && m.line.t==="Kα1" ? kbetaMarker(m) : "";
+      return "<tr class=\"clickable\" data-energy=\""+m.energy+"\">"+
+        "<td>"+m.energy.toFixed(2)+" keV</td>"+
+        "<td>"+elCell+"</td>"+
+        "<td>"+(m.line? m.line.t : (m.isEscape? "esc" : "—"))+(kbMark? " "+kbMark : "")+"</td>"+
+        "<td class=\"muted\">"+(m.delta!=null? (m.delta>=0?"+":"")+Math.round(m.delta*1000)+" eV" : "—")+"</td>"+
+        "<td class=\"muted\">"+fwhmCell(m)+"</td>"+
+        "<td class=\"muted\">"+Math.round(m.netArea)+"</td>"+
+        "<td>"+(m.element? "<span class=\"conf "+badge.cls+"\">"+badge.label+"</span>" : "")+"</td>"+
+      "</tr>";
+    }).join("");
+    wrap.innerHTML = "<table><thead><tr><th>Peak</th><th>Element</th><th>Line</th><th>Δ</th><th>FWHM</th><th>Net area</th><th>Conf.</th></tr></thead><tbody>"+rows+"</tbody></table>";
+    const nEscape = matched.filter(m=>m.isEscape).length;
+    $("peakCountTag").textContent = matched.length+" peak"+(matched.length===1?"":"s")+" · "+matched.filter(m=>m.element).length+" identified"+(nEscape? " · "+nEscape+" escape":"");
+
+    wrap.querySelectorAll("tr.clickable").forEach(tr=>{
+      tr.addEventListener("click", ()=> zoomToPeak(parseFloat(tr.dataset.energy)) );
+    });
+  }
+
+  function renderComposition(composition){
+    const chartDiv = $("compChart");
+    const tableWrap = $("compTableWrap");
+    if(!composition.length){
+      Plotly.purge(chartDiv);
+      tableWrap.innerHTML = "<div class=\"empty-note\">No identified peaks to estimate composition from.</div>";
+      return;
+    }
+    const trace = {
+      x: composition.map(c=>c.massFrac),
+      y: composition.map(c=>c.sym),
+      type:"bar", orientation:"h",
+      marker:{ color: composition.map(c=>colorFor(c.sym, state.colorMap)) },
+      error_x:{ type:"data", array: composition.map(c=>c.massFracSigma||0), visible:true, color:"#7c8a99", thickness:1.2, width:3 },
+      hovertemplate:"%{y}: %{x:.1f}%<extra></extra>"
+    };
+    const layout = Object.assign(plotBaseLayout(), {
+      margin:{l:44,r:20,t:6,b:34},
+      xaxis:{title:"mass fraction (%)", gridcolor:"#151e28", color:"#7c8a99"},
+      yaxis:{autorange:"reversed", gridcolor:"#151e28", color:"#7c8a99"}
+    });
+    Plotly.newPlot(chartDiv, [trace], layout, {displayModeBar:false, responsive:true});
+
+    tableWrap.innerHTML = "<table style=\"margin-top:12px;\"><thead><tr><th>Element</th><th>Z</th><th>Mass %</th><th>Source</th></tr></thead><tbody>"+
+      composition.map(c=>{
+        const confTag = (!c.calibrated && c.confFactor!=null && c.confFactor<0.999)
+          ? " <span class=\"muted\" title=\"downweighted for a looser line match — confidence factor ×"+c.confFactor.toFixed(2)+"\" style=\"font-size:9px;\">×"+c.confFactor.toFixed(2)+"</span>" : "";
+        return "<tr><td><span class=\"el-chip\"><span class=\"el-dot\" style=\"background:"+colorFor(c.sym,state.colorMap)+"\"></span>"+c.sym+"</span></td><td class=\"muted\">"+c.Z+"</td><td>"+c.massFrac.toFixed(1)+" ± "+(c.massFracSigma||0).toFixed(1)+"%</td><td>"+(c.calibrated? "<span style=\"color:var(--mint);\">calib.</span>" : "<span class=\"muted\">est.</span>"+confTag)+"</td></tr>";
+      }).join("")+
+      "</tbody></table>"+
+      "<div class=\"file-hint\" style=\"margin-top:10px;\">Error bars: counting-statistics (√N) uncertainty on net peak area propagated through the yield/calibration model — order-of-magnitude, not a full covariance treatment. \"calib.\" rows use a fitted sensitivity factor from the Calibration tab; \"est.\" rows use the relative yield-normalized method. When confidence-weighted normalization is on, a \"×0.xx\" tag shows an element's line match was near the tolerance edge and its contribution was scaled down accordingly (never applied to calib. rows).</div>";
+  }
+
+  function renderPipeline(composition, zeffResult){
+    const wrap = $("pipelineWrap");
+    if(!composition.length){
+      wrap.innerHTML = "<div class=\"empty-note\">Run analysis to see the step-by-step composition and Z<sub>eff</sub> calculation.</div>";
+      return;
+    }
+    const fMap = {};
+    if(zeffResult) zeffResult.rows.forEach(r=> fMap[r.sym]=r );
+    let rows = composition.map(c=>{
+      const zr = fMap[c.sym] || {f:0, term:0};
+      return "<tr>"+
+        "<td><span class=\"el-chip\"><span class=\"el-dot\" style=\"background:"+colorFor(c.sym,state.colorMap)+"\"></span>"+c.sym+"</span></td>"+
+        "<td class=\"muted\">"+c.lineUsed+"</td>"+
+        "<td>"+Math.round(c.netArea)+" <span class=\"muted\">± "+Math.round(c.areaSigma||0)+"</span></td>"+
+        "<td class=\"arrow-col\">→</td>"+
+        "<td class=\"muted\">"+(c.calibrated? ("k="+c.kFactor.toExponential(2)) : c.omega.toFixed(3))+"</td>"+
+        "<td class=\"arrow-col\">→</td>"+
+        "<td class=\"muted\">"+c.weight.toFixed(0)+(!c.calibrated && c.confFactor!=null && c.confFactor<0.999 ? " <span class=\"muted\" title=\"confidence-weighted ×"+c.confFactor.toFixed(2)+"\" style=\"font-size:9px;\">×"+c.confFactor.toFixed(2)+"</span>":"")+"</td>"+
+        "<td class=\"arrow-col\">→</td>"+
+        "<td><b>"+c.massFrac.toFixed(1)+"% ± "+(c.massFracSigma||0).toFixed(1)+"</b>"+(c.calibrated? " <span style=\"color:var(--mint);font-size:10px;\">calib</span>":"")+"</td>"+
+        "<td class=\"arrow-col\">→</td>"+
+        "<td class=\"muted\">"+zr.f.toFixed(3)+"</td>"+
+        "<td class=\"arrow-col\">→</td>"+
+        "<td class=\"muted\">"+zr.term.toFixed(1)+"</td>"+
+      "</tr>";
+    }).join("");
+    wrap.innerHTML = "<table><thead><tr>"+
+      "<th>Element</th><th>Line</th><th>Net area A<sub>i</sub> ± σ</th><th></th><th>ω(Z) or k</th><th></th>"+
+      "<th>w<sub>i</sub> = A<sub>i</sub>/ω</th><th></th><th>Mass %</th><th></th>"+
+      "<th>f<sub>i</sub> (electron frac.)</th><th></th><th>f<sub>i</sub>·Z<sup>2.94</sup></th>"+
+      "</tr></thead><tbody>"+rows+"</tbody></table>";
+  }
+
+  function renderZeff(zeffResult){
+    if(!zeffResult){
+      $("zeffNum").textContent = "—";
+      $("zeffFormula").innerHTML = "";
+      return;
+    }
+    $("zeffNum").textContent = zeffResult.zeff.toFixed(1);
+    const formulaTex = "Z_{eff} = \\left( \\sum_i f_i\\, Z_i^{\\,m} \\right)^{1/m} \\quad,\\quad m = "+zeffResult.m;
+    $("zeffFormula").innerHTML = "";
+    katex.render(formulaTex, $("zeffFormula"), {throwOnError:false, displayMode:true});
+  }
+
+  // ============================================================
+  // Export
+  // ============================================================
+  function exportCSV(){
+    if(!state.matched.length){ alert("Run analysis first."); return; }
+    let lines = [];
+    lines.push("# XRF Analyzer export");
+    lines.push("");
+    lines.push("Peak (keV),Element,Line,Delta (eV),FWHM (eV),FWHM source,Net Area,Area Sigma,Confidence,Escape peak,Kbeta status");
+    state.matched.forEach(m=>{
+      const badge = confidenceBadge(m.deltaAbs, parseFloat($("tolSlider").value)/1000);
+      lines.push([
+        m.energy.toFixed(3),
+        m.element? m.element.sym : (m.isEscape? ("esc:"+m.escapeOfSym) : ""),
+        m.line? m.line.t : (m.isEscape? "esc" : ""),
+        m.delta!=null? Math.round(m.delta*1000) : "",
+        m.fwhmMeasured? Math.round(m.fwhmMeasured*1000) : (m.fwhmModel? Math.round(m.fwhmModel*1000) : ""),
+        m.fwhmMeasured? "measured" : (m.fwhmModel? "model" : ""),
+        Math.round(m.netArea),
+        Math.round(m.areaSigma||0),
+        m.element? badge.label : "",
+        m.isEscape? "yes" : "no",
+        m.kbetaStatus || ""
+      ].join(","));
+    });
+    lines.push("");
+    lines.push("Element,Z,Line used,Net Area,Area Sigma,Yield omega or k,Weight,Mass %,Mass % Sigma,Source");
+    state.composition.forEach(c=>{
+      lines.push([c.sym, c.Z, c.lineUsed, Math.round(c.netArea), Math.round(c.areaSigma||0),
+        c.calibrated? c.kFactor.toExponential(4) : c.omega.toFixed(4),
+        c.weight.toFixed(1), c.massFrac.toFixed(2), (c.massFracSigma||0).toFixed(2),
+        c.calibrated? "calibrated" : "estimated"].join(","));
+    });
+    if(state.zeffResult){
+      lines.push("");
+      lines.push("Zeff,"+state.zeffResult.zeff.toFixed(3));
+    }
+    if(state.composition.length){
+      const topMatch = matchMaterials(state.composition, 1)[0];
+      if(topMatch){
+        lines.push("");
+        lines.push("Top material match,"+topMatch.label+",score,"+(topMatch.score*100).toFixed(1)+"%");
+      }
+    }
+    const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "xrf_analysis_results.csv";
+    a.click();
+  }
+
+  // ============================================================
+  // Pipeline runner
+  // ============================================================
+  function runAnalysis(){
+    if(!state.energies.length) return;
+    const sensitivity = parseFloat($("threshSlider").value);
+    const tolKeV = parseFloat($("tolSlider").value)/1000;
+
+    state.colorMap = {};
+    state.baseline = computeBaseline(state.energies, state.counts);
+    const peaks = detectPeaks(state.energies, state.counts, state.baseline, sensitivity);
+    const matched = matchElements(peaks, tolKeV);
+    annotateEscapePeaks(matched, tolKeV);
+    crossCheckKbeta(matched);
+    const composition = estimateComposition(matched, state.calibration, { confidenceWeighted: state.confidenceWeighted, tolKeV: tolKeV });
+    const zeffResult = computeZeff(composition, state.zeffM);
+
+    state.peaks = peaks; state.matched = matched; state.composition = composition; state.zeffResult = zeffResult;
+
+    renderSpectrum(matched);
+    renderPeakTable(matched, tolKeV);
+    renderComposition(composition);
+    renderMaterialMatch(composition);
+    renderPipeline(composition, zeffResult);
+    renderZeff(zeffResult);
+
+    $("ledPeaks").classList.toggle("on", peaks.length>0);
+    $("ledMatch").classList.toggle("amber", matched.some(m=>m.element));
+
+    const meta = $("sourceMeta");
+    meta.innerHTML = "points: <span>"+state.energies.length+"</span><br>"+
+      "range: <span>"+state.energies[0].toFixed(2)+"–"+state.energies[state.energies.length-1].toFixed(2)+" keV</span><br>"+
+      "peaks found: <span>"+peaks.length+"</span>";
+  }
+
+  function loadSpectrum(energies, counts, tag){
+    state.energies = energies; state.counts = counts;
+    $("specTag").textContent = tag;
+    $("ledData").classList.add("on");
+    $("xMinInput").value = ""; $("xMaxInput").value = "";
+    Plotly.purge("spectrumPlot");
+    $("peakTableWrap").innerHTML = "<div class=\"empty-note\">Run analysis to populate identified peaks.</div>";
+    Plotly.purge("compChart");
+    $("compTableWrap").innerHTML = "";
+    $("materialMatchWrap").innerHTML = "<div class=\"empty-note\">Run analysis to compare the identified composition against known material profiles.</div>";
+    $("pipelineWrap").innerHTML = "<div class=\"empty-note\">Run analysis to see the step-by-step composition and Z<sub>eff</sub> calculation.</div>";
+    $("zeffNum").textContent = "—";
+    $("zeffFormula").innerHTML = "";
+    Plotly.newPlot("spectrumPlot", [{
+      x: energies, y: counts, type:"scatter", mode:"lines", line:{color:"#ffb454", width:1.4}
+    }], plotBaseLayout(), {displayModeBar:false, responsive:true});
+    runAnalysis();
+  }
+
+  // ============================================================
+  // Wiring — tabs
+  // ============================================================
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      $(btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab==="tabAnalyzer"){
+        window.dispatchEvent(new Event("resize"));
+      }
+    });
+  });
+
+  // ============================================================
+  // Wiring — controls
+  // ============================================================
+  $("threshSlider").addEventListener("input", e=> $("threshVal").textContent = e.target.value+"%");
+  $("tolSlider").addEventListener("input", e=> $("tolVal").textContent = "±"+e.target.value+" eV");
+  $("dataFormat").addEventListener("change", (e)=>{
+    $("calibFields").style.display = e.target.value==="channel" ? "block" : "none";
+  });
+  $("gainSlider").addEventListener("input", e=> $("gainVal").textContent = parseFloat(e.target.value).toFixed(1)+" eV/ch");
+  $("offsetSlider").addEventListener("input", e=> $("offsetVal").textContent = parseFloat(e.target.value).toFixed(3)+" keV");
+
+  $("yScaleSelect").addEventListener("change", ()=> renderSpectrum(state.matched));
+  $("chkBaseline").addEventListener("change", ()=> renderSpectrum(state.matched));
+  $("chkShade").addEventListener("change", ()=> renderSpectrum(state.matched));
+  $("xMinInput").addEventListener("change", ()=> renderSpectrum(state.matched));
+  $("xMaxInput").addEventListener("change", ()=> renderSpectrum(state.matched));
+  $("btnResetView").addEventListener("click", ()=>{
+    $("xMinInput").value = ""; $("xMaxInput").value = "";
+    renderSpectrum(state.matched);
+  });
+
+  // Populate the demo-sample dropdown from DEMO_MATERIALS
+  $("demoMaterialSelect").innerHTML = DEMO_MATERIALS.map((m,i)=>
+    "<option value=\""+m.key+"\""+(i===0?" selected":"")+">"+m.label+"</option>"
+  ).join("");
+
+  $("btnDemo").addEventListener("click", ()=>{
+    const demo = generateDemoSpectrum($("demoMaterialSelect").value);
+    loadSpectrum(demo.energies, demo.counts, demo.tagNote);
+  });
+
+  $("btnUpload").addEventListener("click", ()=> $("fileInput").click());
+  $("fileInput").addEventListener("change", (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      const text = evt.target.result;
+      try{
+        const parsed = parseSpectrumFile(text, file.name);
+        loadSpectrum(parsed.energies, parsed.counts, parsed.tag);
+      }catch(err){
+        alert("Could not parse this file: "+err.message);
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  $("btnAnalyze").addEventListener("click", runAnalysis);
+  $("btnExport").addEventListener("click", exportCSV);
+
+  $("chkConfWeight").addEventListener("change", (e)=>{
+    state.confidenceWeighted = e.target.checked;
+    if(state.energies.length) runAnalysis();
+  });
+
+  function applyZeffM(value){
+    const m = parseFloat(value);
+    const clamped = Number.isFinite(m) ? Math.min(4.5, Math.max(2.5, m)) : ZEFF_M_DEFAULT;
+    state.zeffM = clamped;
+    $("zeffMInput").value = clamped;
+    $("zeffMTag").textContent = "m = "+clamped.toFixed(2);
+    if(state.composition.length){
+      state.zeffResult = computeZeff(state.composition, state.zeffM);
+      renderPipeline(state.composition, state.zeffResult);
+      renderZeff(state.zeffResult);
+    }
+  }
+  $("zeffMInput").addEventListener("change", (e)=> applyZeffM(e.target.value));
+  $("btnZeffMReset").addEventListener("click", ()=> applyZeffM(ZEFF_M_DEFAULT));
+
+  // ============================================================
+  // Batch mode — queue files, run each through the same pipeline,
+  // show a per-file summary, allow loading any row into the Analyzer.
+  // ============================================================
+  function renderBatchFileList(){
+    $("batchFileCountTag").textContent = batchFiles.length+" file"+(batchFiles.length===1?"":"s");
+    const wrap = $("batchFileListWrap");
+    if(!batchFiles.length){
+      wrap.innerHTML = "<div class=\"empty-note\">No files loaded yet.</div>";
+      return;
+    }
+    wrap.innerHTML = batchFiles.map(f=>
+      "<div class=\"batch-file-row\"><span class=\"fname\">"+f.name+"</span><span class=\"fstatus\">"+f.energies.length+" pts</span>"+
+      "<button class=\"fremove\" data-id=\""+f.id+"\" title=\"remove\">✕</button></div>"
+    ).join("");
+    wrap.querySelectorAll(".fremove").forEach(b=> b.addEventListener("click", ()=>{
+      const id = parseInt(b.dataset.id);
+      batchFiles = batchFiles.filter(f=>f.id!==id);
+      batchResults = batchResults.filter(r=>r.id!==id);
+      renderBatchFileList();
+      renderBatchResults();
+    }));
+  }
+
+  function queueBatchFile(text, filename){
+    try{
+      const parsed = parseSpectrumFile(text, filename);
+      batchFiles.push({ id: batchNextId++, name: filename, energies: parsed.energies, counts: parsed.counts, tag: parsed.tag });
+    }catch(err){
+      batchFiles.push({ id: batchNextId++, name: filename, energies: [], counts: [], tag: filename, parseError: err.message });
+    }
+    renderBatchFileList();
+  }
+
+  function handleBatchFileList(fileList){
+    Array.from(fileList).forEach(file=>{
+      const reader = new FileReader();
+      reader.onload = (evt)=> queueBatchFile(evt.target.result, file.name);
+      reader.readAsText(file);
+    });
+  }
+
+  $("batchDropzone").addEventListener("click", ()=> $("batchFileInput").click());
+  $("batchFileInput").addEventListener("change", (e)=>{
+    if(e.target.files.length) handleBatchFileList(e.target.files);
+    e.target.value = "";
+  });
+  ["dragover","dragenter"].forEach(evt=>{
+    $("batchDropzone").addEventListener(evt, (e)=>{ e.preventDefault(); $("batchDropzone").classList.add("drag"); });
+  });
+  ["dragleave","drop"].forEach(evt=>{
+    $("batchDropzone").addEventListener(evt, (e)=>{ e.preventDefault(); $("batchDropzone").classList.remove("drag"); });
+  });
+  $("batchDropzone").addEventListener("drop", (e)=>{
+    if(e.dataTransfer && e.dataTransfer.files.length) handleBatchFileList(e.dataTransfer.files);
+  });
+
+  function runBatchAnalysis(){
+    if(!batchFiles.length){ alert("Load at least one file first."); return; }
+    const sensitivity = parseFloat($("threshSlider").value);
+    const tolKeV = parseFloat($("tolSlider").value)/1000;
+    batchResults = batchFiles.map(f=>{
+      if(f.parseError || !f.energies.length){
+        return { id:f.id, name:f.name, error: f.parseError || "no data" };
+      }
+      try{
+        const baseline = computeBaseline(f.energies, f.counts);
+        const peaks = detectPeaks(f.energies, f.counts, baseline, sensitivity);
+        const matched = matchElements(peaks, tolKeV);
+        annotateEscapePeaks(matched, tolKeV);
+        crossCheckKbeta(matched);
+        const composition = estimateComposition(matched, state.calibration, { confidenceWeighted: state.confidenceWeighted, tolKeV: tolKeV });
+        const zeffResult = computeZeff(composition, state.zeffM);
+        const bestMatch = matchMaterials(composition, 1)[0] || null;
+        return { id:f.id, name:f.name, peaks, matched, composition, zeffResult, bestMatch };
+      }catch(err){
+        return { id:f.id, name:f.name, error: err.message };
+      }
+    });
+    renderBatchResults();
+  }
+
+  function renderBatchResults(){
+    const wrap = $("batchResultsWrap");
+    $("batchResultCountTag").textContent = batchResults.length ? batchResults.length+" processed" : "";
+    if(!batchResults.length){
+      wrap.innerHTML = "<div class=\"empty-note\">Load files and run batch analysis.</div>";
+      return;
+    }
+    let rows = batchResults.map(r=>{
+      if(r.error){
+        return "<tr><td>"+r.name+"</td><td colspan=\"4\" class=\"muted\">parse error — "+r.error+"</td></tr>";
+      }
+      const topEls = r.composition.slice(0,3).map(c=> c.sym+" "+c.massFrac.toFixed(0)+"%" ).join(", ") || "none identified";
+      const zeffStr = r.zeffResult ? r.zeffResult.zeff.toFixed(1) : "—";
+      const matchStr = r.bestMatch ? r.bestMatch.label+" ("+(r.bestMatch.score*100).toFixed(0)+"%)" : "—";
+      return "<tr class=\"clickable\" data-id=\""+r.id+"\">"+
+        "<td>"+r.name+"</td>"+
+        "<td class=\"muted\">"+r.peaks.length+"</td>"+
+        "<td>"+topEls+"</td>"+
+        "<td class=\"muted\">"+zeffStr+"</td>"+
+        "<td class=\"muted\">"+matchStr+"</td>"+
+      "</tr>";
+    }).join("");
+    wrap.innerHTML = "<table><thead><tr><th>File</th><th>Peaks</th><th>Top elements</th><th>Z<sub>eff</sub></th><th>Closest match</th></tr></thead><tbody>"+rows+"</tbody></table>"+
+      "<div class=\"file-hint\" style=\"margin-top:10px;\">Click a row to load that file into the Analyzer tab.</div>";
+    wrap.querySelectorAll("tr.clickable").forEach(tr=>{
+      tr.addEventListener("click", ()=>{
+        const id = parseInt(tr.dataset.id);
+        const f = batchFiles.find(x=>x.id===id);
+        if(!f || !f.energies.length) return;
+        document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+        document.querySelector(".tab-btn[data-tab=tabAnalyzer]").classList.add("active");
+        $("tabAnalyzer").classList.add("active");
+        loadSpectrum(f.energies, f.counts, f.tag);
+        window.dispatchEvent(new Event("resize"));
+      });
+    });
+  }
+
+  function exportBatchCSV(){
+    if(!batchResults.length){ alert("Run batch analysis first."); return; }
+    let lines = [];
+    lines.push("# XRF Analyzer batch summary");
+    lines.push("");
+    lines.push("File,Peaks found,Elements (mass %),Zeff,Closest match,Match score (%)");
+    batchResults.forEach(r=>{
+      if(r.error){
+        lines.push([r.name, "", "parse error: "+r.error, "", "", ""].join(","));
+        return;
+      }
+      const elStr = r.composition.map(c=> c.sym+":"+c.massFrac.toFixed(1) ).join(" ");
+      lines.push([
+        r.name, r.peaks.length, "\""+elStr+"\"",
+        r.zeffResult? r.zeffResult.zeff.toFixed(2) : "",
+        r.bestMatch? r.bestMatch.label : "",
+        r.bestMatch? (r.bestMatch.score*100).toFixed(1) : ""
+      ].join(","));
+    });
+    const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "xrf_batch_summary.csv";
+    a.click();
+  }
+
+  $("btnRunBatch").addEventListener("click", runBatchAnalysis);
+  $("btnExportBatch").addEventListener("click", exportBatchCSV);
+  $("btnClearBatch").addEventListener("click", ()=>{
+    batchFiles = []; batchResults = [];
+    renderBatchFileList(); renderBatchResults();
+  });
+  renderBatchFileList();
+  renderBatchResults();
+
+  // ============================================================
+  // Calibration mode — reference standards, fitting, rendering
+  // ============================================================
+  function newStandard(){
+    return { id: calibNextId++, name: "Standard "+calibNextId, energies:null, counts:null, tag:null, composition:[{sym:"Fe", pct:""}] };
+  }
+
+  function elementOptionsHTML(selectedSym){
+    return XRAY_DB.map(el=>
+      "<option value=\""+el.sym+"\""+(el.sym===selectedSym?" selected":"")+">"+el.sym+" — "+el.name+"</option>"
+    ).join("");
+  }
+
+  function renderCalibStandards(){
+    const wrap = $("calibStandardsList");
+    $("calibStdCountTag").textContent = calibStandards.length+" added";
+    if(!calibStandards.length){
+      wrap.innerHTML = "<div class=\"empty-note\">No standards yet — add one below.</div>";
+      return;
+    }
+    wrap.innerHTML = calibStandards.map(st=>{
+      const statusText = st.energies ? ("loaded: "+st.energies.length+" pts") : "not loaded";
+      const rows = st.composition.map((row,ri)=>
+        "<tr>"+
+          "<td><select class=\"calib-el-select\" data-id=\""+st.id+"\" data-row=\""+ri+"\">"+elementOptionsHTML(row.sym)+"</select></td>"+
+          "<td><input type=\"number\" class=\"calib-pct-input\" data-id=\""+st.id+"\" data-row=\""+ri+"\" value=\""+row.pct+"\" step=\"0.1\" min=\"0\" style=\"width:80px;\"></td>"+
+          "<td><button class=\"calib-delrow-btn\" data-id=\""+st.id+"\" data-row=\""+ri+"\" style=\"background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:13px;\">✕</button></td>"+
+        "</tr>"
+      ).join("");
+      return "<div class=\"card\" data-standard-id=\""+st.id+"\" style=\"margin-top:0;margin-bottom:14px;background:var(--panel-2);\">"+
+        "<div class=\"card-title\">"+
+          "<input type=\"text\" class=\"calib-name-input\" data-id=\""+st.id+"\" value=\""+st.name+"\" style=\"background:transparent;border:none;border-bottom:1px dashed var(--line);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.04em;width:55%;padding:2px 0;\">"+
+          "<button class=\"btn small calib-remove-btn\" data-id=\""+st.id+"\">✕ remove</button>"+
+        "</div>"+
+        "<div class=\"btn-row\">"+
+          "<button class=\"btn calib-load-btn\" data-id=\""+st.id+"\">↑ Load spectrum ("+statusText+")</button>"+
+          "<input type=\"file\" class=\"calib-file-input\" data-id=\""+st.id+"\" accept=\".csv,.txt,.mca\" style=\"display:none;\">"+
+        "</div>"+
+        "<table style=\"margin-top:12px;\"><thead><tr><th>Known element</th><th>Mass %</th><th></th></tr></thead><tbody>"+rows+"</tbody></table>"+
+        "<button class=\"btn small calib-addrow-btn\" data-id=\""+st.id+"\" style=\"margin-top:8px;\">+ add element</button>"+
+      "</div>";
+    }).join("");
+
+    wrap.querySelectorAll(".calib-remove-btn").forEach(b=> b.addEventListener("click", ()=>{
+      calibStandards = calibStandards.filter(s=>s.id!==parseInt(b.dataset.id));
+      renderCalibStandards();
+    }));
+    wrap.querySelectorAll(".calib-name-input").forEach(inp=> inp.addEventListener("change", ()=>{
+      const st = calibStandards.find(s=>s.id===parseInt(inp.dataset.id));
+      if(st) st.name = inp.value || st.name;
+    }));
+    wrap.querySelectorAll(".calib-load-btn").forEach(b=> b.addEventListener("click", ()=>{
+      wrap.querySelector(".calib-file-input[data-id=\""+b.dataset.id+"\"]").click();
+    }));
+    wrap.querySelectorAll(".calib-file-input").forEach(inp=> inp.addEventListener("change", (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const id = parseInt(inp.dataset.id);
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        const text = evt.target.result;
+        const st = calibStandards.find(s=>s.id===id);
+        if(!st) return;
+        try{
+          const parsed = parseSpectrumFile(text, file.name);
+          st.energies = parsed.energies; st.counts = parsed.counts; st.tag = parsed.tag;
+        }catch(err){
+          alert("Could not parse this file: "+err.message);
+          return;
+        }
+        renderCalibStandards();
+      };
+      reader.readAsText(file);
+    }));
+    wrap.querySelectorAll(".calib-addrow-btn").forEach(b=> b.addEventListener("click", ()=>{
+      const st = calibStandards.find(s=>s.id===parseInt(b.dataset.id));
+      if(st){ st.composition.push({sym:"Fe", pct:""}); renderCalibStandards(); }
+    }));
+    wrap.querySelectorAll(".calib-delrow-btn").forEach(b=> b.addEventListener("click", ()=>{
+      const st = calibStandards.find(s=>s.id===parseInt(b.dataset.id));
+      if(st){ st.composition.splice(parseInt(b.dataset.row),1); renderCalibStandards(); }
+    }));
+    wrap.querySelectorAll(".calib-el-select").forEach(sel=> sel.addEventListener("change", ()=>{
+      const st = calibStandards.find(s=>s.id===parseInt(sel.dataset.id));
+      if(st) st.composition[parseInt(sel.dataset.row)].sym = sel.value;
+    }));
+    wrap.querySelectorAll(".calib-pct-input").forEach(inp=> inp.addEventListener("change", ()=>{
+      const st = calibStandards.find(s=>s.id===parseInt(inp.dataset.id));
+      if(st) st.composition[parseInt(inp.dataset.row)].pct = parseFloat(inp.value)||0;
+    }));
+  }
+
+  // Least-squares fit through the origin (mass% = k * w) per element, pooling
+  // (w_i, known%) pairs across every standard that both has a loaded spectrum
+  // and lists that element in its known composition.
+  function fitCalibration(){
+    const sensitivity = parseFloat($("threshSlider").value);
+    const tolKeV = parseFloat($("tolSlider").value)/1000;
+    const pairsBySym = {};
+
+    calibStandards.forEach(st=>{
+      if(!st.energies || !st.energies.length) return;
+      const baseline = computeBaseline(st.energies, st.counts);
+      const peaks = detectPeaks(st.energies, st.counts, baseline, sensitivity);
+      const matched = matchElements(peaks, tolKeV);
+      annotateEscapePeaks(matched, tolKeV);
+      const weights = elementWeights(matched);
+      const wMap = {};
+      weights.forEach(w=> wMap[w.sym]=w );
+      st.composition.forEach(row=>{
+        if(!row.sym || !(row.pct>0)) return;
+        const w = wMap[row.sym];
+        if(!w) return; // element known but not detected in this standard's spectrum
+        pairsBySym[row.sym] = pairsBySym[row.sym] || [];
+        pairsBySym[row.sym].push({ w:w.weight, known:row.pct, standard:st.name });
+      });
+    });
+
+    const factors = {};
+    Object.keys(pairsBySym).forEach(sym=>{
+      const pairs = pairsBySym[sym];
+      const sumWK = pairs.reduce((s,p)=>s+p.w*p.known,0);
+      const sumWW = pairs.reduce((s,p)=>s+p.w*p.w,0);
+      const k = sumWW>0 ? sumWK/sumWW : 0;
+      let r2 = null;
+      if(pairs.length>=2){
+        const meanKnown = pairs.reduce((s,p)=>s+p.known,0)/pairs.length;
+        const ssTot = pairs.reduce((s,p)=>s+Math.pow(p.known-meanKnown,2),0);
+        const ssRes = pairs.reduce((s,p)=>s+Math.pow(p.known-k*p.w,2),0);
+        r2 = ssTot>0 ? 1-(ssRes/ssTot) : null;
+      }
+      factors[sym] = { k, n:pairs.length, r2, pairs };
+    });
+
+    state.calibration.factors = factors;
+    renderCalibResults(factors);
+    if(state.energies.length) runAnalysis();
+  }
+
+  function renderCalibResults(factors){
+    const wrap = $("calibResultsWrap");
+    const syms = Object.keys(factors);
+    if(!syms.length){
+      wrap.innerHTML = "<div class=\"empty-note\">No element in any standard's known composition was detected in its spectrum — check sensitivity/tolerance settings and that spectra are loaded.</div>";
+      $("calibStatusHint").textContent = "No calibration fitted yet.";
+      return;
+    }
+    let rows = syms.map(sym=>{
+      const f = factors[sym];
+      const resid = f.pairs.map(p=> Math.abs(p.known - f.k*p.w) ).reduce((s,v)=>s+v,0) / f.pairs.length;
+      return "<tr><td><span class=\"el-chip\"><span class=\"el-dot\" style=\"background:"+colorFor(sym,state.colorMap)+"\"></span>"+sym+"</span></td>"+
+        "<td class=\"muted\">"+f.k.toExponential(3)+"</td>"+
+        "<td class=\"muted\">"+f.n+"</td>"+
+        "<td class=\"muted\">"+(f.r2!=null? f.r2.toFixed(3) : "—")+"</td>"+
+        "<td class=\"muted\">± "+resid.toFixed(2)+" %</td></tr>";
+    }).join("");
+    wrap.innerHTML = "<table><thead><tr><th>Element</th><th>k (mass% / w)</th><th>n pts</th><th>R²</th><th>Avg. |resid.|</th></tr></thead><tbody>"+rows+"</tbody></table>"+
+      "<div class=\"file-hint\" style=\"margin-top:10px;\">n = number of (standard, element) pairs used; R² needs ≥2 points and reflects fit quality across your standards only, not accuracy on unknowns. \"Avg. |resid.|\" is the mean absolute difference between known and back-predicted mass % for the standards themselves.</div>";
+    $("calibStatusHint").innerHTML = syms.length+" element"+(syms.length===1?"":"s")+" calibrated: <span style=\"color:var(--text);\">"+syms.join(", ")+"</span>. Toggle \"use calibration factors\" above to apply them in the Analyzer.";
+  }
+
+  $("btnAddStandard").addEventListener("click", ()=>{
+    calibStandards.push(newStandard());
+    renderCalibStandards();
+  });
+  $("btnFitCalibration").addEventListener("click", fitCalibration);
+  $("chkCalibActive").addEventListener("change", (e)=>{
+    state.calibration.active = e.target.checked;
+    if(state.energies.length) runAnalysis();
+  });
+  renderCalibStandards();
+
+  // ============================================================
+  // Theory tab formulas
+  // ============================================================
+  function renderTheoryFormulas(){
+    katex.render("E_{K\\alpha} \\approx \\frac{3}{4}\\,R h\\,(Z-\\sigma)^2 \\;,\\quad Rh = 13.6\\ \\text{eV}", $("thFormula1"), {throwOnError:false, displayMode:true});
+    katex.render("A_i = \\int_{E_i-1.8\\Gamma}^{\\,E_i+1.8\\Gamma} \\big[\\,N(E) - B(E)\\,\\big]\\, dE", $("thFormula2"), {throwOnError:false, displayMode:true});
+    katex.render("w_i = \\frac{A_i}{\\omega(Z_i)} \\;,\\quad \\text{mass fraction}_i = \\frac{w_i}{\\sum_j w_j}\\times 100\\%", $("thFormula3"), {throwOnError:false, displayMode:true});
+    katex.render("\\omega_K(Z) \\approx \\frac{Z^4}{Z^4 + 1.12\\times10^{6}} \\;,\\qquad \\omega_L(Z) \\approx \\frac{Z^4}{Z^4 + 6.5\\times10^{7}}", $("thFormula4"), {throwOnError:false, displayMode:true});
+    katex.render("f_i = \\frac{(w_i/A_{r,i})\\,Z_i}{\\sum_j (w_j/A_{r,j})\\,Z_j} \\quad \\text{(electron fraction, }A_r\\text{ = atomic mass)}", $("thFormula5"), {throwOnError:false, displayMode:true});
+    katex.render("Z_{eff} = \\left(\\sum_i f_i\\, Z_i^{\\,m}\\right)^{1/m} \\;,\\quad m = 2.94", $("thFormula6"), {throwOnError:false, displayMode:true});
+  }
+  renderTheoryFormulas();
+
+  // boot with demo spectrum (first entry in the demo-material database)
+  const demo0 = generateDemoSpectrum(DEMO_MATERIALS[0].key);
+  loadSpectrum(demo0.energies, demo0.counts, demo0.tagNote);
+
+})();
+</script>
+</body>
+</html> 

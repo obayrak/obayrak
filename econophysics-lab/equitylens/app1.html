@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger &mdash; Equity Valuation &amp; Technical Analysis Platform</title>
+
+<!-- Fonts: Fraunces (ledger/editorial display serif) + Inter (body/UI sans) + IBM Plex Mono (figures/tickers) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- MathJax -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+
+<style>
+/* ============================================================
+   LEDGER PLATFORM — DESIGN TOKENS
+   Concept: a research analyst's ledger / exchange tape.
+   Serif "ledger" headings, mono "tape" figures, warm parchment
+   light mode vs. deep slate-ink dark mode. Amber-gold marks the
+   brand/interactive accent (a wax-seal / rubber-stamp idea),
+   teal = constructive/positive, coral = adverse/negative.
+   ============================================================ */
+:root{
+  --serif: 'Fraunces', Georgia, serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* dark (default) */
+  --bg-0: #0a0e13;
+  --bg-1: #10151c;
+  --bg-2: #161c24;
+  --bg-3: #1e262f;
+  --border: #2a3441;
+  --border-soft: #212a34;
+  --text-0: #eef1f4;
+  --text-1: #c3ccd6;
+  --text-2: #8a96a3;
+  --text-3: #5c6773;
+
+  --accent: #d4a24a;       /* stamped gold — brand / interactive */
+  --accent-ink: #7a5a1e;
+  --accent-soft: rgba(212,162,74,0.14);
+  --positive: #45b08c;     /* constructive / buy / gains */
+  --positive-soft: rgba(69,176,140,0.14);
+  --negative: #d9694f;     /* adverse / sell / losses */
+  --negative-soft: rgba(217,105,79,0.14);
+  --info: #6a93c2;
+  --info-soft: rgba(106,147,194,0.14);
+
+  --shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
+html[data-theme="light"]{
+  --bg-0: #f6f3ec;
+  --bg-1: #fbf9f4;
+  --bg-2: #ffffff;
+  --bg-3: #efeadd;
+  --border: #ddd5c2;
+  --border-soft: #e7e1d2;
+  --text-0: #1c1a15;
+  --text-1: #3c382e;
+  --text-2: #6c6656;
+  --text-3: #948d78;
+
+  --accent: #a9762a;
+  --accent-ink: #7a5a1e;
+  --accent-soft: rgba(169,118,42,0.10);
+  --positive: #2f8f6d;
+  --positive-soft: rgba(47,143,109,0.10);
+  --negative: #b5482f;
+  --negative-soft: rgba(181,72,47,0.10);
+  --info: #3f6693;
+  --info-soft: rgba(63,102,147,0.10);
+
+  --shadow: 0 8px 24px rgba(60,50,30,0.10);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg-0);
+  color:var(--text-0);
+  font-family:var(--sans);
+  font-size:14.5px;
+  line-height:1.5;
+  transition:background .25s ease, color .25s ease;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft); color:var(--text-0);}
+a{color:var(--accent);}
+h1,h2,h3,h4{font-family:var(--serif); font-weight:600; letter-spacing:-0.01em; margin:0;}
+.mono{font-family:var(--mono);}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border); border-radius:6px;}
+::-webkit-scrollbar-thumb:hover{background:var(--text-3);}
+
+/* ---------- Tape strip (live TradingView Ticker Tape widget) ---------- */
+#tape-strip{
+  background:var(--bg-1);
+  border-bottom:1px solid var(--border-soft);
+}
+
+/* ---------- Header ---------- */
+header.app-header{
+  padding:22px 32px 16px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+  border-bottom:1px solid var(--border-soft);
+  background:
+    radial-gradient(1200px 160px at 15% -40%, var(--accent-soft), transparent 60%),
+    var(--bg-0);
+}
+.brand{display:flex; align-items:center; gap:14px;}
+.brand-mark{
+  width:42px;height:42px;border-radius:8px;
+  background:linear-gradient(155deg, var(--accent), var(--accent-ink));
+  display:flex;align-items:center;justify-content:center;
+  color:#100b03; font-family:var(--serif); font-weight:700; font-size:20px;
+  box-shadow:var(--shadow);
+  flex:none;
+}
+.brand-text h1{font-size:22px;}
+.brand-text .tagline{font-size:12px; color:var(--text-2); margin-top:2px; letter-spacing:.02em;}
+
+.header-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+
+.ticker-search{position:relative;}
+.ticker-search input{
+  width:230px;
+  background:var(--bg-2);
+  border:1px solid var(--border);
+  color:var(--text-0);
+  font-family:var(--mono);
+  font-size:13px;
+  padding:9px 12px 9px 34px;
+  border-radius:var(--radius-md);
+  outline:none;
+  transition:border-color .15s ease;
+}
+.ticker-search input:focus{border-color:var(--accent);}
+.ticker-search svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); opacity:.55; pointer-events:none;}
+.ticker-suggest{
+  position:absolute; top:calc(100% + 6px); left:0; width:100%;
+  background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius-md);
+  box-shadow:var(--shadow); z-index:40; overflow:hidden; display:none;
+}
+.ticker-suggest.open{display:block;}
+.ticker-suggest div{padding:8px 12px; font-family:var(--mono); font-size:12.5px; cursor:pointer; display:flex; justify-content:space-between; gap:8px;}
+.ticker-suggest div:hover{background:var(--accent-soft);}
+.ticker-suggest small{color:var(--text-2); font-family:var(--sans);}
+
+button.btn{
+  background:var(--bg-2); color:var(--text-0); border:1px solid var(--border);
+  padding:9px 14px; border-radius:var(--radius-md); font-size:13px; cursor:pointer;
+  font-family:var(--sans); font-weight:500;
+  display:inline-flex; align-items:center; gap:6px;
+  transition:border-color .15s ease, background .15s ease;
+}
+button.btn:hover{border-color:var(--accent);}
+button.btn.primary{background:var(--accent); color:#191204; border-color:var(--accent); font-weight:600;}
+button.btn.primary:hover{filter:brightness(1.06);}
+button.icon-btn{padding:9px 10px;}
+
+.data-badge{
+  font-size:11px; padding:4px 9px; border-radius:20px; font-family:var(--mono);
+  border:1px solid var(--border); color:var(--text-2); white-space:nowrap;
+}
+.data-badge.live{color:var(--positive); border-color:var(--positive-soft); background:var(--positive-soft);}
+.data-badge.cached{color:var(--accent); border-color:var(--accent-soft); background:var(--accent-soft);}
+
+/* ---------- Dashboard bar ---------- */
+#dashboard{
+  padding:18px 32px; border-bottom:1px solid var(--border-soft);
+  background:var(--bg-1);
+}
+.dash-top{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px;}
+.company-logo{
+  width:46px; height:46px; border-radius:10px; background:var(--bg-3);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--serif); font-weight:700; font-size:17px; color:var(--accent);
+  border:1px solid var(--border); flex:none;
+}
+.company-id h2{font-size:19px;}
+.company-id .sub{font-size:12.5px; color:var(--text-2); margin-top:2px;}
+.company-id .sub span{color:var(--text-1);}
+.price-block{margin-left:auto; text-align:right;}
+.price-block .px{font-family:var(--mono); font-size:26px; font-weight:600;}
+.price-block .chg{font-family:var(--mono); font-size:13px; margin-top:2px;}
+.chg.up{color:var(--positive);} .chg.down{color:var(--negative);}
+
+.stat-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(132px,1fr)); gap:1px;
+  background:var(--border-soft); border:1px solid var(--border-soft); border-radius:var(--radius-md); overflow:hidden;
+}
+.stat-cell{background:var(--bg-2); padding:10px 12px;}
+.stat-cell .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-2); margin-bottom:4px;}
+.stat-cell .val{font-family:var(--mono); font-size:14px; color:var(--text-0); font-weight:600;}
+
+/* ---------- Nav ---------- */
+nav#tab-nav{
+  padding:14px 32px 0; background:var(--bg-0); position:sticky; top:0; z-index:20;
+  border-bottom:1px solid var(--border-soft);
+}
+.nav-group-row{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
+.nav-group-btn{
+  font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  color:var(--text-2); background:transparent; border:1px solid transparent; border-radius:20px;
+  padding:6px 13px; cursor:pointer;
+}
+.nav-group-btn.active{color:var(--text-0); border-color:var(--border); background:var(--bg-2);}
+.nav-tabs-row{display:flex; gap:2px; overflow-x:auto; padding-bottom:0;}
+.nav-tab{
+  font-family:var(--sans); font-size:13px; color:var(--text-2); background:transparent; border:none;
+  padding:10px 14px; cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent; position:relative; top:1px;
+}
+.nav-tab .n{font-family:var(--mono); font-size:10.5px; color:var(--text-3); margin-right:6px;}
+.nav-tab:hover{color:var(--text-0);}
+.nav-tab.active{color:var(--text-0); border-bottom-color:var(--accent);}
+.nav-tab.active .n{color:var(--accent);}
+
+/* ---------- Main / panels ---------- */
+main{padding:26px 32px 60px; max-width:1400px; margin:0 auto;}
+.panel{display:none; animation:fade-in .2s ease;}
+.panel.active{display:block;}
+@keyframes fade-in{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+.section-head{margin-bottom:16px;}
+.section-head h3{font-size:19px; margin-bottom:4px;}
+.section-head p{color:var(--text-2); font-size:13px; max-width:760px;}
+
+.card{
+  background:var(--bg-1); border:1px solid var(--border-soft); border-radius:var(--radius-lg);
+  padding:18px 20px; margin-bottom:18px;
+}
+.card h4{font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h4 .tag{font-size:10px; font-family:var(--mono); color:var(--accent); border:1px solid var(--accent-soft); background:var(--accent-soft); padding:2px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:.04em;}
+
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+.grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+@media (max-width:980px){ .grid-2,.grid-3{grid-template-columns:1fr;} }
+
+/* pinpoint / teaching callouts */
+.pin{
+  display:flex; gap:10px; background:var(--info-soft); border:1px solid rgba(106,147,194,0.28);
+  border-radius:var(--radius-md); padding:10px 12px; font-size:12.5px; color:var(--text-1); margin:10px 0;
+}
+.pin .mark{
+  flex:none; width:18px; height:18px; border-radius:50%; background:var(--info); color:#fff;
+  font-family:var(--mono); font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:700;
+}
+.pin b{color:var(--text-0);}
+
+.why-matters{border-left:3px solid var(--accent); padding:8px 12px; background:var(--accent-soft); border-radius:0 var(--radius-md) var(--radius-md) 0; font-size:12.5px; margin:10px 0;}
+.why-matters b{color:var(--accent); text-transform:uppercase; font-size:10.5px; letter-spacing:.05em; display:block; margin-bottom:3px;}
+
+/* ---------- Student explanation boxes (glossary / "learn this metric") ---------- */
+.edu-box{
+  border:1px solid var(--border); border-radius:var(--radius-md);
+  background:var(--bg-2); padding:14px 16px; margin:14px 0 0;
+}
+.edu-box .edu-head{
+  display:flex; align-items:center; gap:8px; margin-bottom:10px;
+}
+.edu-box .edu-head .cap{
+  font-family:var(--serif); font-weight:700; font-size:10px; color:var(--info);
+  border:1px solid rgba(106,147,194,0.35); background:var(--info-soft);
+  padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.06em;
+}
+.edu-box .edu-head span.t{font-size:13px; font-weight:600; color:var(--text-0);}
+.edu-glossary{display:grid; grid-template-columns:1fr; gap:9px;}
+.edu-glossary .term{font-size:12.5px; line-height:1.55; color:var(--text-1); padding-left:14px; border-left:2px solid var(--border);}
+.edu-glossary .term b{color:var(--text-0); font-family:var(--mono); font-size:12.5px;}
+.edu-glossary .term .f{color:var(--text-2); font-style:italic;}
+@media (min-width:760px){ .edu-glossary.cols-2{grid-template-columns:1fr 1fr;} }
+
+.valuation-explainer{
+  border:1px dashed var(--accent); border-radius:var(--radius-lg);
+  background:var(--accent-soft); padding:16px 18px; margin-top:18px;
+}
+.valuation-explainer .edu-head .cap{color:var(--accent); border-color:var(--accent-soft); background:rgba(212,162,74,0.16);}
+.valuation-explainer h5{font-family:var(--serif); font-size:14.5px; margin:0 0 8px; color:var(--text-0);}
+.valuation-explainer ol, .valuation-explainer ul{margin:6px 0 0; padding-left:19px; color:var(--text-1); font-size:12.5px; line-height:1.65;}
+.valuation-explainer .vx-grid{display:grid; grid-template-columns:1fr; gap:10px; margin-top:8px;}
+@media (min-width:820px){ .valuation-explainer .vx-grid{grid-template-columns:1fr 1fr;} }
+.valuation-explainer .vx-cell b{color:var(--text-0); display:block; margin-bottom:3px; font-size:12px;}
+.valuation-explainer .vx-cell{font-size:12.5px; color:var(--text-1); line-height:1.55;}
+
+table.data-table{width:100%; border-collapse:collapse; font-size:13px;}
+table.data-table th{
+  text-align:right; font-family:var(--mono); font-size:11px; color:var(--text-2); text-transform:uppercase;
+  letter-spacing:.03em; padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600;
+}
+table.data-table th:first-child, table.data-table td:first-child{text-align:left;}
+table.data-table td{padding:8px 10px; text-align:right; font-family:var(--mono); border-bottom:1px solid var(--border-soft); color:var(--text-1);}
+table.data-table tr:hover td{background:var(--bg-2);}
+table.data-table td.lbl{font-family:var(--sans); color:var(--text-0); font-weight:500;}
+
+.badge-pill{display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-family:var(--mono); font-weight:600;}
+.badge-pill.buy{background:var(--positive-soft); color:var(--positive);}
+.badge-pill.sell{background:var(--negative-soft); color:var(--negative);}
+.badge-pill.hold{background:var(--accent-soft); color:var(--accent);}
+
+.mjx-block{overflow-x:auto; padding:4px 0;}
+
+.slider-row{display:flex; align-items:center; gap:12px; margin:10px 0;}
+.slider-row label{width:190px; font-size:12.5px; color:var(--text-1); flex:none;}
+.slider-row input[type=range]{flex:1; accent-color:var(--accent);}
+.slider-row .sval{width:64px; text-align:right; font-family:var(--mono); font-size:12.5px; color:var(--text-0); flex:none;}
+
+.tv-embed{border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border-soft); background:var(--bg-2);}
+
+.placeholder-module{
+  border:1px dashed var(--border); border-radius:var(--radius-lg); padding:30px; text-align:center; color:var(--text-2);
+}
+.placeholder-module .stamp{
+  display:inline-block; font-family:var(--serif); font-weight:700; color:var(--accent); border:2px solid var(--accent);
+  padding:4px 14px; border-radius:6px; transform:rotate(-3deg); margin-bottom:10px; letter-spacing:.05em; font-size:13px;
+}
+
+footer{padding:20px 32px 40px; color:var(--text-3); font-size:11.5px; border-top:1px solid var(--border-soft); text-align:center;}
+
+.canvas-wrap{position:relative; width:100%;}
+canvas{width:100%; display:block;}
+</style>
+</head>
+<body>
+
+<div id="tape-strip"><div id="tv-ticker-tape"></div></div>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark">L</div>
+    <div class="brand-text">
+      <h1>EquityLens</h1>
+      <div class="tagline">Equity Valuation &amp; Technical Analysis </div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <div class="ticker-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="ticker-input" type="text" placeholder="Ticker or company (e.g. AAPL)" autocomplete="off">
+      <div class="ticker-suggest" id="ticker-suggest"></div>
+    </div>
+    <button class="btn primary" id="load-btn">Load</button>
+    <span class="data-badge" id="data-badge">— </span>
+    <button class="btn icon-btn" id="theme-toggle" title="Toggle theme">🌓</button>
+  </div>
+</header>
+
+<div id="dashboard"><!-- populated by JS --></div>
+
+<nav id="tab-nav">
+  <div class="nav-group-row" id="nav-groups"></div>
+  <div class="nav-tabs-row" id="nav-tabs"></div>
+</nav>
+
+<main id="main-panels"><!-- panels injected by JS --></main>
+
+<footer>
+  Ledger Platform &mdash; educational research tool. Sample/cached data used when live sources are unavailable. Not investment advice.
+</footer>
+
+<script>
+/* ============================================================
+   GLOBAL STATE
+   ============================================================ */
+const APP = {
+  ticker: null,
+  data: null,
+  theme: 'dark',
+  activeTab: 'overview'
+};
+</script>
+
+<!-- MODULE:CORE_DATA:START -->
+<script>
+/* ============================================================
+   CORE DATA LAYER
+   Live public APIs are not reachable from this sandboxed
+   artifact, so this module ships a small hand-curated cache for
+   well-known names and a deterministic synthetic generator for
+   any other ticker, so the app always has something to render.
+   Every dataset shares one schema so every tab/module can stay
+   ticker-agnostic. Extend SAMPLE_DB to "wire up" more names.
+   ============================================================ */
+const SAMPLE_DB = {
+  AAPL:{ name:"Apple Inc.", exch:"NASDAQ", sector:"Technology", industry:"Consumer Electronics",
+    ceo:"Timothy D. Cook", employees:164000, hq:"Cupertino, California, US",
+    price:212.30, chgPct:0.86, mcap:3230, ev:3260, shares:15.3, beta:1.19, divYield:0.44, wk52hi:237.23, wk52lo:164.08, avgVol:52.4,
+    desc:"Apple designs, manufactures and markets smartphones, personal computers, tablets, wearables and accessories, monetized further through a large and growing services ecosystem (App Store, iCloud, AppleCare, payments, advertising).",
+    moat:"Deep hardware-software-services integration, an unmatched retail/brand ecosystem, high switching costs, and a services attach rate that keeps compounding on a 2.2bn+ active device base.",
+    segments:[["iPhone",52],["Services",22],["Mac",8],["Wearables/Home",9],["iPad",9]],
+    geo:[["Americas",42],["Europe",24],["Greater China",17],["Japan",7],["Rest of Asia",10]],
+    fin:{ years:["FY21","FY22","FY23","FY24","TTM"],
+      revenue:[365817,394328,383285,391035,398000],
+      grossProfit:[152836,170782,169148,180683,184200],
+      opIncome:[108949,119437,114301,123216,126500],
+      ebitda:[123136,130541,125820,134661,138200],
+      netIncome:[94680,99803,96995,93736,99200],
+      eps:[5.61,6.11,6.13,6.08,6.52],
+      assets:[351002,352755,352583,364980,368500],
+      liabilities:[287912,302083,290437,308030,309900],
+      equity:[63090,50672,62146,56950,58600],
+      cash:[62639,48304,61555,65171,68200],
+      debt:[124719,120069,111088,106629,104800],
+      ocf:[104038,122151,110543,118254,121300],
+      icf:[-14545,-22354,3705,2935,1900],
+      fcf:[92953,111443,99584,108807,111500],
+      capex:[-11085,-10708,-10959,-9447,-9800]
+    }
+  },
+  MSFT:{ name:"Microsoft Corporation", exch:"NASDAQ", sector:"Technology", industry:"Software—Infrastructure",
+    ceo:"Satya Nadella", employees:228000, hq:"Redmond, Washington, US",
+    price:468.10, chgPct:1.24, mcap:3480, ev:3455, shares:7.43, beta:0.90, divYield:0.68, wk52hi:494.50, wk52lo:385.58, avgVol:19.8,
+    desc:"Microsoft develops and licenses productivity software, operating systems and cloud infrastructure (Azure), and increasingly monetizes AI services layered across its enterprise and consumer stack.",
+    moat:"Enterprise lock-in via Windows/Office/Azure bundling, high switching costs for Fortune 500 IT stacks, and a fast-scaling AI/Copilot attach across the installed base.",
+    segments:[["Intelligent Cloud",44],["Productivity & Business",32],["More Personal Computing",24]],
+    geo:[["United States",50],["Other countries",50]],
+    fin:{ years:["FY21","FY22","FY23","FY24","TTM"],
+      revenue:[168088,198270,211915,245122,255600],
+      grossProfit:[115856,135620,146052,171008,178900],
+      opIncome:[69916,83383,88523,109433,114300],
+      ebitda:[85832,100139,105147,128203,133700],
+      netIncome:[61271,72738,72361,88136,91200],
+      eps:[8.05,9.65,9.68,11.80,12.30],
+      assets:[333779,364840,411976,512163,530200],
+      liabilities:[191791,198298,205753,243686,247900],
+      equity:[141988,166542,206223,268477,282300],
+      cash:[130334,104749,111262,75543,79800],
+      debt:[67775,61270,59965,67127,64500],
+      ocf:[76740,89035,87582,118548,123900],
+      icf:[-27577,-30311,-22680,-40877,-44100],
+      fcf:[56118,65149,59475,74071,78300],
+      capex:[-20622,-23886,-28107,-44477,-45600]
+    }
+  },
+  NVDA:{ name:"NVIDIA Corporation", exch:"NASDAQ", sector:"Technology", industry:"Semiconductors",
+    ceo:"Jensen Huang", employees:36000, hq:"Santa Clara, California, US",
+    price:172.40, chgPct:2.35, mcap:4210, ev:4185, shares:24.4, beta:1.72, divYield:0.03, wk52hi:184.48, wk52lo:86.62, avgVol:210.5,
+    desc:"NVIDIA designs GPUs and full-stack accelerated computing platforms for AI training/inference, gaming, professional visualization, and automotive, with CUDA as a dominant software moat.",
+    moat:"CUDA software ecosystem lock-in, leading-edge silicon performance, and hyperscaler data-center demand that has outstripped supply for multiple generations.",
+    segments:[["Data Center",88],["Gaming",8],["Professional Viz",1],["Automotive",2],["OEM",1]],
+    geo:[["United States",47],["Taiwan",19],["China",13],["Other",21]],
+    fin:{ years:["FY22","FY23","FY24","FY25","TTM"],
+      revenue:[26914,26974,60922,130497,148000],
+      grossProfit:[17475,15356,44301,97858,111600],
+      opIncome:[10041,4224,32972,81453,93800],
+      ebitda:[11288,6376,35583,86137,98700],
+      netIncome:[9752,4368,29760,72880,84200],
+      eps:[3.85,1.74,11.93,2.94,3.42],
+      assets:[44187,41182,65728,111601,128900],
+      liabilities:[17575,19081,22750,32274,35100],
+      equity:[26612,20101,42978,79327,93800],
+      cash:[3389,3389,25984,8589,10200],
+      debt:[10946,9703,8459,8463,8400],
+      ocf:[9108,5641,28090,64089,73900],
+      icf:[-9830,7375,-10566,-19764,-21100],
+      fcf:[8132,3808,27021,60853,69700],
+      capex:[-976,-1833,-1069,-3236,-4200]
+    }
+  },
+  TSLA:{ name:"Tesla, Inc.", exch:"NASDAQ", sector:"Consumer Discretionary", industry:"Auto Manufacturers",
+    ceo:"Elon Musk", employees:125665, hq:"Austin, Texas, US",
+    price:315.60, chgPct:-1.42, mcap:1010, ev:995, shares:3.21, beta:2.05, divYield:0, wk52hi:488.54, wk52lo:212.11, avgVol:88.3,
+    desc:"Tesla designs and manufactures electric vehicles, energy storage and solar products, and is investing heavily in autonomy (FSD) and robotics (Optimus) as long-duration growth options.",
+    moat:"Vertical integration in batteries and manufacturing, a proprietary charging network, and a large fleet-data advantage for autonomy — offset by intensifying EV competition.",
+    segments:[["Automotive",78],["Energy Generation & Storage",12],["Services & Other",10]],
+    geo:[["United States",48],["China",21],["Other",31]],
+    fin:{ years:["FY21","FY22","FY23","FY24","TTM"],
+      revenue:[53823,81462,96773,97690,98800],
+      grossProfit:[13606,20853,17660,17451,17900],
+      opIncome:[6523,13656,8891,7076,7300],
+      ebitda:[9598,17148,13494,13096,13500],
+      netIncome:[5519,12556,14997,7091,7500],
+      eps:[1.63,3.62,4.30,2.04,2.15],
+      assets:[62131,82338,106618,122070,128800],
+      liabilities:[30548,36440,43009,48390,49900],
+      equity:[30189,44704,62634,72913,78900],
+      cash:[17576,22185,29094,36560,31700],
+      debt:[7013,3099,2857,2891,2600],
+      ocf:[11497,14724,13256,14923,14100],
+      icf:[-7868,-11973,-9973,-11629,-10800],
+      fcf:[3483,7566,4358,3577,3200],
+      capex:[-8014,-7158,-8898,-11346,-10900]
+    }
+  },
+  KO:{ name:"The Coca-Cola Company", exch:"NYSE", sector:"Consumer Staples", industry:"Beverages—Non-Alcoholic",
+    ceo:"James Quincey", employees:79100, hq:"Atlanta, Georgia, US",
+    price:71.20, chgPct:0.32, mcap:307, ev:340, shares:4.31, beta:0.58, divYield:2.85, wk52hi:74.38, wk52lo:59.36, avgVol:12.9,
+    desc:"Coca-Cola manufactures and markets non-alcoholic beverage concentrates and finished products across a portfolio of global brands, distributed mainly through an independent bottler network.",
+    moat:"One of the world's most recognized brands, an unmatched global bottling/distribution network, and decades of pricing power supporting a long dividend-growth record.",
+    segments:[["Sparkling Soft Drinks",68],["Water/Sports/Coffee/Tea",17],["Juice, Dairy & Plant",8],["Other",7]],
+    geo:[["North America",33],["Europe/MEA",23],["Latin America",15],["Asia Pacific",19],["Bottling Investments",10]],
+    fin:{ years:["FY21","FY22","FY23","FY24","TTM"],
+      revenue:[38655,43004,45754,47061,47600],
+      grossProfit:[23298,25004,27971,28522,28900],
+      opIncome:[10308,10909,11311,10659,11000],
+      ebitda:[12200,12750,13350,12700,13100],
+      netIncome:[9771,9542,10714,10631,10900],
+      eps:[2.25,2.19,2.47,2.46,2.53],
+      assets:[94354,92763,97703,99757,101200],
+      liabilities:[71980,74459,77082,79596,80300],
+      equity:[22374,18300,20621,20161,20900],
+      cash:[9684,9519,11660,12599,13100],
+      debt:[38116,36400,36288,42574,42900],
+      ocf:[12625,11021,11599,11673,12000],
+      icf:[-2299,-925,-1666,-4700,-4300],
+      fcf:[10615,9282,9744,9750,10050],
+      capex:[-2010,-1739,-1855,-1923,-1950]
+    }
+  },
+  "BIST:ASELS":{ name:"Aselsan A.S.", exch:"BIST", sector:"Industrials", industry:"Aerospace & Defense",
+    ceo:"Ahmet Akyol", employees:9700, hq:"Ankara, Türkiye",
+    price:82.40, chgPct:1.05, mcap:1730, ev:1810, shares:21.0, beta:0.74, divYield:0.9, wk52hi:94.10, wk52lo:53.20, avgVol:38.4,
+    desc:"Aselsan develops and manufactures defense electronics for the Turkish Armed Forces and export markets, spanning radar, communications, electro-optics and unmanned systems.",
+    moat:"Status as Türkiye's national defense-electronics champion with preferential domestic procurement, deep R&D backlog, and a fast-growing export order book.",
+    segments:[["Land/Air Defense Systems",34],["Communications & IT",26],["Microelectronics",14],["Naval Systems",13],["Other",13]],
+    geo:[["Türkiye",72],["Export markets",28]],
+    fin:{ years:["FY21","FY22","FY23","FY24","TTM"],
+      revenue:[21879,36601,63744,89600,97200],
+      grossProfit:[5643,9245,16144,22200,24400],
+      opIncome:[3183,5210,9339,13100,14300],
+      ebitda:[3806,6234,10990,15400,16700],
+      netIncome:[2537,4088,7477,10500,11400],
+      eps:[1.21,1.95,3.56,5.00,5.43],
+      assets:[62731,101204,155900,198400,211300],
+      liabilities:[45782,72866,109300,137200,144900],
+      equity:[16949,28338,46600,61200,66400],
+      cash:[8340,13650,21900,27800,29600],
+      debt:[19104,29775,42100,49800,51600],
+      ocf:[1904,3220,5985,8200,9100],
+      icf:[-2650,-3990,-6650,-8900,-9600],
+      fcf:[-1150,-1490,-1080,900,1400],
+      capex:[-3054,-4710,-7065,-7300,-7700]
+    }
+  }
+};
+
+/** Simple deterministic hash so unknown tickers still get a
+ *  stable, plausible-looking synthetic dataset every time. */
+function hashSeed(str){
+  let h = 2166136261;
+  for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0);
+}
+function seededRand(seed){
+  let s = seed % 2147483647; if (s<=0) s += 2147483646;
+  return function(){ s = (s*16807) % 2147483647; return (s-1)/2147483646; };
+}
+
+function buildSyntheticData(rawTicker){
+  const seed = hashSeed(rawTicker.toUpperCase());
+  const rnd = seededRand(seed);
+  const sectors = [["Technology","Software—Application"],["Healthcare","Biotechnology"],["Financial Services","Banks—Regional"],
+    ["Industrials","Aerospace & Defense"],["Energy","Oil & Gas E&P"],["Consumer Discretionary","Specialty Retail"],
+    ["Consumer Staples","Packaged Foods"],["Materials","Chemicals"],["Utilities","Utilities—Regulated Electric"]];
+  const [sector, industry] = sectors[Math.floor(rnd()*sectors.length)];
+  const price = +(20 + rnd()*280).toFixed(2);
+  const shares = +(0.2 + rnd()*8).toFixed(2);
+  const mcap = +(price*shares).toFixed(0);
+  const baseRev = 500 + rnd()*40000;
+  const growth = 0.03 + rnd()*0.18;
+  const grossMarginBase = 0.25 + rnd()*0.45;
+  const years = ["Y-4","Y-3","Y-2","Y-1","TTM"];
+  const revenue=[], grossProfit=[], opIncome=[], ebitda=[], netIncome=[], eps=[], assets=[], liabilities=[], equity=[], cash=[], debt=[], ocf=[], icf=[], fcf=[], capex=[];
+  let rev = baseRev/Math.pow(1+growth,4);
+  for(let i=0;i<5;i++){
+    rev = i===0? rev : rev*(1+growth*(0.7+rnd()*0.6));
+    const gm = grossMarginBase + (rnd()-0.5)*0.03;
+    const gp = rev*gm;
+    const om = gm*(0.35+rnd()*0.25);
+    const oi = rev*om;
+    const eb = oi*1.18;
+    const ni = oi*(0.72+rnd()*0.12);
+    revenue.push(rev); grossProfit.push(gp); opIncome.push(oi); ebitda.push(eb); netIncome.push(ni);
+    eps.push(+(ni/(shares*1000)).toFixed(2));
+    const asset = rev*(1.1+rnd()*0.6); assets.push(asset);
+    const liab = asset*(0.45+rnd()*0.25); liabilities.push(liab);
+    equity.push(asset-liab);
+    cash.push(rev*(0.08+rnd()*0.12));
+    debt.push(asset*(0.15+rnd()*0.2));
+    const oc = ni*(1.15+rnd()*0.3); ocf.push(oc);
+    icf.push(-oc*(0.35+rnd()*0.3));
+    const capx = -rev*(0.03+rnd()*0.08); capex.push(capx);
+    fcf.push(oc+capx);
+  }
+  const t = rawTicker.toUpperCase();
+  return {
+    name:`${t} Holdings (sample profile)`, exch: t.includes(":")? t.split(":")[0]:"NASDAQ", sector, industry,
+    ceo:"— (not in cache)", employees: Math.round(500+rnd()*80000), hq:"— (not in cache)",
+    price, chgPct:+((rnd()-0.5)*4).toFixed(2), mcap, ev:+(mcap*(1+(rnd()-0.5)*0.1)).toFixed(0), shares, beta:+(0.6+rnd()*1.1).toFixed(2),
+    divYield:+(rnd()*3).toFixed(2), wk52hi:+(price*(1.05+rnd()*0.25)).toFixed(2), wk52lo:+(price*(0.6+rnd()*0.25)).toFixed(2),
+    avgVol:+(0.5+rnd()*40).toFixed(1),
+    desc:`No cached profile is available for ${t}; this is a deterministic synthetic dataset generated locally (same ticker always reproduces the same numbers) so every module below still has data to render.`,
+    moat:"Synthetic placeholder — replace with the company's actual competitive-advantage narrative once real filings data is wired in.",
+    segments:[["Core Segment",100]],
+    geo:[["Unspecified",100]],
+    synthetic:true,
+    fin:{ years, revenue, grossProfit, opIncome, ebitda, netIncome, eps, assets, liabilities, equity, cash, debt, ocf, icf, fcf, capex }
+  };
+}
+
+function getCompanyData(rawTicker){
+  const key = rawTicker.trim().toUpperCase();
+  if (SAMPLE_DB[key]) return Object.assign({synthetic:false}, SAMPLE_DB[key]);
+  return buildSyntheticData(key);
+}
+
+const TICKER_INDEX = [
+  ["AAPL","Apple Inc."],["MSFT","Microsoft Corporation"],["NVDA","NVIDIA Corporation"],["GOOGL","Alphabet Inc."],
+  ["AMZN","Amazon.com, Inc."],["META","Meta Platforms, Inc."],["TSLA","Tesla, Inc."],["JPM","JPMorgan Chase & Co."],
+  ["KO","The Coca-Cola Company"],["JNJ","Johnson & Johnson"]
+];
+
+/* ---- formatting helpers used across every tab module ---- */
+function fmtB(n){ // n already in millions -> show as B/M
+  if (n===undefined||n===null||isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs>=1000) return (n/1000).toFixed(2)+"B";
+  return n.toFixed(0)+"M";
+}
+function fmtPx(n){ return n===undefined? "—" : "$"+n.toFixed(2); }
+function fmtPct(n,d=2){ return n===undefined||n===null||isNaN(n) ? "—" : n.toFixed(d)+"%"; }
+function fmtNum(n,d=2){ return n===undefined||n===null||isNaN(n) ? "—" : n.toFixed(d); }
+function fmtShares(n){ return n===undefined? "—" : n.toFixed(2)+"B"; }
+function fmtBil(n){ if(n===undefined||n===null||isNaN(n)) return "—"; return n>=1000 ? "$"+(n/1000).toFixed(2)+"T" : "$"+n.toFixed(1)+"B"; }
+function pctChange(a,b){ return b? ((a-b)/Math.abs(b))*100 : NaN; }
+function cagr(first,last,periods){ return first>0? (Math.pow(last/first, 1/periods)-1)*100 : NaN; }
+</script>
+<!-- MODULE:CORE_DATA:END -->
+
+<!-- MODULE:CORE_UI:START -->
+<script>
+/* ============================================================
+   CORE UI — theme, tape strip, ticker search, tab registry & nav
+   ============================================================ */
+
+/* ---- theme ---- */
+document.getElementById('theme-toggle').addEventListener('click', ()=>{
+  APP.theme = APP.theme==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', APP.theme);
+  renderTapeStrip(); // refresh the live ticker tape widget's color theme
+  rerenderActive();  // refresh dashboard + active tab, incl. any live TradingView widgets on it
+});
+
+/* ---- tape strip: live TradingView Ticker Tape widget (index & watchlist names) ---- */
+function renderTapeStrip(){
+  loadTVWidget('tv-ticker-tape', "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js", {
+    symbols: [
+      {description:"Apple", proName:"NASDAQ:AAPL"},
+      {description:"Microsoft", proName:"NASDAQ:MSFT"},
+      {description:"NVIDIA", proName:"NASDAQ:NVDA"},
+      {description:"Alphabet", proName:"NASDAQ:GOOGL"},
+      {description:"Amazon", proName:"NASDAQ:AMZN"},
+      {description:"Meta", proName:"NASDAQ:META"},
+      {description:"Tesla", proName:"NASDAQ:TSLA"},
+      {description:"JPMorgan", proName:"NYSE:JPM"},
+      {description:"Coca-Cola", proName:"NYSE:KO"},
+      {description:"Johnson & Johnson", proName:"NYSE:JNJ"}
+    ],
+    showSymbolLogo:true, isTransparent:true, displayMode:"adaptive", locale:"en",
+    colorTheme: APP.theme==='dark'?'dark':'light'
+  });
+}
+
+/* ---- tab registry ---- */
+const TAB_GROUPS = [
+  { id:"fundamentals", label:"Fundamentals" },
+  { id:"valuation", label:"Valuation Models" },
+  { id:"technical", label:"Technical & Risk" },
+  { id:"synthesis", label:"Synthesis" }
+];
+const TAB_REGISTRY = []; // populated by each tab module via registerTab()
+function registerTab(cfg){ TAB_REGISTRY.push(cfg); }
+
+function renderNavGroups(){
+  const el = document.getElementById('nav-groups');
+  el.innerHTML = TAB_GROUPS.map(g=>`<button class="nav-group-btn" data-group="${g.id}">${g.label}</button>`).join("");
+  el.querySelectorAll('.nav-group-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> setActiveGroup(btn.dataset.group));
+  });
+}
+let activeGroup = TAB_GROUPS[0].id;
+function setActiveGroup(gid){
+  activeGroup = gid;
+  document.querySelectorAll('.nav-group-btn').forEach(b=> b.classList.toggle('active', b.dataset.group===gid));
+  renderNavTabs();
+  const firstInGroup = TAB_REGISTRY.find(t=>t.group===gid);
+  if (firstInGroup) setActiveTab(firstInGroup.id);
+}
+function renderNavTabs(){
+  const el = document.getElementById('nav-tabs');
+  const tabs = TAB_REGISTRY.filter(t=>t.group===activeGroup);
+  el.innerHTML = tabs.map(t=>`<button class="nav-tab" data-tab="${t.id}"><span class="n">${t.num}</span>${t.label}</button>`).join("");
+  el.querySelectorAll('.nav-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=> setActiveTab(btn.dataset.tab));
+  });
+}
+function setActiveTab(tid){
+  APP.activeTab = tid;
+  document.querySelectorAll('.nav-tab').forEach(b=> b.classList.toggle('active', b.dataset.tab===tid));
+  document.querySelectorAll('.panel').forEach(p=> p.classList.toggle('active', p.id==='panel-'+tid));
+  const tab = TAB_REGISTRY.find(t=>t.id===tid);
+  if (tab && APP.data){
+    tab.render(document.getElementById('panel-'+tid), APP.data, APP.ticker);
+    if (window.MathJax && MathJax.typesetPromise){
+      MathJax.typesetPromise([document.getElementById('panel-'+tid)]);
+    }
+  }
+}
+function renderAllPanels(){
+  const main = document.getElementById('main-panels');
+  main.innerHTML = TAB_REGISTRY.map(t=>`<section class="panel" id="panel-${t.id}"></section>`).join("");
+}
+/* ---- tiny reusable canvas chart helpers (no external chart lib; DPR-aware) ---- */
+function css(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+const PALETTE = ()=>[css('--accent'), css('--positive'), css('--info'), css('--negative'), '#9b7bd1', '#6bb3c9', '#c98f4a'];
+
+function setupCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || canvas.parentElement.clientWidth || 400;
+  const h = canvas.dataset.h ? +canvas.dataset.h : (canvas.height || 220);
+  canvas.width = w*dpr; canvas.height = h*dpr; canvas.style.height = h+'px';
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr,dpr);
+  return {ctx, w, h};
+}
+
+function drawDonut(canvas, data /* [[label,val],...] */){
+  const {ctx,w,h} = setupCanvas(canvas);
+  ctx.clearRect(0,0,w,h);
+  const total = data.reduce((s,[,v])=>s+v,0) || 1;
+  const cx=w*0.32, cy=h/2, r=Math.min(w*0.28,h*0.42), rIn=r*0.58;
+  let start=-Math.PI/2;
+  const colors = PALETTE();
+  data.forEach(([label,val],i)=>{
+    const ang = (val/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,start,start+ang);
+    ctx.closePath();
+    ctx.fillStyle = colors[i%colors.length];
+    ctx.fill();
+    start += ang;
+  });
+  ctx.globalCompositeOperation='destination-out';
+  ctx.beginPath(); ctx.arc(cx,cy,rIn,0,Math.PI*2); ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  // legend
+  const lx = w*0.58, ly0 = h*0.5 - (data.length*20)/2;
+  ctx.textBaseline='middle'; ctx.font='12px Inter, sans-serif';
+  data.forEach(([label,val],i)=>{
+    const y = ly0 + i*20;
+    ctx.fillStyle = colors[i%colors.length];
+    ctx.fillRect(lx, y-6, 11, 11);
+    ctx.fillStyle = css('--text-1');
+    ctx.fillText(`${label} — ${val.toFixed(1)}%`, lx+17, y);
+  });
+}
+
+function drawBars(canvas, categories, series /* [{name,color,values:[]}] */, opts={}){
+  const {ctx,w,h} = setupCanvas(canvas);
+  ctx.clearRect(0,0,w,h);
+  const padL=opts.padL||46, padB=28, padT=14, padR=10;
+  const plotW=w-padL-padR, plotH=h-padT-padB;
+  const allVals = series.flatMap(s=>s.values);
+  const maxV = Math.max(...allVals, 0), minV = Math.min(...allVals,0);
+  const range = (maxV-minV)||1;
+  const zeroY = padT + plotH*(maxV/range);
+  const yFmt = opts.yFmt || fmtB;
+  // axes
+  ctx.strokeStyle = css('--border'); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, h-padB); ctx.lineTo(w-padR, h-padB); ctx.stroke();
+  ctx.fillStyle = css('--text-2'); ctx.font='10.5px "IBM Plex Mono", monospace'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const v = minV + range*i/4; const y = padT + plotH*(1-i/4); ctx.fillText(yFmt(v), padL-6, y); ctx.strokeStyle=css('--border-soft'); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke(); }
+  const groupW = plotW/categories.length;
+  const barW = Math.min(26, (groupW*0.7)/series.length);
+  ctx.textAlign='center'; ctx.fillStyle=css('--text-2');
+  categories.forEach((cat,ci)=>{
+    const gx = padL + groupW*ci + groupW/2;
+    ctx.fillText(cat, gx, h-padB+14);
+    series.forEach((s,si)=>{
+      const val = s.values[ci];
+      const bx = gx - (series.length*barW)/2 + si*barW;
+      const barH = plotH*(Math.abs(val)/range);
+      const by = val>=0 ? zeroY-barH : zeroY;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(bx, by, barW-3, barH);
+    });
+  });
+  // legend
+  let lx = padL;
+  series.forEach(s=>{
+    ctx.fillStyle=s.color; ctx.fillRect(lx, 2, 10,10);
+    ctx.fillStyle=css('--text-1'); ctx.textAlign='left'; ctx.font='11px Inter, sans-serif';
+    ctx.fillText(s.name, lx+14, 8);
+    lx += ctx.measureText(s.name).width + 34;
+  });
+}
+
+function drawLine(canvas, categories, series /* [{name,color,values:[]}] */, opts={}){
+  const {ctx,w,h} = setupCanvas(canvas);
+  ctx.clearRect(0,0,w,h);
+  const padL=50, padB=26, padT=14, padR=14;
+  const plotW=w-padL-padR, plotH=h-padT-padB;
+  const allVals = series.flatMap(s=>s.values).filter(v=>!isNaN(v));
+  const maxV = Math.max(...allVals), minV = Math.min(...allVals,0);
+  const range=(maxV-minV)||1;
+  const yFmt = opts.yFmt || fmtB;
+  ctx.strokeStyle=css('--border'); ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,h-padB); ctx.lineTo(w-padR,h-padB); ctx.stroke();
+  ctx.fillStyle=css('--text-2'); ctx.font='10.5px "IBM Plex Mono", monospace'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const v=minV+range*i/4; const y=padT+plotH*(1-i/4); ctx.fillText(yFmt(v), padL-6, y); ctx.strokeStyle=css('--border-soft'); ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke(); }
+  ctx.textAlign='center'; ctx.fillStyle=css('--text-2');
+  categories.forEach((c,i)=>{ const x = padL + plotW*(i/(categories.length-1||1)); ctx.fillText(c, x, h-padB+13); });
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.beginPath();
+    s.values.forEach((v,i)=>{ const x=padL+plotW*(i/(categories.length-1||1)); const y=padT+plotH*(1-(v-minV)/range); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+    s.values.forEach((v,i)=>{ const x=padL+plotW*(i/(categories.length-1||1)); const y=padT+plotH*(1-(v-minV)/range); ctx.beginPath(); ctx.arc(x,y,2.6,0,7); ctx.fillStyle=s.color; ctx.fill(); });
+  });
+  let lx=padL;
+  series.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect(lx,2,10,10); ctx.fillStyle=css('--text-1'); ctx.textAlign='left'; ctx.font='11px Inter, sans-serif'; ctx.fillText(s.name, lx+14,8); lx += ctx.measureText(s.name).width+34; });
+}
+
+/* ---- TradingView live-widget helpers ----
+   Shared by every module that embeds a real TradingView widget (Tabs 01, 02, 14).
+   Widgets are iframes TradingView serves directly with live data baked in visually —
+   there is no free public API to pull raw numbers back out of them into JS, so these
+   are used for live *display* only. The calculators elsewhere in this app (ratios,
+   DCF, scoring, etc.) still run on the cached/synthetic SAMPLE_DB dataset. */
+function tvSymbol(ticker){
+  if (ticker.includes(":")) return ticker; // already exchange-qualified (e.g. BIST:ASELS)
+  const nasdaqSet = new Set(["AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA"]);
+  return (nasdaqSet.has(ticker) ? "NASDAQ:" : "NYSE:") + ticker;
+}
+function loadTVWidget(containerId, scriptSrc, config){
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const s = document.createElement('script');
+  s.type = "text/javascript";
+  s.src = scriptSrc;
+  s.async = true;
+  s.innerHTML = JSON.stringify(config);
+  container.appendChild(s);
+}
+
+function rerenderActive(){
+  const tab = TAB_REGISTRY.find(t=>t.id===APP.activeTab);
+  if (tab && APP.data) tab.render(document.getElementById('panel-'+tab.id), APP.data, APP.ticker);
+  renderDashboard(APP.data, APP.ticker);
+  if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+}
+
+/* ---- ticker search + load ---- */
+const tickerInput = document.getElementById('ticker-input');
+const suggestBox = document.getElementById('ticker-suggest');
+let searchDebounce = null;
+let searchAbort = null;
+
+/* Live symbol lookup — TradingView's symbol_search endpoint, same origin
+   family as the s3.tradingview.com widget scripts already embedded on this
+   page. Falls back to the local TICKER_INDEX list only if the network
+   call fails (offline, blocked, etc). */
+async function fetchTVSymbols(query){
+  const url = `https://symbol-search.tradingview.com/symbol_search/?text=${encodeURIComponent(query)}&hl=1&lang=en&domain=production`;
+  if (searchAbort) searchAbort.abort();
+  searchAbort = new AbortController();
+  const res = await fetch(url, { signal: searchAbort.signal });
+  if (!res.ok) throw new Error("symbol search failed");
+  const raw = await res.json();
+  const strip = s => (s||"").replace(/<[^>]+>/g, ""); // TV wraps matched text in <em> tags
+  return raw.slice(0,8).map(r => ({
+    ticker: r.exchange ? `${r.exchange}:${strip(r.symbol)}` : strip(r.symbol),
+    plainSymbol: strip(r.symbol),
+    name: strip(r.description),
+    exch: r.exchange || "",
+    type: r.type || ""
+  }));
+}
+
+function renderSuggestions(items){
+  if (!items.length){ suggestBox.classList.remove('open'); return; }
+  suggestBox.innerHTML = items.map(it =>
+    `<div data-t="${it.ticker}">${it.plainSymbol} <small>${it.name}${it.exch? ' · '+it.exch:''}</small></div>`
+  ).join("");
+  suggestBox.classList.add('open');
+  suggestBox.querySelectorAll('div').forEach((d,i)=>{
+    d.addEventListener('click', ()=>{
+      tickerInput.value = items[i].ticker;
+      suggestBox.classList.remove('open');
+      loadTicker(items[i].ticker);
+    });
+  });
+}
+
+tickerInput.addEventListener('input', ()=>{
+  const q = tickerInput.value.trim();
+  if (!q){ suggestBox.classList.remove('open'); return; }
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(async ()=>{
+    try{
+      const items = await fetchTVSymbols(q);
+      renderSuggestions(items);
+    }catch(err){
+      if (err.name === 'AbortError') return; // superseded by a newer keystroke
+      // network unavailable — fall back to the small local index
+      const qU = q.toUpperCase();
+      const matches = TICKER_INDEX.filter(([t,n])=> t.includes(qU) || n.toUpperCase().includes(qU)).slice(0,7)
+        .map(([t,n])=>({ticker:t, plainSymbol:t, name:n, exch:""}));
+      renderSuggestions(matches);
+    }
+  }, 250); // debounce so we don't fire a request on every keystroke
+});
+
+document.addEventListener('click', (e)=>{ if (!e.target.closest('.ticker-search')) suggestBox.classList.remove('open'); });
+tickerInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter'){ suggestBox.classList.remove('open'); loadTicker(tickerInput.value); } });
+document.getElementById('load-btn').addEventListener('click', ()=> loadTicker(tickerInput.value));
+
+function loadTicker(raw){
+  const t = (raw||"").trim().toUpperCase();
+  if (!t) return;
+  const data = getCompanyData(t);
+  APP.ticker = t; APP.data = data;
+  const badge = document.getElementById('data-badge');
+  badge.textContent = "LIVE PRICE · TRADINGVIEW";
+  badge.className = "data-badge live";
+  renderDashboard(data, t);
+  renderAllPanels();
+  renderNavGroups(); setActiveGroup(activeGroup); // will call setActiveTab -> renders first tab
+  if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+}
+</script>
+<!-- MODULE:CORE_UI:END -->
+
+<!-- MODULE:TAB_DASHBOARD:START -->
+<script>
+/* ============================================================
+   DASHBOARD HEADER — company snapshot, always visible above tabs
+   ============================================================ */
+function renderDashboard(d, ticker){
+  const el = document.getElementById('dashboard');
+  if (!d){ el.innerHTML = `<div class="placeholder-module"><div class="stamp">Awaiting Ticker</div><div>Enter a ticker above (e.g. <span class="mono">AAPL</span>) and click Load to populate the dashboard.</div></div>`; return; }
+  const sym = tvSymbol(ticker);
+  el.innerHTML = `
+    <div class="dash-top">
+      <div class="company-logo">${ticker.replace('BIST:','').slice(0,2)}</div>
+      <div class="company-id">
+        <h2>${d.name} <span class="mono" style="color:var(--text-2); font-size:13px;">(${ticker})</span></h2>
+        <div class="sub"><span>${d.exch}</span> &middot; ${d.sector} &middot; ${d.industry} &middot; CEO <span>${d.ceo}</span> &middot; ${d.hq}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0;">
+      <div id="dash-tv-info"></div>
+    </div>
+    <div class="pin" style="margin-top:10px;"><span class="mark">i</span><div>Price, day range, 52-week range, market cap and volume above are <b>live from TradingView</b> for ${sym}. Name, sector/industry, CEO and HQ are this app's reference profile — live sector/industry &amp; description are also in Tab 01's Company Profile widget.</div></div>`;
+  loadTVWidget('dash-tv-info', "https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js", {
+    symbol: sym, width:"100%", locale:"en", colorTheme: APP.theme==='dark'?'dark':'light', isTransparent:true
+  });
+}
+function statCell(lbl,val){ return `<div class="stat-cell"><div class="lbl">${lbl}</div><div class="val">${val}</div></div>`; }
+</script>
+<!-- MODULE:TAB_DASHBOARD:END -->
+
+<!-- MODULE:TAB_01_OVERVIEW:START -->
+<script>
+/* ============================================================
+   TAB 01 — COMPANY OVERVIEW
+   ============================================================ */
+registerTab({ id:"overview", num:"01", group:"fundamentals", label:"Company Overview", render: renderOverviewTab });
+
+function renderOverviewTab(el, d, ticker){
+  const sym = tvSymbol(ticker);
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Company Overview</h3>
+      <p>What the business does, why it may (or may not) have a durable competitive advantage, and who owns it. Read this before any valuation number — the numbers only mean what the story lets them mean.</p>
+    </div>
+
+    <div class="card">
+      <h4>Live Company Profile <span class="tag">TradingView · Live</span></h4>
+      <div class="tv-embed" style="height:480px;">
+        <div class="tradingview-widget-container" style="height:100%;">
+          <div id="ov-tv-profile" style="height:100%;"></div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div>This streams TradingView's own <b>live</b> profile feed for <b>${sym}</b> — real sector, industry and description data, independent of the cached/synthetic dataset the cards and charts below still use. Change the ticker above and this updates too.</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Business Description</h4>
+        <p>${d.desc}</p>
+        <div class="why-matters"><b>Why this matters</b>Every valuation model downstream assumes something about how this business keeps making money. If you can't summarize the business in two sentences, don't trust the model's output yet.</div>
+      </div>
+      <div class="card">
+        <h4>Economic Moat &amp; Competitive Advantage</h4>
+        <p>${d.moat}</p>
+        <div class="pin"><span class="mark">i</span><div><b>Moat</b> = a structural reason competitors can't easily copy the profits. Wide-moat businesses deserve <i>lower</i> discount rates and <i>longer</i> explicit forecast periods in a DCF (Tab 05) because their cash flows are more predictable.</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Revenue by Business Segment <span class="tag">Mix</span></h4>
+        <div class="canvas-wrap"><canvas id="ov-seg-chart" data-h="200"></canvas></div>
+        <div class="why-matters"><b>Why this matters</b>A company earning most of its profit from one segment is riskier than a diversified one — a single-segment shock hits the whole valuation.</div>
+      </div>
+      <div class="card">
+        <h4>Revenue by Geography <span class="tag">Mix</span></h4>
+        <div class="canvas-wrap"><canvas id="ov-geo-chart" data-h="200"></canvas></div>
+        <div class="pin"><span class="mark">i</span><div>Geographic concentration matters for <b>currency risk</b>, <b>tariff/political risk</b> (Tab 15), and which macro data you should track.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Ownership Structure <span class="tag">Live Sources Only</span></h4>
+      <div class="pin"><span class="mark">i</span><div>This app does <b>not</b> store or estimate shareholder/ownership figures — no cached or synthetic holder list, institutional %, or insider % is generated for any ticker. Free embeddable widgets from TradingView and Investing.com don't expose a live ownership breakdown that can be pulled into this page, so rather than show stale or invented numbers, use the links below to check current, accurate ownership data directly at the source for <b>${ticker}</b>.</div></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <a class="btn" style="text-decoration:none;" target="_blank" rel="noopener" href="https://www.tradingview.com/symbols/${sym.replace(':','-')}/">View on TradingView ↗</a>
+        <a class="btn" style="text-decoration:none;" target="_blank" rel="noopener" href="https://www.investing.com/search/?q=${encodeURIComponent(ticker)}">Search on Investing.com ↗</a>
+      </div>
+      <div class="why-matters" style="margin-top:12px;"><b>Why this matters</b>Institutional and insider ownership can shift every quarter as 13F filings are refreshed — a number baked into this app would go stale fast. Always pull ownership data live rather than trusting a snapshot embedded in any third-party tool, including this one.</div>
+    </div>
+  `;
+  loadTVWidget('ov-tv-profile', "https://s3.tradingview.com/external-embedding/embed-widget-symbol-profile.js", {
+    width:"100%", height:"100%", colorTheme: APP.theme==='dark'?'dark':'light', isTransparent:true,
+    symbol: sym, locale:"en"
+  });
+  drawDonut(document.getElementById('ov-seg-chart'), d.segments);
+  drawDonut(document.getElementById('ov-geo-chart'), d.geo);
+}
+</script>
+<!-- MODULE:TAB_01_OVERVIEW:END -->
+
+<!-- MODULE:TAB_02_FINANCIALS:START -->
+<script>
+/* ============================================================
+   TAB 02 — FINANCIAL STATEMENTS (5yr + TTM)
+   ============================================================ */
+registerTab({ id:"financials", num:"02", group:"fundamentals", label:"Financial Statements", render: renderFinancialsTab });
+
+function statRow(label, arr, opts={}){
+  const cells = arr.map(v=> `<td>${opts.pct ? fmtPct(v) : (opts.eps ? '$'+v.toFixed(2) : fmtB(v))}</td>`).join("");
+  return `<tr><td class="lbl">${label}</td>${cells}</tr>`;
+}
+
+function renderFinancialsTab(el, d, ticker){
+  const f = d.fin;
+  const sym = tvSymbol(ticker);
+  const years = f.years;
+  const grossMargin = f.revenue.map((r,i)=> f.grossProfit[i]/r*100);
+  const opMargin = f.revenue.map((r,i)=> f.opIncome[i]/r*100);
+  const netMargin = f.revenue.map((r,i)=> f.netIncome[i]/r*100);
+  const revGrowth = f.revenue.map((r,i)=> i===0? NaN : pctChange(r, f.revenue[i-1]));
+  const workingCap = f.assets.map((a,i)=> a - f.liabilities[i]); // simplified proxy for equity; true WC needs current-only detail
+
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Financial Statements</h3>
+      <p>Five fiscal years plus trailing twelve months (TTM), across all three core statements below. Figures in USD millions unless noted.</p>
+    </div>
+
+    <div class="card">
+      <h4>Live Financials <span class="tag">TradingView · Live</span></h4>
+      <div class="tv-embed" style="height:720px;">
+        <div class="tradingview-widget-container" style="height:100%;">
+          <div id="fin-tv-financials" style="height:100%;"></div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div>Streams TradingView's own live income statement, balance sheet and cash flow figures for <b>${sym}</b>. Switch between annual/quarterly and expand any line directly inside the widget.</div></div>
+      <div class="why-matters"><b>Why two data sources</b>The tables below stay on this app's cached/synthetic dataset (<span class="mono">SAMPLE_DB</span>): a free embedded widget can display TradingView's numbers, but it can't hand them back to JavaScript — so the ratio, DCF and scoring calculators elsewhere in this app (Tabs 03–13, 15–16) keep running on the sample data instead.</div>
+
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">Reading the live widget's stat labels — TTM, FQ &amp; FY explained</span></div>
+        <div class="edu-glossary">
+          <div class="term">The live widget above tags many figures with a period abbreviation. <b>TTM</b> = Trailing Twelve Months, the sum of the four most recently reported quarters — an "always current" annual figure that doesn't wait for fiscal year-end. <b>FQ</b> = Fiscal Quarter, the single most recent reported quarter on its own, useful for spotting a sudden change that a smoothed TTM figure would hide. <b>FY</b> = Fiscal Year, the company's most recently <i>completed</i> full fiscal year. <span class="f">Same underlying line item, three different windows of time — always check which one you're looking at before comparing two numbers.</span></div>
+        </div>
+      </div>
+
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">Valuation ratios shown on the live widget</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>P/E ratio</b> — Price per Share ÷ Diluted EPS. How many years of current earnings you're paying for at today's price. <span class="f">The most widely quoted multiple — see Tab 07 for a peer comparison.</span></div>
+          <div class="term"><b>P/S ratio</b> — Price ÷ Revenue per Share (equivalently, market cap ÷ total revenue). Useful when a company isn't yet profitable, since it ignores earnings entirely. <span class="f">Says nothing about margins on its own — always pair with a profitability metric.</span></div>
+          <div class="term"><b>P/B ratio</b> — Price ÷ Book Value per Share. What you pay per dollar of accounting net worth. <span class="f">Most meaningful for asset-heavy businesses like banks; less meaningful for asset-light software or services companies.</span></div>
+          <div class="term"><b>P/CF ratio</b> — Price ÷ Operating Cash Flow per Share. Similar in spirit to P/E, but based on actual cash from operations rather than accounting net income. <span class="f">Harder to distort with non-cash accounting choices than P/E.</span></div>
+          <div class="term"><b>P/FCF ratio</b> — Price ÷ Free Cash Flow per Share. The strictest of the group — cash left over <i>after</i> the reinvestment (CapEx) needed to keep the business running. <span class="f">The multiple most directly comparable to the DCF engine in Tab 05.</span></div>
+        </div>
+      </div>
+
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">Returns &amp; efficiency shown on the live widget</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Return on Assets (TTM)</b> — Trailing-twelve-month net income ÷ total assets. How efficiently all capital, regardless of financing, is turned into profit. <span class="f">Full definition and trend in Tab 03.</span></div>
+          <div class="term"><b>Return on Equity (TTM)</b> — Trailing-twelve-month net income ÷ shareholders' equity. How much profit is generated per dollar shareholders have invested. <span class="f">Can be inflated by leverage — cross-check against Debt/Equity in Tab 03.</span></div>
+          <div class="term"><b>Return on Invested Capital (TTM)</b> — Trailing-twelve-month after-tax operating profit ÷ (debt + equity). The cleanest read on core-business profitability, independent of financing choices. <span class="f">Compare to WACC (Tab 05) — ROIC above WACC means growth is creating value.</span></div>
+          <div class="term"><b>Revenue per Employee (FY)</b> — Total revenue for the fiscal year ÷ headcount. A rough measure of workforce productivity and business-model scalability. <span class="f">Naturally much higher for software/tech companies than for labor-intensive retailers or manufacturers — most useful compared within the same industry.</span></div>
+          <div class="term"><b>Net Income per Employee (FY)</b> — Net income for the fiscal year ÷ headcount. How much bottom-line profit each employee generates, on average. <span class="f">A quick, if blunt, gauge of operating leverage and workforce efficiency.</span></div>
+        </div>
+      </div>
+
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">Income statement fields shown on the live widget</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Total Revenue (TTM)</b> — The trailing-twelve-month sum of total sales. <span class="f">The most current read on the top line without waiting for a new fiscal year to close.</span></div>
+          <div class="term"><b>Revenue per Share (TTM)</b> — Total revenue (TTM) ÷ diluted shares outstanding. Sales expressed on a per-share basis, the denominator behind the P/S ratio above. <span class="f">Useful for tracking dilution's effect on a shareholder's claim on sales.</span></div>
+          <div class="term"><b>Gross Profit (TTM)</b> — Trailing-twelve-month revenue minus cost of goods sold. <span class="f">See the fuller Income Statement glossary above for what this represents.</span></div>
+          <div class="term"><b>Operating Income (TTM)</b> — Trailing-twelve-month profit from core operations, before interest and taxes. <span class="f">Also called EBIT (TTM).</span></div>
+          <div class="term"><b>Net Income (TTM)</b> — Trailing-twelve-month bottom-line profit after every expense, interest, and tax. <span class="f">The numerator behind trailing P/E and ROE/ROA.</span></div>
+          <div class="term"><b>EPS Diluted (TTM)</b> — Net income (TTM) ÷ diluted shares outstanding. The smoothed, most-current earnings-per-share figure most valuation multiples use. <span class="f">"Diluted" means it already accounts for stock options, RSUs, and convertible securities that could increase the share count.</span></div>
+          <div class="term"><b>EPS Diluted (FQ)</b> — Diluted EPS for the single most recently reported fiscal quarter alone, not smoothed over a full year. <span class="f">Best for spotting a sudden acceleration, deceleration, or one-off item that a TTM figure would average away.</span></div>
+          <div class="term"><b>Total Shares Outstanding</b> — The total number of shares currently issued and held by all shareholders. <span class="f">The denominator behind EPS, book value per share, revenue per share, and per-share intrinsic value throughout this app's valuation tabs.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Income Statement <span class="tag">5Y + TTM · Sample Data</span></h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">$M</th>${years.map(y=>`<th>${y}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${statRow("Revenue", f.revenue)}
+          ${statRow("Gross Profit", f.grossProfit)}
+          ${statRow("Operating Income", f.opIncome)}
+          ${statRow("EBITDA", f.ebitda)}
+          ${statRow("EBIT (≈ Op. Income)", f.opIncome)}
+          ${statRow("Net Income", f.netIncome)}
+          ${statRow("EPS (diluted)", f.eps, {eps:true})}
+        </tbody>
+      </table>
+      <div class="why-matters"><b>Why this matters</b>Revenue is the top of every valuation funnel; gross &amp; operating margin trends tell you whether growth is <i>profitable</i> growth before you ever build a DCF.</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each income statement line means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Revenue</b> — Total sales of goods or services before any costs are subtracted. <span class="f">Also called "sales" or "the top line" — the starting point for every other line below.</span></div>
+          <div class="term"><b>Gross Profit</b> — Revenue minus the direct cost of producing what was sold (COGS: materials, direct labor, manufacturing). <span class="f">Shows the profit left before overhead, marketing, or R&amp;D are paid for.</span></div>
+          <div class="term"><b>Operating Income</b> — Gross profit minus operating expenses (R&amp;D, sales &amp; marketing, general &amp; admin). <span class="f">Also called EBIT — profit from the actual business, before interest and taxes.</span></div>
+          <div class="term"><b>EBITDA</b> — Earnings Before Interest, Taxes, Depreciation &amp; Amortization. Operating income with non-cash depreciation/amortization added back. <span class="f">A rough proxy for operating cash generation, popular for comparing capital-intensity-heavy companies.</span></div>
+          <div class="term"><b>EBIT</b> — Earnings Before Interest &amp; Taxes. Essentially the same as operating income here. <span class="f">The profit figure used with EV multiples like EV/EBIT.</span></div>
+          <div class="term"><b>Net Income</b> — What's left after <i>everything</i> is subtracted: operating costs, interest expense, and taxes. <span class="f">The "bottom line" — the actual profit attributable to shareholders for the period.</span></div>
+          <div class="term"><b>EPS (diluted)</b> — Net income ÷ diluted shares outstanding (including the effect of stock options/convertibles). <span class="f">Profit expressed on a per-share basis — the figure most P/E ratios and per-share valuations are built from.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Revenue &amp; Net Income Growth <span class="tag">$M</span></h4>
+        <div class="canvas-wrap"><canvas id="fin-growth-chart" data-h="220"></canvas></div>
+      </div>
+      <div class="card">
+        <h4>Margin Trend <span class="tag">%</span></h4>
+        <div class="canvas-wrap"><canvas id="fin-margin-chart" data-h="220"></canvas></div>
+        <div class="pin"><span class="mark">i</span><div>Margin <b>expansion</b> alongside revenue growth is the highest-quality growth pattern — it means the business has operating leverage, not just more volume.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Balance Sheet <span class="tag">5Y + TTM</span></h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">$M</th>${years.map(y=>`<th>${y}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${statRow("Total Assets", f.assets)}
+          ${statRow("Total Liabilities", f.liabilities)}
+          ${statRow("Total Equity", f.equity)}
+          ${statRow("Cash &amp; Equivalents", f.cash)}
+          ${statRow("Total Debt", f.debt)}
+          ${statRow("Net Working Capital (proxy)", workingCap)}
+        </tbody>
+      </table>
+      <div class="why-matters"><b>Why this matters</b>The balance sheet is a snapshot, not a flow — it shows what the company <i>owns</i> and <i>owes</i> at one point in time, which is what the Asset-Based (Tab 09) and Residual Income (Tab 08) models value directly.</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each balance sheet line means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Total Assets</b> — Everything the company owns or controls that has economic value: cash, inventory, equipment, buildings, patents, goodwill, and more. <span class="f">The left side of the classic "Assets = Liabilities + Equity" accounting equation.</span></div>
+          <div class="term"><b>Total Liabilities</b> — Everything the company owes to outsiders: debt, accounts payable, deferred revenue, pension obligations, and more. <span class="f">Claims on the company's assets that come <i>before</i> shareholders in a liquidation.</span></div>
+          <div class="term"><b>Total Equity</b> — Assets minus liabilities — the accounting "net worth" belonging to shareholders. <span class="f">Also called shareholders' or stockholders' equity; the basis for book value per share.</span></div>
+          <div class="term"><b>Cash &amp; Equivalents</b> — Cash on hand plus highly liquid short-term investments that can be converted to cash almost immediately. <span class="f">Subtracted from debt to get "net debt" in enterprise value calculations.</span></div>
+          <div class="term"><b>Total Debt</b> — All interest-bearing borrowings, short- and long-term (bonds, loans, leases classified as debt). <span class="f">Does not include non-debt liabilities like accounts payable.</span></div>
+          <div class="term"><b>Net Working Capital</b> — A proxy for the short-term operating cushion between what's owed and what's owned. <span class="f">Positive working capital generally means the company can cover near-term obligations without raising new financing.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Cash Flow Statement <span class="tag">5Y + TTM</span></h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">$M</th>${years.map(y=>`<th>${y}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${statRow("Operating Cash Flow", f.ocf)}
+          ${statRow("Investing Cash Flow", f.icf)}
+          ${statRow("Capital Expenditures", f.capex)}
+          ${statRow("Free Cash Flow (OCF − CapEx)", f.fcf)}
+        </tbody>
+      </table>
+      <div class="why-matters"><b>Why this matters</b>Free Cash Flow — not net income — is the raw input for the DCF (Tab 05). Net income can be flattered by non-cash items; FCF is closer to cash the owners could actually take out.</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each cash flow line means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Operating Cash Flow (OCF)</b> — Cash generated purely by running the business day-to-day, starting from net income and adjusting for non-cash items (like depreciation) and changes in working capital. <span class="f">Answers: is the reported profit actually showing up as real cash?</span></div>
+          <div class="term"><b>Investing Cash Flow (ICF)</b> — Cash spent on or received from long-term investments: buying/selling equipment, property, other businesses, or securities. <span class="f">Usually negative for a growing company that's actively reinvesting.</span></div>
+          <div class="term"><b>Capital Expenditures (CapEx)</b> — Cash spent specifically on long-term physical or intangible assets (property, equipment, software) needed to maintain or grow the business. <span class="f">A subset of investing cash flow; the key input subtracted from OCF to get free cash flow.</span></div>
+          <div class="term"><b>Free Cash Flow (FCF)</b> — Operating cash flow minus CapEx. The cash left over after the business has funded the reinvestment it needs to keep operating and growing. <span class="f">The cash that could, in principle, be paid out to lenders and shareholders without harming the business — the foundation of the DCF model (Tab 05).</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Common-Size Income Statement <span class="tag">% of Revenue</span></h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">% of Revenue</th>${years.map(y=>`<th>${y}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${statRow("Gross Margin", grossMargin, {pct:true})}
+          ${statRow("Operating Margin", opMargin, {pct:true})}
+          ${statRow("Net Margin", netMargin, {pct:true})}
+          ${statRow("Revenue Growth YoY", revGrowth, {pct:true})}
+        </tbody>
+      </table>
+      <div class="pin"><span class="mark">i</span><div><b>Common-size statements</b> restate every line as a % of revenue so you can compare years (or companies of different sizes) on a like-for-like basis.</div></div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each common-size line means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Gross Margin</b> — Gross profit expressed as a % of revenue. <span class="f">A pricing-power and production-efficiency gauge; see the fuller definition in Tab 03.</span></div>
+          <div class="term"><b>Operating Margin</b> — Operating income as a % of revenue. <span class="f">Shows core-business profitability after overhead, independent of financing or tax structure.</span></div>
+          <div class="term"><b>Net Margin</b> — Net income as a % of revenue. <span class="f">The final, all-in profitability read for the period.</span></div>
+          <div class="term"><b>Revenue Growth YoY</b> — The percentage change in revenue versus the prior year. <span class="f">The starting point for every growth assumption used later in Tab 04 and the DCF (Tab 05).</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  loadTVWidget('fin-tv-financials', "https://s3.tradingview.com/external-embedding/embed-widget-financials.js", {
+    colorTheme: APP.theme==='dark'?'dark':'light', isTransparent:true, largeChartUrl:"",
+    displayMode:"adaptive", width:"100%", height:"100%", symbol: sym, locale:"en"
+  });
+
+  drawBars(document.getElementById('fin-growth-chart'), years, [
+    {name:"Revenue", color:css('--accent'), values:f.revenue},
+    {name:"Net Income", color:css('--positive'), values:f.netIncome}
+  ]);
+  drawLine(document.getElementById('fin-margin-chart'), years, [
+    {name:"Gross Margin", color:css('--accent'), values:grossMargin},
+    {name:"Operating Margin", color:css('--info'), values:opMargin},
+    {name:"Net Margin", color:css('--positive'), values:netMargin}
+  ], {yFmt:(v)=>v.toFixed(0)+"%"});
+}
+</script>
+<!-- MODULE:TAB_02_FINANCIALS:END -->
+
+<!-- MODULE:TAB_03_RATIOS:START -->
+<script>
+/* ============================================================
+   TAB 03 — FINANCIAL RATIOS
+   ============================================================ */
+registerTab({ id:"ratios", num:"03", group:"fundamentals", label:"Financial Ratios", render: renderRatiosTab });
+
+function renderRatiosTab(el, d, ticker){
+  const f = d.fin;
+  const n = f.years.length;
+  const roe = f.netIncome.map((ni,i)=> ni/f.equity[i]*100);
+  const roa = f.netIncome.map((ni,i)=> ni/f.assets[i]*100);
+  const roic = f.opIncome.map((oi,i)=> (oi*0.79)/(f.debt[i]+f.equity[i])*100); // after-tax NOPAT / invested capital, 21% tax approx
+  const grossM = f.revenue.map((r,i)=> f.grossProfit[i]/r*100);
+  const opM = f.revenue.map((r,i)=> f.opIncome[i]/r*100);
+  const ebitdaM = f.revenue.map((r,i)=> f.ebitda[i]/r*100);
+  const netM = f.revenue.map((r,i)=> f.netIncome[i]/r*100);
+  // liquidity/efficiency approximations since we don't carry full current-asset/liability detail
+  const currentRatio = f.assets.map((a,i)=> (a*0.42)/(f.liabilities[i]*0.38));
+  const quickRatio = currentRatio.map(v=> v*0.78);
+  const cashRatio = f.cash.map((c,i)=> c/(f.liabilities[i]*0.38));
+  const assetTurnover = f.revenue.map((r,i)=> r/f.assets[i]);
+  const debtEquity = f.debt.map((dd,i)=> dd/f.equity[i]);
+  const debtEbitda = f.debt.map((dd,i)=> dd/f.ebitda[i]);
+  const interestCoverage = f.opIncome.map((oi,i)=> oi/Math.max(f.debt[i]*0.045, 1));
+  const fcfMargin = f.revenue.map((r,i)=> f.fcf[i]/r*100);
+  const fcfYield = f.fcf.map(v=> v/(d.mcap*1000)*100);
+  const cashConversion = f.netIncome.map((ni,i)=> f.ocf[i]/ni*100);
+
+  const last = n-1;
+  const kpi = (lbl,val,note)=>`<div class="stat-cell"><div class="lbl">${lbl}</div><div class="val">${val}</div>${note?`<div style="font-size:10px;color:var(--text-3);margin-top:2px;">${note}</div>`:""}</div>`;
+
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Financial Ratios</h3>
+      <p>Profitability, liquidity, efficiency, leverage, and cash-flow ratios, trended across the same five years, with the current (TTM) reading called out. Liquidity/efficiency ratios use approximated current-asset splits since only summarized balance-sheet lines are cached.</p>
+    </div>
+
+    <div class="card">
+      <h4>Profitability — Current (TTM) <span class="tag">Snapshot</span></h4>
+      <div class="stat-grid">
+        ${kpi("ROE", fmtPct(roe[last]), "Net income ÷ equity")}
+        ${kpi("ROA", fmtPct(roa[last]), "Net income ÷ assets")}
+        ${kpi("ROIC (approx.)", fmtPct(roic[last]), "NOPAT ÷ invested capital")}
+        ${kpi("Gross Margin", fmtPct(grossM[last]))}
+        ${kpi("Operating Margin", fmtPct(opM[last]))}
+        ${kpi("EBITDA Margin", fmtPct(ebitdaM[last]))}
+        ${kpi("Net Margin", fmtPct(netM[last]))}
+      </div>
+      <div class="why-matters"><b>Why this matters</b><b>ROIC vs. WACC</b> is the single most important profitability check: if ROIC (Tab 04) exceeds the cost of capital, growth <i>creates</i> value; if not, growth <i>destroys</i> it, however fast revenue rises.</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each profitability metric means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>ROE</b> — Return on Equity. Net income ÷ shareholders' equity. Tells you how many cents of profit the company generates per dollar shareholders have invested. <span class="f">Higher generally = more efficient use of owners' capital, but very high ROE can also come from heavy debt (leverage), so pair it with Debt/Equity.</span></div>
+          <div class="term"><b>ROA</b> — Return on Assets. Net income ÷ total assets. Shows how efficiently <i>all</i> capital (debt + equity) is used to generate profit, regardless of how it was financed. <span class="f">Useful for comparing companies with different capital structures.</span></div>
+          <div class="term"><b>ROIC</b> — Return on Invested Capital. After-tax operating profit (NOPAT) ÷ (debt + equity). The cleanest read on core business profitability, stripped of financing choices. <span class="f">Compare it to WACC (Tab 05) — ROIC above WACC means the business creates value.</span></div>
+          <div class="term"><b>Gross Margin</b> — Gross profit ÷ revenue. What's left after only the direct cost of producing the good or service (COGS). <span class="f">Reflects pricing power and production efficiency.</span></div>
+          <div class="term"><b>Operating Margin</b> — Operating income ÷ revenue. What's left after COGS <i>and</i> operating expenses (R&amp;D, SG&amp;A), before interest and taxes. <span class="f">Shows how much of every sales dollar becomes profit from the core business.</span></div>
+          <div class="term"><b>EBITDA Margin</b> — EBITDA ÷ revenue. Operating profitability before depreciation and amortization are subtracted. <span class="f">Useful for comparing capital-intensity-heavy companies, since D&amp;A accounting choices vary.</span></div>
+          <div class="term"><b>Net Margin</b> — Net income ÷ revenue. The "bottom line" — profit left after every expense, interest, and tax. <span class="f">The final scorecard of a period's profitability, but can be swung by one-off items.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Profitability Trend <span class="tag">%</span></h4>
+        <div class="canvas-wrap"><canvas id="rat-profit-chart" data-h="220"></canvas></div>
+      </div>
+      <div class="card">
+        <h4>Leverage &amp; Coverage <span class="tag">Ratio</span></h4>
+        <div class="canvas-wrap"><canvas id="rat-lev-chart" data-h="220"></canvas></div>
+        <div class="pin"><span class="mark">i</span><div><b>Debt/EBITDA</b> above ~4–5x (outside financials/utilities) usually signals meaningfully elevated credit risk — cross-check with Tab 15's Altman Z-score.</div></div>
+        <div class="edu-box">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">Leverage &amp; coverage, explained</span></div>
+          <div class="edu-glossary">
+            <div class="term"><b>Debt/Equity</b> — Total debt ÷ shareholders' equity. How much the company relies on borrowed money versus owner capital. <span class="f">Higher = more financial risk, but also more upside for equity holders if the borrowed money earns more than it costs.</span></div>
+            <div class="term"><b>Debt/EBITDA</b> — Total debt ÷ EBITDA. A rough "years of cash-flow-before-interest-and-tax it would take to pay off all debt." <span class="f">The ratio credit analysts and lenders watch most closely.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Liquidity, Efficiency &amp; Cash Flow — Current (TTM)</h4>
+      <div class="stat-grid">
+        ${kpi("Current Ratio", fmtNum(currentRatio[last]), "Current assets ÷ current liab.")}
+        ${kpi("Quick Ratio", fmtNum(quickRatio[last]), "Excl. inventory")}
+        ${kpi("Cash Ratio", fmtNum(cashRatio[last]))}
+        ${kpi("Asset Turnover", fmtNum(assetTurnover[last])+"x", "Revenue ÷ assets")}
+        ${kpi("Debt / Equity", fmtNum(debtEquity[last]))}
+        ${kpi("Debt / EBITDA", fmtNum(debtEbitda[last])+"x")}
+        ${kpi("Interest Coverage", fmtNum(interestCoverage[last])+"x", "EBIT ÷ est. interest")}
+        ${kpi("FCF Margin", fmtPct(fcfMargin[last]))}
+        ${kpi("FCF Yield", fmtPct(fcfYield[last]), "FCF ÷ market cap")}
+        ${kpi("Cash Conversion", fmtPct(cashConversion[last]), "OCF ÷ net income")}
+      </div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each liquidity, efficiency &amp; cash-flow metric means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Current Ratio</b> — Current assets ÷ current liabilities. Can the company cover bills due within a year using assets it can turn into cash within a year? <span class="f">Above 1.0 is generally healthy; well above 2–3 may mean idle cash.</span></div>
+          <div class="term"><b>Quick Ratio</b> — Like the Current Ratio, but excludes inventory (which can be slow or hard to sell fast). <span class="f">A stricter, more conservative liquidity test.</span></div>
+          <div class="term"><b>Cash Ratio</b> — Cash &amp; equivalents ÷ current liabilities. The most conservative liquidity test — could the company pay short-term bills with cash on hand alone, right now? <span class="f">Rarely needs to be high; very low can be a red flag in a downturn.</span></div>
+          <div class="term"><b>Asset Turnover</b> — Revenue ÷ total assets. How much sales the company generates per dollar of assets it owns. <span class="f">Higher = more efficient use of its asset base (common in retail); naturally lower in capital-heavy industries (utilities, telecom).</span></div>
+          <div class="term"><b>Interest Coverage</b> — Operating income (EBIT) ÷ interest expense. How many times over the company could pay its interest bill from operating profit. <span class="f">Below ~2–3x is often considered risky.</span></div>
+          <div class="term"><b>FCF Margin</b> — Free cash flow ÷ revenue. What share of every sales dollar turns into cash the company could actually distribute or reinvest. <span class="f">A "quality of earnings" check — persistent gaps versus net margin are worth investigating.</span></div>
+          <div class="term"><b>FCF Yield</b> — Free cash flow ÷ market capitalization. Similar in spirit to a bond yield: how much cash the business generates each year relative to what you'd pay to own it today. <span class="f">Higher generally signals cheaper valuation, all else equal.</span></div>
+          <div class="term"><b>Cash Conversion</b> — Operating cash flow ÷ net income. Checks whether reported profit is actually showing up as real cash. <span class="f">Persistently below 100% can flag aggressive accounting or working-capital strain; well above 100% is a good sign.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Full Ratio History <span class="tag">5Y + TTM</span></h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">Ratio</th>${f.years.map(y=>`<th>${y}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${statRow("ROE", roe, {pct:true})}
+          ${statRow("ROA", roa, {pct:true})}
+          ${statRow("ROIC (approx.)", roic, {pct:true})}
+          ${statRow("Gross Margin", grossM, {pct:true})}
+          ${statRow("Operating Margin", opM, {pct:true})}
+          ${statRow("Net Margin", netM, {pct:true})}
+          ${statRow("Current Ratio", currentRatio)}
+          ${statRow("Debt/Equity", debtEquity)}
+          ${statRow("Debt/EBITDA", debtEbitda)}
+          ${statRow("FCF Margin", fcfMargin, {pct:true})}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  drawLine(document.getElementById('rat-profit-chart'), f.years, [
+    {name:"ROE", color:css('--accent'), values:roe},
+    {name:"ROA", color:css('--info'), values:roa},
+    {name:"ROIC", color:css('--positive'), values:roic}
+  ], {yFmt:(v)=>v.toFixed(0)+"%"});
+
+  drawBars(document.getElementById('rat-lev-chart'), f.years, [
+    {name:"Debt/Equity", color:css('--negative'), values:debtEquity},
+    {name:"Debt/EBITDA", color:css('--accent'), values:debtEbitda}
+  ], {yFmt:(v)=>v.toFixed(1)+"x"});
+}
+</script>
+<!-- MODULE:TAB_03_RATIOS:END -->
+
+<!-- MODULE:TAB_04_GROWTH:START -->
+<script>
+/* ============================================================
+   TAB 04 — GROWTH ANALYSIS
+   ============================================================ */
+registerTab({ id:"growth", num:"04", group:"fundamentals", label:"Growth Analysis", render: renderGrowthTab });
+
+function renderGrowthTab(el, d, ticker){
+  const f = d.fin; const n = f.years.length;
+  const revCagr = cagr(f.revenue[0], f.revenue[n-1], n-1);
+  const epsCagr = cagr(f.eps[0], f.eps[n-1], n-1);
+  const fcfCagr = cagr(Math.max(f.fcf[0],1), Math.max(f.fcf[n-1],1), n-1);
+  const bvps0 = (d.fin.equity[0])/(d.shares*1000), bvpsN = (d.fin.equity[n-1])/(d.shares*1000);
+  const bvCagr = cagr(Math.max(bvps0,0.01), Math.max(bvpsN,0.01), n-1);
+  const reinvestRate = f.capex.map((c,i)=> Math.abs(c)/Math.max(f.opIncome[i]*0.79,1)*100);
+  const roicSeries = f.opIncome.map((oi,i)=> (oi*0.79)/(f.debt[i]+f.equity[i])*100);
+
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Growth Analysis</h3>
+      <p>Historical compounding across revenue, earnings, book value and free cash flow, plus a first look at growth <i>quality</i> via the reinvestment rate and ROIC.</p>
+    </div>
+    <div class="card">
+      <h4>Historical CAGR <span class="tag">${f.years[0]} → ${f.years[n-1]}</span></h4>
+      <div class="stat-grid">
+        ${statCell("Revenue CAGR", fmtPct(revCagr))}
+        ${statCell("EPS CAGR", fmtPct(epsCagr))}
+        ${statCell("FCF CAGR", fmtPct(fcfCagr))}
+        ${statCell("Book Value/Share CAGR", fmtPct(bvCagr))}
+      </div>
+      <div class="mjx-block">$$ CAGR = \\left(\\frac{V_{end}}{V_{start}}\\right)^{\\frac{1}{n}} - 1 $$</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equation means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>V<sub>end</sub></b> — the metric's value at the <i>end</i> of the period (e.g., this year's revenue, EPS, or book value/share).</div>
+          <div class="term"><b>V<sub>start</sub></b> — the metric's value at the <i>start</i> of the period (the earliest year shown).</div>
+          <div class="term"><b>n</b> — the number of years between start and end (the number of compounding periods).</div>
+          <div class="term"><b>CAGR</b> — the single constant annual growth rate solved for; expressed as a decimal (multiply by 100 for %).</div>
+        </div>
+      </div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What CAGR means, in plain terms</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>CAGR</b> — Compound Annual Growth Rate. The single, smoothed annual growth rate that, applied every year, would take the starting value to the ending value. <span class="f">It smooths out year-to-year noise — useful for comparing long-run trends, but it hides volatility along the way.</span></div>
+          <div class="term"><b>Revenue CAGR</b> — How fast total sales have compounded. <span class="f">The top-line growth engine every other metric below ultimately depends on.</span></div>
+          <div class="term"><b>EPS CAGR</b> — How fast diluted earnings per share have compounded. <span class="f">Can outpace revenue CAGR via margin expansion or buybacks — or lag it if shares are being issued.</span></div>
+          <div class="term"><b>FCF CAGR</b> — How fast free cash flow has compounded. <span class="f">The growth rate that most directly feeds the DCF model in Tab 05.</span></div>
+          <div class="term"><b>Book Value/Share CAGR</b> — How fast per-share net worth (equity ÷ shares) has compounded, mainly through retained earnings. <span class="f">A slower, steadier growth measure — relevant for the Residual Income model (Tab 08).</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h4>Reinvestment Rate vs. ROIC <span class="tag">%</span></h4>
+        <div class="canvas-wrap"><canvas id="gr-reinv-chart" data-h="220"></canvas></div>
+        <div class="why-matters"><b>Why this matters</b>Growth only creates value when <b>ROIC &gt; WACC</b>. A rising reinvestment rate paired with falling ROIC is a warning sign of low-quality, value-destroying growth.</div>
+        <div class="edu-box">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">Reinvestment Rate &amp; ROIC</span></div>
+          <div class="edu-glossary">
+            <div class="term"><b>Reinvestment Rate</b> — CapEx (as a proxy) ÷ after-tax operating profit. The share of profit being plowed back into the business rather than paid out or held as cash. <span class="f">A higher rate only helps shareholders if it's reinvested at a good return — see ROIC.</span></div>
+            <div class="term"><b>ROIC</b> — see the profitability glossary in Tab 03. Here it's tracked over time to judge whether growth has been getting more or less efficient.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h4>Coming Next in This Module</h4>
+        <div class="placeholder-module">
+          <div class="stamp">Scaffold Ready</div>
+          <div>Rolling CAGR windows, dividend growth &amp; buyback trend, CAPEX/R&amp;D as % of revenue, and organic-vs-acquisition growth decomposition. Each can be patched in independently — the data schema (<span class="mono">d.fin</span>) already carries everything needed except a buyback/dividend history line, which can be added to <span class="mono">SAMPLE_DB</span> per ticker.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  drawLine(document.getElementById('gr-reinv-chart'), f.years, [
+    {name:"Reinvestment Rate", color:css('--accent'), values:reinvestRate},
+    {name:"ROIC", color:css('--positive'), values:roicSeries}
+  ], {yFmt:(v)=>v.toFixed(0)+"%"});
+}
+</script>
+<!-- MODULE:TAB_04_GROWTH:END -->
+
+<!-- MODULE:TAB_05_DCF:START -->
+<script>
+/* ============================================================
+   TAB 05 — DISCOUNTED CASH FLOW (FCFF / FCFE)
+   ============================================================ */
+registerTab({ id:"dcf", num:"05", group:"valuation", label:"DCF Valuation", render: renderDCFTab });
+
+const DCF_STATE = { years:5, growth:8, termGrowth:2.5, wacc:9, taxRate:21, capexPctRev:6, method:"gordon", scenario:"base" };
+
+function computeDCF(d, state){
+  const f = d.fin;
+  const baseFCF = f.fcf[f.fcf.length-1]; // TTM FCF, $M
+  const scenarioAdj = { bear:-0.35, base:0, bull:0.35 }[state.scenario];
+  const g = (state.growth/100) * (1+scenarioAdj);
+  const term = state.termGrowth/100;
+  const wacc = state.wacc/100;
+  const n = state.years;
+  let flows = [], pv = [];
+  let cf = baseFCF;
+  for(let i=1;i<=n;i++){
+    cf = cf*(1+g*(1 - (i-1)/(n*1.6))); // gently fade growth toward terminal over the forecast
+    flows.push(cf);
+    pv.push(cf/Math.pow(1+wacc,i));
+  }
+  let tv;
+  if (state.method==="gordon"){
+    tv = flows[n-1]*(1+term)/(wacc-term);
+  } else {
+    const exitMultiple = 12; // EV/EBITDA-style exit multiple assumption
+    tv = (f.ebitda[f.ebitda.length-1]*Math.pow(1+g,n)) * exitMultiple/1000*1000; // keep in $M scale
+  }
+  const pvTV = tv/Math.pow(1+wacc,n);
+  const ev = pv.reduce((a,b)=>a+b,0) + pvTV;
+  const equityValue = ev - (d.fin.debt[d.fin.debt.length-1]) + (d.fin.cash[d.fin.cash.length-1]);
+  const perShare = equityValue/(d.shares*1000);
+  return { flows, pv, tv, pvTV, ev, equityValue, perShare, baseFCF, g, wacc, term };
+}
+
+function renderDCFTab(el, d, ticker){
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Discounted Cash Flow Valuation</h3>
+      <p>Projects Free Cash Flow to the Firm (FCFF) forward, discounts it at the Weighted Average Cost of Capital (WACC), and adds a terminal value. Every assumption below is editable — this is meant to be played with, not just read.</p>
+    </div>
+
+    <div class="card">
+      <h4>Model &amp; Formulas <span class="tag">Theory</span></h4>
+      <div class="mjx-block">$$ EV = \\sum_{t=1}^{n} \\frac{FCFF_t}{(1+WACC)^t} + \\frac{TV_n}{(1+WACC)^n} $$</div>
+      <div class="mjx-block">$$ TV_n^{Gordon} = \\frac{FCFF_n (1+g_{\\infty})}{WACC - g_{\\infty}} \\qquad TV_n^{Exit} = EBITDA_n \\times \\text{Exit Multiple} $$</div>
+      <div class="mjx-block">$$ \\text{Equity Value} = EV - \\text{Net Debt} \\qquad \\text{Intrinsic Value / Share} = \\frac{\\text{Equity Value}}{\\text{Diluted Shares Outstanding}} $$</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equations means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>EV</b> — Enterprise Value, the sum of all discounted cash flows plus the discounted terminal value; the total value of the operating business, belonging to debt and equity holders combined.</div>
+          <div class="term"><b>t</b> — the year of the forecast being discounted (t = 1, 2, 3…), counted from today.</div>
+          <div class="term"><b>n</b> — the total number of years in the explicit forecast horizon before the terminal value takes over.</div>
+          <div class="term"><b>FCFF<sub>t</sub></b> — Free Cash Flow to the Firm projected for year t (unlevered cash flow, before financing effects).</div>
+          <div class="term"><b>WACC</b> — Weighted Average Cost of Capital; the discount rate blending the required return of both lenders and shareholders.</div>
+          <div class="term"><b>TV<sub>n</sub></b> — Terminal Value as of year n; the lump-sum value of every cash flow beyond the explicit forecast.</div>
+          <div class="term"><b>FCFF<sub>n</sub></b> — the final year's projected Free Cash Flow to the Firm, used as the base for the terminal value.</div>
+          <div class="term"><b>g<sub>∞</sub></b> — the terminal (perpetual) growth rate assumed for cash flows after year n, forever.</div>
+          <div class="term"><b>EBITDA<sub>n</sub></b> — EBITDA in the final forecast year, used as the base for the Exit Multiple method of terminal value.</div>
+          <div class="term"><b>Exit Multiple</b> — an assumed EV/EBITDA multiple a buyer might pay for the business at the end of year n, based on comparable transactions.</div>
+          <div class="term"><b>Net Debt</b> — total debt minus cash &amp; equivalents; subtracted from EV because lenders are paid before shareholders.</div>
+          <div class="term"><b>Diluted Shares Outstanding</b> — total shares including the effect of options/convertibles; the denominator that turns Equity Value into a per-share price.</div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div><b>FCFF</b> (unlevered) belongs with <b>WACC</b> and gives Enterprise Value. <b>FCFE</b> (levered, after interest &amp; debt paydown) belongs with the <b>cost of equity</b> and gives Equity Value directly — never mix the two discount rates with the wrong cash flow.</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Assumptions <span class="tag">Editable</span></h4>
+        <div class="slider-row"><label>Forecast horizon (yrs)</label><input type="range" id="dcf-years" min="5" max="10" step="1" value="${DCF_STATE.years}"><span class="sval" id="v-years">${DCF_STATE.years}</span></div>
+        <div class="slider-row"><label>FCF growth rate, Yr 1 (%)</label><input type="range" id="dcf-growth" min="-5" max="30" step="0.5" value="${DCF_STATE.growth}"><span class="sval" id="v-growth">${DCF_STATE.growth}%</span></div>
+        <div class="slider-row"><label>Terminal growth g∞ (%)</label><input type="range" id="dcf-term" min="0" max="5" step="0.1" value="${DCF_STATE.termGrowth}"><span class="sval" id="v-term">${DCF_STATE.termGrowth}%</span></div>
+        <div class="slider-row"><label>WACC / discount rate (%)</label><input type="range" id="dcf-wacc" min="4" max="16" step="0.25" value="${DCF_STATE.wacc}"><span class="sval" id="v-wacc">${DCF_STATE.wacc}%</span></div>
+        <div class="slider-row"><label>Terminal value method</label>
+          <select id="dcf-method" style="flex:1; background:var(--bg-2); color:var(--text-0); border:1px solid var(--border); border-radius:6px; padding:6px;">
+            <option value="gordon" ${DCF_STATE.method==='gordon'?'selected':''}>Gordon Growth</option>
+            <option value="exit" ${DCF_STATE.method==='exit'?'selected':''}>Exit Multiple (12x EBITDA)</option>
+          </select>
+        </div>
+        <div class="slider-row"><label>Scenario</label>
+          <select id="dcf-scenario" style="flex:1; background:var(--bg-2); color:var(--text-0); border:1px solid var(--border); border-radius:6px; padding:6px;">
+            <option value="bear" ${DCF_STATE.scenario==='bear'?'selected':''}>Bear</option>
+            <option value="base" ${DCF_STATE.scenario==='base'?'selected':''}>Base</option>
+            <option value="bull" ${DCF_STATE.scenario==='bull'?'selected':''}>Bull</option>
+          </select>
+        </div>
+        <div class="why-matters"><b>Common mistake</b>Setting terminal growth above long-run GDP/inflation (~2–3%) implies the company eventually becomes the entire economy. Keep g∞ conservative — the terminal value is typically 60–80% of total EV, so it deserves the most scrutiny, not the least.</div>
+      </div>
+      <div class="card">
+        <h4>Valuation Output <span class="tag">Live</span></h4>
+        <div id="dcf-output"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Projection &amp; Cash Flow Waterfall <span class="tag">$M</span></h4>
+      <div class="canvas-wrap"><canvas id="dcf-waterfall" data-h="240"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h4>Projection Table</h4>
+      <table class="data-table" id="dcf-table"></table>
+    </div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding the DCF model, step by step</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">A Discounted Cash Flow model says a business is worth the cash it will hand its owners in the future — adjusted for the fact that a dollar next year is worth less than a dollar today (time value of money and risk).</p>
+      <div class="vx-grid">
+        <div class="vx-cell"><b>FCFF (Free Cash Flow to the Firm)</b>Cash generated by operations after reinvestment needs (CapEx), before paying lenders or shareholders — the cash "the whole company" produces, regardless of who financed it.</div>
+        <div class="vx-cell"><b>WACC (Weighted Average Cost of Capital)</b>The blended annual return that both lenders and shareholders require for the risk they're taking. It's the discount rate that converts future dollars into today's dollars.</div>
+        <div class="vx-cell"><b>Terminal Value</b>Since a company can't be forecast line-by-line forever, everything beyond the explicit forecast window is captured in one lump-sum value, using either steady long-run growth (Gordon Growth) or a comparable-company exit multiple.</div>
+        <div class="vx-cell"><b>Enterprise Value → Equity Value</b>Enterprise Value belongs to everyone who financed the company (debt + equity). Subtracting net debt isolates what's left for shareholders — Equity Value — which, divided by shares outstanding, gives an intrinsic price per share.</div>
+      </div>
+      <h5 style="margin-top:12px;">How to read the output</h5>
+      <ol>
+        <li>Compare "Intrinsic Value / Share" to the current market price — a large gap either way is only meaningful if the assumptions behind it are reasonable.</li>
+        <li>Always sanity-check the discount rate and terminal growth first (Tab 12) — small changes there move the answer far more than most people expect.</li>
+        <li>Treat the output as a range of plausible values (via Bear/Base/Bull), not a single precise number.</li>
+      </ol>
+    </div>
+  `;
+
+  function refresh(){
+    ['years','growth','term','wacc'].forEach(k=>{});
+    DCF_STATE.years = +document.getElementById('dcf-years').value;
+    DCF_STATE.growth = +document.getElementById('dcf-growth').value;
+    DCF_STATE.termGrowth = +document.getElementById('dcf-term').value;
+    DCF_STATE.wacc = +document.getElementById('dcf-wacc').value;
+    DCF_STATE.method = document.getElementById('dcf-method').value;
+    DCF_STATE.scenario = document.getElementById('dcf-scenario').value;
+    document.getElementById('v-years').textContent = DCF_STATE.years;
+    document.getElementById('v-growth').textContent = DCF_STATE.growth+"%";
+    document.getElementById('v-term').textContent = DCF_STATE.termGrowth+"%";
+    document.getElementById('v-wacc').textContent = DCF_STATE.wacc+"%";
+
+    const r = computeDCF(d, DCF_STATE);
+    const upside = pctChange(r.perShare, d.price);
+    const upClass = upside>=0 ? 'up':'down';
+    document.getElementById('dcf-output').innerHTML = `
+      <div class="stat-grid">
+        ${statCell("Enterprise Value", fmtBil(r.ev/1000))}
+        ${statCell("Equity Value", fmtBil(r.equityValue/1000))}
+        ${statCell("Intrinsic Value / Share", fmtPx(r.perShare))}
+        ${statCell("Current Market Price", fmtPx(d.price))}
+        ${statCell("Implied Upside/Downside", `<span class="chg ${upClass}">${upside>=0?'+':''}${upside.toFixed(1)}%</span>`)}
+        ${statCell("Margin of Safety", fmtPct(100*(r.perShare-d.price)/r.perShare))}
+      </div>
+      <div style="margin-top:10px;"><span class="badge-pill ${upside>10?'buy':upside<-10?'sell':'hold'}">${upside>10?'Undervalued':upside<-10?'Overvalued':'Near Fair Value'}</span></div>
+    `;
+
+    const cats = r.flows.map((_,i)=>"Yr "+(i+1));
+    drawBars(document.getElementById('dcf-waterfall'), cats.concat(["Terminal PV"]),
+      [{name:"PV of Cash Flow", color:css('--accent'), values:r.pv.concat([r.pvTV])}]);
+
+    const tbl = document.getElementById('dcf-table');
+    tbl.innerHTML = `<thead><tr><th style="text-align:left;">Year</th>${cats.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
+      <tbody>
+        <tr><td class="lbl">Projected FCFF ($M)</td>${r.flows.map(v=>`<td>${fmtB(v)}</td>`).join("")}</tr>
+        <tr><td class="lbl">Discount Factor</td>${r.flows.map((_,i)=>`<td>${(1/Math.pow(1+DCF_STATE.wacc/100,i+1)).toFixed(3)}</td>`).join("")}</tr>
+        <tr><td class="lbl">PV of FCFF ($M)</td>${r.pv.map(v=>`<td>${fmtB(v)}</td>`).join("")}</tr>
+      </tbody>`;
+
+   if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('panel-dcf')]);
+  }
+
+  ['dcf-years','dcf-growth','dcf-term','dcf-wacc','dcf-method','dcf-scenario'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', refresh);
+    document.getElementById(id).addEventListener('change', refresh);
+  });
+  refresh();
+}
+</script>
+<!-- MODULE:TAB_05_DCF:END -->
+
+<!-- MODULE:TAB_06_DDM:START -->
+<script>
+registerTab({ id:"ddm", num:"06", group:"valuation", label:"Dividend Discount Model", render: renderDDMTab });
+function renderDDMTab(el, d, ticker){
+  const div0 = d.price * d.divYield/100;
+  const ke = DCF_STATE.wacc/100 + 0.015; // rough cost-of-equity proxy above WACC
+  const g = 0.03;
+  const gordonValue = div0>0 ? (div0*(1+g))/(ke-g) : null;
+  el.innerHTML = `
+    <div class="section-head"><h3>Dividend Discount Model</h3>
+    <p>Values equity as the present value of expected future dividends. Most meaningful for stable, mature dividend payers — see the suitability note below before leaning on this model.</p></div>
+    <div class="card">
+      <h4>Dividend Snapshot</h4>
+      <div class="stat-grid">
+        ${statCell("Trailing Dividend Yield", fmtPct(d.divYield))}
+        ${statCell("Est. Annual Dividend/Share", d.divYield>0? fmtPx(div0):"—")}
+        ${statCell("Assumed Cost of Equity", fmtPct(ke*100))}
+        ${statCell("Assumed Long-Run Growth", fmtPct(g*100))}
+      </div>
+      ${d.divYield<=0 ? `<div class="why-matters"><b>Suitability</b>${d.name} pays little or no dividend — DDM is a poor fit here. Rely on DCF (Tab 05) or Relative Valuation (Tab 07) instead, and treat any DDM output as illustrative only.</div>` : ""}
+    </div>
+    <div class="card">
+      <h4>Model Formulas</h4>
+      <div class="mjx-block">$$ P_0 = \\frac{D_1}{r_e - g} \\quad \\text{(single-stage Gordon Growth)} $$</div>
+      <div class="mjx-block">$$ P_0 = \\sum_{t=1}^{n} \\frac{D_t}{(1+r_e)^t} + \\frac{D_{n+1}}{(r_e-g_{\\infty})(1+r_e)^n} \\quad \\text{(multi-stage)} $$</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equations means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>P<sub>0</sub></b> — the estimated fair value of one share today (time zero).</div>
+          <div class="term"><b>D<sub>1</sub></b> — the dividend per share expected one year from now.</div>
+          <div class="term"><b>D<sub>t</sub></b> — the dividend per share expected in year t during the explicit multi-stage forecast.</div>
+          <div class="term"><b>D<sub>n+1</sub></b> — the first dividend of the stable, terminal growth phase, right after the explicit forecast ends.</div>
+          <div class="term"><b>r<sub>e</sub></b> — the cost of equity; the annual return shareholders require for the risk of owning the stock.</div>
+          <div class="term"><b>g</b> — the assumed constant dividend growth rate used in the single-stage version.</div>
+          <div class="term"><b>g<sub>∞</sub></b> — the terminal (perpetual) dividend growth rate assumed after the multi-stage forecast ends.</div>
+          <div class="term"><b>t / n</b> — t is the year being discounted; n is the number of years in the explicit forecast before the terminal phase.</div>
+        </div>
+      </div>
+      ${gordonValue? `<div class="stat-grid"><div class="stat-cell"><div class="lbl">Single-Stage Gordon Value</div><div class="val">${fmtPx(gordonValue)}</div></div></div>` : ""}
+    </div>
+    <div class="placeholder-module">
+      <div class="stamp">Scaffold Ready</div>
+      <div>Two-stage &amp; three-stage builds, payout ratio and dividend-coverage trend, yield history chart, and a growth-rate sensitivity grid can each be patched into this module independently.</div>
+    </div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding the Dividend Discount Model</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">The DDM says a share is worth exactly the present value of every dividend it will ever pay you. It's the oldest formal valuation model, dating back to John Burr Williams and later popularized as the "Gordon Growth Model."</p>
+      <div class="vx-grid">
+        <div class="vx-cell"><b>D₁ (Next Dividend)</b>The dividend per share expected one year from now — the starting cash flow the model discounts.</div>
+        <div class="vx-cell"><b>rₑ (Cost of Equity)</b>The annual return shareholders demand for the risk of owning the stock — always higher than the cost of debt, since equity holders are paid last.</div>
+        <div class="vx-cell"><b>g (Dividend Growth Rate)</b>How fast the dividend is assumed to grow forever. Must stay below rₑ, or the formula produces a nonsensical (negative or infinite) value.</div>
+        <div class="vx-cell"><b>Single-stage vs. multi-stage</b>Single-stage assumes one constant growth rate forever — fine for a mature utility. Multi-stage lets growth start higher and fade toward a lower, sustainable rate — better for companies still growing quickly.</div>
+      </div>
+      <h5 style="margin-top:12px;">When to trust it</h5>
+      <ol>
+        <li>Best suited to mature, stable dividend payers with a long payment history (utilities, consumer staples, large banks).</li>
+        <li>Weak or meaningless for non-dividend payers or high-growth companies — use DCF (Tab 05) instead.</li>
+        <li>Always check that assumed growth is realistic and sits comfortably below the cost of equity.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_06_DDM:END -->
+
+<!-- MODULE:TAB_07_RELATIVE:START -->
+<script>
+registerTab({ id:"relative", num:"07", group:"valuation", label:"Relative Valuation", render: renderRelativeTab });
+function renderRelativeTab(el, d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const pe = d.price/f.eps[last];
+  const evEbitda = (d.ev*1000)/f.ebitda[last];
+  const evSales = (d.ev*1000)/f.revenue[last];
+  const pb = (d.mcap*1000)/f.equity[last];
+  const pfcf = (d.mcap*1000)/Math.max(f.fcf[last],1);
+  // synthetic sector-average comparison band (± around the company's own multiple, seeded so it's stable)
+  const rnd = seededRand(hashSeed(ticker+"peer"));
+  const peerAvgPE = pe*(0.85+rnd()*0.3);
+  const peerAvgEvEbitda = evEbitda*(0.85+rnd()*0.3);
+  const peerAvgPS = evSales*(0.85+rnd()*0.3);
+  const premPE = pctChange(pe, peerAvgPE);
+  el.innerHTML = `
+    <div class="section-head"><h3>Relative Valuation</h3>
+    <p>Benchmarks ${d.name} against an approximate peer/sector average multiple. Peer averages here are illustrative (seeded synthetically); wire in a real peer set from a screener for production use.</p></div>
+    <div class="card">
+      <h4>Multiples vs. Peer Average</h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">Metric</th><th>${ticker}</th><th>Peer Avg (approx.)</th><th>Premium/Discount</th></tr></thead>
+        <tbody>
+          <tr><td class="lbl">P/E</td><td>${fmtNum(pe)}x</td><td>${fmtNum(peerAvgPE)}x</td><td>${fmtPct(premPE)}</td></tr>
+          <tr><td class="lbl">EV/EBITDA</td><td>${fmtNum(evEbitda)}x</td><td>${fmtNum(peerAvgEvEbitda)}x</td><td>${fmtPct(pctChange(evEbitda,peerAvgEvEbitda))}</td></tr>
+          <tr><td class="lbl">EV/Sales</td><td>${fmtNum(evSales)}x</td><td>${fmtNum(peerAvgPS)}x</td><td>${fmtPct(pctChange(evSales,peerAvgPS))}</td></tr>
+          <tr><td class="lbl">Price/Book</td><td>${fmtNum(pb)}x</td><td>—</td><td>—</td></tr>
+          <tr><td class="lbl">Price/FCF</td><td>${fmtNum(pfcf)}x</td><td>—</td><td>—</td></tr>
+          <tr><td class="lbl">Dividend Yield</td><td>${fmtPct(d.divYield)}</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <div class="pin"><span class="mark">i</span><div>A persistent premium can reflect superior growth/ROIC (justified) or simple market euphoria (unjustified) — cross-check against Tab 04's growth quality before concluding either way.</div></div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each multiple means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>P/E</b> — Price ÷ Earnings per share. How many years of current earnings you're paying for. <span class="f">The most common multiple, but distorted by one-off items and differences in leverage or accounting.</span></div>
+          <div class="term"><b>EV/EBITDA</b> — Enterprise Value ÷ EBITDA. Similar idea to P/E, but capital-structure neutral (uses EV, which includes debt) and before D&amp;A. <span class="f">Better for comparing companies with different debt loads or depreciation policies.</span></div>
+          <div class="term"><b>EV/Sales</b> — Enterprise Value ÷ Revenue. Useful when a company has little or no profit yet. <span class="f">Says nothing about profitability on its own — always pair with a margin metric.</span></div>
+          <div class="term"><b>Price/Book</b> — Market cap ÷ book (accounting) equity. What you pay per dollar of net assets on the balance sheet. <span class="f">More relevant for asset-heavy businesses like banks than for asset-light software companies.</span></div>
+          <div class="term"><b>Price/FCF</b> — Market cap ÷ free cash flow. Like P/E, but based on cash generated rather than accounting profit. <span class="f">Harder to manipulate with non-cash accounting choices.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="placeholder-module">
+      <div class="stamp">Scaffold Ready</div>
+      <div>Radar chart across all multiples, historical valuation-band chart (5Y P/E range), and a real named-peer table (with PEG) can be added once a peer list is supplied per sector.</div>
+    </div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding Relative Valuation</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">Instead of estimating intrinsic value from scratch, relative valuation asks: "what is the market currently paying for similar companies, and does this one deserve to trade above, below, or in line with them?" It's a comparison exercise, not an independent valuation.</p>
+      <h5 style="margin-top:12px;">How to use it well</h5>
+      <ol>
+        <li>Choose peers that genuinely compete for the same customers, capital, and growth opportunities — comparing across unrelated sectors is misleading.</li>
+        <li>A premium or discount to peers must be justified qualitatively (better growth, moat, margins) — a cheap multiple isn't automatically a "buy," it can simply be cheap for a reason.</li>
+        <li>Use this alongside an intrinsic method (DCF, Residual Income) rather than instead of one — relative valuation can be wrong in the same direction as the whole market (a bubble looks "fairly valued" relative to equally bubbly peers).</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_07_RELATIVE:END -->
+
+<!-- MODULE:TAB_08_RESIDUAL:START -->
+<script>
+registerTab({ id:"residual", num:"08", group:"valuation", label:"Residual Income Model", render: renderResidualTab });
+function renderResidualTab(el, d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const bvps = f.equity[last]/(d.shares*1000);
+  const roe = f.netIncome[last]/f.equity[last];
+  const ke = DCF_STATE.wacc/100 + 0.015;
+  const ri1 = bvps*(roe-ke);
+  const g = 0.02;
+  const value = ri1>0 ? bvps + ri1/(ke-g) : bvps;
+  el.innerHTML = `
+    <div class="section-head"><h3>Residual Income Model</h3>
+    <p>Values equity as current book value plus the present value of future "residual" (economic) income the firm earns above its cost of equity.</p></div>
+    <div class="card">
+      <h4>Formula &amp; Derivation</h4>
+      <div class="mjx-block">$$ RI_t = NI_t - r_e \\times BV_{t-1} \\qquad V_0 = BV_0 + \\sum_{t=1}^{\\infty} \\frac{RI_t}{(1+r_e)^t} $$</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equation means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>RI<sub>t</sub></b> — Residual Income in year t; the profit earned above what shareholders required for that year.</div>
+          <div class="term"><b>NI<sub>t</sub></b> — Net Income in year t.</div>
+          <div class="term"><b>r<sub>e</sub></b> — the cost of equity; the annual return shareholders require for the risk of owning the stock.</div>
+          <div class="term"><b>BV<sub>t-1</sub></b> — Book Value of equity at the <i>start</i> of year t (i.e., the end of year t-1) — the capital base shareholders had "at work" that year.</div>
+          <div class="term"><b>V<sub>0</sub></b> — the estimated intrinsic value of equity today.</div>
+          <div class="term"><b>BV<sub>0</sub></b> — today's book value of equity, the model's known starting point.</div>
+          <div class="term"><b>t</b> — the year being discounted, summed here all the way to infinity (in practice, truncated with a terminal growth assumption after a set horizon).</div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div>If <b>ROE = cost of equity</b>, residual income is zero and the stock should trade near book value. Persistent ROE above cost of equity is what justifies trading above book (Price/Book &gt; 1).</div></div>
+    </div>
+    <div class="card">
+      <h4>Current Estimate</h4>
+      <div class="stat-grid">
+        ${statCell("Book Value / Share", fmtPx(bvps))}
+        ${statCell("ROE (TTM)", fmtPct(roe*100))}
+        ${statCell("Cost of Equity (est.)", fmtPct(ke*100))}
+        ${statCell("Yr-1 Residual Income/Share", fmtPx(ri1))}
+        ${statCell("Estimated Intrinsic Value", fmtPx(value))}
+      </div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Multi-year residual income projection table and a WACC/fade-rate sensitivity grid can be patched in next.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding the Residual Income Model</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">This model starts from something concrete and already known — book value (net assets on the balance sheet) — and adds only the value of "excess" profit the company is expected to earn above what shareholders require. It answers: how much value has management created beyond simply holding the assets?</p>
+      <div class="vx-grid">
+        <div class="vx-cell"><b>Residual Income (RI)</b>Net income minus a charge for using shareholders' capital (cost of equity × prior book value). It's the profit left over after shareholders are "paid" for the opportunity cost of their capital.</div>
+        <div class="vx-cell"><b>Book Value (BV)</b>Total shareholders' equity — assets minus liabilities. The model's starting point, since it's directly observable rather than estimated.</div>
+      </div>
+      <h5 style="margin-top:12px;">Why it's useful</h5>
+      <ol>
+        <li>Less sensitive to terminal-value assumptions than a DCF, since most of the value sits in the known starting book value rather than a distant lump sum.</li>
+        <li>Works well for banks, insurers, and other businesses where book value is meaningful and earnings can be volatile.</li>
+        <li>Weak fit for asset-light, high-growth companies where book value understates the real economic assets (like brand or software).</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_08_RESIDUAL:END -->
+
+<!-- MODULE:TAB_09_ASSET:START -->
+<script>
+registerTab({ id:"asset", num:"09", group:"valuation", label:"Asset-Based Valuation", render: renderAssetTab });
+function renderAssetTab(el, d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const bv = f.equity[last];
+  const adjBv = bv*1.08; // illustrative markup for off-balance-sheet/intangible adjustments
+  const nav = adjBv*0.95;
+  const liquidation = f.assets[last]*0.65 - f.liabilities[last];
+  const perShareBV = bv/(d.shares*1000);
+  el.innerHTML = `
+    <div class="section-head"><h3>Asset-Based Valuation</h3>
+    <p>Values the company from its balance sheet rather than its earnings power — most relevant for banks, insurers, industrials, real estate, and distressed situations where liquidation value is a realistic floor.</p></div>
+    <div class="card">
+      <h4>Asset-Based Estimates</h4>
+      <div class="stat-grid">
+        ${statCell("Book Value", fmtBil(bv/1000))}
+        ${statCell("Adjusted Book Value (est.)", fmtBil(adjBv/1000))}
+        ${statCell("Net Asset Value (est.)", fmtBil(nav/1000))}
+        ${statCell("Liquidation Value (est.)", fmtBil(Math.max(liquidation,0)/1000))}
+        ${statCell("Book Value / Share", fmtPx(perShareBV))}
+      </div>
+      <div class="why-matters"><b>Suitability for ${d.sector}</b>${["Financial Services","Industrials","Materials","Real Estate"].includes(d.sector) ? "This sector is typically asset-heavy, so asset-based methods carry real weight alongside DCF." : "This sector tends to be asset-light — treat asset-based figures as a conservative floor, not a primary valuation anchor."}</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each asset-based estimate means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Book Value</b> — Total assets minus total liabilities, straight from the balance sheet. <span class="f">The accounting "net worth" of the company.</span></div>
+          <div class="term"><b>Adjusted Book Value</b> — Book value adjusted to better reflect real economic worth (e.g., marking real estate or securities to current market prices instead of historical cost). <span class="f">Closer to what assets would actually fetch today.</span></div>
+          <div class="term"><b>Net Asset Value (NAV)</b> — Similar to adjusted book value; commonly used for holding companies, REITs, and funds whose worth is best measured by the sum of what they own.</div>
+          <div class="term"><b>Liquidation Value</b> — An estimate of what would be left for shareholders if the company sold everything quickly and paid off all liabilities. <span class="f">Usually the most conservative estimate, since a forced/quick sale rarely fetches full value.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Visual balance-sheet waterfall and per-line replacement-cost adjustments can be added once fixed-asset detail (PP&amp;E schedules) is available.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding Asset-Based Valuation</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">Instead of valuing a company by what it can <i>earn</i>, this approach values it by what it <i>owns</i> — useful when earnings are unreliable, negative, or simply less important than the underlying assets (banks, insurers, real estate, or a company in financial distress).</p>
+      <h5 style="margin-top:12px;">When it's most useful</h5>
+      <ol>
+        <li>Provides a "floor" valuation — a sense of what shareholders might recover even in a worst-case wind-down scenario.</li>
+        <li>Most reliable for asset-heavy, tangible-asset businesses; least reliable for asset-light businesses whose real value sits in brand, software, or people (which don't show up on the balance sheet).</li>
+        <li>Should be used alongside — never instead of — an earnings-power method like DCF (Tab 05) for a going-concern business.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_09_ASSET:END -->
+
+<!-- MODULE:TAB_10_GRAHAM:START -->
+<script>
+registerTab({ id:"graham", num:"10", group:"valuation", label:"Graham Valuation", render: renderGrahamTab });
+function renderGrahamTab(el, d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const bvps = f.equity[last]/(d.shares*1000);
+  const grahamNumber = Math.sqrt(22.5 * f.eps[last] * bvps);
+  const marginOfSafety = pctChange(grahamNumber, d.price);
+  el.innerHTML = `
+    <div class="section-head"><h3>Graham Valuation</h3>
+    <p>Benjamin Graham's conservative, formula-based approach to bounding intrinsic value — designed for defensive investors, not growth stocks with negative earnings or no tangible book value.</p></div>
+    <div class="card">
+      <h4>Graham Number</h4>
+      <div class="mjx-block">$$ \\text{Graham Number} = \\sqrt{22.5 \\times EPS \\times BVPS} $$</div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equation means</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>EPS</b> — Earnings Per Share; net income ÷ diluted shares outstanding.</div>
+          <div class="term"><b>BVPS</b> — Book Value Per Share; shareholders' equity ÷ shares outstanding.</div>
+          <div class="term"><b>22.5</b> — a fixed constant, not a variable; equal to Graham's ceiling of 15× earnings multiplied by his ceiling of 1.5× book value (15 × 1.5 = 22.5).</div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div>The constant 22.5 caps the implied P/E at 15x and Price/Book at 1.5x simultaneously (15 × 1.5 = 22.5) — Graham's ceiling for a "defensive" purchase.</div></div>
+      <div class="stat-grid">
+        ${statCell("EPS (TTM)", "$"+f.eps[last].toFixed(2))}
+        ${statCell("Book Value/Share", fmtPx(bvps))}
+        ${statCell("Graham Number", fmtPx(grahamNumber))}
+        ${statCell("Current Price", fmtPx(d.price))}
+        ${statCell("Margin of Safety", fmtPct(marginOfSafety))}
+      </div>
+      ${(f.eps[last]<=0 || bvps<=0) ? `<div class="why-matters"><b>Not applicable</b>Graham's formula requires positive earnings and book value; at least one is non-positive here, so treat this output as not meaningful.</div>` : ""}
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Historical Graham-number trend chart and a side-by-side comparison strip against the Tab 05 DCF output can be added next.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding the Graham Number</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">Benjamin Graham — Warren Buffett's teacher and the father of value investing — designed this as a simple, conservative ceiling on what a "defensive" (risk-averse) investor should pay for a stock, using only two inputs: earnings and book value.</p>
+      <div class="vx-grid">
+        <div class="vx-cell"><b>EPS (Earnings Per Share)</b>Net income divided by diluted shares outstanding — the profit attributable to each share.</div>
+        <div class="vx-cell"><b>BVPS (Book Value Per Share)</b>Shareholders' equity divided by shares outstanding — the accounting net worth per share.</div>
+        <div class="vx-cell"><b>The Constant 22.5</b>Derived from Graham's two personal rules of thumb: never pay more than 15× earnings, and never more than 1.5× book value. Multiplying those caps (15 × 1.5) gives 22.5.</div>
+        <div class="vx-cell"><b>Margin of Safety</b>The gap between the Graham Number and the market price — Graham's core philosophy was to only buy with a large cushion against being wrong.</div>
+      </div>
+      <h5 style="margin-top:12px;">Limitations</h5>
+      <ol>
+        <li>Deliberately conservative — it will flag almost every high-growth or high-multiple stock as "overvalued," even good ones.</li>
+        <li>Not meaningful for companies with negative earnings or negative book value.</li>
+        <li>Best treated as one more data point in the Comparison tab (Tab 13), not a standalone verdict.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_10_GRAHAM:END -->
+
+<!-- MODULE:TAB_11_REVERSE_DCF:START -->
+<script>
+registerTab({ id:"reversedcf", num:"11", group:"valuation", label:"Reverse DCF", render: renderReverseDCFTab });
+function solveImpliedGrowth(d){
+  const f = d.fin; const wacc = DCF_STATE.wacc/100; const term = DCF_STATE.termGrowth/100;
+  const targetEquity = d.mcap*1000 + f.debt[f.debt.length-1] - f.cash[f.cash.length-1];
+  const baseFCF = f.fcf[f.fcf.length-1];
+  let lo=-0.10, hi=0.40;
+  for(let iter=0; iter<60; iter++){
+    const g = (lo+hi)/2;
+    let cf = baseFCF, pvSum=0;
+    for(let t=1;t<=5;t++){ cf = cf*(1+g); pvSum += cf/Math.pow(1+wacc,t); }
+    const tv = cf*(1+term)/(wacc-term);
+    const ev = pvSum + tv/Math.pow(1+wacc,5);
+    if (ev > targetEquity) hi=g; else lo=g;
+  }
+  return (lo+hi)/2*100;
+}
+function renderReverseDCFTab(el, d, ticker){
+  const impliedG = solveImpliedGrowth(d);
+  const f = d.fin; const histCagr = cagr(f.fcf[0]>0?f.fcf[0]:1, f.fcf[f.fcf.length-1]>0?f.fcf[f.fcf.length-1]:1, f.fcf.length-1);
+  el.innerHTML = `
+    <div class="section-head"><h3>Reverse DCF — Market-Implied Expectations</h3>
+    <p>Instead of assuming a growth rate to find fair value, this flips the DCF around: it solves for the 5-year FCF growth rate that today's market price already implies, at the WACC and terminal growth set in Tab 05.</p></div>
+    <div class="card">
+      <h4>Implied vs. Historical Growth</h4>
+      <div class="stat-grid">
+        ${statCell("Market-Implied 5Y FCF Growth", fmtPct(impliedG))}
+        ${statCell("Historical FCF CAGR", fmtPct(histCagr))}
+        ${statCell("WACC used", fmtPct(DCF_STATE.wacc))}
+        ${statCell("Terminal Growth used", fmtPct(DCF_STATE.termGrowth))}
+      </div>
+      <div class="why-matters"><b>Reading it</b>${impliedG > histCagr+3 ? "The market is pricing in meaningfully faster growth than the company has historically delivered — a demanding bar." : impliedG < histCagr-3 ? "The market is pricing in slower growth than the company's own history — potentially a conservative, de-risked expectation." : "The implied growth rate is broadly in line with historical performance — the market isn't obviously pricing in a big acceleration or deceleration."}</div>
+      <div class="pin"><span class="mark">i</span><div>This reveals <b>market expectations</b>, not intrinsic value — it answers "what does the crowd believe?" rather than "what is it actually worth?"</div></div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Solve separately for implied terminal growth and implied margin, and chart the implied-growth trend over the last several quarters, once historical price series are wired in.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding Reverse DCF</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">A normal DCF asks "if I assume this growth rate, what is the stock worth?" A Reverse DCF flips the question: "given today's actual market price, what growth rate must investors already be assuming?" It uses the same math engine as Tab 05, just solved backward.</p>
+      <div class="vx-grid">
+        <div class="vx-cell"><b>Market-Implied Growth</b>The FCF growth rate that, plugged into the DCF formula, produces today's exact market price. A useful gut-check on how demanding the market's expectations really are.</div>
+        <div class="vx-cell"><b>Why it's different from an opinion</b>It removes your own growth assumption from the equation entirely — instead it tells you the market's assumption, which you can then judge as reasonable or not based on the company's history and industry.</div>
+      </div>
+      <h5 style="margin-top:12px;">How to use it</h5>
+      <ol>
+        <li>Compare the implied growth rate to the company's own historical CAGR (Tab 04) — a big gap either way is worth investigating before trusting the market price.</li>
+        <li>This measures sentiment/expectations, not "fair value" — a stock can have demanding implied growth and still be a reasonable buy if you believe the company will actually deliver it.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_11_REVERSE_DCF:END -->
+
+<!-- MODULE:TAB_12_SENSITIVITY:START -->
+<script>
+registerTab({ id:"sensitivity", num:"12", group:"valuation", label:"Sensitivity Analysis", render: renderSensitivityTab });
+function renderSensitivityTab(el, d, ticker){
+  const waccRange = [DCF_STATE.wacc-2, DCF_STATE.wacc-1, DCF_STATE.wacc, DCF_STATE.wacc+1, DCF_STATE.wacc+2];
+  const growthRange = [DCF_STATE.growth-8, DCF_STATE.growth-4, DCF_STATE.growth, DCF_STATE.growth+4, DCF_STATE.growth+8];
+  const grid = growthRange.map(g => waccRange.map(w => {
+    const r = computeDCF(d, Object.assign({}, DCF_STATE, {growth:g, wacc:w}));
+    return r.perShare;
+  }));
+  const flat = grid.flat();
+  const minV = Math.min(...flat), maxV = Math.max(...flat);
+  function cellColor(v){
+    const t = (v-minV)/((maxV-minV)||1);
+    // interpolate negative(coral) -> accent(gold) -> positive(teal)
+    const c1=[217,105,79], c2=[212,162,74], c3=[69,176,140];
+    let c;
+    if (t<0.5){ const k=t/0.5; c=c1.map((v0,i)=>Math.round(v0+(c2[i]-v0)*k)); } else { const k=(t-0.5)/0.5; c=c2.map((v0,i)=>Math.round(v0+(c3[i]-v0)*k)); }
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+  el.innerHTML = `
+    <div class="section-head"><h3>Sensitivity Analysis</h3>
+    <p>Intrinsic value per share (from the Tab 05 DCF engine) across a grid of WACC and Year-1 FCF growth assumptions. Centered on the current Tab 05 assumptions — change them there and revisit this tab.</p></div>
+    <div class="card">
+      <h4>Growth Rate vs. WACC — Intrinsic Value / Share</h4>
+      <table class="data-table" style="text-align:center;">
+        <thead><tr><th style="text-align:left;">Growth ↓ / WACC →</th>${waccRange.map(w=>`<th>${w.toFixed(1)}%</th>`).join("")}</tr></thead>
+        <tbody>
+          ${growthRange.map((g,gi)=>`<tr><td class="lbl">${g.toFixed(1)}%</td>${waccRange.map((w,wi)=>`<td style="background:${cellColor(grid[gi][wi])}; color:#181008; font-weight:600;">${fmtPx(grid[gi][wi])}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>
+      <div class="pin"><span class="mark">i</span><div>Current market price is <b>${fmtPx(d.price)}</b> — cells shaded toward teal imply meaningful undervaluation at that assumption pair; coral implies overvaluation.</div></div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Additional grids (Terminal Growth × Discount Rate, Operating Margin × Growth, FCF Margin × WACC) and a 3D sensitivity surface can reuse the same <span class="mono">computeDCF()</span> engine — just swap which two parameters vary.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding Sensitivity Analysis</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">No DCF assumption is known with certainty — WACC and growth are estimates, not facts. A sensitivity table (sometimes called a "data table" or "two-way sensitivity grid") recalculates the model's output across a range of plausible values for two inputs at once, so you can see how fragile — or robust — the valuation really is.</p>
+      <h5 style="margin-top:12px;">Why this matters</h5>
+      <ol>
+        <li>If the intrinsic value swings wildly across the grid, the valuation is highly assumption-dependent — treat any single-point answer with real caution.</li>
+        <li>If most of the grid still implies meaningful upside (or downside) versus the market price, that's a more resilient conclusion than a single DCF run.</li>
+        <li>This is a core habit of professional equity research: never present one number without also showing how sensitive it is to the inputs that produced it.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_12_SENSITIVITY:END -->
+
+<!-- MODULE:TAB_13_COMPARISON:START -->
+<script>
+registerTab({ id:"comparison", num:"13", group:"synthesis", label:"Valuation Comparison", render: renderComparisonTab });
+
+function gatherValuations(d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const dcf = computeDCF(d, DCF_STATE);
+  const bvps = f.equity[last]/(d.shares*1000);
+  const roe = f.netIncome[last]/f.equity[last];
+  const ke = DCF_STATE.wacc/100 + 0.015;
+  const ri1 = bvps*(roe-ke); const g2=0.02;
+  const residual = ri1>0 ? bvps + ri1/(ke-g2) : bvps;
+  const grahamNumber = (f.eps[last]>0 && bvps>0) ? Math.sqrt(22.5*f.eps[last]*bvps) : null;
+  const rnd = seededRand(hashSeed(ticker+"peer"));
+  const peerPE = (d.price/f.eps[last])*(0.85+rnd()*0.3);
+  const relValue = peerPE*f.eps[last];
+  const div0 = d.price*d.divYield/100;
+  const ddmValue = div0>0 ? (div0*1.03)/(ke-0.03) : null;
+  const nav = f.equity[last]*1.02/(d.shares*1000);
+
+  return [
+    {method:"DCF (FCFF, Gordon)", value:dcf.perShare, use:"Mature, predictable cash flows"},
+    {method:"Residual Income", value:residual, use:"Strong ROE / book-value driven"},
+    {method:"Relative (P/E vs peers)", value:relValue, use:"Large peer group available"},
+    {method:"Graham Number", value:grahamNumber, use:"Conservative defensive benchmark"},
+    {method:"Dividend Discount (Gordon)", value:ddmValue, use:"Stable dividend payer"},
+    {method:"Net Asset Value (approx.)", value:nav, use:"Asset-intensive businesses"}
+  ].filter(v=>v.value && !isNaN(v.value) && v.value>0);
+}
+
+function renderComparisonTab(el, d, ticker){
+  const rows = gatherValuations(d, ticker);
+  const values = rows.map(r=>r.value);
+  const mean = values.reduce((a,b)=>a+b,0)/values.length;
+  const sorted = [...values].sort((a,b)=>a-b);
+  const median = sorted.length%2 ? sorted[(sorted.length-1)/2] : (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+  const std = Math.sqrt(values.reduce((s,v)=>s+Math.pow(v-mean,2),0)/values.length);
+  const cov = std/mean*100;
+
+  el.innerHTML = `
+    <div class="section-head"><h3>Comprehensive Valuation Model Comparison</h3>
+    <p>Pulls the intrinsic-value output from every model currently implemented and lines them up side by side, with basic summary statistics and a simple equal-weighted composite.</p></div>
+
+    <div class="card">
+      <h4>Model Comparison Table</h4>
+      <table class="data-table">
+        <thead><tr><th style="text-align:left;">Valuation Method</th><th>Intrinsic Value</th><th>Premium/Discount to Market</th><th style="text-align:left;">Best Use Case</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr><td class="lbl">${r.method}</td><td>${fmtPx(r.value)}</td><td>${fmtPct(pctChange(r.value,d.price))}</td><td class="lbl" style="text-align:left; color:var(--text-2); font-family:var(--sans); font-size:12px;">${r.use}</td></tr>`).join("")}
+          <tr style="border-top:2px solid var(--border);"><td class="lbl">Current Market Price</td><td>${fmtPx(d.price)}</td><td>—</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Statistical Comparison</h4>
+        <div class="stat-grid">
+          ${statCell("Mean Fair Value", fmtPx(mean))}
+          ${statCell("Median Fair Value", fmtPx(median))}
+          ${statCell("Std. Deviation", fmtPx(std))}
+          ${statCell("Coefficient of Variation", fmtPct(cov))}
+          ${statCell("Lowest Model", fmtPx(sorted[0]))}
+          ${statCell("Highest Model", fmtPx(sorted[sorted.length-1]))}
+        </div>
+        <div class="why-matters"><b>Reading dispersion</b>A low coefficient of variation (roughly under 15–20%) means the models broadly agree; above that, dig into which assumption (growth, WACC, peer multiple) is driving the outlier.</div>
+        <div class="edu-box">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">The statistics, explained</span></div>
+          <div class="edu-glossary">
+            <div class="term"><b>Mean</b> — The simple average of every model's fair value estimate. <span class="f">Easy to compute but sensitive to one extreme outlier model.</span></div>
+            <div class="term"><b>Median</b> — The middle value once all estimates are sorted. <span class="f">More robust than the mean when one model produces an unusually high or low number.</span></div>
+            <div class="term"><b>Standard Deviation</b> — How much, on average, the individual model estimates differ from the mean. <span class="f">A larger number means the models disagree more.</span></div>
+            <div class="term"><b>Coefficient of Variation</b> — Standard deviation ÷ mean, expressed as a %. <span class="f">Standardizes dispersion so it can be compared across companies of very different price levels.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h4>Equal-Weighted Composite &amp; Rating</h4>
+        <div class="canvas-wrap"><canvas id="comp-bar-chart" data-h="220"></canvas></div>
+        <div class="stat-grid" style="margin-top:10px;">
+          ${statCell("Weighted Fair Value (equal wt.)", fmtPx(mean))}
+          ${statCell("Upside vs. Market", fmtPct(pctChange(mean,d.price)))}
+        </div>
+      </div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Custom per-model weight sliders (must sum to 100%), a radar/box-plot dispersion view, and an agreement/outlier detector can be added on top of the <span class="mono">gatherValuations()</span> data already assembled here.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Understanding the Comparison &amp; Composite</span></div>
+      <h5>What it's doing</h5>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">No single valuation model is "correct" — each one makes different assumptions and shines under different circumstances (see the "Best Use Case" column above). This tab treats each applicable model as one independent vote, then blends them into a single composite view.</p>
+      <h5 style="margin-top:12px;">How to use it</h5>
+      <ol>
+        <li>Look for <b>convergence</b> — when most models land in a similar range, that's a more trustworthy signal than any one model alone.</li>
+        <li>Investigate <b>divergence</b> — if one model is a clear outlier, understand why (e.g., DDM breaks down for non-dividend payers, Graham breaks down for negative earnings) before discounting or trusting it.</li>
+        <li>An equal-weighted average is a reasonable starting point, but professional analysts often weight models by relevance to the specific company (e.g., heavier weight on DCF for a mature cash-generator, heavier weight on Relative Valuation in a fast-moving sector with abundant peers).</li>
+      </ol>
+    </div>
+  `;
+  drawBars(document.getElementById('comp-bar-chart'), rows.map(r=>r.method.split(" ")[0]),
+    [{name:"Intrinsic Value ($/sh)", color:css('--accent'), values:values}], {yFmt:(v)=>"$"+v.toFixed(0)});
+}
+</script>
+<!-- MODULE:TAB_13_COMPARISON:END -->
+
+<!-- MODULE:TAB_14_TECHNICAL:START -->
+<script>
+/* ============================================================
+   TAB 14 — TECHNICAL ANALYSIS (embedded TradingView widgets)
+   ============================================================ */
+registerTab({ id:"technical", num:"14", group:"technical", label:"Technical Analysis", render: renderTechnicalTab });
+
+// tvSymbol() and loadTVWidget() are defined once in the CORE_UI module above and
+// reused by every tab (01, 02, 14) that embeds a live TradingView widget.
+
+function renderTechnicalTab(el, d, ticker){
+  const sym = tvSymbol(ticker);
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Technical Analysis</h3>
+      <p>Live, interactive TradingView widgets — candlesticks, volume, moving averages, and the full indicator library (RSI, MACD, Bollinger, Ichimoku, ADX, and more) are all available directly on the chart's own toolbar. Draw trendlines, Fibonacci retracements and pivot points using the chart's built-in drawing tools.</p>
+    </div>
+
+    <div class="card">
+      <h4>Advanced Chart <span class="tag">${sym}</span></h4>
+      <div class="tv-embed" style="height:560px;">
+        <div class="tradingview-widget-container" style="height:100%;">
+          <div id="tv-adv-chart" style="height:100%;"></div>
+        </div>
+      </div>
+      <div class="pin"><span class="mark">i</span><div>Use the toolbar's <b>Indicators</b> button to layer SMA/EMA, RSI, MACD, Stochastic, ATR, ADX, Bollinger Bands, Ichimoku Cloud, VWAP, OBV, MFI, CCI, ROC, Momentum, Williams %R, SuperTrend and Parabolic SAR directly on this chart.</div></div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What each indicator on the toolbar measures</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>SMA / EMA</b> — Simple/Exponential Moving Average. The average closing price over a set window, smoothing out day-to-day noise. <span class="f">EMA reacts faster since it weights recent prices more heavily. Price crossing above/below its moving average is a classic trend signal.</span></div>
+          <div class="term"><b>RSI</b> — Relative Strength Index (0–100). Measures how fast and how far price has moved recently. <span class="f">Above 70 is traditionally "overbought," below 30 "oversold" — though strong trends can stay extreme for a long time.</span></div>
+          <div class="term"><b>MACD</b> — Moving Average Convergence/Divergence. The gap between a fast and slow EMA, plus a signal line. <span class="f">Crossovers between the MACD line and its signal line are used to spot shifts in momentum.</span></div>
+          <div class="term"><b>Stochastic</b> — Compares the closing price to its recent trading range. <span class="f">Similar interpretation to RSI: high readings suggest overbought, low readings oversold.</span></div>
+          <div class="term"><b>ATR</b> — Average True Range. The average size of recent price swings. <span class="f">A volatility gauge, not a directional one — often used to size stop-losses.</span></div>
+          <div class="term"><b>ADX</b> — Average Directional Index. Measures trend <i>strength</i>, not direction. <span class="f">Above ~25 suggests a strong trend (up or down); below ~20 suggests a choppy, range-bound market.</span></div>
+          <div class="term"><b>Bollinger Bands</b> — A moving average with bands plotted a set number of standard deviations above and below it. <span class="f">Bands widen in volatile markets and narrow in quiet ones; price touching a band doesn't automatically mean reversal.</span></div>
+          <div class="term"><b>Ichimoku Cloud</b> — A multi-line system showing trend direction, momentum, and dynamic support/resistance all at once via a shaded "cloud." <span class="f">Price above the cloud is bullish context; below is bearish.</span></div>
+          <div class="term"><b>VWAP</b> — Volume-Weighted Average Price. The average price paid, weighted by how much volume traded at each price. <span class="f">Widely used intraday as a benchmark for whether the current price is "cheap" or "expensive" relative to the day's flow.</span></div>
+          <div class="term"><b>OBV</b> — On-Balance Volume. A running total that adds volume on up days and subtracts it on down days. <span class="f">Used to check whether volume is confirming a price trend or diverging from it.</span></div>
+          <div class="term"><b>MFI</b> — Money Flow Index. Similar to RSI, but incorporates volume as well as price. <span class="f">Sometimes called "volume-weighted RSI."</span></div>
+          <div class="term"><b>CCI</b> — Commodity Channel Index. Measures how far price has strayed from its statistical average. <span class="f">Extreme readings can flag potential reversals or the start of a strong new trend.</span></div>
+          <div class="term"><b>ROC / Momentum</b> — Rate of Change / Momentum. The simple percentage (or point) change in price over a set lookback period. <span class="f">A direct read on how fast price is moving, without smoothing.</span></div>
+          <div class="term"><b>Williams %R</b> — An oscillator similar to Stochastic, measuring the close relative to the recent high-low range, scaled from 0 to -100. <span class="f">Readings near 0 suggest overbought; near -100 suggest oversold.</span></div>
+          <div class="term"><b>SuperTrend</b> — A trend-following overlay built from ATR that flips above/below price as volatility-adjusted trend direction changes. <span class="f">Popular for generating simple trend-following buy/sell flips.</span></div>
+          <div class="term"><b>Parabolic SAR</b> — Plots dots above or below price that trail the trend and accelerate as it continues. <span class="f">A dot flipping to the other side of price is a classic (if noisy) trend-reversal signal.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Technical Analysis Summary <span class="tag">Auto Signal</span></h4>
+        <div class="tv-embed" style="height:440px;"><div id="tv-tech-summary" style="height:100%;"></div></div>
+        <div class="why-matters"><b>Why this matters</b>This gauge aggregates dozens of moving averages and oscillators into one Buy/Sell/Neutral read — a fast sanity check, not a substitute for your own chart-pattern and support/resistance analysis.</div>
+        <div class="edu-box">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">How the summary gauge is built</span></div>
+          <div class="edu-glossary">
+            <div class="term">It simply counts how many individual moving averages and oscillators (from the list above) currently read "Buy" versus "Sell" versus "Neutral," across several timeframes, then reports the majority verdict. <span class="f">Because it's a vote-count of lagging indicators, it tends to confirm trends that are already underway rather than predict new ones.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h4>Symbol Overview <span class="tag">Price / Volume</span></h4>
+        <div class="tv-embed" style="height:440px;"><div id="tv-symbol-overview" style="height:100%;"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Manual Pattern &amp; Level Checklist <span class="tag">Analyst Workflow</span></h4>
+      <div class="grid-3">
+        <div><b>Support &amp; Resistance</b><p style="color:var(--text-2);font-size:12.5px;">Mark prior swing highs/lows on the chart above; a level tested 3+ times is more significant.</p></div>
+        <div><b>Chart Patterns</b><p style="color:var(--text-2);font-size:12.5px;">Watch for Double Top/Bottom, Head &amp; Shoulders, Triangles, Flags, Wedges, and Cup &amp; Handle formations using the drawing tools.</p></div>
+        <div><b>Volume Profile &amp; Gaps</b><p style="color:var(--text-2);font-size:12.5px;">Enable the Volume Profile indicator to find high-volume nodes; unfilled gaps often act as magnets for price.</p></div>
+      </div>
+      <div class="edu-box">
+        <div class="edu-head"><span class="cap">Learn It</span><span class="t">What these patterns mean</span></div>
+        <div class="edu-glossary cols-2">
+          <div class="term"><b>Support</b> — A price level where buying pressure has historically stepped in, slowing or reversing a decline. <b>Resistance</b> is the mirror image on the way up. <span class="f">Once broken decisively, old resistance often becomes new support, and vice versa.</span></div>
+          <div class="term"><b>Double Top / Bottom</b> — Price tests a level twice and fails to break through, suggesting exhaustion of the prevailing trend. <span class="f">A "W" shape (bottom) or "M" shape (top) on the chart.</span></div>
+          <div class="term"><b>Head &amp; Shoulders</b> — Three peaks (or troughs), with the middle one highest (or lowest) — a classic trend-reversal pattern. <span class="f">Confirmed when price breaks the "neckline" connecting the two outer lows/highs.</span></div>
+          <div class="term"><b>Triangles / Flags / Wedges</b> — Periods where price consolidates into a narrowing or parallel range before typically continuing (flags) or breaking out in either direction (triangles, wedges). <span class="f">Often represent a pause within a larger trend.</span></div>
+          <div class="term"><b>Volume Profile</b> — Shows how much trading volume occurred at each price level, rather than at each point in time. <span class="f">High-volume price levels ("nodes") tend to act as magnets or friction points for future price.</span></div>
+          <div class="term"><b>Gaps</b> — A jump in price between one session's close and the next session's open, leaving a visible "gap" on the chart. <span class="f">Many gaps eventually get "filled" as price later retraces through that empty range.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">Fundamental vs. Technical Analysis — how they fit together</span></div>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">Everything in the Fundamentals and Valuation Models groups (Tabs 01–13) asks <b>what a company is worth</b>, using financial statements, ratios, and valuation models. Technical analysis, here in Tabs 14–15, instead asks <b>what the market is currently doing</b> and how the stock's own price and volume behavior might unfold next — it says little about the business itself.</p>
+      <ol>
+        <li>Fundamentals and valuation help decide <i>whether</i> to own a stock; technicals are often used to help decide <i>when</i> to enter or exit a position.</li>
+        <li>A strong fundamental case entering a confirmed technical downtrend doesn't necessarily change the long-term thesis — it may simply argue for patience on timing (see the synthesis in Tab 16).</li>
+        <li>Neither approach is infallible; using both, and understanding what each can and can't tell you, is more robust than relying on either alone.</li>
+      </ol>
+    </div>
+  `;
+
+  // Advanced chart widget
+  loadTVWidget('tv-adv-chart', "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js", {
+    autosize:true, symbol:sym, interval:"D", timezone:"Etc/UTC",
+    theme: APP.theme==='dark'?'dark':'light', style:"1", locale:"en",
+    withdateranges:true, allow_symbol_change:true,
+    studies:["MASimple@tv-basicstudies","RSI@tv-basicstudies","MACD@tv-basicstudies"],
+    support_host:"https://www.tradingview.com"
+  });
+
+  // Technical analysis summary widget
+  loadTVWidget('tv-tech-summary', "https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js", {
+    interval:"1D", width:"100%", isTransparent:true, height:"100%", symbol:sym,
+    showIntervalTabs:true, locale:"en", colorTheme: APP.theme==='dark'?'dark':'light'
+  });
+
+  // Symbol overview widget
+  loadTVWidget('tv-symbol-overview', "https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js", {
+    symbols:[[sym]], chartOnly:false, width:"100%", height:"100%", locale:"en",
+    colorTheme: APP.theme==='dark'?'dark':'light', autosize:true, showVolume:true, isTransparent:true
+  });
+}
+</script>
+<!-- MODULE:TAB_14_TECHNICAL:END -->
+
+<!-- MODULE:TAB_15_RISK:START -->
+<script>
+registerTab({ id:"risk", num:"15", group:"technical", label:"Risk Analysis", render: renderRiskTab });
+
+function computeAltmanZ(d){
+  const f = d.fin; const last = f.years.length-1;
+  const wc = (f.assets[last]-f.liabilities[last])*0.35; // proxy for net working capital
+  const ta = f.assets[last];
+  const re = f.equity[last]*0.6; // proxy retained earnings
+  const ebit = f.opIncome[last];
+  const mve = d.mcap*1000;
+  const tl = f.liabilities[last];
+  const sales = f.revenue[last];
+  const z = 1.2*(wc/ta) + 1.4*(re/ta) + 3.3*(ebit/ta) + 0.6*(mve/tl) + 1.0*(sales/ta);
+  return z;
+}
+function computePiotroski(d){
+  const f = d.fin; const n = f.years.length; const last=n-1, prev=n-2;
+  let score = 0;
+  if (f.netIncome[last]>0) score++;
+  if (f.ocf[last]>0) score++;
+  if (f.netIncome[last]/f.assets[last] > f.netIncome[prev]/f.assets[prev]) score++;
+  if (f.ocf[last] > f.netIncome[last]) score++;
+  if (f.debt[last]/f.equity[last] < f.debt[prev]/f.equity[prev]) score++;
+  if ((f.assets[last]-f.liabilities[last])/f.assets[last] > 0) score++; // simplistic current-ratio proxy
+  if (f.grossProfit ? (f.grossProfit[last]/f.revenue[last] > f.grossProfit[prev]/f.revenue[prev]) : false) score++;
+  if (f.revenue[last]/f.assets[last] > f.revenue[prev]/f.assets[prev]) score++;
+  score += 1; // shares outstanding assumed flat/no dilution in this sample dataset
+  return Math.min(score,9);
+}
+
+function renderRiskTab(el, d, ticker){
+  const z = computeAltmanZ(d);
+  const zZone = z>2.99 ? "Safe Zone" : z>1.81 ? "Grey Zone" : "Distress Zone";
+  const zClass = z>2.99? "buy" : z>1.81? "hold" : "sell";
+  const f = computePiotroski(d);
+  const debtEbitda = d.fin.debt[d.fin.debt.length-1]/d.fin.ebitda[d.fin.ebitda.length-1];
+
+  el.innerHTML = `
+    <div class="section-head"><h3>Risk Analysis</h3>
+    <p>Credit-quality and distress screens (Altman Z-score, Piotroski F-score), plus a qualitative scan across financial, operating and market risk factors.</p></div>
+
+    <div class="grid-2">
+      <div class="card" style="text-align:center;">
+        <h4>Altman Z-Score</h4>
+        <div style="font-family:var(--serif); font-size:44px; font-weight:700; color:var(--accent);">${z.toFixed(2)}</div>
+        <span class="badge-pill ${zClass}">${zZone}</span>
+        <div class="mjx-block" style="margin-top:10px;">$$ Z = 1.2X_1+1.4X_2+3.3X_3+0.6X_4+1.0X_5 $$</div>
+        <div class="pin"><span class="mark">i</span><div>Z &gt; 2.99 = low bankruptcy risk (Safe); 1.81–2.99 = Grey Zone; &lt; 1.81 = elevated distress risk. Designed for industrial companies — interpret cautiously for financials/tech.</div></div>
+        <div class="edu-box" style="text-align:left;">
+          <div class="edu-head"><span class="cap">Symbols</span><span class="t">What each symbol in the equation means</span></div>
+          <div class="edu-glossary">
+            <div class="term"><b>X<sub>1</sub></b> — Working Capital ÷ Total Assets. A liquidity measure: short-term operating cushion relative to overall size.</div>
+            <div class="term"><b>X<sub>2</sub></b> — Retained Earnings ÷ Total Assets. A measure of accumulated, reinvested profitability over the company's history.</div>
+            <div class="term"><b>X<sub>3</sub></b> — EBIT ÷ Total Assets. Current operating profitability relative to the asset base (similar in spirit to ROA).</div>
+            <div class="term"><b>X<sub>4</sub></b> — Market Value of Equity ÷ Total Liabilities. A market-based leverage cushion: how far equity could fall before liabilities exceed what the company is worth.</div>
+            <div class="term"><b>X<sub>5</sub></b> — Sales ÷ Total Assets. An efficiency measure: how much revenue is generated per dollar of assets (similar to asset turnover).</div>
+            <div class="term"><b>1.2, 1.4, 3.3, 0.6, 1.0</b> — fixed weights Altman derived statistically; they are constants, not variables, and are not meant to be adjusted.</div>
+          </div>
+        </div>
+        <div class="edu-box" style="text-align:left;">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">What goes into the Z-score</span></div>
+          <div class="edu-glossary">
+            <div class="term">Edward Altman's 1968 model combines five ratios — working capital/assets (liquidity), retained earnings/assets (accumulated profitability), EBIT/assets (current profitability), market value of equity/liabilities (leverage cushion), and sales/assets (efficiency) — into one bankruptcy-risk score. <span class="f">Each ratio captures a different way a company can get into financial trouble, so a single low ratio won't sink the score, but several weak ones will.</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <h4>Piotroski F-Score</h4>
+        <div style="font-family:var(--serif); font-size:44px; font-weight:700; color:var(--accent);">${f}<span style="font-size:18px;color:var(--text-2);">/9</span></div>
+        <span class="badge-pill ${f>=7?'buy':f>=4?'hold':'sell'}">${f>=7?'Strong Fundamentals':f>=4?'Mixed':'Weak Fundamentals'}</span>
+        <div class="pin"><span class="mark">i</span><div>Nine binary tests across profitability, leverage/liquidity and operating efficiency, each scored 1 if it improved year-over-year. Higher is better; ≥7 is considered strong.</div></div>
+        <div class="edu-box" style="text-align:left;">
+          <div class="edu-head"><span class="cap">Learn It</span><span class="t">What the nine tests check</span></div>
+          <div class="edu-glossary">
+            <div class="term">Joseph Piotroski's model asks nine yes/no questions grouped into three buckets: <b>Profitability</b> (is net income positive? is operating cash flow positive? did ROA improve? does cash flow exceed net income — a quality-of-earnings check?), <b>Leverage/Liquidity</b> (did leverage fall? did the current ratio improve? was there no new dilutive share issuance?), and <b>Operating Efficiency</b> (did gross margin improve? did asset turnover improve?). <span class="f">Unlike the Z-score, this doesn't measure absolute health — it measures the <i>direction of change</i>, making it popular for screening improving (or deteriorating) value stocks.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Qualitative Risk Factors</h4>
+      <div class="grid-3">
+        <div><b>Debt &amp; Rates</b><p style="color:var(--text-2); font-size:12.5px;">Debt/EBITDA of ${fmtNum(debtEbitda)}x; higher-for-longer rates raise refinancing cost and depress the DCF's discount-rate-sensitive terminal value (Tab 05/12).</p></div>
+        <div><b>Currency &amp; Geography</b><p style="color:var(--text-2); font-size:12.5px;">See the geographic revenue mix in Tab 01 — meaningful non-domestic exposure implies FX translation risk.</p></div>
+        <div><b>Industry &amp; Competitive</b><p style="color:var(--text-2); font-size:12.5px;">${d.industry} competitive intensity should be weighed against the moat narrative in Tab 01 before extending the explicit forecast period.</p></div>
+      </div>
+    </div>
+    <div class="placeholder-module"><div class="stamp">Scaffold Ready</div><div>Beneish M-score, ESG factor scoring, and an explicit probability-of-distress model can be layered in alongside the two scores above.</div></div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">How risk screens connect back to valuation</span></div>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">A valuation model can only be as trustworthy as the assumption that the company survives to earn the cash flows it projects. Z-score and F-score exist to sanity-check that survival assumption before you trust any DCF, DDM, or relative-valuation output for the same company.</p>
+      <ol>
+        <li>A high intrinsic value from Tab 05–13 paired with a low Z-score is a red flag — a company can be "cheap" on paper and still be at real risk of not reaching the cash flows the model assumes.</li>
+        <li>These scores are diagnostic screens, not precise probabilities — always cross-check with a qualitative read of the industry and balance sheet, not just the number.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_15_RISK:END -->
+
+<!-- MODULE:TAB_16_DECISION:START -->
+<script>
+/* ============================================================
+   TAB 16 — INVESTMENT DECISION (final synthesis)
+   ============================================================ */
+registerTab({ id:"decision", num:"16", group:"synthesis", label:"Investment Decision", render: renderDecisionTab });
+
+function renderDecisionTab(el, d, ticker){
+  const f = d.fin; const last = f.years.length-1;
+  const dcf = computeDCF(d, DCF_STATE);
+  const upside = pctChange(dcf.perShare, d.price);
+  const roic = (f.opIncome[last]*0.79)/(f.debt[last]+f.equity[last])*100;
+  const revCagr = cagr(f.revenue[0], f.revenue[last], f.revenue.length-1);
+  const netMargin = f.netIncome[last]/f.revenue[last]*100;
+  const debtEbitda = f.debt[last]/f.ebitda[last];
+
+  // simple composite score 0-100
+  let score = 50;
+  score += Math.max(-20, Math.min(20, upside*0.5));
+  score += Math.max(-10, Math.min(10, (roic-9)*1.2));
+  score += Math.max(-8, Math.min(8, (revCagr-5)*0.8));
+  score += Math.max(-8, Math.min(8, (netMargin-10)*0.4));
+  score -= Math.max(0, Math.min(10, (debtEbitda-3)*2));
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const rating = score>=75?"Strong Buy": score>=58?"Buy": score>=42?"Hold": score>=25?"Sell":"Strong Sell";
+  const ratingClass = score>=58?"buy": score>=42?"hold":"sell";
+
+  el.innerHTML = `
+    <div class="section-head">
+      <h3>Investment Decision — Final Synthesis</h3>
+      <p>A single analyst-style verdict blending intrinsic valuation (DCF, Tab 05), quality (ROIC, margins), growth, leverage, and today's technical read. Treat the score as a structured starting point for your own judgment, not a replacement for it.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card" style="text-align:center;">
+        <h4>Overall Investment Score</h4>
+        <div style="font-family:var(--serif); font-size:56px; font-weight:700; color:var(--accent); margin:6px 0;">${score}<span style="font-size:20px; color:var(--text-2);">/100</span></div>
+        <span class="badge-pill ${ratingClass}" style="font-size:14px; padding:6px 16px;">${rating}</span>
+      </div>
+      <div class="card">
+        <h4>Key Inputs to the Score</h4>
+        <div class="stat-grid">
+          ${statCell("DCF Upside/Downside", fmtPct(upside))}
+          ${statCell("ROIC (approx.)", fmtPct(roic))}
+          ${statCell("Revenue CAGR", fmtPct(revCagr))}
+          ${statCell("Net Margin (TTM)", fmtPct(netMargin))}
+          ${statCell("Debt / EBITDA", fmtNum(debtEbitda)+"x")}
+          ${statCell("Fair Value / Share", fmtPx(dcf.perShare))}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Bull Case</h4>
+        <ul style="padding-left:18px; color:var(--text-1); font-size:13px; line-height:1.7;">
+          <li>${d.moat}</li>
+          <li>Revenue has compounded at roughly ${fmtPct(revCagr)} over the historical window, with net margins near ${fmtPct(netMargin)}.</li>
+          <li>If growth or margins land nearer the Bull scenario in Tab 05, intrinsic value per share moves meaningfully above today's ${fmtPx(d.price)}.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Bear Case</h4>
+        <ul style="padding-left:18px; color:var(--text-1); font-size:13px; line-height:1.7;">
+          <li>Leverage of ${fmtNum(debtEbitda)}x Debt/EBITDA leaves less room for error if operating performance disappoints.</li>
+          <li>DCF output is highly sensitive to the WACC and terminal-growth assumptions — revisit Tab 05 and Tab 12 before sizing a position.</li>
+          <li>Relative valuation (Tab 07) and technical trend (Tab 14) should confirm the fundamental read before acting on it.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>Suggested Next Steps</h4>
+      <div class="pin"><span class="mark">1</span><div>Stress-test the DCF (Tab 05) across Bear/Base/Bull and compare against the Comparison dashboard (Tab 13) once its weighting inputs are filled in.</div></div>
+      <div class="pin"><span class="mark">2</span><div>Check the technical trend (Tab 14) — a strong fundamental case entering a confirmed downtrend often argues for patience on entry timing, not a change of thesis.</div></div>
+      <div class="pin"><span class="mark">3</span><div>Review credit/distress risk (Tab 15) if leverage or margins are a concern above.</div></div>
+      <div class="why-matters"><b>Disclaimer</b>This is an educational analysis tool built on cached/synthetic sample data. It is not investment advice — verify all figures against primary filings before making any real decision.</div>
+    </div>
+
+    <div class="valuation-explainer">
+      <div class="edu-head"><span class="cap">Learn It</span><span class="t">How the composite score is built</span></div>
+      <p style="margin:0; font-size:12.5px; color:var(--text-1); line-height:1.6;">The score starts at a neutral 50 and is nudged up or down by five inputs already covered elsewhere in this app: DCF upside/downside (Tab 05), ROIC versus a benchmark cost of capital (Tab 03), revenue growth (Tab 04), net margin (Tab 03), and leverage (Tab 03/15). Each input is capped so no single factor can dominate the score.</p>
+      <ol>
+        <li>This is a teaching device for combining many analyses into one number — real investment decisions should weigh qualitative factors (management quality, competitive dynamics, macro backdrop) that a formula like this can't fully capture.</li>
+        <li>Use the score as a starting conversation, not an ending one: trace which inputs pushed it up or down and decide whether you agree with each one.</li>
+      </ol>
+    </div>
+  `;
+}
+</script>
+<!-- MODULE:TAB_16_DECISION:END -->
+
+<!-- MODULE:BOOTSTRAP:START -->
+<script>
+document.documentElement.setAttribute('data-theme', APP.theme);
+renderTapeStrip();
+renderNavGroups();
+document.querySelector('.nav-group-btn').classList.add('active');
+tickerInput.value = "AAPL";
+loadTicker("AAPL");
+</script>
+<!-- MODULE:BOOTSTRAP:END -->
+
+</body>
+</html> 

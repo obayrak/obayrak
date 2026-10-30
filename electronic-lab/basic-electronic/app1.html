@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circuit Simulator — Stage 3</title>
+<style>
+:root{
+  --bg:#0a0e14;--bg2:#0d1117;--panel:#161b22;--panel2:#1c2333;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--accent2:#3fb950;
+  --warn:#f0883e;--danger:#f85149;--purple:#bc8cff;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+header{background:linear-gradient(135deg,#161b22,#0d1117);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+header h1{margin:0;font-size:1.15rem;font-weight:600;letter-spacing:.5px;}
+header h1 span{color:var(--accent);}
+.stage-badge{font-size:.7rem;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:2px 8px;margin-left:8px;}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;}
+.toolbar button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:.82rem;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:6px;}
+.toolbar button:hover{border-color:var(--accent);color:var(--accent);}
+.toolbar button.danger:hover{border-color:var(--danger);color:var(--danger);}
+.toolbar button.ac:hover{border-color:var(--purple);color:var(--purple);}
+.toolbar button.active{background:var(--accent);color:#0a0e14;border-color:var(--accent);font-weight:600;}
+.toolbar button.probe.active{background:var(--warn);color:#0a0e14;border-color:var(--warn);}
+.layout{flex:1;display:flex;min-height:0;}
+#palette{width:175px;flex:0 0 175px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:10px;}
+#palette h3{margin:4px 0 10px;font-size:.78rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+.palette-item{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:grab;font-size:.82rem;user-select:none;transition:all .12s;}
+.palette-item:hover{border-color:var(--accent);color:var(--accent);}
+.palette-item.selected{border-color:var(--accent2);background:rgba(63,185,80,.12);color:var(--accent2);}
+.palette-item svg{width:36px;height:24px;flex:0 0 36px;}
+
+/* ── Presets ── */
+.preset-item{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:.78rem;line-height:1.4;transition:border-color .12s,background .12s;}
+.preset-item:hover{border-color:var(--accent2);background:rgba(63,185,80,.06);}
+.preset-tag{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.6px;border-radius:4px;padding:1px 6px;margin-right:5px;vertical-align:middle;}
+.preset-tag.dc{background:rgba(88,166,255,.18);color:var(--accent);}
+.preset-tag.ac{background:rgba(188,140,255,.18);color:var(--purple);}
+.preset-name{font-weight:600;color:var(--text);vertical-align:middle;}
+.preset-desc{color:var(--muted);font-size:.71rem;display:block;margin-top:3px;}
+
+.palette-hint{font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid var(--border);}
+#canvas-wrap{flex:1;position:relative;overflow:auto;background:var(--bg2);}
+#canvas{display:block;cursor:crosshair;}
+#oscPanel{position:absolute;left:14px;bottom:14px;width:270px;background:rgba(22,27,34,.92);border:1px solid var(--border);border-radius:8px;padding:10px;z-index:50;backdrop-filter:blur(3px);box-shadow:0 6px 24px rgba(0,0,0,.45);}
+#oscPanel h3{margin:0 0 8px;font-size:.78rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+#canvas.probing{cursor:cell;}
+.comp-line{stroke:#e6edf3;stroke-width:2.5;fill:none;stroke-linecap:round;}
+.comp{cursor:move;}
+.comp.selected .comp-body{stroke:var(--accent2)!important;filter:drop-shadow(0 0 4px rgba(63,185,80,.6));}
+.comp-label{fill:var(--muted);font-size:11px;font-family:'Courier New',monospace;text-anchor:middle;}
+.comp-value{fill:var(--accent2);font-size:10px;font-family:'Courier New',monospace;text-anchor:middle;}
+.comp-readout{fill:var(--warn);font-size:10px;font-family:'Courier New',monospace;text-anchor:middle;font-weight:600;pointer-events:none;}
+.comp-readout.ac{fill:var(--purple);}
+.comp-readout-bg{fill:var(--bg2);opacity:.82;pointer-events:none;}
+.comp-body-fill{fill:url(#bodyGrad);stroke:#3a4252;stroke-width:1;}
+.comp-glow{filter:drop-shadow(0 0 3px rgba(88,166,255,.35));}
+.edit-badge{cursor:pointer;}
+.edit-badge circle{fill:var(--accent2);stroke:var(--bg2);stroke-width:1.5;}
+.edit-badge text{fill:#0a0e14;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:central;font-family:Arial,sans-serif;}
+.edit-badge:hover circle{fill:var(--accent);}
+.terminal{fill:var(--bg2);stroke:var(--accent);stroke-width:2;r:5;cursor:crosshair;transition:all .1s;}
+.terminal:hover{fill:var(--accent);r:7;}
+.terminal.connected{fill:var(--accent2);stroke:var(--accent2);}
+.terminal.wiring-from{fill:var(--warn);stroke:var(--warn);r:7;}
+.terminal.probe-from{fill:var(--purple);stroke:var(--purple);r:7;}
+.wire-line{stroke:var(--muted);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;}
+.wire-line:hover{stroke:var(--accent);}
+.wire-line.selected{stroke:var(--accent2);stroke-width:3.5;}
+.wire-line.flowing{stroke:var(--accent);stroke-width:3;stroke-dasharray:9 7;}
+.wire-line.flowing.ac{stroke:var(--purple);}
+.wire-preview{stroke:var(--warn);stroke-width:2;fill:none;stroke-dasharray:5 5;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
+#analysis{width:270px;flex:0 0 270px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;padding:10px;font-size:.8rem;}
+#analysis h3{margin:4px 0 10px;font-size:.78rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+#analysis .arow{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-family:'Courier New',monospace;font-size:.76rem;line-height:1.5;}
+#analysis .arow b{color:var(--accent2);}
+#analysis .arow.ac b{color:var(--purple);}
+#analysis .arow.probe{border-color:var(--purple);background:rgba(188,140,255,.08);}
+#analysis .arow.probe b{color:var(--purple);}
+#analysis .err{color:var(--danger);font-size:.78rem;}
+#analysis .hint{color:var(--muted);font-size:.74rem;line-height:1.5;}
+.node-label{fill:var(--accent2);font-size:10px;font-family:'Courier New',monospace;text-anchor:middle;pointer-events:none;}
+.node-label.ac{fill:var(--purple);}
+.node-dot{fill:var(--accent2);stroke:var(--bg2);stroke-width:1.5;pointer-events:none;}
+.node-dot.ac{fill:var(--purple);}
+#statusbar{border-top:1px solid var(--border);background:var(--panel);padding:6px 14px;font-size:.78rem;color:var(--muted);display:flex;justify-content:space-between;}
+#statusbar b{color:var(--accent2);}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;min-width:300px;max-width:90vw;box-shadow:0 10px 40px rgba(0,0,0,.6);}
+.modal-title{font-size:.95rem;font-weight:600;margin-bottom:10px;color:var(--text);}
+.modal-message{font-size:.82rem;color:var(--muted);margin-bottom:12px;line-height:1.5;white-space:pre-wrap;}
+.modal-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 10px;font-size:.9rem;margin-bottom:14px;font-family:'Courier New',monospace;}
+.modal-input:focus{outline:none;border-color:var(--accent);}
+.modal-buttons{display:flex;justify-content:flex-end;gap:8px;}
+.modal-btn{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-size:.82rem;cursor:pointer;}
+.modal-btn:hover{border-color:var(--accent);color:var(--accent);}
+.modal-btn.primary{background:var(--accent);color:#0a0e14;border-color:var(--accent);font-weight:600;}
+
+/* ── Educational Notes Panel ── */
+#eduNotes{border-top:1px solid var(--border);margin-top:12px;padding-top:10px;}
+#eduNotes h4{font-size:.72rem;color:var(--warn);text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;display:flex;align-items:center;gap:5px;font-weight:700;}
+.edu-card{background:var(--bg2);border:1px solid rgba(240,136,62,.25);border-radius:6px;padding:7px 9px;margin-bottom:6px;font-size:.74rem;line-height:1.65;}
+.edu-card .edu-title{font-weight:700;color:var(--warn);font-size:.73rem;letter-spacing:.3px;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.edu-formula{font-family:'Courier New',monospace;color:var(--accent);font-size:.72rem;background:rgba(88,166,255,.09);border:1px solid rgba(88,166,255,.18);border-radius:3px;padding:2px 6px;display:inline-block;margin:2px 0;}
+.edu-computed{display:flex;align-items:baseline;gap:5px;margin:2px 0;}
+.edu-computed .ec-label{color:var(--muted);font-size:.71rem;min-width:62px;flex:0 0 62px;}
+.edu-computed .ec-val{font-family:'Courier New',monospace;color:var(--accent2);font-size:.72rem;font-weight:600;}
+.edu-card p{margin:3px 0;color:var(--muted);font-size:.72rem;}
+.edu-card p b{color:var(--text);}
+.edu-divider{border:none;border-top:1px solid var(--border);margin:5px 0;}
+.edu-rule-block{margin:4px 0;}
+.edu-highlight{color:var(--accent2);font-weight:700;}
+.edu-law{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:.71rem;}
+.edu-law-icon{font-size:.85rem;}
+.edu-contrast{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:4px 0;}
+.edu-contrast-cell{background:var(--panel2);border-radius:4px;padding:4px 6px;font-size:.7rem;text-align:center;}
+.edu-contrast-cell .cc-label{color:var(--muted);font-size:.65rem;display:block;margin-bottom:2px;}
+.edu-contrast-cell .cc-val{color:var(--accent2);font-family:'Courier New',monospace;font-size:.71rem;font-weight:600;}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ <span>Circuit</span> Simulator <span class="stage-badge"></span></h1>
+  <div class="toolbar">
+    <button id="btnSolve">▶ Solve DC</button>
+    <button id="btnSolveAC" class="ac">∼ Solve AC</button>
+    <button id="btnProbe" class="probe">🔍 Probe (M)</button>
+    <button id="btnRotate">⟳ Rotate (R)</button>
+    <button id="btnEditValue">✏ Edit Value (E)</button>
+    <button id="btnDelete" class="danger">🗑 Delete (Del)</button>
+    <button id="btnClear" class="danger">⨯ Clear All</button>
+    <button id="btnManual">📖 Manual</button>
+  </div>
+</header>
+<div class="layout">
+  <div id="palette">
+    <h3>Presets</h3>
+    <div id="presetList"></div>
+    <h3 style="margin-top:12px;">Components</h3>
+    <div id="paletteList"></div>
+  </div>
+  <div id="canvas-wrap">
+    <div id="oscPanel">
+      <h3>📈 Oscilloscope (V / I)</h3>
+      <div id="oscBody"><div class="hint">Run a Solve, then select a two-terminal component to view its voltage &amp; current waveforms.</div></div>
+    </div>
+    <svg id="canvas" width="2000" height="1400">
+      <defs>
+        <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1c2333" stroke-width="1"/>
+        </pattern>
+        <pattern id="gridPatternMajor" width="100" height="100" patternUnits="userSpaceOnUse">
+          <rect width="100" height="100" fill="url(#gridPattern)"/>
+          <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#30363d" stroke-width="1"/>
+        </pattern>
+        <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2a3142"/>
+          <stop offset="1" stop-color="#1c2230"/>
+        </linearGradient>
+        <linearGradient id="resGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f0883e"/>
+          <stop offset="0.5" stop-color="#f0d000"/>
+          <stop offset="1" stop-color="#f0883e"/>
+        </linearGradient>
+        <filter id="glowBlur" x="-200%" y="-200%" width="500%" height="500%">
+          <feGaussianBlur stdDeviation="10"/>
+        </filter>
+      </defs>
+      <rect class="grid-bg" width="2000" height="1400" fill="url(#gridPatternMajor)"/>
+      <g id="wireLayer"></g>
+      <g id="glowLayer"></g>
+      <g id="compLayer"></g>
+      <g id="overlayLayer"></g>
+      <g id="nodeLayer"></g>
+    </svg>
+  </div>
+  <div id="analysis">
+    <h3>Analysis</h3>
+    <div id="analysisBody">
+      <div class="hint">
+        Click a <b style="color:var(--accent2)">Preset</b> on the left to instantly load and solve a circuit, or build your own.<br><br>
+        <b style="color:var(--accent)">DC solve</b>: resistor, lamp, potentiometer, battery, diode &amp; LED, closed switch.<br><br>
+        <b style="color:var(--purple)">AC solve</b>: resistor, lamp, capacitor, inductor, AC source, battery (AC short).
+      </div>
+    </div>
+    <div id="eduNotes"></div>
+  </div>
+</div>
+<div id="statusbar">
+  <span id="statusLeft">Ready — select a preset or place components.</span>
+  <span id="statusRight">Components: <b id="compCount">0</b> &nbsp; Wires: <b id="wireCount">0</b></span>
+</div>
+
+<div id="modalOverlay" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">Title</div>
+    <div class="modal-message" id="modalMessage" style="display:none;"></div>
+    <input type="text" id="modalInput" class="modal-input" style="display:none;">
+    <div class="modal-buttons">
+      <button id="modalCancel" class="modal-btn">Cancel</button>
+      <button id="modalOk" class="modal-btn primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── helpers ─────────────────────────────────────────────────────────── */
+const $  = (sel,root=document)=>root.querySelector(sel);
+const $$ = (sel,root=document)=>[...root.querySelectorAll(sel)];
+const SVGNS='http://www.w3.org/2000/svg';
+const GRID=20;
+function svgEl(tag,attrs={}){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function snap(v){return Math.round(v/GRID)*GRID;}
+
+/* ── custom modal (replaces prompt/alert/confirm, which are blocked in sandboxed iframes) ── */
+const modalOverlay=$('#modalOverlay'),modalBox=$('.modal-box',modalOverlay),modalTitle=$('#modalTitle'),modalMessage=$('#modalMessage'),modalInput=$('#modalInput'),modalCancel=$('#modalCancel'),modalOk=$('#modalOk');
+let modalResolve=null;
+function closeModal(){modalOverlay.classList.remove('show');modalResolve=null;modalBox.style.maxWidth='';}
+function showPrompt(title,defaultValue,onOk){
+  modalTitle.textContent=title;
+  modalMessage.style.display='none';
+  modalInput.style.display='block';
+  modalInput.value=(defaultValue===undefined||defaultValue===null)?'':defaultValue;
+  modalCancel.style.display='inline-block';
+  modalOverlay.classList.add('show');
+  setTimeout(()=>{modalInput.focus();modalInput.select();},0);
+  modalResolve=ok=>{const val=modalInput.value;closeModal();if(ok)onOk(val);};
+}
+function showAlert(message,onClose){
+  modalTitle.textContent='Notice';
+  modalMessage.textContent=message;
+  modalMessage.style.display='block';
+  modalInput.style.display='none';
+  modalCancel.style.display='none';
+  modalOverlay.classList.add('show');
+  modalResolve=()=>{closeModal();if(onClose)onClose();};
+}
+function showConfirm(message,onOk){
+  modalTitle.textContent='Confirm';
+  modalMessage.textContent=message;
+  modalMessage.style.display='block';
+  modalInput.style.display='none';
+  modalCancel.style.display='inline-block';
+  modalOverlay.classList.add('show');
+  modalResolve=ok=>{closeModal();if(ok)onOk();};
+}
+modalOk.addEventListener('click',()=>modalResolve&&modalResolve(true));
+modalCancel.addEventListener('click',()=>modalResolve&&modalResolve(false));
+modalInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();modalResolve&&modalResolve(true);}
+  else if(e.key==='Escape'){e.preventDefault();modalResolve&&modalResolve(false);}
+});
+modalOverlay.addEventListener('mousedown',e=>{if(e.target===modalOverlay)modalResolve&&modalResolve(false);});
+
+/* ── component defs ──────────────────────────────────────────────────── */
+const COMPONENT_DEFS={
+  resistor:{label:'Resistor',unit:'\u03A9',defaultValue:100,terminals:[[-40,0],[40,0]],render(v){const R=parseEngValue(v);const[c1,c2,c3]=resistorColorBands(R);return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-24" y2="0" stroke="#cfa86a" stroke-width="2" stroke-linecap="round"/><line x1="24" y1="0" x2="40" y2="0" stroke="#cfa86a" stroke-width="2" stroke-linecap="round"/><rect x="-24" y="-10" width="48" height="20" rx="9" fill="#e8d2a0" stroke="#a8895a" stroke-width="1"/><rect x="-13" y="-10" width="5" height="20" fill="${c1}"/><rect x="-4" y="-10" width="5" height="20" fill="${c2}"/><rect x="6" y="-10" width="5" height="20" fill="${c3}"/><rect x="15" y="-10" width="5" height="20" fill="#d4af37"/></g><text class="comp-label" x="0" y="-18">R</text><text class="comp-value" x="0" y="22">${v}\u03A9</text>`;}},
+  capacitor:{label:'Capacitor',unit:'F',defaultValue:'10\u00b5',terminals:[[-40,0],[40,0]],render(v){return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-18" y2="0" class="comp-line"/><line x1="18" y1="0" x2="40" y2="0" class="comp-line"/><ellipse cx="0" cy="0" rx="18" ry="22" fill="#e8923a" stroke="#8a4f12" stroke-width="1.5"/><ellipse cx="0" cy="0" rx="18" ry="22" fill="none" stroke="#fff3c4" stroke-width="1" opacity="0.4"/></g><text class="comp-label" x="0" y="-28">C</text><text class="comp-value" x="0" y="34">${v}F</text>`;}},
+  inductor:{label:'Inductor',unit:'H',defaultValue:'10m',terminals:[[-40,0],[40,0]],render(v){let coils='';for(let i=0;i<6;i++){coils+=`<line x1="${-21+i*7}" y1="-10" x2="${-21+i*7}" y2="10" stroke="#3a2a1a" stroke-width="2.5"/>`;}return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-24" y2="0" stroke="#cfa86a" stroke-width="2" stroke-linecap="round"/><line x1="24" y1="0" x2="40" y2="0" stroke="#cfa86a" stroke-width="2" stroke-linecap="round"/><rect x="-24" y="-11" width="48" height="22" rx="5" fill="#5a3a1e" stroke="#3a2410" stroke-width="1"/>${coils}</g><text class="comp-label" x="0" y="-18">L</text><text class="comp-value" x="0" y="22">${v}H</text>`;}},
+  battery:{label:'DC Source',unit:'V',defaultValue:5,terminals:[[-40,0],[40,0]],render(v){return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-26" y2="0" class="comp-line"/><line x1="26" y1="0" x2="40" y2="0" class="comp-line"/><rect x="-26" y="-14" width="44" height="28" rx="3" fill="#3a3f4a" stroke="#1c2027" stroke-width="1"/><rect x="-26" y="-14" width="14" height="28" rx="3" fill="#2d6a4f"/><rect x="18" y="-7" width="8" height="14" fill="#c9a13b"/></g><text class="comp-label" x="-19" y="-20">+</text><text class="comp-label" x="22" y="-20">\u2212</text><text class="comp-value" x="0" y="26">${v}V</text>`;}},
+  acsource:{label:'AC Source',unit:'V',defaultValue:'5@60Hz',terminals:[[-40,0],[40,0]],render(v){return `<g class="comp-body"><line x1="-40" y1="0" x2="-18" y2="0" class="comp-line"/><line x1="18" y1="0" x2="40" y2="0" class="comp-line"/><circle cx="0" cy="0" r="18" class="comp-line" fill="none"/><path d="M -10 0 C -6 -12 -2 -12 0 0 C 2 12 6 12 10 0" class="comp-line" fill="none"/></g><text class="comp-label" x="0" y="-26">AC</text><text class="comp-value" x="0" y="32">${v}</text>`;}},
+  switch:{label:'Switch',unit:'',defaultValue:'open',terminals:[[-40,0],[40,0]],render(v){const open=v!=='closed';const tipx=open?30:38,tipy=open?-14:0;return `<g class="comp-body"><line x1="-40" y1="0" x2="-30" y2="0" class="comp-line"/><circle cx="-30" cy="0" r="3.5" fill="#e6edf3"/><circle cx="30" cy="0" r="3.5" fill="#e6edf3"/><line x1="-30" y1="0" x2="${tipx}" y2="${tipy}" class="comp-line"/><line x1="30" y1="0" x2="40" y2="0" class="comp-line"/></g><text class="comp-label" x="0" y="-20">SW</text><text class="comp-value" x="0" y="22">${open?'open':'closed'}</text>`;}},
+  diode:{label:'Diode',unit:'',defaultValue:'Si',terminals:[[-40,0],[40,0]],render(v){return `<g class="comp-body"><line x1="-40" y1="0" x2="-8" y2="0" class="comp-line"/><line x1="8" y1="0" x2="40" y2="0" class="comp-line"/><path d="M -8 -12 L -8 12 L 8 0 Z" class="comp-line" fill="#e6edf3"/><line x1="8" y1="-12" x2="8" y2="12" stroke="#e6edf3" stroke-width="3"/></g><text class="comp-label" x="0" y="-20">D</text>`;}},
+  led:{label:'LED',unit:'',defaultValue:'red',terminals:[[-40,0],[40,0]],render(v){const cm={red:'#f85149',green:'#3fb950',blue:'#58a6ff',yellow:'#f0d000',white:'#f5f5f5',orange:'#ff8c00',amber:'#ffbf00',pink:'#ff69b4',cyan:'#00e5e5',violet:'#9b4dff',uv:'#7b00ff',lime:'#a8ff00',teal:'#00c8a0'};const sw=cm[(v||'red').toLowerCase()]||'#f85149';return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-9" y2="0" class="comp-line"/><line x1="9" y1="0" x2="40" y2="0" class="comp-line"/><path d="M -9 12 L -9 -10 A 9 14 0 0 1 9 -10 L 9 12 Z" fill="${sw}" opacity="0.9" stroke="${sw}" stroke-width="1"/><ellipse cx="-3" cy="-6" rx="3" ry="5" fill="#ffffff" opacity="0.45"/><path d="M 3 -22 L 9 -28 M 8 -18 L 14 -24" stroke="${sw}" stroke-width="1.5" stroke-linecap="round"/></g><text class="comp-label" x="0" y="-32">LED</text><text class="comp-value" x="0" y="24">${v||'red'}</text>`;}},
+  ground:{label:'Ground',unit:'',defaultValue:'0',terminals:[[0,-30]],render(v){return `<g class="comp-body"><line x1="0" y1="-30" x2="0" y2="-6" class="comp-line"/><line x1="-14" y1="-6" x2="14" y2="-6" class="comp-line"/><line x1="-9" y1="0" x2="9" y2="0" class="comp-line"/><line x1="-4" y1="6" x2="4" y2="6" class="comp-line"/></g>`;}},
+  lamp:{label:'Lamp',unit:'\u03A9',defaultValue:'48',terminals:[[-40,0],[40,0]],render(v){
+    const parts=String(v).trim().split(/\s+/);
+    const rStr=parts[0];
+    const color=(parts[1]||'warm').toLowerCase();
+    const LC={warm:{g:'#fff7d6',f:'#f0d000'},red:{g:'#ff7060',f:'#ff9080'},green:{g:'#70ffa0',f:'#80ff90'},blue:{g:'#70a8ff',f:'#90c0ff'},yellow:{g:'#ffffa0',f:'#ffd700'},white:{g:'#eef0ff',f:'#f0f4ff'},amber:{g:'#ffe090',f:'#ffb000'},purple:{g:'#c090ff',f:'#d0a0ff'},pink:{g:'#ffb0d0',f:'#ff90c0'},cyan:{g:'#90eeff',f:'#60ffee'}};
+    const lc=LC[color]||LC.warm;
+    const colorLabel=color!=='warm'?' '+color:'';
+    return `<g class="comp-body comp-glow"><line x1="-40" y1="0" x2="-16" y2="0" class="comp-line"/><line x1="16" y1="0" x2="40" y2="0" class="comp-line"/><circle cx="0" cy="0" r="16" fill="${lc.g}" opacity="0.28" stroke="#8a8f99" stroke-width="1.5"/><rect x="-7" y="-26" width="14" height="10" rx="1.5" fill="#9aa0aa"/><line x1="-7" y1="-23" x2="7" y2="-23" stroke="#5a5f68" stroke-width="1"/><line x1="-7" y1="-20" x2="7" y2="-20" stroke="#5a5f68" stroke-width="1"/><line x1="-7" y1="-17" x2="7" y2="-17" stroke="#5a5f68" stroke-width="1"/><path d="M -7 -16 L -7 -8 L -3 4 L 0 -6 L 3 4 L 7 -8 L 7 -16" fill="none" stroke="${lc.f}" stroke-width="1.5" stroke-linecap="round"/></g><text class="comp-label" x="0" y="-32">Lamp</text><text class="comp-value" x="0" y="28">${rStr}\u03A9${colorLabel}</text>`;
+  }},
+  potentiometer:{label:'Potentiometer',unit:'\u03A9',defaultValue:1000,terminals:[[-40,0],[40,0]],render(v){let d='M -40 0 L -24 0';[[-18,-9],[-10,9],[-2,-9],[6,9],[14,-9],[22,9]].forEach(p=>{d+=` L ${p[0]} ${p[1]}`;});d+=' L 28 0 L 40 0';return `<path d="${d}" class="comp-line comp-body" fill="none"/><path d="M 0 -22 L 10 -8" class="comp-line" marker-end="url(#arrowHead)"/><text class="comp-label" x="0" y="-26">Pot</text><text class="comp-value" x="0" y="22">${v}\u03A9</text>`;}},
+  transistor:{label:'Transistor',unit:'',defaultValue:'NPN',
+    terminals:[[-40,0],[0,-40],[0,40]],
+    render(v){
+      const isPNP=String(v||'').toUpperCase().includes('PNP');
+      // Emitter line: (-14,12) → (0,40); compute arrow polygon at 60% along
+      const ex1=-14,ey1=12,ex2=0,ey2=40;
+      const dx=ex2-ex1,dy=ey2-ey1,len=Math.hypot(dx,dy);
+      const ux=dx/len,uy=dy/len,px=-uy,py=ux;
+      const t=0.60,ax=ex1+dx*t,ay=ey1+dy*t;
+      const d=isPNP?-1:1,s=3.8;
+      const tip=`${(ax+d*ux*s).toFixed(1)},${(ay+d*uy*s).toFixed(1)}`;
+      const bx=ax-d*ux*s,by=ay-d*uy*s;
+      const ap=`${tip} ${(bx+px*s).toFixed(1)},${(by+py*s).toFixed(1)} ${(bx-px*s).toFixed(1)},${(by-py*s).toFixed(1)}`;
+      const lbl=isPNP?'PNP':'NPN';
+      // Collector line: (-14,-12) → (0,-40)
+      return `<g class="comp-body comp-glow">
+        <circle cx="2" cy="0" r="24" fill="rgba(18,24,36,.92)" stroke="#4a5572" stroke-width="1.5"/>
+        <line x1="-40" y1="0" x2="-14" y2="0" stroke="#cfa86a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="-14" y1="-19" x2="-14" y2="19" stroke="#e6edf3" stroke-width="3" stroke-linecap="round"/>
+        <line x1="-14" y1="-13" x2="0" y2="-40" stroke="#e6edf3" stroke-width="2" stroke-linecap="round"/>
+        <line x1="${ex1}" y1="${ey1}" x2="${ex2}" y2="${ey2}" stroke="#e6edf3" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="${ap}" fill="#e6edf3"/>
+        <text x="-28" y="-5" fill="#8b949e" font-size="8" font-family="Courier New,monospace" text-anchor="middle">B</text>
+        <text x="8"  y="-28" fill="#8b949e" font-size="8" font-family="Courier New,monospace" text-anchor="middle">C</text>
+        <text x="8"  y="36"  fill="#8b949e" font-size="8" font-family="Courier New,monospace" text-anchor="middle">E</text>
+      </g>
+      <text class="comp-label" x="14" y="-38">${lbl}</text>
+      <text class="comp-value"  x="14" y="48">BJT</text>`;
+    }},
+};
+
+/* ── value parsing ───────────────────────────────────────────────────── */
+const RESISTOR_COLORS=['#1a1a1a','#7a4a2a','#e02020','#f0883e','#f0d000','#3fb950','#3b6fd6','#a060e0','#9a9a9a','#f5f5f5'];
+function resistorColorBands(ohms){
+  if(!(ohms>0))return['#555','#555','#555'];
+  let exp=Math.floor(Math.log10(ohms));
+  let mant=ohms/Math.pow(10,exp);
+  // normalize to 2 significant digits
+  let d1=Math.floor(mant),d2=Math.round((mant-d1)*10);
+  if(d2===10){d2=0;d1++;}
+  let mult=exp-1;
+  if(d1>9){d1=Math.floor(d1/10);mult++;}
+  mult=Math.max(0,Math.min(9,mult));
+  return[RESISTOR_COLORS[d1]||'#555',RESISTOR_COLORS[d2]||'#555',RESISTOR_COLORS[mult]||'#555'];
+}
+function parseEngValue(val){
+  if(typeof val==='number') return isFinite(val)?val:NaN;
+  const s=String(val).trim();
+  const m=s.match(/^(-?[\d.]+)\s*([pnu\u00b5mkKMG]?)/);
+  if(!m) return NaN;
+  const num=parseFloat(m[1]);
+  if(isNaN(num)) return NaN;
+  const ENG_MULT={p:1e-12,n:1e-9,u:1e-6,'\u00b5':1e-6,m:1e-3,k:1e3,K:1e3,M:1e6,G:1e9};
+  return num*(ENG_MULT[m[2]]||1);
+}
+function parseACValue(val){
+  const s=String(val).trim();
+  const parts=s.split('@');
+  const amp=parseEngValue(parts[0]);
+  let freq=60;
+  if(parts[1]){const fm=parts[1].match(/([\d.]+)/);if(fm)freq=parseFloat(fm[1]);}
+  return{amp:isFinite(amp)?amp:0,freq};
+}
+
+/* ── complex helpers ─────────────────────────────────────────────────── */
+const Cx=(re,im=0)=>({re,im});
+function cadd(a,b){return{re:a.re+b.re,im:a.im+b.im};}
+function csub(a,b){return{re:a.re-b.re,im:a.im-b.im};}
+function cmul(a,b){return{re:a.re*b.re-a.im*b.im,im:a.re*b.im+a.im*b.re};}
+function cdiv(a,b){const d=b.re*b.re+b.im*b.im;return{re:(a.re*b.re+a.im*b.im)/d,im:(a.im*b.re-a.re*b.im)/d};}
+function cabs(a){return Math.hypot(a.re,a.im);}
+function cphase(a){return Math.atan2(a.im,a.re)*180/Math.PI;}
+
+/* ── app state ───────────────────────────────────────────────────────── */
+let components=[], wires=[], nextId=1;
+let placeType=null, selected=null, wiringFrom=null, dragState=null, lastMode='dc';
+let probeMode=false, probeFrom=null;
+let lastSolve=null; // {V, nodeOf, numNodes, mode, freq}
+let wireFlow={}; // wireId -> {dir:±1, mag: amps}
+const canvas=$('#canvas');
+const compLayer=$('#compLayer'), wireLayer=$('#wireLayer'), overlayLayer=$('#overlayLayer'), glowLayer=$('#glowLayer');
+const defs=$('defs',canvas);
+const marker=svgEl('marker',{id:'arrowHead',markerWidth:'6',markerHeight:'6',refX:'3',refY:'3',orient:'auto'});
+marker.appendChild(svgEl('path',{d:'M0,0 L6,3 L0,6 Z',fill:'#e6edf3'}));
+defs.appendChild(marker);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PRESET CIRCUITS
+   ═══════════════════════════════════════════════════════════════════════ */
+const PRESETS=[
+  {
+    id:'bat-series', name:'Batteries in Series', tag:'dc', solve:'dc', order:1.1,
+    desc:'Two 9 V cells stacked + → − · R=1 kΩ — EMFs add: 18 V total',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'battery',  x:400,y:280,rot:180,value:9},
+      {type:'resistor', x:600,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,1,3,0],[0,0,1,1],[1,0,2,0],[2,1,4,0]]
+  },
+  {
+    id:'bat-par', name:'Batteries in Parallel', tag:'dc', solve:'dc', order:1.2,
+    desc:'Two 9 V cells (1 Ω internal R each) in parallel · R_load=100 Ω — current shares between cells',
+    comps:[
+      {type:'battery',  x:180,y:260,rot:90, value:9},
+      {type:'resistor', x:180,y:380,rot:90, value:1},
+      {type:'battery',  x:380,y:260,rot:90, value:9},
+      {type:'resistor', x:380,y:380,rot:90, value:1},
+      {type:'resistor', x:580,y:320,rot:90, value:100},
+      {type:'ground',   x:180,y:520,rot:0,  value:'0'},
+      {type:'ground',   x:380,y:520,rot:0,  value:'0'},
+      {type:'ground',   x:580,y:460,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,2,0],[2,0,4,0],[0,1,1,0],[1,1,5,0],[2,1,3,0],[3,1,6,0],[4,1,7,0]]
+  },
+  {
+    id:'bat-r', name:'R', tag:'dc', solve:'dc', order:1,
+    desc:'9 V · 1 kΩ — simplest DC loop',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'resistor', x:400,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:440,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,3,0],[0,1,2,0]]
+  },
+  {
+    id:'vdiv', name:'Voltage Divider', tag:'dc', solve:'dc', order:2,
+    desc:'12 V · R1=4.7 kΩ · R2=1 kΩ',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:12},
+      {type:'resistor', x:400,y:280,rot:0,  value:'4.7k'},
+      {type:'resistor', x:600,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'led-r', name:'R+LED', tag:'dc', solve:'dc', order:3,
+    desc:'9 V · 470 Ω limiting · red LED',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'resistor', x:400,y:280,rot:0,  value:470},
+      {type:'led',      x:600,y:280,rot:0,  value:'red'},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'diode-r', name:'R+Diode (Forward)', tag:'dc', solve:'dc', order:4,
+    desc:'5 V · Si diode (forward) · 1 kΩ — V_f ≈ 0.7V, current flows',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:5},
+      {type:'diode',    x:400,y:280,rot:0,  value:'Si'},
+      {type:'resistor', x:600,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'diode-rev', name:'Diode: Reverse Bias', tag:'dc', solve:'dc', order:4.1,
+    desc:'5 V reversed against Si diode · 1 kΩ — cathode is +, diode blocks, I ≈ 0, all voltage across diode',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:5},
+      {type:'diode',    x:400,y:280,rot:180,value:'Si'},
+      {type:'resistor', x:600,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,1],[1,0,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'diode-par', name:'Diodes in Parallel', tag:'dc', solve:'dc', order:4.25,
+    desc:'5 V · two Si diodes in parallel · 100 Ω — equal diodes share current equally, V_f stays the same',
+    comps:[
+      {type:'battery',  x:180,y:360,rot:90, value:5},
+      {type:'diode',    x:380,y:280,rot:0,  value:'Si'},
+      {type:'diode',    x:380,y:440,rot:0,  value:'Si'},
+      {type:'resistor', x:580,y:360,rot:90, value:100},
+      {type:'ground',   x:180,y:500,rot:0,  value:'0'},
+      {type:'ground',   x:580,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[1,1,3,0],[2,1,3,0],[0,1,4,0],[3,1,5,0]]
+  },
+  {
+    id:'diode-2series', name:'Diodes in Series', tag:'dc', solve:'dc', order:4.2,
+    desc:'9 V · two Si diodes forward in series · 1 kΩ — V_f stacks: ≈ 1.4 V total drop',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'diode',    x:380,y:280,rot:0,  value:'Si'},
+      {type:'diode',    x:540,y:280,rot:0,  value:'Si'},
+      {type:'resistor', x:700,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:740,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,3,0],[3,1,5,0],[0,1,4,0]]
+  },
+  {
+    id:'dc-rc', name:'RC Charge / Discharge', tag:'dc', solve:'dc', order:7.1,
+    desc:'9 V · SW · R=1 kΩ ∥ C=100 µF — SW closed: charge; SW open: discharge',
+    comps:[
+      {type:'battery',   x:200,y:360,rot:90, value:9},
+      {type:'switch',    x:360,y:200,rot:0,  value:'closed'},
+      {type:'resistor',  x:520,y:360,rot:90, value:1000},
+      {type:'capacitor', x:700,y:360,rot:90, value:'100\u00b5'},
+      {type:'ground',    x:200,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:520,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:700,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,0,3,0],[0,1,4,0],[2,1,5,0],[3,1,6,0]]
+  },
+  {
+    id:'dc-rl', name:'RL Transient', tag:'dc', solve:'dc', order:7.2,
+    desc:'9 V · R=100 Ω · L=10 mH — DC steady state: inductor = wire, V_L=0',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'resistor', x:400,y:280,rot:0,  value:100},
+      {type:'inductor', x:600,y:280,rot:0,  value:'10m'},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'dc-cap-ser', name:'DC Capacitors in Series', tag:'dc', solve:'none', order:7.3,
+    desc:'9 V · SW · C1=10 µF + C2=22 µF in series — steady state: no current, voltage divides inversely with C',
+    comps:[
+      {type:'battery',   x:200,y:280,rot:180,value:9},
+      {type:'switch',    x:380,y:280,rot:0,  value:'closed'},
+      {type:'capacitor', x:560,y:280,rot:0,  value:'10\u00b5'},
+      {type:'capacitor', x:740,y:280,rot:0,  value:'22\u00b5'},
+      {type:'ground',    x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',    x:780,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,3,0],[3,1,5,0],[0,1,4,0]]
+  },
+  {
+    id:'dc-cap-par', name:'DC Capacitors in Parallel', tag:'dc', solve:'dc', order:7.4,
+    desc:'9 V driving C1=10 µF ∥ C2=22 µF — steady state: both charge to Vs, charge adds',
+    comps:[
+      {type:'battery',   x:180,y:360,rot:90, value:9},
+      {type:'capacitor', x:360,y:360,rot:90, value:'10\u00b5'},
+      {type:'capacitor', x:540,y:360,rot:90, value:'22\u00b5'},
+      {type:'ground',    x:180,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:360,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:540,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[0,1,3,0],[1,1,4,0],[2,1,5,0]]
+  },
+  {
+    id:'rc-ser', name:'RC', tag:'ac', solve:'ac', order:9,
+    desc:'5 V@60 Hz · R=1 kΩ · C=10 µF',
+    comps:[
+      {type:'acsource',  x:200,y:280,rot:180,value:'5@60Hz'},
+      {type:'resistor',  x:400,y:280,rot:0,  value:1000},
+      {type:'capacitor', x:600,y:280,rot:0,  value:'10\u00b5'},
+      {type:'ground',    x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',    x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'rl-ser', name:'RL', tag:'ac', solve:'ac', order:8,
+    desc:'5 V@1 kHz · R=100 Ω · L=10 mH',
+    comps:[
+      {type:'acsource', x:200,y:280,rot:180,value:'5@1000Hz'},
+      {type:'resistor', x:400,y:280,rot:0,  value:100},
+      {type:'inductor', x:600,y:280,rot:0,  value:'10m'},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'rlc-ser', name:'RLC Series (Resonance)', tag:'ac', solve:'ac', order:10,
+    desc:'5 V@503 Hz · R=100 Ω · L=10 mH · C=10 µF — near resonance',
+    comps:[
+      {type:'acsource',  x:200,y:280,rot:180,value:'5@503Hz'},
+      {type:'resistor',  x:400,y:280,rot:0,  value:100},
+      {type:'inductor',  x:600,y:280,rot:0,  value:'10m'},
+      {type:'capacitor', x:800,y:280,rot:0,  value:'10\u00b5'},
+      {type:'ground',    x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',    x:840,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,3,0],[3,1,5,0],[0,1,4,0]]
+  },
+  {
+    id:'rc-par', name:'RC Parallel', tag:'ac', solve:'ac', order:11,
+    desc:'5 V@60 Hz driving R=1 kΩ ∥ C=10 µF',
+    comps:[
+      {type:'acsource',  x:180,y:360,rot:90, value:'5@60Hz'},
+      {type:'resistor',  x:360,y:360,rot:90, value:1000},
+      {type:'capacitor', x:540,y:360,rot:90, value:'10\u00b5'},
+      {type:'ground',    x:180,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:360,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:540,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[0,1,3,0],[1,1,4,0],[2,1,5,0]]
+  },
+  {
+    id:'rlc-par', name:'RLC Parallel', tag:'ac', solve:'ac', order:12,
+    desc:'5 V@503 Hz · R=200 Ω ∥ L=10 mH ∥ C=10 µF',
+    comps:[
+      {type:'acsource',  x:160,y:360,rot:90, value:'5@503Hz'},
+      {type:'resistor',  x:340,y:360,rot:90, value:200},
+      {type:'inductor',  x:520,y:360,rot:90, value:'10m'},
+      {type:'capacitor', x:700,y:360,rot:90, value:'10\u00b5'},
+      {type:'ground',    x:160,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:340,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:520,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:700,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[2,0,3,0],[0,1,4,0],[1,1,5,0],[2,1,6,0],[3,1,7,0]]
+  },
+  {
+    id:'cap-ser', name:'Capacitors in Series', tag:'ac', solve:'ac', order:12.1,
+    desc:'5 V@60 Hz · C1=10 µF + C2=22 µF in series — same charge/current, voltage splits',
+    comps:[
+      {type:'acsource',  x:200,y:280,rot:180,value:'5@60Hz'},
+      {type:'capacitor', x:400,y:280,rot:0,  value:'10\u00b5'},
+      {type:'capacitor', x:600,y:280,rot:0,  value:'22\u00b5'},
+      {type:'ground',    x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',    x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'cap-par', name:'Capacitors in Parallel', tag:'ac', solve:'ac', order:12.2,
+    desc:'5 V@60 Hz driving C1=10 µF ∥ C2=22 µF — same voltage, current/charge splits',
+    comps:[
+      {type:'acsource',  x:180,y:360,rot:90, value:'5@60Hz'},
+      {type:'capacitor', x:360,y:360,rot:90, value:'10\u00b5'},
+      {type:'capacitor', x:540,y:360,rot:90, value:'22\u00b5'},
+      {type:'ground',    x:180,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:360,y:500,rot:0,  value:'0'},
+      {type:'ground',    x:540,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[0,1,3,0],[1,1,4,0],[2,1,5,0]]
+  },
+  {
+    id:'lamps-ser', name:'Lamps in Series', tag:'dc', solve:'dc', order:5,
+    desc:'9 V · two 48 Ω lamps in series — same current, voltage splits',
+    comps:[
+      {type:'battery', x:200,y:280,rot:180,value:9},
+      {type:'lamp',    x:400,y:280,rot:0,  value:48},
+      {type:'lamp',    x:600,y:280,rot:0,  value:48},
+      {type:'ground',  x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',  x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'lamps-par', name:'Lamps in Parallel', tag:'dc', solve:'dc', order:6,
+    desc:'9 V · two 48 Ω lamps in parallel — same voltage, current splits',
+    comps:[
+      {type:'battery', x:180,y:360,rot:90, value:9},
+      {type:'lamp',    x:360,y:360,rot:90, value:48},
+      {type:'lamp',    x:540,y:360,rot:90, value:48},
+      {type:'ground',  x:180,y:500,rot:0,  value:'0'},
+      {type:'ground',  x:360,y:500,rot:0,  value:'0'},
+      {type:'ground',  x:540,y:500,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,0,2,0],[0,1,3,0],[1,1,4,0],[2,1,5,0]]
+  },
+  {
+    id:'bat-r-sw', name:'Switched Load', tag:'dc', solve:'dc', order:7,
+    desc:'9 V · switch (closed) · 1 kΩ — toggle the switch',
+    comps:[
+      {type:'battery',  x:200,y:280,rot:180,value:9},
+      {type:'switch',   x:400,y:280,rot:0,  value:'closed'},
+      {type:'resistor', x:600,y:280,rot:0,  value:1000},
+      {type:'ground',   x:160,y:420,rot:0,  value:'0'},
+      {type:'ground',   x:640,y:420,rot:0,  value:'0'},
+    ],
+    wires:[[0,0,1,0],[1,1,2,0],[2,1,4,0],[0,1,3,0]]
+  },
+  {
+    id:'npn-switch', name:'NPN Switch (ON)', tag:'dc', solve:'dc', order:13.1,
+    desc:'9V · R_B=100kΩ · R_C=1kΩ · NPN — base driven high, transistor fully ON',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:9},
+      {type:'resistor',   x:520, y:220, rot:90,  value:1000},
+      {type:'transistor', x:520, y:380, rot:0,   value:'NPN'},
+      {type:'resistor',   x:340, y:380, rot:0,   value:'100k'},
+      {type:'ground',     x:520, y:560, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,0],
+      [0,0, 3,0],
+      [3,1, 2,0],
+      [1,1, 2,1],
+      [2,2, 4,0],
+      [0,1, 5,0],
+    ]
+  },
+  {
+    id:'npn-switch-off', name:'NPN Switch (OFF)', tag:'dc', solve:'dc', order:13.15,
+    desc:'9V · R_B=10MΩ (very high) · R_C=1kΩ · NPN — base barely driven, transistor OFF, V_CE ≈ V_CC',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:9},
+      {type:'resistor',   x:520, y:220, rot:90,  value:1000},
+      {type:'transistor', x:520, y:380, rot:0,   value:'NPN'},
+      {type:'resistor',   x:340, y:380, rot:0,   value:'10M'},
+      {type:'ground',     x:520, y:560, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,0],
+      [0,0, 3,0],
+      [3,1, 2,0],
+      [1,1, 2,1],
+      [2,2, 4,0],
+      [0,1, 5,0],
+    ]
+  },
+  {
+    id:'npn-led', name:'NPN + LED Load', tag:'dc', solve:'dc', order:13.2,
+    desc:'5V · R_B=47kΩ · R_C=220Ω · LED (red) — NPN switches LED load ON/OFF',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:5},
+      {type:'resistor',   x:520, y:180, rot:90,  value:220},
+      {type:'led',        x:520, y:320, rot:90,  value:'red'},
+      {type:'transistor', x:520, y:460, rot:0,   value:'NPN'},
+      {type:'resistor',   x:340, y:460, rot:0,   value:'47k'},
+      {type:'ground',     x:520, y:620, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,0],
+      [0,0, 4,0],
+      [4,1, 3,0],
+      [1,1, 2,0],
+      [2,1, 3,1],
+      [3,2, 5,0],
+      [0,1, 6,0],
+    ]
+  },
+  {
+    id:'pnp-switch', name:'PNP Switch (ON)', tag:'dc', solve:'dc', order:13.3,
+    desc:'9V · R_B=100kΩ · R_C=1kΩ · PNP — base pulled low, transistor fully ON',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:9},
+      {type:'transistor', x:520, y:360, rot:180, value:'PNP'},
+      {type:'resistor',   x:520, y:540, rot:90,  value:1000},
+      {type:'resistor',   x:680, y:360, rot:0,   value:'100k'},
+      {type:'ground',     x:520, y:700, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+      {type:'ground',     x:720, y:390, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,2],
+      [1,1, 2,0],
+      [2,1, 4,0],
+      [1,0, 3,0],
+      [3,1, 6,0],
+      [0,1, 5,0],
+    ]
+  },
+  {
+    id:'pnp-switch-off', name:'PNP Switch (OFF)', tag:'dc', solve:'dc', order:13.35,
+    desc:'9V · R_B=10MΩ (high) · R_C=1kΩ · PNP — base not pulled low, transistor OFF',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:9},
+      {type:'transistor', x:520, y:360, rot:180, value:'PNP'},
+      {type:'resistor',   x:520, y:540, rot:90,  value:1000},
+      {type:'resistor',   x:680, y:360, rot:0,   value:'10M'},
+      {type:'ground',     x:520, y:700, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+      {type:'ground',     x:720, y:390, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,2],
+      [1,1, 2,0],
+      [2,1, 4,0],
+      [1,0, 3,0],
+      [3,1, 6,0],
+      [0,1, 5,0],
+    ]
+  },
+  {
+    id:'npn-saturated', name:'NPN Deep Saturation', tag:'dc', solve:'dc', order:13.4,
+    desc:'9V · R_B=10kΩ · R_C=1kΩ · NPN — heavy base overdrive, β_forced ≪ β, V_CE≈0.2V',
+    comps:[
+      {type:'battery',    x:200, y:360, rot:90,  value:9},
+      {type:'resistor',   x:520, y:220, rot:90,  value:1000},
+      {type:'transistor', x:520, y:380, rot:0,   value:'NPN'},
+      {type:'resistor',   x:340, y:380, rot:0,   value:'10k'},
+      {type:'ground',     x:520, y:560, rot:0,   value:'0'},
+      {type:'ground',     x:200, y:500, rot:0,   value:'0'},
+    ],
+    wires:[
+      [0,0, 1,0],
+      [0,0, 3,0],
+      [3,1, 2,0],
+      [1,1, 2,1],
+      [2,2, 4,0],
+      [0,1, 5,0],
+    ]
+  },
+];
+PRESETS.sort((a,b)=>a.order-b.order);
+
+/* load a preset ─────────────────────────────────────────────────────── */
+function loadPreset(preset){
+  components=[];wires=[];selected=null;wiringFrom=null;probeFrom=null;wireFlow={};lastSolve=null;
+  clearOverlay();clearNodeLayer();clearReadouts();clearGlows();
+  $$('.comp',compLayer).forEach(g=>g.remove());
+  $$('.wire-line',wireLayer).forEach(l=>l.remove());
+
+  const ids=[];
+  preset.comps.forEach(cd=>{
+    const def=COMPONENT_DEFS[cd.type];
+    const comp={id:'comp'+(nextId++),type:cd.type,x:cd.x,y:cd.y,rot:cd.rot,
+      value:cd.value!==undefined?cd.value:def.defaultValue};
+    components.push(comp);ids.push(comp.id);
+  });
+  preset.wires.forEach(([c1,t1,c2,t2])=>{
+    wires.push({id:'wire'+(nextId++),from:{compId:ids[c1],term:t1},to:{compId:ids[c2],term:t2}});
+  });
+  renderAll();
+  buildEduNotes(preset);
+  setStatus(`Preset "${preset.name}" loaded.`);
+  if(preset.solve==='dc') runSolve();
+  else if(preset.solve==='ac') runSolveAC();
+  else{
+    clearNodeLayer();clearReadouts();clearGlows();wireFlow={};lastSolve=null;applyWireFlowClasses();updateOscilloscope();
+    $('#analysisBody').innerHTML=preset.note
+      ?`<div class="hint">${preset.note}</div>`
+      :'<div class="hint">In DC steady state, an ideal capacitor carries <b>no current</b> — it acts like an open circuit once fully charged. See <b style="color:var(--warn)">Key Concepts</b> below for how voltage and charge distribute.</div>';
+  }
+}
+
+/* populate preset list ──────────────────────────────────────────────── */
+(function buildPresetList(){
+  const list=$('#presetList');
+  PRESETS.forEach(p=>{
+    const div=document.createElement('div');
+    div.className='preset-item';
+    div.innerHTML=`<span class="preset-tag ${p.tag}">${p.tag.toUpperCase()}</span><span class="preset-name">${p.name}</span>`;
+    div.addEventListener('click',()=>loadPreset(p));
+    list.appendChild(div);
+  });
+})();
+
+/* ── palette ─────────────────────────────────────────────────────────── */
+const paletteList=$('#paletteList');
+Object.entries(COMPONENT_DEFS).forEach(([type,def])=>{
+  const item=document.createElement('div');
+  item.className='palette-item';
+  item.dataset.type=type;
+  const previewSvg=`<svg viewBox="${type==='transistor'?'-45 -50 90 110':'-45 -35 90 70'}">${def.render(def.defaultValue)}</svg>`;
+  item.innerHTML=`${previewSvg}<span>${def.label}</span>`;
+  item.addEventListener('click',()=>{
+    if(placeType===type){placeType=null;item.classList.remove('selected');setStatus('Ready.');return;}
+    $$('.palette-item').forEach(x=>x.classList.remove('selected'));
+    placeType=type;item.classList.add('selected');
+    setStatus(`Click canvas to place a ${def.label}.`);deselect();
+  });
+  paletteList.appendChild(item);
+});
+
+/* ── rendering ───────────────────────────────────────────────────────── */
+function terminalAbsPos(comp,localIdx){
+  const def=COMPONENT_DEFS[comp.type];
+  const [lx,ly]=def.terminals[localIdx];
+  const rad=comp.rot*Math.PI/180;
+  return [comp.x+lx*Math.cos(rad)-ly*Math.sin(rad), comp.y+lx*Math.sin(rad)+ly*Math.cos(rad)];
+}
+
+function renderComponent(comp){
+  const def=COMPONENT_DEFS[comp.type];
+  let g=$(`#${comp.id}`,compLayer);
+  if(!g){
+    g=svgEl('g',{id:comp.id,class:'comp'});g.dataset.id=comp.id;compLayer.appendChild(g);
+    g.addEventListener('mousedown',e=>onCompMouseDown(e,comp));
+    g.addEventListener('dblclick',e=>{e.stopPropagation();editComponentValue(comp);});
+  }
+  g.setAttribute('transform',`translate(${comp.x},${comp.y}) rotate(${comp.rot})`);
+  g.classList.toggle('selected',selected&&selected.kind==='component'&&selected.id===comp.id);
+  let terminalsHTML='';
+  def.terminals.forEach((t,i)=>{
+    const isConn=wires.some(w=>(w.from.compId===comp.id&&w.from.term===i)||(w.to.compId===comp.id&&w.to.term===i));
+    const isWF=wiringFrom&&wiringFrom.compId===comp.id&&wiringFrom.term===i;
+    const isPF=probeFrom&&probeFrom.compId===comp.id&&probeFrom.term===i;
+    let cls='terminal';if(isConn)cls+=' connected';if(isWF)cls+=' wiring-from';if(isPF)cls+=' probe-from';
+    terminalsHTML+=`<circle cx="${t[0]}" cy="${t[1]}" r="5" class="${cls}" data-term="${i}"/>`;
+  });
+  g.innerHTML=`<g transform="rotate(${-comp.rot})">${def.render(comp.value)}</g>${terminalsHTML}`;
+  $$('.terminal',g).forEach(t=>{t.addEventListener('mousedown',e=>{e.stopPropagation();onTerminalClick(comp,+t.dataset.term);});});
+}
+
+function renderWire(wire){
+  let line=$(`#${wire.id}`,wireLayer);
+  if(!line){line=svgEl('path',{id:wire.id,class:'wire-line'});wireLayer.appendChild(line);line.addEventListener('mousedown',e=>{e.stopPropagation();selectWire(wire.id);});}
+  const fc=components.find(c=>c.id===wire.from.compId);
+  const tc=components.find(c=>c.id===wire.to.compId);
+  if(!fc||!tc){line.remove();return;}
+  const [x1,y1]=terminalAbsPos(fc,wire.from.term);
+  const [x2,y2]=terminalAbsPos(tc,wire.to.term);
+  line.setAttribute('d',manhattanPath(x1,y1,x2,y2));
+  line.classList.toggle('selected',selected&&selected.kind==='wire'&&selected.id===wire.id);
+}
+
+function manhattanPath(x1,y1,x2,y2){
+  if(x1===x2||y1===y2) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const midx=x1+(x2-x1)/2;
+  return `M ${x1} ${y1} L ${midx} ${y1} L ${midx} ${y2} L ${x2} ${y2}`;
+}
+
+function renderAll(){
+  components.forEach(renderComponent);
+  $$('.comp',compLayer).forEach(g=>{if(!components.find(c=>c.id===g.dataset.id))g.remove();});
+  wires.forEach(renderWire);
+  $$('.wire-line',wireLayer).forEach(l=>{if(!wires.find(w=>w.id===l.id))l.remove();});
+  $('#compCount').textContent=components.length;
+  $('#wireCount').textContent=wires.length;
+  applyWireFlowClasses();
+}
+
+/* ── interaction: placement ──────────────────────────────────────────── */
+canvas.addEventListener('mousedown',e=>{
+  if(e.target===canvas||e.target.classList.contains('grid-bg')){
+    if(placeType){const pt=getCanvasPoint(e);addComponent(placeType,snap(pt.x),snap(pt.y));}
+    else{deselect();if(wiringFrom){wiringFrom=null;clearOverlay();renderAll();}if(probeMode){probeFrom=null;renderAll();}}
+  }
+});
+function getCanvasPoint(e){const rect=canvas.getBoundingClientRect();return{x:e.clientX-rect.left,y:e.clientY-rect.top};}
+function addComponent(type,x,y){
+  const def=COMPONENT_DEFS[type];
+  components.push({id:'comp'+(nextId++),type,x,y,rot:0,value:def.defaultValue});
+  renderAll();setStatus(`Placed ${def.label} at (${x},${y}).`);
+  invalidateSolve();
+}
+
+function onCompMouseDown(e,comp){
+  if(e.target.classList.contains('terminal'))return;
+  e.stopPropagation();if(placeType)return;
+  if(probeMode){setStatus('Probe mode: click two terminals to measure voltage.');return;}
+  selected={kind:'component',id:comp.id};
+  if(wiringFrom){wiringFrom=null;clearOverlay();}renderAll();updateOscilloscope();
+  const pt=getCanvasPoint(e);
+  dragState={compId:comp.id,startX:pt.x,startY:pt.y,origX:comp.x,origY:comp.y};
+  function onMove(ev){const p=getCanvasPoint(ev);comp.x=snap(dragState.origX+p.x-dragState.startX);comp.y=snap(dragState.origY+p.y-dragState.startY);renderAll();}
+  function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);dragState=null;invalidateSolve();}
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+}
+function selectWire(id){if(placeType||probeMode)return;selected={kind:'wire',id};renderAll();updateOscilloscope();}
+function deselect(){selected=null;renderAll();updateOscilloscope();}
+
+function onTerminalClick(comp,termIdx){
+  if(placeType)return;
+  if(probeMode){handleProbeClick(comp,termIdx);return;}
+  if(!wiringFrom){wiringFrom={compId:comp.id,term:termIdx};setStatus(`Wiring from ${COMPONENT_DEFS[comp.type].label} T${termIdx+1}. Click another terminal or empty canvas to cancel.`);renderAll();startWirePreview(comp,termIdx);}
+  else{
+    if(wiringFrom.compId===comp.id&&wiringFrom.term===termIdx){wiringFrom=null;clearOverlay();setStatus('Wiring cancelled.');renderAll();return;}
+    wires.push({id:'wire'+(nextId++),from:{...wiringFrom},to:{compId:comp.id,term:termIdx}});
+    wiringFrom=null;clearOverlay();setStatus('Wire connected.');renderAll();invalidateSolve();
+  }
+}
+function startWirePreview(comp,termIdx){
+  const [x1,y1]=terminalAbsPos(comp,termIdx);
+  const preview=svgEl('path',{class:'wire-preview',id:'wirePreview'});
+  overlayLayer.appendChild(preview);
+  function onMove(ev){const p=getCanvasPoint(ev);preview.setAttribute('d',manhattanPath(x1,y1,snap(p.x),snap(p.y)));}
+  document.addEventListener('mousemove',onMove);preview._cleanup=()=>document.removeEventListener('mousemove',onMove);
+}
+function clearOverlay(){const p=$('#wirePreview',overlayLayer);if(p){p._cleanup&&p._cleanup();p.remove();}}
+
+/* ── probe tool ──────────────────────────────────────────────────────── */
+$('#btnProbe').addEventListener('click',toggleProbe);
+function toggleProbe(){
+  probeMode=!probeMode;probeFrom=null;
+  $('#btnProbe').classList.toggle('active',probeMode);
+  canvas.classList.toggle('probing',probeMode);
+  if(probeMode){placeType=null;$$('.palette-item').forEach(x=>x.classList.remove('selected'));wiringFrom=null;clearOverlay();deselect();setStatus('Probe mode: click two terminals to measure voltage between them.');}
+  else setStatus('Probe mode off.');
+  renderAll();
+}
+function handleProbeClick(comp,termIdx){
+  if(!lastSolve){setStatus('Run a Solve first, then probe.');return;}
+  if(!probeFrom){probeFrom={compId:comp.id,term:termIdx};setStatus('Probe: click second terminal.');renderAll();return;}
+  const a=probeFrom,b={compId:comp.id,term:termIdx};
+  const nodeA=lastSolve.nodeOf(a.compId,a.term);
+  const nodeB=lastSolve.nodeOf(b.compId,b.term);
+  showProbeResult(nodeA,nodeB);
+  probeFrom=null;renderAll();
+}
+function showProbeResult(nodeA,nodeB){
+  const body=$('#analysisBody');
+  let old=$('#probeRow',body);if(old)old.remove();
+  const row=document.createElement('div');row.id='probeRow';row.className='arow probe';
+  if(lastSolve.mode==='dc'){
+    const Va=lastSolve.V[nodeA],Vb=lastSolve.V[nodeB],vd=Va-Vb;
+    row.innerHTML=`<b>🔍 Probe</b><br>Node ${nodeA} \u2212 Node ${nodeB}<br>\u0394V = <b>${fmtV(vd)}</b><br>(${fmtV(Va)} \u2212 ${fmtV(Vb)})`;
+    setStatus(`Probe: \u0394V (Node ${nodeA} \u2212 Node ${nodeB}) = ${fmtV(vd)}`);
+  }else{
+    const Va=lastSolve.V[nodeA],Vb=lastSolve.V[nodeB],vd=csub(Va,Vb);
+    row.innerHTML=`<b>🔍 Probe @ ${lastSolve.freq} Hz</b><br>Node ${nodeA} \u2212 Node ${nodeB}<br>\u0394V = <b>${cabs(vd).toFixed(1)}\u2220${fmtAng(cphase(vd))} V</b>`;
+    setStatus(`Probe: \u0394V (Node ${nodeA} \u2212 Node ${nodeB}) = ${cabs(vd).toFixed(1)}\u2220${fmtAng(cphase(vd))} V`);
+  }
+  body.prepend(row);
+}
+
+function showManual(){
+  modalTitle.textContent='📖 Manual';
+  modalMessage.innerHTML=[
+    '<b>Place:</b> click a component, then click the canvas.',
+    '<b>Move:</b> drag a placed component.',
+    '<b>Wire:</b> click a terminal (turns orange), then click another terminal.',
+    '<b>Select:</b> click a component or wire. Press <b>R</b> to rotate, <b>Del</b> to remove.',
+    '<b>Values:</b> select a component (single-click), then click <b>✏ Edit Value</b> or press <b>E</b> (double-click also works on desktop). Use p/n/µ/m/k/M/G suffixes. AC: <b>5@60Hz</b>. Resistors: 1\u03A9 \u2013 1M\u03A9.',
+    '<b>Probe:</b> press <b>M</b> or click 🔍, then click two terminals to measure the voltage between them (purple readout). After solving, current-carrying wires animate.'
+  ].join('<br><br>');
+  modalBox.style.maxWidth='480px';
+  modalMessage.style.display='block';
+  modalInput.style.display='none';
+  modalCancel.style.display='none';
+  modalOverlay.classList.add('show');
+  modalResolve=()=>{closeModal();};
+}
+$('#btnManual').addEventListener('click',showManual);
+$('#btnRotate').addEventListener('click',rotateSelected);
+$('#btnEditValue').addEventListener('click',editSelectedValue);
+$('#btnDelete').addEventListener('click',deleteSelected);
+$('#btnClear').addEventListener('click',()=>{
+  showConfirm('Clear the entire circuit?',()=>{
+    components=[];wires=[];selected=null;wiringFrom=null;probeFrom=null;wireFlow={};lastSolve=null;
+    clearOverlay();renderAll();clearNodeLayer();clearReadouts();clearGlows();updateOscilloscope();setStatus('Canvas cleared.');
+  });
+});
+function rotateSelected(){
+  if(!selected||selected.kind!=='component'){setStatus('Select a component first, then press R to rotate.');return;}
+  const comp=components.find(c=>c.id===selected.id);comp.rot=(comp.rot+90)%360;renderAll();invalidateSolve();
+}
+function editSelectedValue(){
+  if(placeType||probeMode)return;
+  if(!selected||selected.kind!=='component'){setStatus('Select a component first (single-click it), then click Edit Value or press E.');return;}
+  const comp=components.find(c=>c.id===selected.id);
+  if(!comp)return;
+  editComponentValue(comp);
+}
+function deleteSelected(){
+  if(!selected){setStatus('Nothing selected.');return;}
+  if(selected.kind==='component'){const id=selected.id;components=components.filter(c=>c.id!==id);wires=wires.filter(w=>w.from.compId!==id&&w.to.compId!==id);setStatus('Component deleted.');}
+  else{wires=wires.filter(w=>w.id!==selected.id);setStatus('Wire deleted.');}
+  selected=null;renderAll();invalidateSolve();
+}
+document.addEventListener('keydown',e=>{
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
+  if(e.key==='r'||e.key==='R')rotateSelected();
+  else if(e.key==='e'||e.key==='E')editSelectedValue();
+  else if(e.key==='m'||e.key==='M')toggleProbe();
+  else if(e.key==='Delete'||e.key==='Backspace'){if(selected)e.preventDefault();deleteSelected();}
+  else if(e.key==='Escape'){placeType=null;$$('.palette-item').forEach(x=>x.classList.remove('selected'));wiringFrom=null;clearOverlay();deselect();if(probeMode)toggleProbe();setStatus('Ready.');}
+});
+function setStatus(msg){$('#statusLeft').textContent=msg;}
+function invalidateSolve(){
+  // circuit topology changed — clear stale flow animation & node overlay until re-solved
+  wireFlow={};lastSolve=null;clearNodeLayer();clearReadouts();clearGlows();applyWireFlowClasses();updateOscilloscope();
+}
+
+/* ── value editing ───────────────────────────────────────────────────── */
+function editComponentValue(comp){
+  if(placeType||probeMode)return;
+  const def=COMPONENT_DEFS[comp.type];
+  let hint='';
+  if(comp.type==='acsource') hint=' (format: amp@freqHz, e.g. 5@60Hz)';
+  else if(comp.type==='capacitor') hint=' in farads (e.g. 10\u00b5 or 100n)';
+  else if(comp.type==='inductor') hint=' in henries (e.g. 10m)';
+  else if(comp.type==='resistor') hint=' in ohms (e.g. 4.7k), allowed range 1\u03A9 \u2013 1M\u03A9';
+  else if(comp.type==='potentiometer') hint=' in ohms (e.g. 4.7k)';
+  else if(comp.type==='led') hint=' color: red, orange, amber, yellow, lime, green, teal, cyan, blue, violet, uv, pink, white';
+  else if(comp.type==='lamp') hint=' format: resistance [color] — e.g. 48 red, 100 blue, 60 amber, 48 cyan. Colors: warm, red, green, blue, yellow, white, amber, purple, pink, cyan';
+  showPrompt(`Set value for ${def.label}${hint}`,comp.value,(input)=>{
+    if(input===null||input===undefined)return;
+    let clampMsg=null;
+    if(['resistor','battery','lamp','potentiometer','capacitor','inductor'].includes(comp.type)){
+      const num=parseEngValue(input);
+      if(comp.type==='resistor'){
+        if(isNaN(num)){showAlert('Invalid resistance value. Please enter a number (e.g. 220, 4.7k).');return;}
+        const clamped=Math.min(1000000,Math.max(1,num));
+        if(clamped!==num)clampMsg=`Resistance clamped to allowed range (1\u03A9 \u2013 1M\u03A9): set to ${clamped}\u03A9.`;
+        comp.value=clamped;
+      } else if(comp.type==='lamp'){
+        // lamp value = "resistance [color]" — always store as string
+        const rPart=parseEngValue(input.split(/\s+/)[0]);
+        if(isNaN(rPart)||rPart<=0){showAlert('Invalid lamp value. Format: resistance [color], e.g. 48 red or 100 blue.');return;}
+        comp.value=input.trim();
+      } else {
+        comp.value=isNaN(num)?input:(typeof input==='string'&&/[a-zA-Z\u00b5]/.test(input.trim().slice(-1))?input.trim():num);
+      }
+    } else if(comp.type==='acsource'){
+      const {amp,freq}=parseACValue(input);comp.value=input.trim()||`${amp}@${freq}Hz`;
+    } else if(comp.type==='switch'){comp.value=(input.trim().toLowerCase()==='closed')?'closed':'open';}
+    else{comp.value=input.trim();}
+    renderAll();setStatus(`${def.label} value set to ${comp.value}.`);
+    invalidateSolve();
+    if(clampMsg)showAlert(clampMsg);
+  });
+}
+
+/* ── netlist / union-find ────────────────────────────────────────────── */
+function terminalKey(compId,term){return`${compId}#${term}`;}
+function buildNetlist(){
+  const keys=[];
+  components.forEach(c=>{COMPONENT_DEFS[c.type].terminals.forEach((_,i)=>keys.push(terminalKey(c.id,i)));});
+  const parent={};keys.forEach(k=>parent[k]=k);
+  function find(k){while(parent[k]!==k)k=parent[k];return k;}
+  function union(a,b){const ra=find(a),rb=find(b);if(ra!==rb)parent[ra]=rb;}
+  wires.forEach(w=>union(terminalKey(w.from.compId,w.from.term),terminalKey(w.to.compId,w.to.term)));
+  components.forEach(c=>{if(c.type==='switch'&&c.value==='closed')union(terminalKey(c.id,0),terminalKey(c.id,1));});
+  const rootToNode={};let nextNode=1;
+  components.forEach(c=>{if(c.type==='ground'){const root=find(terminalKey(c.id,0));rootToNode[root]=0;}});
+  keys.forEach(k=>{const root=find(k);if(!(root in rootToNode))rootToNode[root]=nextNode++;});
+  const nodeOf=(compId,term)=>rootToNode[find(terminalKey(compId,term))];
+  return{nodeOf,numNodes:nextNode};
+}
+
+/* ── linear solvers ──────────────────────────────────────────────────── */
+function solveLinear(A,b){
+  const n=b.length;const M=A.map(row=>row.slice());const v=b.slice();
+  for(let i=0;i<n;i++){
+    let piv=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[piv][i]))piv=r;
+    if(Math.abs(M[piv][i])<1e-12)return null;
+    if(piv!==i){[M[i],M[piv]]=[M[piv],M[i]];[v[i],v[piv]]=[v[piv],v[i]];}
+    for(let r=0;r<n;r++){if(r===i)continue;const f=M[r][i]/M[i][i];if(f===0)continue;for(let c=i;c<n;c++)M[r][c]-=f*M[i][c];v[r]-=f*v[i];}
+  }
+  return M.map((row,i)=>v[i]/row[i]);
+}
+function complexSolveLinear(A,b){
+  const n=b.length;const M=A.map(row=>row.map(x=>({re:x.re,im:x.im})));const v=b.map(x=>({re:x.re,im:x.im}));
+  for(let i=0;i<n;i++){
+    let piv=i,best=cabs(M[i][i]);for(let r=i+1;r<n;r++){const mag=cabs(M[r][i]);if(mag>best){best=mag;piv=r;}}
+    if(best<1e-12)return null;
+    if(piv!==i){[M[i],M[piv]]=[M[piv],M[i]];[v[i],v[piv]]=[v[piv],v[i]];}
+    for(let r=0;r<n;r++){if(r===i)continue;const f=cdiv(M[r][i],M[i][i]);if(cabs(f)===0)continue;for(let c=i;c<n;c++)M[r][c]=csub(M[r][c],cmul(f,M[i][c]));v[r]=csub(v[r],cmul(f,v[i]));}
+  }
+  return M.map((row,i)=>cdiv(v[i],row[i]));
+}
+
+/* ── DC solver (MNA) ─────────────────────────────────────────────────── */
+const LED_VF={red:1.8,green:2.1,blue:3.0,yellow:2.0,white:3.2,orange:2.0,amber:2.1,pink:3.1,cyan:3.2,violet:3.5,uv:3.6,lime:2.2,teal:3.1};
+function forwardVoltage(comp){if(comp.type==='diode')return 0.7;if(comp.type==='led')return LED_VF[(comp.value||'red').toString().toLowerCase()]??2.0;return 0.7;}
+
+function runMNA(resistors,sources,n,numNodes,cccs_stamps){
+  if(!cccs_stamps)cccs_stamps=[];
+  const m=sources.length;const size=n+m;
+  const A=Array.from({length:size},()=>new Array(size).fill(0));const z=new Array(size).fill(0);
+  function stampG(a,b,g){if(a!==0)A[a-1][a-1]+=g;if(b!==0)A[b-1][b-1]+=g;if(a!==0&&b!==0){A[a-1][b-1]-=g;A[b-1][a-1]-=g;}}
+  resistors.forEach(r=>stampG(r.a,r.b,1/r.R));
+  sources.forEach((s,k)=>{const row=n+k;if(s.a!==0){A[s.a-1][row]+=1;A[row][s.a-1]+=1;}if(s.b!==0){A[s.b-1][row]-=1;A[row][s.b-1]-=1;}z[row]=s.V;});
+  /* CCCS stamps: {node, k_ctrl, gain} — adds gain*I_{k_ctrl} to node's KCL equation.
+     Convention: G matrix rows = "sum of currents leaving node = 0".
+     Positive gain means gain*I_k contributes positively (current leaving node).
+     NPN active: +β at nC (I_C leaves collector), −β at nE (reduces emitter outflow term).
+     PNP active: −β at nC (I_C enters collector), +β at nE (I_C leaves emitter). */
+  cccs_stamps.forEach(({node,k_ctrl,gain})=>{if(node!==0)A[node-1][n+k_ctrl]+=gain;});
+  const x=solveLinear(A,z);if(!x)return null;
+  const V=new Array(numNodes);V[0]=0;for(let i=0;i<n;i++)V[i+1]=x[i];
+  return{V,sourceCurrents:sources.map((_,k)=>x[n+k])};
+}
+
+function solveCircuit(){
+  const{nodeOf,numNodes}=buildNetlist();const n=numNodes-1;
+  const resistors=[],sources=[],nonlinear=[],skipped=[],openElements=[],bjts=[];
+  components.forEach(c=>{
+    if(c.type==='ground')return;
+    const a=nodeOf(c.id,0);const b=COMPONENT_DEFS[c.type].terminals.length>1?nodeOf(c.id,1):null;
+    if(['resistor','lamp','potentiometer'].includes(c.type)){const R=parseEngValue(c.value);if(!(R>0)){skipped.push(`${COMPONENT_DEFS[c.type].label} — invalid R`);return;}resistors.push({a,b,R,comp:c});}
+    else if(c.type==='battery'){const V=parseEngValue(c.value);if(isNaN(V)){skipped.push('Battery — invalid V');return;}sources.push({a,b,V,comp:c});}
+    else if(c.type==='switch'){if(c.value!=='closed')skipped.push(`Switch — open`);}
+    else if(c.type==='diode'||c.type==='led')nonlinear.push({a,b,Vf:forwardVoltage(c),comp:c});
+    else if(c.type==='inductor'){const L=parseEngValue(c.value);if(!(L>0)){skipped.push('Inductor — invalid L');return;}sources.push({a,b,V:0,comp:c,_short:true});skipped.push(`${COMPONENT_DEFS[c.type].label} — DC steady state: acts as a wire (short)`);}
+    else if(c.type==='capacitor'){const Cv=parseEngValue(c.value);if(!(Cv>0)){skipped.push('Capacitor — invalid C');return;}openElements.push({a,b,C:Cv,comp:c,_I:0});skipped.push(`${COMPONENT_DEFS[c.type].label} — DC steady state: open circuit (no current)`);}
+    else if(c.type==='transistor'){
+      const isPNP=String(c.value||'').toUpperCase().includes('PNP');
+      const nC=nodeOf(c.id,1),nE=nodeOf(c.id,2);
+      bjts.push({nB:a,nC,nE,isPNP,comp:c});
+    }
+    else skipped.push(`${COMPONENT_DEFS[c.type].label} — open in DC`);
+  });
+  if(n<=0)return{ok:false,error:'Need at least one ground and one connected component.',skipped};
+  if(nonlinear.length>10)return{ok:false,error:'Too many diodes/LEDs (max 10).',skipped};
+
+  /* ── BJT companion-model MNA solve ────────────────────────────────────
+     Each BJT is tried in three states per iteration: OFF (0), ACTIVE (1), SATURATED (2).
+     Active:    stamp V_BE source + CCCS (β·I_B at collector/emitter).
+     Saturated: stamp V_BE source + V_CE_sat source (no CCCS needed).
+     OFF:       no stamps; check that V_BE < 0.7V in solution.
+
+     Convention verified for NPN: the B-E voltage source (a=nB, b=nE) yields
+     I_k = +I_B (positive). CCCS: +β at nC, -β at nE adds β·I_B flowing from
+     collector through transistor to emitter, which is the correct KCL contribution.
+     PNP is the mirror: source (a=nE, b=nB), CCCS: -β at nC, +β at nE.        */
+  const BJT_BETA=100, VBE_ON=0.7, VCEsat=0.2;
+  // Generate all BJT state combinations (3^N); try OFF last so conducting wins
+  const bjt_state_list=bjts.length===0?[[]]:bjts.reduce((acc)=>acc.flatMap(s=>[0,1,2].map(st=>[...s,st])),[[]]); // [state per BJT]
+  // Order: active first (all-1), then sat, then off
+  bjt_state_list.sort((a,b)=>b.reduce((s,x)=>s+x,0)-a.reduce((s,x)=>s+x,0));
+
+  let chosen=null;
+  for(const bjt_states of bjt_state_list){
+    if(chosen)break;
+    // Build per-trial BJT sources and CCCS stamps
+    const bjt_srcs=[];      // voltage sources injected for this BJT state trial
+    const cccs=[];          // CCCS stamp list
+    const bjt_src_info=[];  // {state, k_BE, k_CE} per BJT
+    let offset=sources.length; // source vector index offset (BJT srcs go after main srcs)
+    bjts.forEach((bjt,i)=>{
+      const state=bjt_states[i]??1;
+      const{nB,nC,nE,isPNP}=bjt;
+      bjt_src_info.push({state});
+      if(state===0){return;} // OFF: no stamps
+      // V_BE (or V_EB for PNP) source
+      const k_BE=offset++;
+      bjt_src_info[i].k_BE=k_BE;
+      bjt_srcs.push({a:isPNP?nE:nB, b:isPNP?nB:nE, V:VBE_ON, comp:bjt.comp, _bjtSrc:true});
+      if(state===1){
+        // Active: CCCS stamps
+        if(!isPNP){cccs.push({node:nC,k_ctrl:k_BE,gain:+BJT_BETA});cccs.push({node:nE,k_ctrl:k_BE,gain:-BJT_BETA});}
+        else      {cccs.push({node:nC,k_ctrl:k_BE,gain:-BJT_BETA});cccs.push({node:nE,k_ctrl:k_BE,gain:+BJT_BETA});}
+      }else{
+        // Saturated: V_CE_sat source too
+        const k_CE=offset++;
+        bjt_src_info[i].k_CE=k_CE;
+        bjt_srcs.push({a:isPNP?nE:nC, b:isPNP?nC:nE, V:VCEsat, comp:bjt.comp, _bjtSrc:true});
+      }
+    });
+
+    // Diode state loop (inner)
+    const combos=nonlinear.length?(1<<nonlinear.length):1;
+    for(let mask=0;mask<combos;mask++){
+      const eR=resistors.slice();
+      const eS=[...sources,...bjt_srcs];
+      const nlSrcIdx=[];
+      nonlinear.forEach((d,i)=>{
+        if((mask>>i)&1){nlSrcIdx[i]=eS.length;eS.push({a:d.a,b:d.b,V:d.Vf,comp:d.comp,_nl:true});}
+        else nlSrcIdx[i]=-1;
+      });
+      const res=runMNA(eR,eS,n,numNodes,cccs);
+      if(!res)continue;
+      let valid=true;
+      // Diode checks
+      nonlinear.forEach((d,i)=>{
+        if(!valid)return;
+        if((mask>>i)&1){if(res.sourceCurrents[nlSrcIdx[i]]<-1e-7)valid=false;}
+        else{if(res.V[d.a]-res.V[d.b]>d.Vf+1e-6)valid=false;}
+      });
+      // BJT state consistency checks
+      bjts.forEach((bjt,i)=>{
+        if(!valid)return;
+        const{nB,nC,nE,isPNP}=bjt;
+        const state=bjt_states[i]??1;
+        if(state===0){
+          // OFF: V_BE must be below threshold
+          const vbe=isPNP?(res.V[nE]-res.V[nB]):(res.V[nB]-res.V[nE]);
+          if(vbe>=VBE_ON-0.05)valid=false;
+        }else if(state===1){
+          // Active: V_CE must be >= VCEsat, and I_B must be positive
+          const vce=isPNP?(res.V[nE]-res.V[nC]):(res.V[nC]-res.V[nE]);
+          if(vce<VCEsat-1e-6)valid=false;
+          const k_BE=bjt_src_info[i].k_BE;
+          if(k_BE!==undefined&&res.sourceCurrents[k_BE]<-1e-9)valid=false;
+        }else{
+          // Saturated: V_CE should equal VCEsat (source enforces it); check I_B > 0
+          const k_BE=bjt_src_info[i].k_BE;
+          if(k_BE!==undefined&&res.sourceCurrents[k_BE]<-1e-9)valid=false;
+        }
+      });
+      if(valid){chosen={mask,res,extraResistors:eR,extraSources:eS,bjt_states,bjt_src_info,nlSrcIdx};break;}
+    }
+  }
+
+  if(!chosen){
+    // Fallback: solve ignoring BJTs/diodes
+    const res=runMNA(resistors,sources,n,numNodes);
+    if(!res)return{ok:false,error:'Circuit matrix is singular — check for isolated source, missing ground, or short.',skipped};
+    chosen={mask:0,res,extraResistors:resistors,extraSources:sources,bjt_states:bjts.map(()=>0),bjt_src_info:bjts.map(()=>({})),nlSrcIdx:[]};
+    if(nonlinear.length)skipped.push('Could not find consistent diode state — showing all OFF.');
+    if(bjts.length)skipped.push('Could not find consistent BJT state — shown as OFF.');
+  }
+
+  nonlinear.forEach((d,i)=>{const on=(chosen.mask>>i)&1;skipped.push(`${COMPONENT_DEFS[d.comp.type].label} is ${on?`ON (Vf≈${d.Vf}V)`:'OFF (open)'}`);});
+
+  // Tag resistors with current
+  const allR=chosen.extraResistors;
+  allR.forEach(r=>{r._I=(chosen.res.V[r.a]-chosen.res.V[r.b])/r.R;});
+  chosen.extraSources.forEach((s,k)=>{s._I=chosen.res.sourceCurrents[k];});
+
+  // Build BJT result objects and per-terminal flow elements
+  const bjtResults=[];
+  const bjtFlowEls=[];
+  bjts.forEach((bjt,i)=>{
+    const{nB,nC,nE,isPNP,comp}=bjt;
+    const state=(chosen.bjt_states??[])[i]??0;
+    const info=(chosen.bjt_src_info??[])[i]??{};
+    const V=chosen.res.V;
+    let IB=0,IC=0,IE=0;
+    if(state===1){
+      // Active
+      IB=chosen.res.sourceCurrents[info.k_BE]??0;
+      IC=BJT_BETA*IB;IE=IB+IC;
+    }else if(state===2){
+      // Saturated
+      IB=chosen.res.sourceCurrents[info.k_BE]??0;
+      const I_CE_src=chosen.res.sourceCurrents[info.k_CE]??0;
+      // For NPN sat: V_CE source (a=nC,b=nE) current is the source current that enforces V_CE_sat.
+      // The transistor pulls I_C = I_CE_src (positive = current enters nC from source = absorbed by transistor)
+      IC=Math.abs(I_CE_src);IE=IB+IC;
+    }
+    const VBE=isPNP?(V[nE]-V[nB]):(V[nB]-V[nE]);
+    const VCE=isPNP?(V[nE]-V[nC]):(V[nC]-V[nE]);
+    const regionLabel=state===0?'OFF (cutoff)':state===1?'Active':'Saturated';
+    bjtResults.push({IB,IC,IE,VBE,VCE,state,regionLabel,comp,isPNP,nB,nC,nE});
+    skipped.push(`BJT (${isPNP?'PNP':'NPN'}): ${regionLabel} — I_B=${(IB*1e6).toFixed(0)}µA, I_C=${(IC*1e3).toFixed(2)}mA, V_${isPNP?'EC':'CE'}=${VCE.toFixed(2)}V`);
+
+    // Per-terminal flow elements for wire animation
+    // I_ext > 0 means current flows FROM external wire INTO this terminal
+    const termFlows_NPN=[
+      {term:0, I_ext:+IB},   // B: current enters from external (base drive)
+      {term:1, I_ext:+IC},   // C: current enters from external (collector load)
+      {term:2, I_ext:-(IB+IC)}, // E: current exits to GND
+    ];
+    const termFlows_PNP=[
+      {term:0, I_ext:-IB},   // B: current exits to R_B→GND
+      {term:1, I_ext:-IC},   // C: current exits to R_C→GND
+      {term:2, I_ext:+(IB+IC)}, // E: current enters from V_CC
+    ];
+    bjtFlowEls.push({comp,_termFlows:isPNP?termFlows_PNP:termFlows_NPN});
+  });
+
+  const allCurrentEls=[...allR,...chosen.extraSources.filter(s=>!s._bjtSrc),...openElements,...bjtFlowEls];
+  return{ok:true,V:chosen.res.V,resistors,sources:chosen.extraSources,openElements,bjtResults,allCurrentElements:allCurrentEls,sourceCurrents:chosen.res.sourceCurrents,skipped,nodeOf,numNodes};
+}
+
+/* ── AC solver ───────────────────────────────────────────────────────── */
+function solveAC(){
+  const{nodeOf,numNodes}=buildNetlist();const n=numNodes-1;
+  if(n<=0)return{ok:false,error:'Need at least one ground and one connected component.',skipped:[]};
+  let freq=null;
+  components.forEach(c=>{if(c.type==='acsource'&&freq===null)freq=parseACValue(c.value).freq;});
+  const freqSet=new Set();components.forEach(c=>{if(c.type==='acsource')freqSet.add(parseACValue(c.value).freq);});
+  const multiFreq=freqSet.size>1;if(freq===null)freq=60;const w=2*Math.PI*freq;
+  const admittances=[],sources=[],skipped=[];
+  if(multiFreq)skipped.push('Multiple frequencies found — using first source\u2019s frequency.');
+  components.forEach(c=>{
+    if(c.type==='ground')return;
+    const a=nodeOf(c.id,0);const b=COMPONENT_DEFS[c.type].terminals.length>1?nodeOf(c.id,1):null;
+    if(['resistor','lamp','potentiometer'].includes(c.type)){const R=parseEngValue(c.value);if(!(R>0)){skipped.push(`${COMPONENT_DEFS[c.type].label} — invalid R`);return;}admittances.push({a,b,Y:Cx(1/R,0),comp:c});}
+    else if(c.type==='capacitor'){const Cv=parseEngValue(c.value);if(!(Cv>0)){skipped.push('Capacitor — invalid C');return;}admittances.push({a,b,Y:Cx(0,w*Cv),comp:c});}
+    else if(c.type==='inductor'){const L=parseEngValue(c.value);if(!(L>0)||w===0){skipped.push('Inductor — invalid L or f=0');return;}admittances.push({a,b,Y:Cx(0,-1/(w*L)),comp:c});}
+    else if(c.type==='acsource'){const{amp}=parseACValue(c.value);sources.push({a,b,V:Cx(amp,0),comp:c});}
+    else if(c.type==='battery')sources.push({a,b,V:Cx(0,0),comp:c});
+    else if(c.type==='switch'){if(c.value!=='closed')skipped.push('Switch — open');}
+    else skipped.push(`${COMPONENT_DEFS[c.type].label} — open in AC`);
+  });
+  const m=sources.length;const size=n+m;
+  const A=Array.from({length:size},()=>Array.from({length:size},()=>Cx(0,0)));
+  const z=Array.from({length:size},()=>Cx(0,0));
+  function stampY(a,b,Y){if(a!==0)A[a-1][a-1]=cadd(A[a-1][a-1],Y);if(b!==0)A[b-1][b-1]=cadd(A[b-1][b-1],Y);if(a!==0&&b!==0){A[a-1][b-1]=csub(A[a-1][b-1],Y);A[b-1][a-1]=csub(A[b-1][a-1],Y);}}
+  admittances.forEach(e=>stampY(e.a,e.b,e.Y));
+  sources.forEach((s,k)=>{const row=n+k;if(s.a!==0){A[s.a-1][row]=cadd(A[s.a-1][row],Cx(1,0));A[row][s.a-1]=cadd(A[row][s.a-1],Cx(1,0));}if(s.b!==0){A[s.b-1][row]=csub(A[s.b-1][row],Cx(1,0));A[row][s.b-1]=csub(A[row][s.b-1],Cx(1,0));}z[row]=s.V;});
+  const x=complexSolveLinear(A,z);
+  if(!x)return{ok:false,error:'Circuit matrix is singular.',skipped};
+  const V=new Array(numNodes);V[0]=Cx(0,0);for(let i=0;i<n;i++)V[i+1]=x[i];
+  admittances.forEach(e=>{const vd=csub(V[e.a],V[e.b]);e._I=cmul(vd,e.Y);});
+  sources.forEach((s,k)=>{s._I=x[n+k];});
+  return{ok:true,V,admittances,sources,allCurrentElements:[...admittances,...sources],sourceCurrents:sources.map((_,k)=>x[n+k]),skipped,nodeOf,numNodes,freq};
+}
+
+/* ── wire flow computation & animation ──────────────────────────────── */
+function computeWireFlows(result,mode){
+  const flows={};
+  wires.forEach(w=>{flows[w.id]={dir:0,mag:0};});
+  (result.allCurrentElements||[]).forEach(el=>{
+    const comp=el.comp;
+    // ── BJT special: per-terminal flow entries ──────────────────────────
+    if(el._termFlows){
+      el._termFlows.forEach(({term,I_ext})=>{
+        const mag=Math.abs(I_ext);if(mag<1e-9)return;
+        const signI=Math.sign(I_ext||1);
+        wires.forEach(w=>{
+          let endpoint=null;
+          if(w.from.compId===comp.id&&w.from.term===term)endpoint='from';
+          else if(w.to.compId===comp.id&&w.to.term===term)endpoint='to';
+          if(!endpoint)return;
+          const intoTerminal=signI; // >0 = current enters terminal from external wire
+          const dirAlong=endpoint==='to'?intoTerminal:-intoTerminal;
+          flows[w.id]={dir:dirAlong,mag};
+        });
+      });
+      return;
+    }
+    // ── Standard 2-terminal element ─────────────────────────────────────
+    const terms=COMPONENT_DEFS[comp.type]?.terminals;
+    if(!terms||terms.length<2)return;
+    let Icomp, mag;
+    if(mode==='dc'){Icomp=el._I;mag=Math.abs(Icomp);}
+    else{Icomp=el._I;mag=cabs(Icomp);if(mag===0)return;}
+    if(mag<1e-9)return;
+    const signI = mode==='dc' ? Math.sign(Icomp||1) : 1;
+    const phaseRad = mode==='ac' ? Math.atan2(Icomp.im,Icomp.re) : 0;
+    [0,1].forEach(term=>{
+      wires.forEach(w=>{
+        let endpoint=null;
+        if(w.from.compId===comp.id&&w.from.term===term)endpoint='from';
+        else if(w.to.compId===comp.id&&w.to.term===term)endpoint='to';
+        if(!endpoint)return;
+        const intoTerminal = term===0 ? signI : -signI;
+        const dirAlong = endpoint==='to' ? intoTerminal : -intoTerminal;
+        if(mode==='dc'){
+          flows[w.id]={dir:dirAlong,mag};
+        }else{
+          const phase = dirAlong<0 ? phaseRad+Math.PI : phaseRad;
+          flows[w.id]={mag,phase,freq:result.freq,ac:true};
+        }
+      });
+    });
+  });
+  return flows;
+}
+let flowAnimToken=0;
+function applyWireFlowClasses(){
+  wires.forEach(w=>{
+    const line=$(`#${w.id}`,wireLayer);if(!line)return;
+    const f=wireFlow[w.id];
+    if(f&&f.mag>1e-9){
+      line.classList.add('flowing');
+      line.classList.toggle('ac',!!f.ac);
+      if(f.ac){
+        line.dataset.acmode='1';
+        line.dataset.mag=f.mag;
+        line.dataset.phase=f.phase;
+        line.dataset.freq=f.freq||60;
+        delete line.dataset.dir;delete line.dataset.speed;
+      }else{
+        delete line.dataset.acmode;delete line.dataset.mag;delete line.dataset.phase;delete line.dataset.freq;
+        line.dataset.dir=f.dir>=0?'1':'-1';
+        // speed scaled by current magnitude (amps) — clamp for sanity
+        const speed=Math.min(Math.max(f.mag*4000,6),60); // px/sec equivalent factor
+        line.dataset.speed=speed;
+      }
+    }else{
+      line.classList.remove('flowing','ac');
+      delete line.dataset.dir;delete line.dataset.speed;
+      delete line.dataset.acmode;delete line.dataset.mag;delete line.dataset.phase;delete line.dataset.freq;
+    }
+  });
+}
+(function flowLoop(){
+  let last=performance.now();
+  function step(now){
+    const dt=(now-last)/1000;last=now;
+    const t=now/1000;
+    $$('.wire-line.flowing',wireLayer).forEach(line=>{
+      let dir,speed;
+      if(line.dataset.acmode==='1'){
+        const mag=parseFloat(line.dataset.mag),phase=parseFloat(line.dataset.phase),freq=parseFloat(line.dataset.freq);
+        // instantaneous current i(t)=mag*cos(2π f t + phase) — direction flips each half-cycle,
+        // and animation speed (and pause at zero-crossings) tracks the real AC waveform.
+        const val=mag*Math.cos(2*Math.PI*freq*t+phase);
+        dir=val>=0?1:-1;
+        speed=Math.min(Math.abs(val)*4000,60);
+      }else{
+        dir=parseFloat(line.dataset.dir||'1');
+        speed=parseFloat(line.dataset.speed||'20');
+      }
+      let off=parseFloat(line.dataset.off||'0');
+      off-=dir*speed*dt;
+      line.dataset.off=off;
+      line.style.strokeDashoffset=off;
+    });
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+})();
+
+/* ── result display ──────────────────────────────────────────────────── */
+function fmtV(v){return(Math.abs(v)<1e-9?0:v).toFixed(1)+' V';}
+function fmtA(v){return(Math.abs(v*1000)<1e-6?0:v*1000).toFixed(1)+' mA';}
+function fmtW(v){return(Math.abs(v*1000)<1e-6?0:v*1000).toFixed(1)+' mW';}
+function fmtAng(deg){let d=deg%360;if(d>180)d-=360;if(d<-180)d+=360;return(Math.abs(d)<1e-6?0:d).toFixed(1)+'\u00b0';}
+function clearNodeLayer(){$('#nodeLayer').innerHTML='';}
+function clearReadouts(){$$('.comp-readout-group',overlayLayer).forEach(g=>g.remove());}
+function clearGlows(){glowLayer.innerHTML='';}
+
+/* ── Oscilloscope (V / I waveforms for the selected component) ─────────── */
+function getElementFor(compId){
+  if(!lastSolve||!lastSolve.elements)return null;
+  return lastSolve.elements.find(el=>el.comp.id===compId)||null;
+}
+function updateOscilloscope(){
+  const body=$('#oscBody');if(!body)return;
+  if(!lastSolve){body.innerHTML='<div class="hint">Run a Solve, then select a two-terminal component to view its voltage &amp; current waveforms.</div>';return;}
+  if(!selected||selected.kind!=='component'){body.innerHTML='<div class="hint">Select a component (single-click it) to view its V/I waveforms.</div>';return;}
+  const comp=components.find(c=>c.id===selected.id);
+  const el=comp?getElementFor(comp.id):null;
+  if(!comp||!el||COMPONENT_DEFS[comp.type].terminals.length<2){body.innerHTML='<div class="hint">This component has no measurable current — select a resistor, lamp, capacitor, inductor, source, etc.</div>';return;}
+  renderOscilloscopeSVG(body,comp,el);
+}
+function renderOscilloscopeSVG(body,comp,el){
+  const W=246,H=104,pad=6,mid=H/2,amp=mid-pad-2;
+  const pts=200;const vArr=[],iArr=[];
+  let vPeak,iPeak,freqLabel,phaseLabel;
+  if(lastSolve.mode==='dc'){
+    const vd=lastSolve.V[el.a]-lastSolve.V[el.b];const I=el._I;
+    vPeak=vd;iPeak=I;
+    for(let k=0;k<pts;k++){vArr.push(vd);iArr.push(I);}
+    freqLabel='DC (steady state)';phaseLabel=null;
+  }else{
+    const freq=lastSolve.freq,w=2*Math.PI*freq;
+    const vd=csub(lastSolve.V[el.a],lastSolve.V[el.b]);const I=el._I;
+    vPeak=cabs(vd);iPeak=cabs(I);
+    const vPh=Math.atan2(vd.im,vd.re),iPh=Math.atan2(I.im,I.re);
+    const T=2/freq;
+    for(let k=0;k<pts;k++){const t=T*k/(pts-1);vArr.push(vPeak*Math.cos(w*t+vPh));iArr.push(iPeak*Math.cos(w*t+iPh));}
+    let diff=(vPh-iPh)*180/Math.PI;diff=((diff+540)%360)-180;
+    freqLabel=`${freq} Hz`;phaseLabel=fmtAng(diff);
+  }
+  const vMax=Math.max(Math.abs(vPeak),1e-12),iMax=Math.max(Math.abs(iPeak),1e-12);
+  const path=(arr,max)=>arr.map((v,k)=>{const x=pad+(k/(arr.length-1))*(W-2*pad);const y=mid-(v/max)*amp;return(k===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1);}).join(' ');
+  const isAC=lastSolve.mode==='ac';
+  const vDisp=isAC?vPeak.toFixed(2)+' V (pk)':fmtV(vPeak);
+  const iDisp=isAC?(iPeak*1000).toFixed(1)+' mA (pk)':fmtA(iPeak);
+  body.innerHTML=`
+    <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;display:block;">
+      <line x1="0" y1="${mid-amp/2}" x2="${W}" y2="${mid-amp/2}" stroke="var(--border)" stroke-width="0.5"/>
+      <line x1="0" y1="${mid+amp/2}" x2="${W}" y2="${mid+amp/2}" stroke="var(--border)" stroke-width="0.5"/>
+      <line x1="${pad}" y1="${mid}" x2="${W-pad}" y2="${mid}" stroke="var(--border)" stroke-width="1"/>
+      <path d="${path(vArr,vMax)}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+      <path d="${path(iArr,iMax)}" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="${isAC?'0':'4 3'}"/>
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-size:.71rem;margin-top:5px;">
+      <span style="color:var(--accent);font-weight:600;">■ V = ${vDisp}</span>
+      <span style="color:var(--warn);font-weight:600;">■ I = ${iDisp}</span>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted);margin-top:3px;">${COMPONENT_DEFS[comp.type].label} &middot; f = ${freqLabel}${phaseLabel!==null?` &middot; \u0394\u03c6(V\u2212I) = ${phaseLabel}`:''}</div>
+  `;
+}
+const LED_GLOW_COLOR={red:'#ff5048',green:'#4dff7a',blue:'#5ab4ff',yellow:'#ffe24d',white:'#ffffff',orange:'#ff9500',amber:'#ffcc00',pink:'#ff80c0',cyan:'#00ffee',violet:'#c080ff',uv:'#9040ff',lime:'#c0ff40',teal:'#00ffc8'};
+const LAMP_GLOW_COLOR={warm:'#ffd97a',red:'#ff5048',green:'#4dff7a',blue:'#5ab4ff',yellow:'#ffe24d',white:'#e8eeff',amber:'#ffaa00',purple:'#cc80ff',pink:'#ff80c0',cyan:'#00eeff'};
+function addGlow(comp,color,intensity){
+  const r=24+Math.min(intensity,1)*36;
+  const op=0.25+Math.min(intensity,1)*0.55;
+  const c=svgEl('circle',{cx:comp.x,cy:comp.y,r,fill:color,opacity:op.toFixed(2),filter:'url(#glowBlur)',class:'comp-glow-fx'});
+  glowLayer.appendChild(c);
+}
+function addReadout(comp,lines,isAC){
+  const g=svgEl('g',{class:'comp-readout-group',transform:`translate(${comp.x},${comp.y})`});
+  const w=Math.max(...lines.map(l=>l.length))*5.6+8;
+  const h=lines.length*12+4;
+  g.appendChild(svgEl('rect',{class:'comp-readout-bg',x:-w/2,y:34,width:w,height:h,rx:4}));
+  lines.forEach((l,i)=>{
+    const t=svgEl('text',{class:'comp-readout'+(isAC?' ac':''),x:0,y:34+12*(i+1)-2});
+    t.textContent=l;g.appendChild(t);
+  });
+  overlayLayer.appendChild(g);
+}
+
+function runSolve(){
+  const result=solveCircuit();const body=$('#analysisBody');clearNodeLayer();clearReadouts();clearGlows();lastMode='dc';
+  if(!result.ok){
+    body.innerHTML=`<div class="err">\u26a0 ${result.error}</div>`+(result.skipped.length?`<div class="hint" style="margin-top:8px;"><b style="color:var(--warn)">Notes:</b><br>${result.skipped.join('<br>')}</div>`:'');
+    setStatus('DC solve failed — see Analysis panel.');wireFlow={};applyWireFlowClasses();lastSolve=null;updateOscilloscope();return;
+  }
+  const{V,resistors,sources,openElements,sourceCurrents,skipped,nodeOf,numNodes}=result;
+  let html='';
+  html+=`<div class="arow"><b>Node Voltages (DC)</b><br>`;
+  for(let i=0;i<numNodes;i++)html+=`Node ${i}${i===0?' (GND)':''}: <b>${fmtV(V[i])}</b><br>`;
+  html+=`</div>`;
+  resistors.forEach(r=>{const vd=V[r.a]-V[r.b];const I=vd/r.R;html+=`<div class="arow"><b>${COMPONENT_DEFS[r.comp.type].label}</b> (${r.R}\u03A9)<br>V=${fmtV(vd)}<br>I=${fmtA(I)}<br>P=${fmtW(Math.abs(vd*I))}</div>`;});
+  sources.forEach((s,k)=>{if(s.comp.type!=='battery')return;const I=sourceCurrents[k];html+=`<div class="arow"><b>Battery</b> (${s.V}V)<br>I=${fmtA(-I)}<br>P<sub>out</sub>=${fmtW(s.V*(-I))}</div>`;});
+  sources.forEach((s,k)=>{if(s.comp.type!=='inductor')return;const I=sourceCurrents[k];html+=`<div class="arow"><b>Inductor</b> (${s.comp.value}H)<br>V=0.0 V (short)<br>I=${fmtA(I)}<br><span style="color:var(--muted);">DC steady state: acts as a wire</span></div>`;});
+  (openElements||[]).forEach(e=>{const vd=V[e.a]-V[e.b];const Q=e.C*vd;html+=`<div class="arow"><b>${COMPONENT_DEFS[e.comp.type].label}</b> (${e.comp.value}F)<br>V=${fmtV(vd)}<br>I=0.0 mA (steady state)<br>Q=C\u00b7V=${(Q*1e6).toFixed(2)}\u00b5C</div>`;});
+  (result.bjtResults||[]).forEach(r=>{
+    const regionColor=r.state===0?'var(--danger)':r.state===1?'var(--accent)':'var(--accent2)';
+    const typeStr=r.isPNP?'PNP':'NPN';
+    html+=`<div class="arow" style="border-color:${regionColor};background:rgba(88,166,255,.05);">
+      <b>BJT ${typeStr}</b> &nbsp;<span style="color:${regionColor};font-weight:700;">[${r.regionLabel}]</span><br>
+      V_BE=${r.VBE.toFixed(2)} V &nbsp; V_${r.isPNP?'EC':'CE'}=${r.VCE.toFixed(2)} V<br>
+      I_B=${(r.IB*1e6).toFixed(1)} µA &nbsp; I_C=${fmtA(r.IC)} &nbsp; I_E=${fmtA(r.IE)}<br>
+      β=${r.state===1?'100 (active)':r.state===2?`forced=${r.IB>1e-9?(r.IC/r.IB).toFixed(0):'—'}`:'—'}
+    </div>`;
+  });
+  (result.bjtResults||[]).forEach(bjt=>{
+    // BJT glow when conducting
+    if(bjt.state>0&&bjt.IC>0.001)addGlow(bjt.comp,'#58a6ff',bjt.IC/0.1);
+  });
+  if(skipped.length)html+=`<div class="hint" style="margin-top:6px;"><b style="color:var(--warn)">Notes:</b><br>${skipped.join('<br>')}</div>`;
+  body.innerHTML=html;
+  const shown=new Set();
+  components.forEach(c=>{COMPONENT_DEFS[c.type].terminals.forEach((_,i)=>{const node=nodeOf(c.id,i);if(shown.has(node))return;shown.add(node);const[x,y]=terminalAbsPos(c,i);$('#nodeLayer').appendChild(svgEl('circle',{cx:x,cy:y,r:4,class:'node-dot'}));const lbl=svgEl('text',{x,y:y-10,class:'node-label'});lbl.textContent=node===0?'GND':`V${node}=${V[node].toFixed(1)}`;$('#nodeLayer').appendChild(lbl);});});
+  lastSolve={V,nodeOf,numNodes,mode:'dc',elements:result.allCurrentElements};
+  wireFlow=computeWireFlows(result,'dc');applyWireFlowClasses();
+  (result.allCurrentElements||[]).forEach(el=>{
+    if(el._termFlows)return; // BJT flow element — no V/I readout (handled via bjtResults above)
+    const vd=V[el.a]-V[el.b];
+    addReadout(el.comp,[fmtV(vd),fmtA(el._I)],false);
+    const I=Math.abs(el._I);
+    if(el.comp.type==='led'&&I>0.0005){
+      const color=LED_GLOW_COLOR[(el.comp.value||'red').toString().toLowerCase()]||LED_GLOW_COLOR.red;
+      addGlow(el.comp,color,I/0.02);
+    }else if(el.comp.type==='lamp'){
+      const P=Math.abs(vd*el._I);
+      if(P>0.005){
+        const lampColor=(String(el.comp.value).trim().split(/\s+/)[1]||'warm').toLowerCase();
+        addGlow(el.comp,LAMP_GLOW_COLOR[lampColor]||LAMP_GLOW_COLOR.warm,P/1.0);
+      }
+    }
+  });
+  setStatus(`DC solved: ${numNodes} node(s), ${resistors.length} resistive element(s). Watch the highlighted wires for current flow.`);
+  updateOscilloscope();
+}
+
+function runSolveAC(){
+  const result=solveAC();const body=$('#analysisBody');clearNodeLayer();clearReadouts();clearGlows();lastMode='ac';
+  if(!result.ok){
+    body.innerHTML=`<div class="err">\u26a0 ${result.error}</div>`+(result.skipped&&result.skipped.length?`<div class="hint" style="margin-top:8px;"><b style="color:var(--warn)">Notes:</b><br>${result.skipped.join('<br>')}</div>`:'');
+    setStatus('AC solve failed — see Analysis panel.');wireFlow={};applyWireFlowClasses();lastSolve=null;updateOscilloscope();return;
+  }
+  const{V,admittances,sources,sourceCurrents,skipped,nodeOf,numNodes,freq}=result;
+  let html=`<div class="arow ac"><b>AC @ ${freq} Hz</b> (\u03c9=${(2*Math.PI*freq).toFixed(1)} rad/s)<br>`;
+  for(let i=0;i<numNodes;i++){if(i===0){html+=`Node 0 (GND): <b>0.000\u22200.0\u00b0 V</b><br>`;continue;}html+=`Node ${i}: <b>${cabs(V[i]).toFixed(1)}\u2220${fmtAng(cphase(V[i]))} V</b><br>`;}
+  html+=`</div>`;
+  admittances.forEach(e=>{const vd=csub(V[e.a],V[e.b]);const I=cmul(vd,e.Y);const def=COMPONENT_DEFS[e.comp.type];let lbl=def.label;if(['resistor','lamp','potentiometer'].includes(e.comp.type))lbl+=` (${e.comp.value}\u03A9)`;else if(e.comp.type==='capacitor')lbl+=` (${e.comp.value}F)`;else if(e.comp.type==='inductor')lbl+=` (${e.comp.value}H)`;html+=`<div class="arow ac"><b>${lbl}</b><br>V=${cabs(vd).toFixed(1)}\u2220${fmtAng(cphase(vd))} V<br>I=${(cabs(I)*1000).toFixed(1)}\u2220${fmtAng(cphase(I))} mA</div>`;});
+  sources.forEach((s,k)=>{const I=sourceCurrents[k];let lbl=COMPONENT_DEFS[s.comp.type].label;if(s.comp.type==='acsource')lbl+=` (${s.comp.value})`;else lbl+=' (AC short)';html+=`<div class="arow ac"><b>${lbl}</b><br>I=${(cabs(I)*1000).toFixed(1)}\u2220${fmtAng(cphase(I))} mA</div>`;});
+  if(skipped.length)html+=`<div class="hint" style="margin-top:6px;"><b style="color:var(--warn)">Notes:</b><br>${skipped.join('<br>')}</div>`;
+  body.innerHTML=html;
+  const shown=new Set();
+  components.forEach(c=>{COMPONENT_DEFS[c.type].terminals.forEach((_,i)=>{const node=nodeOf(c.id,i);if(shown.has(node))return;shown.add(node);const[x,y]=terminalAbsPos(c,i);$('#nodeLayer').appendChild(svgEl('circle',{cx:x,cy:y,r:4,class:'node-dot ac'}));const lbl=svgEl('text',{x,y:y-10,class:'node-label ac'});lbl.textContent=node===0?'GND':`V${node}=${cabs(V[node]).toFixed(1)}\u2220${fmtAng(cphase(V[node]))}`;$('#nodeLayer').appendChild(lbl);});});
+  lastSolve={V,nodeOf,numNodes,mode:'ac',freq,elements:result.allCurrentElements};
+  wireFlow=computeWireFlows(result,'ac');applyWireFlowClasses();
+  (result.allCurrentElements||[]).forEach(el=>{
+    const vd=csub(V[el.a],V[el.b]);
+    addReadout(el.comp,[`${cabs(vd).toFixed(1)}\u2220${fmtAng(cphase(vd))}V`,`${(cabs(el._I)*1000).toFixed(1)}\u2220${fmtAng(cphase(el._I))}mA`],true);
+    if(el.comp.type==='lamp'){
+      const P=cabs(vd)*cabs(el._I);
+      if(P>0.005){
+        const lampColor=(String(el.comp.value).trim().split(/\s+/)[1]||'warm').toLowerCase();
+        addGlow(el.comp,LAMP_GLOW_COLOR[lampColor]||LAMP_GLOW_COLOR.warm,P/1.0);
+      }
+    }
+  });
+  setStatus(`AC solved @ ${freq} Hz: ${numNodes} node(s), ${admittances.length} element(s). Watch the highlighted wires for current flow.`);
+  updateOscilloscope();
+}
+
+$('#btnSolve').addEventListener('click',runSolve);
+$('#btnSolveAC').addEventListener('click',runSolveAC);
+
+/* ── Educational Notes ───────────────────────────────────────────────── */
+function buildEduNotes(preset){
+  const noteEl=document.getElementById('eduNotes');
+  if(!noteEl)return;
+
+  function card(title,body){
+    return`<div class="edu-card"><div class="edu-title">${title}</div>${body}</div>`;
+  }
+  function formula(f){return`<div style="margin:3px 0;"><span class="edu-formula">${f}</span></div>`;}
+  function row(label,val){return`<div class="edu-computed"><span class="ec-label">${label}</span><span class="ec-val">${val}</span></div>`;}
+  function fmtEng(v){
+    if(!isFinite(v))return'?';
+    const a=Math.abs(v);
+    if(a===0)return'0';
+    if(a>=1e6)return+(v/1e6).toPrecision(3)+'M';
+    if(a>=1e3)return+(v/1e3).toPrecision(3)+'k';
+    if(a>=1)return+v.toPrecision(3)+'';
+    if(a>=1e-3)return+(v/1e-3).toPrecision(3)+'m';
+    if(a>=1e-6)return+(v/1e-6).toPrecision(3)+'µ';
+    if(a>=1e-9)return+(v/1e-9).toPrecision(3)+'n';
+    return+v.toPrecision(3)+'';
+  }
+  function getVal(type,idx=0){const f=preset.comps.filter(c=>c.type===type);return f[idx]?parseEngValue(f[idx].value):NaN;}
+  function getStr(type,idx=0){const f=preset.comps.filter(c=>c.type===type);return f[idx]?String(f[idx].value):'?';}
+
+  const resistiveTypes=['resistor','lamp','potentiometer'];
+  const allR=preset.comps.filter(c=>resistiveTypes.includes(c.type)).map(c=>parseEngValue(c.value)).filter(r=>r>0);
+  const Rseries=allR.reduce((s,r)=>s+r,0);
+  const Rparallel=allR.length?1/allR.reduce((s,r)=>s+1/r,0):NaN;
+
+  let html='<h4>📐 Key Concepts</h4>';
+
+  switch(preset.id){
+
+    case 'bat-series':{
+      const V1=getVal('battery',0),V2=getVal('battery',1),R=allR[0];
+      const Vtot=V1+V2,I=Vtot/R;
+      html+=card('🔋 SERIES — Batteries (EMFs Add)',`
+        <p>Cells stacked <b>+ to −</b>: their EMFs add along the loop, just like resistors add in series.</p>
+        ${formula('V_total = V₁ + V₂  ← stack head-to-tail')}
+        ${formula('I = V_total / R  (same I through both cells)')}
+        <hr class="edu-divider">
+        ${row('V₁',fmtEng(V1)+' V')}
+        ${row('V₂',fmtEng(V2)+' V')}
+        ${row('V_total',fmtEng(Vtot)+' V')}
+        ${row('I',((I)*1000).toFixed(2)+' mA')}
+        <p><b>Flip one cell around</b> (+ to + instead of + to −) and the EMFs <b>subtract</b>: V_total = |V₁ − V₂|. This is exactly how a multi-cell battery pack (e.g. 4×1.5V = 6V) is built.</p>
+      `);
+      break;
+    }
+
+    case 'bat-par':{
+      const V1=getVal('battery',0),V2=getVal('battery',1);
+      const Rint1=getVal('resistor',0),Rint2=getVal('resistor',1),Rload=getVal('resistor',2);
+      const Req=1/(1/Rint1+1/Rint2);
+      const Va=V1*Rload/(Rload+Req); // V1==V2 here so Thevenin Veq=V1
+      const Itot=Va/Rload, Ieach=(V1-Va)/Rint1;
+      html+=card('🔋 PARALLEL — Batteries (Equal EMF)',`
+        <p>Two <b>equal-voltage</b> cells, each with internal resistance, connected to the <b>same two nodes</b>. Output voltage stays ≈ V_cell, but each cell now only supplies <b>part</b> of the load current.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V_out ≈ V_cell</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ + I₂ = I_load</span></div>
+        </div>
+        ${formula('R_int,eq = (R₁·R₂)/(R₁+R₂)  ← shrinks!')}
+        ${formula('V_out = V_cell × R_load/(R_load + R_int,eq)')}
+        ${formula('I_each ≈ I_load / 2  (equal cells share equally)')}
+        <hr class="edu-divider">
+        ${row('R_int,eq',fmtEng(Req)+' Ω')}
+        ${row('V_out',Va.toFixed(3)+' V')}
+        ${row('I_load',(Itot*1000).toFixed(2)+' mA')}
+        ${row('I per cell',(Ieach*1000).toFixed(2)+' mA')}
+        <p><b>⚠ Warning:</b> never parallel cells of <b>different voltages</b> directly — the mismatch drives a large circulating current through only their internal resistances, which can overheat or damage the weaker cell.</p>
+      `);
+      break;
+    }
+
+    case 'bat-r':{
+      const Vs=getVal('battery'),R=allR[0]||NaN,I=Vs/R;
+      html+=card('Ohm\'s Law — Single Loop',`
+        <p>One loop: <b>current is identical</b> everywhere in the circuit.</p>
+        ${formula('V = I × R')}
+        ${formula('I = V / R = '+fmtEng(Vs)+'V / '+fmtEng(R)+'Ω')}
+        ${formula('P = V × I = I²R = V²/R')}
+        <hr class="edu-divider">
+        ${row('V source',fmtEng(Vs)+' V')}
+        ${row('R',fmtEng(R)+' Ω')}
+        ${row('I = V/R',(I*1000).toFixed(2)+' mA')}
+        ${row('P = V·I',fmtEng(Vs*I)+' W')}
+      `);
+      break;
+    }
+
+    case 'vdiv':{
+      const Vs=getVal('battery'),R1=allR[0],R2=allR[1];
+      const Req=R1+R2,I=Vs/Req,Vout=Vs*R2/(R1+R2);
+      html+=card('Series — Voltage Divider',`
+        <p>Two resistors in <b>series</b>: one current path, voltage splits proportionally.</p>
+        ${formula('I₁ = I₂ (same current!)')}
+        ${formula('V_out = V_in × R₂ / (R₁+R₂)')}
+        ${formula('R_eq = R₁ + R₂')}
+        <hr class="edu-divider">
+        ${row('R_eq',fmtEng(Req)+' Ω')}
+        ${row('I (both)',((I)*1000).toFixed(2)+' mA')}
+        ${row('V_out',Vout.toFixed(2)+' V')}
+        <p style="margin-top:5px;"><b>KVL check:</b> V_R1 + V_R2 = ${fmtEng(I*R1+I*R2)} V = ${Vs}V ✓</p>
+      `);
+      break;
+    }
+
+    case 'led-r':{
+      const Vs=getVal('battery'),R=allR[0],Vf=1.8,I=(Vs-Vf)/R;
+      html+=card('LED Current-Limiting Resistor',`
+        <p>LED clamps to forward voltage V_f — resistor absorbs the rest.</p>
+        ${formula('V_R = V_s − V_f')}
+        ${formula('I = (V_s − V_f) / R')}
+        <hr class="edu-divider">
+        ${row('V_f','≈ 1.8 V (red LED)')}
+        ${row('V_R',fmtEng(Vs-Vf)+' V')}
+        ${row('I',((I)*1000).toFixed(1)+' mA')}
+        <p><b>R too small</b> → overcurrent → LED fails.<br><b>R too large</b> → dim or no light.</p>
+      `);
+      break;
+    }
+
+    case 'diode-r':{
+      const Vs=getVal('battery'),R=allR[0],Vf=0.7,I=(Vs-Vf)/R;
+      html+=card('Diode — Forward Bias',`
+        <p>Si diode: ~0.7V drop when forward-biased; open circuit when reverse-biased.</p>
+        ${formula('V_f ≈ 0.7 V (Silicon)')}
+        ${formula('I = (V_s − V_f) / R')}
+        <hr class="edu-divider">
+        ${row('V_f','0.7 V')}
+        ${row('V_R',fmtEng(Vs-Vf)+' V')}
+        ${row('I',((I)*1000).toFixed(1)+' mA')}
+        <p><b>Reversed</b> → I ≈ 0, all voltage appears across the diode. Load the <b>Diode: Reverse Bias</b> preset to see it.</p>
+      `);
+      break;
+    }
+
+    case 'diode-rev':{
+      const Vs=getVal('battery'),R=allR[0];
+      html+=card('🚫 Diode — Reverse Bias (Blocking)',`
+        <p>When the <b>cathode (+) is more positive than the anode (−)</b> the diode is reverse-biased — it blocks current like an open circuit. The entire supply voltage appears across the diode, none across R.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(63,185,80,.35);">
+            <span class="cc-label" style="color:var(--accent2);font-weight:700;">FORWARD</span>
+            <span class="cc-val">Anode (+) · Cathode (−)</span>
+            <span class="cc-val">I = (Vs−0.7V)/R</span>
+            <span class="cc-val">V_diode ≈ 0.7 V</span>
+          </div>
+          <div class="edu-contrast-cell" style="border:1px solid rgba(248,81,73,.35);">
+            <span class="cc-label" style="color:var(--danger);font-weight:700;">REVERSE ← here</span>
+            <span class="cc-val">Cathode (+) · Anode (−)</span>
+            <span class="cc-val">I ≈ 0</span>
+            <span class="cc-val">V_diode ≈ Vs</span>
+          </div>
+        </div>
+        ${formula('V_diode = V_s  ← entire voltage blocked')}
+        ${formula('I = 0          ← no current path')}
+        ${formula('V_R = I·R = 0  ← no drop without current')}
+        <hr class="edu-divider">
+        ${row('V source',fmtEng(Vs)+' V')}
+        ${row('I (reverse)','0.0 mA  ← blocked!')}
+        ${row('V_diode',fmtEng(Vs)+' V  ← all here')}
+        ${row('V_R','0.0 V  ← no current')}
+        <p><b>⚠ PIV (Peak Inverse Voltage):</b> in reverse bias, the full source voltage stresses the diode. If V_s exceeds the diode\'s PIV rating, it will break down — usually destructively (unless it\'s a Zener, which uses controlled breakdown).</p>
+        <p><b>Real-world uses:</b> blocking the negative half-cycle in rectifiers · polarity-reversal protection · Zener voltage regulation · ESD clamping.</p>
+      `);
+      break;
+    }
+
+    case 'diode-par':{
+      const Vs=getVal('battery'),R=allR[0];
+      const Vf=0.7,Itot=(Vs-Vf)/R,Ieach=Itot/2;
+      html+=card('⚡ Diodes in Parallel — Current Shares',`
+        <p>Both diodes share the <b>same two nodes</b>, so they see the <b>same voltage</b>. For identical diodes V_f is equal, so current splits exactly in half.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V_f same for both</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ + I₂ = I_total</span></div>
+        </div>
+        ${formula('V_f,parallel = V_f  ← unchanged! (parallel ≠ series)')}
+        ${formula('I_total = (V_s − V_f) / R')}
+        ${formula('I_each  = I_total / 2  (identical diodes)')}
+        <hr class="edu-divider">
+        ${row('V_f (each)','0.7 V  ← same')}
+        ${row('I_total',((Itot)*1000).toFixed(1)+' mA')}
+        ${row('I per diode',((Ieach)*1000).toFixed(1)+' mA  ← halved')}
+        ${row('V_R',fmtEng(Vs-Vf)+' V')}
+        <p><b>Key insight:</b> unlike resistors or capacitors, parallel diodes do <b>not</b> change the forward voltage — V_f is set by the junction physics, not the count. Paralleling only shares current.</p>
+        <p><b>⚠ Real-world warning:</b> real diodes always have a slightly different V_f due to manufacturing tolerances. The diode with the <b>lower</b> V_f turns on harder and hogs the current — potentially overloading while its partner barely conducts. Fix: add a small series resistor (ballast) to each diode to force equal sharing.</p>
+        <div class="edu-contrast" style="margin-top:6px;">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(88,166,255,.3);">
+            <span class="cc-label" style="color:var(--accent);font-weight:700;">USE CASE</span>
+            <span class="cc-val">Higher current handling</span>
+            <span class="cc-val">Redundancy (one fails, other carries)</span>
+          </div>
+          <div class="edu-contrast-cell" style="border:1px solid rgba(248,81,73,.3);">
+            <span class="cc-label" style="color:var(--danger);font-weight:700;">PITFALL</span>
+            <span class="cc-val">Unequal sharing without ballast R</span>
+            <span class="cc-val">Thermal runaway if one runs hotter</span>
+          </div>
+        </div>
+      `);
+      break;
+    }
+
+    case 'diode-2series':{
+      const Vs=getVal('battery'),R=allR[0];
+      const Vf=0.7,Vtot=2*Vf,I=(Vs-Vtot)/R;
+      html+=card('⛓ Diodes in Series — V_f Stacks',`
+        <p>Series diodes each contribute their forward-voltage drop. The same current flows through all; total V_f adds up, reducing the voltage available to the load.</p>
+        ${formula('V_f,total = V_f1 + V_f2  (0.7V each for Si)')}
+        ${formula('I = (V_s − V_f,total) / R  ← one series current')}
+        ${formula('V_R = V_s − V_f,total     ← remainder')}
+        <hr class="edu-divider">
+        ${row('V_f per diode','0.7 V (Si)')}
+        ${row('V_f total',fmtEng(Vtot)+' V')}
+        ${row('I',((I)*1000).toFixed(1)+' mA')}
+        ${row('V_R',fmtEng(Vs-Vtot)+' V')}
+        <div class="edu-contrast" style="margin-top:6px;">
+          <div class="edu-contrast-cell"><span class="cc-label">Schottky (each)</span><span class="cc-val">V_f ≈ 0.3 V</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Si (each)</span><span class="cc-val">V_f ≈ 0.7 V</span></div>
+        </div>
+        <p><b>Stacked V_f reference:</b> n Si diodes ≈ n × 0.7 V (rough constant). Used in simple bias networks — e.g. 3 diodes ≈ 2.1V, 4 ≈ 2.8V. Add a 4th diode to this circuit and notice V_R shrinks further.</p>
+        <p><b>Reverse blocking:</b> both diodes block in reverse, so the combined PIV doubles (2 × PIV_each). A useful property in high-voltage rectifier stacks.</p>
+      `);
+      break;
+    }
+
+    case 'dc-cap-ser':{
+      const Vs=getVal('battery'),C1=getVal('capacitor',0),C2=getVal('capacitor',1);
+      const Ceq=1/(1/C1+1/C2);
+      const V1=Vs*(1/C1)/(1/C1+1/C2), V2=Vs*(1/C2)/(1/C1+1/C2);
+      const Q=Ceq*Vs;
+      html+=card('🔋 SERIES — Capacitors (DC Steady State)',`
+        <p>At steady state <b>I = 0</b> everywhere. Both caps carry the <b>same charge</b> — voltage divides <b>inversely</b> with capacitance.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Charge</span><span class="cc-val">Q₁ = Q₂ = Q</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ + V₂ = Vs</span></div>
+        </div>
+        ${formula('1/C_eq = 1/C₁ + 1/C₂  ← shrinks!')}
+        ${formula('V_n = V_s × C_other / (C₁+C₂)')}
+        ${formula('Q = C_eq × V_s  (same on both)')}
+        <hr class="edu-divider">
+        ${row('C_eq',fmtEng(Ceq)+'F (< either alone)')}
+        ${row('V_C1',V1.toFixed(2)+' V')}
+        ${row('V_C2',V2.toFixed(2)+' V')}
+        ${row('Q (each)',fmtEng(Q)+'C')}
+        <p><b>KVL check:</b> V₁ + V₂ = ${(V1+V2).toFixed(2)} V = ${Vs} V ✓ &nbsp; The <b>smaller</b> capacitor (10µF) ends up with the <b>larger</b> voltage.</p>
+      `);
+      break;
+    }
+
+    case 'dc-cap-par':{
+      const Vs=getVal('battery'),C1=getVal('capacitor',0),C2=getVal('capacitor',1);
+      const Ceq=C1+C2;
+      const Q1=C1*Vs,Q2=C2*Vs,Qtot=Ceq*Vs;
+      html+=card('🔋 PARALLEL — Capacitors (DC Steady State)',`
+        <p>At steady state <b>I = 0</b> everywhere. Both caps charge to the <b>same voltage</b> — total charge stored adds up.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ = V₂ = Vs</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Charge</span><span class="cc-val">Q₁ + Q₂ = Q_tot</span></div>
+        </div>
+        ${formula('C_eq = C₁ + C₂  ← adds up!')}
+        ${formula('Q_n = C_n × V_s')}
+        ${formula('Q_tot = C_eq × V_s')}
+        <hr class="edu-divider">
+        ${row('C_eq',fmtEng(Ceq)+'F (> either alone)')}
+        ${row('V (each)',fmtEng(Vs)+' V (same!)')}
+        ${row('Q_C1',fmtEng(Q1)+'C')}
+        ${row('Q_C2',fmtEng(Q2)+'C')}
+        ${row('Q_total',fmtEng(Qtot)+'C')}
+        <p>The <b>larger</b> capacitor (22µF) stores <b>more</b> charge at the same voltage — same idea as parallel resistors sharing current.</p>
+      `);
+      break;
+    }
+
+    case 'cap-ser':{
+      const C1=getVal('capacitor',0),C2=getVal('capacitor',1);
+      const Ceq=1/(1/C1+1/C2);
+      const {freq:f}=parseACValue(getStr('acsource'));
+      const w=2*Math.PI*f;
+      const Xc1=1/(w*C1),Xc2=1/(w*C2),Xceq=1/(w*Ceq);
+      html+=card('⚡ SERIES — Capacitors',`
+        <p>Same current (charge) flows through both — voltage divides inversely with capacitance.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ = I₂</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ + V₂ = Vs</span></div>
+        </div>
+        ${formula('1/C_eq = 1/C₁ + 1/C₂  ← shrinks!')}
+        ${formula('X_C = 1/(ωC)  ← adds like resistors')}
+        ${formula('V_n = I × X_Cn  ← smaller C gets more V')}
+        <hr class="edu-divider">
+        ${row('C_eq',fmtEng(Ceq)+'F (< either alone)')}
+        ${row('X_C1 @ '+f+'Hz',fmtEng(Xc1)+' Ω')}
+        ${row('X_C2 @ '+f+'Hz',fmtEng(Xc2)+' Ω')}
+        ${row('X_Ceq',fmtEng(Xceq)+' Ω')}
+        <p>Smaller capacitor (larger X_C) drops <b>more</b> voltage — opposite of series resistors with current.</p>
+      `);
+      break;
+    }
+
+    case 'cap-par':{
+      const C1=getVal('capacitor',0),C2=getVal('capacitor',1);
+      const Ceq=C1+C2;
+      const {freq:f}=parseACValue(getStr('acsource'));
+      const w=2*Math.PI*f;
+      const Xc1=1/(w*C1),Xc2=1/(w*C2),Xceq=1/(w*Ceq);
+      html+=card('⚡ PARALLEL — Capacitors',`
+        <p>Both branches share the same voltage — total capacitance simply adds.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ = V₂ = Vs</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ + I₂ = I_tot</span></div>
+        </div>
+        ${formula('C_eq = C₁ + C₂  ← adds up!')}
+        ${formula('X_C = 1/(ωC)  ← shrinks as C grows')}
+        ${formula('I_n = V_s / X_Cn  ← larger C draws more I')}
+        <hr class="edu-divider">
+        ${row('C_eq',fmtEng(Ceq)+'F (> either alone)')}
+        ${row('X_C1 @ '+f+'Hz',fmtEng(Xc1)+' Ω')}
+        ${row('X_C2 @ '+f+'Hz',fmtEng(Xc2)+' Ω')}
+        ${row('X_Ceq',fmtEng(Xceq)+' Ω')}
+        <p>Larger capacitor (smaller X_C) draws <b>more</b> current — same idea as parallel resistors.</p>
+      `);
+      break;
+    }
+
+    case 'lamps-ser':{
+      const Vs=getVal('battery'),R1=allR[0],R2=allR[1];
+      const Req=R1+R2,I=Vs/Req;
+      html+=card('⚡ SERIES — Two Lamps',`
+        <p>Single current path through every element in sequence.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ = I₂</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ + V₂ = Vs</span></div>
+        </div>
+        ${formula('R_eq = R₁ + R₂  ← adds up!')}
+        ${formula('I = V_s / R_eq  ← one value')}
+        ${formula('V_n = I × R_n  ← proportional')}
+        <hr class="edu-divider">
+        ${row('R_eq',fmtEng(Req)+' Ω (> either alone)')}
+        ${row('I (same!)',((I)*1000).toFixed(1)+' mA')}
+        ${row('V each',fmtEng(I*R1)+' V (equal lamps)')}
+        <p><b>One lamp fails (open) → whole circuit goes dark.</b></p>
+      `);
+      break;
+    }
+
+    case 'lamps-par':{
+      const Vs=getVal('battery'),R1=allR[0],R2=allR[1];
+      const Req=1/(1/R1+1/R2),Itotal=Vs/Req,Ibranch=Vs/R1;
+      html+=card('⚡ PARALLEL — Two Lamps',`
+        <p>Multiple current paths share the same two terminal nodes.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Voltage</span><span class="cc-val">V₁ = V₂ = Vs</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Current</span><span class="cc-val">I₁ + I₂ = I_tot</span></div>
+        </div>
+        ${formula('1/R_eq = 1/R₁ + 1/R₂  ← shrinks!')}
+        ${formula('I_n = V_s / R_n  ← each branch')}
+        ${formula('I_total = I₁ + I₂  (KCL)')}
+        <hr class="edu-divider">
+        ${row('R_eq',fmtEng(Req)+' Ω (< either alone)')}
+        ${row('V each',fmtEng(Vs)+' V (same!)')}
+        ${row('I each',fmtEng(Ibranch*1000)+' mA')}
+        ${row('I total',fmtEng(Itotal*1000)+' mA')}
+        <p><b>One lamp fails (open) → other stays lit.</b></p>
+      `);
+      break;
+    }
+
+    case 'bat-r-sw':{
+      const Vs=getVal('battery'),R=allR[0];
+      html+=card('Switch — Open vs Closed',`
+        <p>Switch controls whether current can flow through the loop.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell"><span class="cc-label">Open</span><span class="cc-val">I = 0 mA</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Closed</span><span class="cc-val">I = V/R</span></div>
+        </div>
+        ${formula('Open:  R_sw → ∞,  I = 0 A')}
+        ${formula('Closed: R_sw = 0 Ω (short)')}
+        <hr class="edu-divider">
+        ${row('I (closed)',((Vs/R)*1000).toFixed(1)+' mA')}
+        ${row('I (open)','0.0 mA')}
+        <p>Edit value to "closed" or "open" and re-solve to compare.</p>
+      `);
+      break;
+    }
+
+    case 'dc-rc':{
+      const Vs=getVal('battery'),R=allR[0]||NaN,C=getVal('capacitor');
+      const tau=R*C,Ir=Vs/R;
+      html+=card('🔌 SW Closed → Charging',`
+        <p>Battery feeds R ∥ C. In DC steady state the cap blocks current — it charges to <b>V_s</b> while R carries a steady current.</p>
+        ${formula('v_C(t) = V_s(1 − e^(−t/τ))  ← rises to V_s')}
+        ${formula('i_R(t) = V_s / R             ← constant')}
+        ${formula('i_C(t) = (V_s/R) e^(−t/τ)   ← decays to 0')}
+        <hr class="edu-divider">
+        ${row('τ = RC',fmtEng(tau)+'s')}
+        ${row('5τ (≈ 99% charged)',fmtEng(5*tau)+'s')}
+        ${row('V_C (steady)',fmtEng(Vs)+' V')}
+        ${row('I_R (steady)',fmtEng(Ir*1000)+' mA  (R always on)')}
+        ${row('I_C (steady)','0.0 mA  (cap full)')}
+        <p><b>Try it:</b> load this preset (switch = closed) and click <b>▶ Solve DC</b>. Watch the animated current in R. Then edit the switch to "open" and re-solve to see discharge.</p>
+      `);
+      html+=card('🔋 SW Open → Discharging',`
+        <p>Battery disconnected. Capacitor (charged to V₀) discharges through R — same time constant!</p>
+        ${formula('v_C(t) = V₀ · e^(−t/τ)   ← falls to 0')}
+        ${formula('i(t)   = −(V₀/R) e^(−t/τ) ← reverses direction')}
+        <hr class="edu-divider">
+        ${row('τ = RC',fmtEng(tau)+'s  (same τ!)')}
+        ${row('5τ (≈ 99% discharged)',fmtEng(5*tau)+'s')}
+        ${row('V_C (steady)','0.0 V  (fully discharged)')}
+        ${row('I (steady)','0.0 mA')}
+        <div class="edu-contrast" style="margin-top:6px;">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(88,166,255,.3);">
+            <span class="cc-label" style="color:var(--accent);font-weight:700;">SW CLOSED</span>
+            <span class="cc-val">V_C → V_s</span>
+            <span class="cc-val">I_R = V_s/R</span>
+          </div>
+          <div class="edu-contrast-cell" style="border:1px solid rgba(188,140,255,.3);">
+            <span class="cc-label" style="color:var(--purple);font-weight:700;">SW OPEN</span>
+            <span class="cc-val">V_C → 0</span>
+            <span class="cc-val">I → 0</span>
+          </div>
+        </div>
+      `);
+      break;
+    }
+
+    case 'dc-rl':{
+      const Vs=getVal('battery'),R=allR[0]||NaN,L=getVal('inductor');
+      const tau=L/R,Iss=Vs/R;
+      html+=card('RL — DC Steady State &amp; Transient',`
+        <p>Inductor in DC: starts as an <b>open circuit</b>, ends as a <b>short (wire)</b> in steady state.</p>
+        ${formula('τ = L / R  (time constant)')}
+        ${formula('i(t) = (V_s/R)(1 − e^(−t/τ))  ← build-up')}
+        ${formula('v_L(t) = V_s · e^(−t/τ)        ← decays to 0')}
+        ${formula('i(t) = I₀ · e^(−t/τ)           ← decay / flyback!')}
+        <hr class="edu-divider">
+        ${row('τ = L/R',fmtEng(tau)+'s')}
+        ${row('5τ (≈ steady state)',fmtEng(5*tau)+'s')}
+        ${row('I (∞)',fmtEng(Iss*1000)+' mA  (= V_s / R)')}
+        ${row('V_L (∞)','0.0 V  (short circuit)')}
+        ${row('V_R (∞)',fmtEng(Vs)+' V  (all voltage here)')}
+        <p>The DC solver shows <b>steady state</b>: inductor is a wire, full current flows, resistor takes all voltage. Suddenly opening the switch causes a large <b>flyback voltage spike</b> — always add a freewheeling diode in real circuits!</p>
+        <div class="edu-contrast" style="margin-top:6px;">
+          <div class="edu-contrast-cell"><span class="cc-label">t = 0</span><span class="cc-val">I = 0</span><span class="cc-val">V_L = V_s</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">t = ∞</span><span class="cc-val">I = V_s/R</span><span class="cc-val">V_L = 0</span></div>
+        </div>
+      `);
+      break;
+    }
+
+    case 'rc-ser':{
+      const R=getVal('resistor'),C=getVal('capacitor');
+      const fc=1/(2*Math.PI*R*C);
+      const {freq:f}=parseACValue(getStr('acsource'));
+      const Xc=1/(2*Math.PI*f*C),Ztot=Math.hypot(R,Xc);
+      html+=card('RC Series — Low-Pass Filter',`
+        <p>Capacitor reactance <b>decreases</b> as frequency rises — passes high f.</p>
+        ${formula('X_C = 1/(2πfC)  ← drops with f')}
+        ${formula('Z_tot = √(R² + X_C²)')}
+        ${formula('f_c = 1/(2πRC)  ← −3 dB point')}
+        <hr class="edu-divider">
+        ${row('X_C @ '+f+'Hz',fmtEng(Xc)+' Ω')}
+        ${row('Z_total',fmtEng(Ztot)+' Ω')}
+        ${row('f_c',fc.toFixed(1)+' Hz')}
+        <p>At f_c: |V_C| = |V_R|, phase shift = −45°. V_C <b>lags</b> source by up to 90°.</p>
+      `);
+      break;
+    }
+
+    case 'rl-ser':{
+      const R=getVal('resistor'),L=getVal('inductor');
+      const fc=R/(2*Math.PI*L);
+      const {freq:f}=parseACValue(getStr('acsource'));
+      const Xl=2*Math.PI*f*L,Ztot=Math.hypot(R,Xl);
+      html+=card('RL Series — High-Pass Filter',`
+        <p>Inductor reactance <b>increases</b> as frequency rises — opposes change.</p>
+        ${formula('X_L = 2πfL  ← rises with f')}
+        ${formula('Z_tot = √(R² + X_L²)')}
+        ${formula('f_c = R / (2πL)  ← −3 dB point')}
+        <hr class="edu-divider">
+        ${row('X_L @ '+f+'Hz',fmtEng(Xl)+' Ω')}
+        ${row('Z_total',fmtEng(Ztot)+' Ω')}
+        ${row('f_c',fc.toFixed(1)+' Hz')}
+        <p>At f_c: |V_L| = |V_R|, phase shift = +45°. V_L <b>leads</b> source by up to 90°.</p>
+      `);
+      break;
+    }
+
+    case 'rlc-ser':{
+      const R=getVal('resistor'),L=getVal('inductor'),C=getVal('capacitor');
+      const fr=1/(2*Math.PI*Math.sqrt(L*C));
+      const Q=(1/R)*Math.sqrt(L/C);
+      const BW=fr/Q;
+      const Vs_amp=parseACValue(getStr('acsource')).amp;
+      html+=card('RLC Series — Resonance',`
+        <p>At resonance X_L = X_C → they cancel. <b>Impedance is minimum = R.</b></p>
+        ${formula('f_r = 1/(2π√(LC))')}
+        ${formula('X_L = X_C  →  Z_min = R')}
+        ${formula('Q = (1/R)√(L/C)  (quality factor)')}
+        ${formula('BW = f_r / Q  (−3 dB bandwidth)')}
+        <hr class="edu-divider">
+        ${row('f_r',fr.toFixed(1)+' Hz')}
+        ${row('I_max',((Vs_amp/R)*1000).toFixed(1)+' mA  (at f_r)')}
+        ${row('Q factor',Q.toFixed(2))}
+        ${row('Bandwidth',BW.toFixed(1)+' Hz')}
+        <p><b>Below f_r</b>: capacitive. <b>Above f_r</b>: inductive. At f_r: purely resistive.</p>
+      `);
+      break;
+    }
+
+    case 'rc-par':{
+      const R=getVal('resistor'),C=getVal('capacitor');
+      const {freq:f}=parseACValue(getStr('acsource'));
+      const w=2*Math.PI*f;
+      const YR=1/R,YC=w*C,Ytot=Math.hypot(YR,YC),Zeq=1/Ytot;
+      const phi=Math.atan2(YC,YR)*180/Math.PI;
+      html+=card('RC Parallel — Admittances Add',`
+        <p>Parallel branches share <b>identical voltage</b>. Admittances Y = 1/Z add directly.</p>
+        ${formula('Y_R = 1/R  (in phase)')}
+        ${formula('Y_C = jωC  (leads 90°)')}
+        ${formula('Y_tot = Y_R + Y_C  →  |Z_eq| = 1/|Y_tot|')}
+        <hr class="edu-divider">
+        ${row('|Y_R|',fmtEng(YR)+' S')}
+        ${row('|Y_C|',fmtEng(YC)+' S')}
+        ${row('|Z_eq|',fmtEng(Zeq)+' Ω')}
+        ${row('Phase',phi.toFixed(1)+'° (I leads V)')}
+        <p>Capacitive current leads, resistive current is in-phase. Total I leads V by ${phi.toFixed(1)}°.</p>
+      `);
+      break;
+    }
+
+    case 'rlc-par':{
+      const R=getVal('resistor'),L=getVal('inductor'),C=getVal('capacitor');
+      const fr=1/(2*Math.PI*Math.sqrt(L*C));
+      const Q=R*Math.sqrt(C/L);
+      const BW=fr/Q;
+      html+=card('RLC Parallel — Tank Circuit',`
+        <p>Parallel resonance: Y_L + Y_C = 0 → <b>impedance is maximum = R.</b></p>
+        ${formula('f_r = 1/(2π√(LC))  ← same formula')}
+        ${formula('Y_L + Y_C = 0  →  Z_max = R')}
+        ${formula('Q = R√(C/L)')}
+        <hr class="edu-divider">
+        ${row('f_r',fr.toFixed(1)+' Hz')}
+        ${row('Q factor',Q.toFixed(2))}
+        ${row('Bandwidth',BW.toFixed(1)+' Hz')}
+        <div class="edu-contrast" style="margin-top:6px;">
+          <div class="edu-contrast-cell"><span class="cc-label">Series res.</span><span class="cc-val">Z_min = R</span></div>
+          <div class="edu-contrast-cell"><span class="cc-label">Parallel res.</span><span class="cc-val">Z_max = R</span></div>
+        </div>
+        <p>Used in tuned/tank circuits, radio frequency selection.</p>
+      `);
+      break;
+    }
+
+    case 'npn-switch':
+    case 'npn-switch-off':
+    case 'npn-saturated':
+    case 'npn-led': {
+      const Vcc=getVal('battery');
+      const RC=getVal('resistor',0),RB=getVal('resistor',1);
+      const beta=100,VBE=0.7,VCEsat=0.2;
+      const IB=(Vcc-VBE)/RB;
+      const IC_active=beta*IB;
+      const IC_sat=(Vcc-VCEsat)/RC;
+      const VCE_active=Vcc-IC_active*RC;
+      const saturated=VCE_active<=VCEsat;
+      const IC=saturated?IC_sat:IC_active;
+      const VCE=saturated?VCEsat:VCE_active;
+      const region=saturated?'Saturation (fully ON)':'Active (linear)';
+      const isOff=(IB<0||RB>1e6);
+      const Ptrans=VCE*IC, PRC=(Vcc-VCE)*IC;
+      html+=card('⚡ NPN BJT — Three Operating Regions',`
+        <p>The BJT has three terminals: <b>B</b>ase (input), <b>C</b>ollector (output high side), <b>E</b>mitter (to GND). Region is set by V_BE and the circuit load line.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(248,81,73,.3);">
+            <span class="cc-label" style="color:var(--danger);font-weight:700;">① CUTOFF (OFF)</span>
+            <span class="cc-val">V_BE &lt; 0.7 V</span>
+            <span class="cc-val">I_B = I_C = 0</span>
+            <span class="cc-val">V_CE ≈ V_CC</span>
+          </div>
+          <div class="edu-contrast-cell" style="border:1px solid rgba(88,166,255,.3);">
+            <span class="cc-label" style="color:var(--accent);font-weight:700;">② ACTIVE</span>
+            <span class="cc-val">V_BE ≈ 0.7 V</span>
+            <span class="cc-val">I_C = β · I_B</span>
+            <span class="cc-val">V_CE = V_CC − I_C·R_C</span>
+          </div>
+        </div>
+        <div class="edu-contrast" style="margin-top:4px;">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(63,185,80,.3);">
+            <span class="cc-label" style="color:var(--accent2);font-weight:700;">③ SATURATION (ON)</span>
+            <span class="cc-val">V_BE ≈ 0.7 V, V_CE ≈ 0.2 V</span>
+            <span class="cc-val">I_C = (V_CC−0.2)/R_C</span>
+            <span class="cc-val">β_forced ≪ β</span>
+          </div>
+          <div class="edu-contrast-cell">
+            <span class="cc-label" style="font-weight:700;">Emitter Arrow</span>
+            <span class="cc-val">NPN → points OUT</span>
+            <span class="cc-val">PNP → points IN</span>
+          </div>
+        </div>
+      `);
+      html+=card(`📐 This Circuit — Operating Point (β=100)`,`
+        ${formula('I_B = (V_CC − V_BE) / R_B')}
+        ${formula('I_C = β · I_B  (if V_CE > V_CE_sat)')}
+        ${formula('V_CE = V_CC − I_C · R_C')}
+        ${formula('Sat. if V_CE_active ≤ V_CE_sat (0.2V)')}
+        <hr class="edu-divider">
+        ${row('V_CC',fmtEng(Vcc)+' V')}
+        ${row('R_B',fmtEng(RB)+' Ω')}
+        ${row('R_C',fmtEng(RC)+' Ω')}
+        ${row('I_B',isOff?'≈ 0 (OFF)':fmtEng(IB*1e6)+'µA')}
+        ${row('I_C',isOff?'0 mA':fmtEng(IC*1000)+' mA')}
+        ${row('V_CE',isOff?fmtEng(Vcc)+' V':fmtEng(VCE)+' V')}
+        ${row('Region','<b style="color:var(--accent2);">'+(isOff?'OFF (Cutoff)':region)+'</b>')}
+        ${row('P (BJT)',isOff?'0 mW':fmtEng(Ptrans*1000)+' mW')}
+        <p style="margin-top:4px;"><b>Compare presets:</b> <i>NPN Switch (ON)</i> is Active · <i>NPN Deep Saturation</i> uses R_B=10kΩ → β_forced=${saturated?(IC/Math.max(IB,1e-9)).toFixed(0):'n/a'} ≪ β=100 · <i>NPN Switch (OFF)</i> uses R_B=10MΩ → cutoff.</p>
+      `);
+      html+=card('🔁 NPN Design Rules',`
+        <div class="edu-rule-block">
+          <div class="edu-law"><span class="edu-law-icon">①</span><span>Emitter → GND. Collector current flows C→E through BJT.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">②</span><span><b>High base = ON.</b> V_B ≥ 0.7V (re GND emitter) turns it on.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">③</span><span>Always use R_B — without it the base junction burns.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">④</span><span>Overdrive for reliable saturation: I_B ≥ 5 × (I_C_sat / β).</span></div>
+          <div class="edu-law"><span class="edu-law-icon">⑤</span><span>Inductive loads: add flyback diode in parallel with load.</span></div>
+        </div>
+      `);
+      break;
+    }
+
+    case 'pnp-switch':
+    case 'pnp-switch-off': {
+      const Vcc=getVal('battery');
+      const RC=getVal('resistor',0),RB=getVal('resistor',1);
+      const beta=100,VEB=0.7,VECsat=0.2;
+      const IB=(Vcc-VEB)/RB;
+      const IC_active=beta*IB;
+      const IC_sat=(Vcc-VECsat)/RC;
+      const VEC_active=Vcc-IC_active*RC;
+      const saturated=VEC_active<=VECsat;
+      const IC=saturated?IC_sat:IC_active;
+      const VEC=saturated?VECsat:VEC_active;
+      const region=saturated?'Saturation (fully ON)':'Active (linear)';
+      const isOff=(IB<0||RB>1e6);
+      const Ptrans=VEC*IC, PRC=(Vcc-VEC)*IC;
+      html+=card('🔄 PNP BJT — Mirror Image of NPN',`
+        <p>PNP reverses polarity everywhere: emitter → V_CC, base pulled LOW to turn ON, current flows E→C through transistor.</p>
+        <div class="edu-contrast">
+          <div class="edu-contrast-cell" style="border:1px solid rgba(88,166,255,.3);">
+            <span class="cc-label" style="color:var(--accent);font-weight:700;">NPN</span>
+            <span class="cc-val">E → GND · High B = ON</span>
+            <span class="cc-val">I: C→E · V_BE &gt; 0.7V</span>
+          </div>
+          <div class="edu-contrast-cell" style="border:1px solid rgba(188,140,255,.3);">
+            <span class="cc-label" style="color:var(--purple);font-weight:700;">PNP ← here</span>
+            <span class="cc-val">E → V_CC · Low B = ON</span>
+            <span class="cc-val">I: E→C · V_EB &gt; 0.7V</span>
+          </div>
+        </div>
+      `);
+      html+=card('📐 PNP Operating Point (β=100)',`
+        ${formula('I_B = (V_CC − V_EB) / R_B  (base to GND)')}
+        ${formula('I_C = β · I_B               (active)')}
+        ${formula('V_EC = V_CC − I_C · R_C')}
+        <hr class="edu-divider">
+        ${row('V_CC',fmtEng(Vcc)+' V')}
+        ${row('I_B',isOff?'≈ 0 (OFF)':fmtEng(IB*1e6)+'µA')}
+        ${row('I_C',isOff?'0 mA':fmtEng(IC*1000)+' mA')}
+        ${row('V_EC',isOff?fmtEng(Vcc)+' V':fmtEng(VEC)+' V')}
+        ${row('Region','<b style="color:var(--accent2);">'+(isOff?'OFF (Cutoff)':region)+'</b>')}
+        ${row('P (BJT)',isOff?'0 mW':fmtEng(Ptrans*1000)+' mW')}
+        <p><b>High-side switch:</b> PNP sits between V_CC and load — naturally controls positive rail. NPN is low-side (between load and GND).</p>
+      `);
+      html+=card('🔁 PNP Design Rules',`
+        <div class="edu-rule-block">
+          <div class="edu-law"><span class="edu-law-icon">①</span><span>Emitter → V_CC. Current flows E→C when ON.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">②</span><span><b>Low base = ON.</b> V_B ≤ V_CC − 0.7V turns it on.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">③</span><span>R_B pulls base toward GND; always required.</span></div>
+          <div class="edu-law"><span class="edu-law-icon">④</span><span>R_C is between collector and GND (load on low side).</span></div>
+          <div class="edu-law"><span class="edu-law-icon">⑤</span><span>Increase R_B (→ 10MΩ) to turn off — load the <i>OFF</i> preset.</span></div>
+        </div>
+      `);
+      break;
+    }
+
+    default:
+      html+='<div class="hint" style="margin-top:4px;">Load a preset to see circuit theory notes here.</div>';
+  }
+
+  // Series vs Parallel summary card — shown for both lamp presets
+  if(preset.id==='lamps-ser'||preset.id==='lamps-par'){
+    const R=allR[0];
+    html+=card('Series vs Parallel — Quick Ref',`
+      <div class="edu-contrast">
+        <div class="edu-contrast-cell" style="border:1px solid rgba(88,166,255,.3);">
+          <span class="cc-label" style="color:var(--accent);font-weight:700;">SERIES</span>
+          <span class="cc-val">I same</span>
+          <span class="cc-val">V splits</span>
+          <span class="cc-val">R_eq = ΣR</span>
+        </div>
+        <div class="edu-contrast-cell" style="border:1px solid rgba(63,185,80,.3);">
+          <span class="cc-label" style="color:var(--accent2);font-weight:700;">PARALLEL</span>
+          <span class="cc-val">V same</span>
+          <span class="cc-val">I splits</span>
+          <span class="cc-val">R_eq = R/n</span>
+        </div>
+      </div>
+      <p style="margin-top:4px;">For two equal <b>${fmtEng(R)}Ω</b> lamps:<br>
+      Series R_eq = ${fmtEng(2*R)}Ω &nbsp;|&nbsp; Parallel R_eq = ${fmtEng(R/2)}Ω</p>
+    `);
+  }
+
+  noteEl.innerHTML=html;
+}
+
+/* ── load default preset on start ────────────────────────────────────── */
+loadPreset(PRESETS[0]);
+</script>
+</body>
+</html> 

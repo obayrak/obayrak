@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vector Calculus 3D Visualizer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f3;--bg3:#eeecea;--tx:#1a1a18;--tx2:#6b6b66;--tx3:#9a9990;
+  --bd:rgba(0,0,0,0.12);--bd2:rgba(0,0,0,0.22);--bd3:rgba(0,0,0,0.35);
+  --acc:#2a5fc9;--rad:8px;--mono:'Courier New',monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1e1e1c;--bg2:#2a2a28;--bg3:#323230;--tx:#e8e6de;--tx2:#9a9890;--tx3:#6a6860;
+  --bd:rgba(255,255,255,0.1);--bd2:rgba(255,255,255,0.18);--bd3:rgba(255,255,255,0.28);
+  --acc:#6e9aef;
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+/* Tab bar */
+.tbr{display:flex;border-bottom:1px solid var(--bd);background:var(--bg);flex-shrink:0;padding:0 16px;gap:2px}
+.tb{background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;font-size:13px;color:var(--tx2);cursor:pointer;font-family:inherit;transition:all .15s;margin-bottom:-1px;white-space:nowrap}
+.tb:hover{color:var(--tx)}
+.tb.on{color:var(--tx);border-bottom-color:var(--acc);font-weight:600}
+.tab{display:none;flex:1;min-height:0;overflow:hidden}
+.tab.on{display:flex;flex-direction:column}
+/* Visualizer layout */
+.vlay{display:flex;flex:1;min-height:0}
+/* Controls panel */
+#ctrls{width:268px;min-width:268px;padding:12px;overflow-y:auto;border-right:1px solid var(--bd);display:flex;flex-direction:column;gap:11px;background:var(--bg)}
+#ctrls::-webkit-scrollbar{width:4px}
+#ctrls::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.clbl{font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+.ops{display:flex;gap:3px}
+.opb{flex:1;padding:5px 3px;font-size:11px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg2);color:var(--tx2);cursor:pointer;font-family:inherit;transition:all .12s;text-align:center}
+.opb:hover{background:var(--bg3);color:var(--tx)}
+.opb.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+.flbl{font-size:11px;color:var(--tx2);margin-bottom:3px}
+.fi{width:100%;font-family:var(--mono);font-size:11.5px;padding:5px 8px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);transition:border .15s}
+.fi:focus{outline:none;border-color:var(--acc)}
+.fi.err{border-color:#e24b4a}
+.fg{display:flex;flex-direction:column;gap:5px}
+.em{font-size:10px;color:#e24b4a;min-height:13px;margin-top:1px}
+.slr{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.slr label{font-size:11px;color:var(--tx2);min-width:74px}
+.slr input[type=range]{flex:1;height:4px;accent-color:var(--acc)}
+.sv{min-width:30px;text-align:right;font-weight:600;font-size:11px;color:var(--tx)}
+.pr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px}
+.pi{font-size:11px;padding:4px 5px;border:1px solid var(--bd2);border-radius:6px;background:var(--bg);color:var(--tx);font-family:var(--mono);width:100%;text-align:center}
+.pi:focus{outline:none;border-color:var(--acc)}
+.rb{background:var(--bg2);border-radius:6px;padding:8px 10px;font-size:11px;font-family:var(--mono);border:1px solid var(--bd)}
+.rr{display:flex;justify-content:space-between;padding:1.5px 0;color:var(--tx2)}
+.rv{color:var(--tx);font-weight:600}
+.rm{border-top:1px solid var(--bd);margin-top:4px;padding-top:4px}
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.pb{font-size:10px;padding:4px 6px;border:1px solid var(--bd2);border-radius:5px;background:var(--bg2);color:var(--tx2);cursor:pointer;font-family:var(--mono);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:all .12s}
+.pb:hover{background:var(--bg3);color:var(--tx)}
+.cbr{width:100%;height:9px;border-radius:3px;background:linear-gradient(to right,#2166ac,#4dac26,#fdae61,#d7191c);margin:4px 0}
+.cbrl{display:flex;justify-content:space-between;font-size:10px;color:var(--tx3)}
+/* Canvas */
+#cvwrap{flex:1;position:relative;background:var(--bg2);overflow:hidden}
+#cv{width:100%;height:100%;display:block;cursor:grab}
+#cv:active{cursor:grabbing}
+.hint{position:absolute;bottom:8px;right:8px;font-size:10px;color:var(--tx3);background:var(--bg);padding:3px 7px;border-radius:5px;pointer-events:none;border:1px solid var(--bd);opacity:.8}
+.badge{position:absolute;top:10px;left:10px;font-size:10px;font-weight:600;color:var(--tx);background:var(--bg);padding:4px 8px;border-radius:5px;border:1px solid var(--bd);pointer-events:none;letter-spacing:.04em}
+/* Physics + Help tabs */
+#tab-p,#tab-h{overflow-y:auto}
+#tab-p .tc.on,#tab-h .tc.on{display:block}
+.pc,.hc{padding:20px 24px;max-width:760px;margin:0 auto}
+.pc h2,.hc h2{font-size:18px;font-weight:600;color:var(--tx);margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid var(--bd2)}
+.ps{margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--bd)}
+.ps:last-child{border-bottom:none}
+.ps h3{font-size:15px;font-weight:600;color:var(--tx);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.ps h3 .sym{font-size:20px;font-weight:400;color:var(--acc)}
+.ps h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin:14px 0 6px}
+.pc p,.hc p{font-size:13px;line-height:1.75;color:var(--tx2);margin-bottom:8px}
+.mb{background:var(--bg2);border-radius:7px;padding:10px 14px;font-family:var(--mono);font-size:12.5px;margin:8px 0;color:var(--tx);line-height:1.8;border:1px solid var(--bd)}
+.pc ul{list-style:none;padding:0;margin:0 0 8px}
+.pc ul li{font-size:12.5px;line-height:1.7;color:var(--tx2);padding:2px 0 2px 16px;position:relative;font-family:var(--mono)}
+.pc ul li::before{content:'—';position:absolute;left:0;color:var(--tx3)}
+.ag{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.ac{background:var(--bg2);border-radius:7px;padding:10px 12px;border:1px solid var(--bd)}
+.ac .at{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:3px}
+.ac .ad{font-size:12px;color:var(--tx2);line-height:1.5;font-family:var(--mono)}
+.hs{margin-bottom:22px}
+.hc h3{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bd)}
+.ft{width:100%;font-size:12px;border-collapse:collapse;margin-bottom:8px}
+.ft th{text-align:left;padding:6px 10px;font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd2);background:var(--bg2)}
+.ft td{padding:5px 10px;color:var(--tx2);border-bottom:1px solid var(--bd)}
+.ft td:first-child,.ft td.mono{color:var(--tx);font-family:var(--mono)}
+.ft tr:last-child td{border-bottom:none}
+.eb{background:var(--bg2);border-radius:7px;padding:10px 12px;font-size:12px;margin-top:8px;border:1px solid var(--bd)}
+.el{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--bd)}
+.el:last-child{border-bottom:none}
+.ef{font-family:var(--mono);color:var(--tx);min-width:180px;font-size:11px}
+.ed{color:var(--tx2);font-size:11px}
+.note{background:rgba(42,95,201,0.08);border:1px solid rgba(42,95,201,0.25);border-radius:7px;padding:10px 14px;font-size:12.5px;color:var(--tx2);margin:10px 0;line-height:1.65}
+code{font-family:var(--mono);background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="tbr">
+    <button class="tb on" onclick="showTab('v',this)">⚡ Visualizer</button>
+    <button class="tb" onclick="showTab('p',this)">📐 Physics</button>
+    <button class="tb" onclick="showTab('h',this)">❓ Help</button>
+  </div>
+
+  <!-- ==================== VISUALIZER TAB ==================== -->
+  <div id="tab-v" class="tab on">
+    <div class="vlay">
+      <div id="ctrls">
+        <div>
+          <div class="clbl">Operation</div>
+          <div class="ops">
+            <button class="opb on" onclick="setOp('gradient',this)">∇f Gradient</button>
+            <button class="opb" onclick="setOp('divergence',this)">∇·F Div</button>
+            <button class="opb" onclick="setOp('curl',this)">∇×F Curl</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="clbl">Function</div>
+          <div id="sci" class="fg">
+            <div class="flbl">f(x, y, z) =</div>
+            <input class="fi" id="fs" value="x*x + y*y + z*z" oninput="onFC()">
+            <div class="em" id="fse"></div>
+          </div>
+          <div id="vci" class="fg" style="display:none">
+            <div class="flbl">F<sub>x</sub>(x, y, z) =</div>
+            <input class="fi" id="fx" value="-y" oninput="onFC()">
+            <div class="flbl">F<sub>y</sub>(x, y, z) =</div>
+            <input class="fi" id="fy" value="x" oninput="onFC()">
+            <div class="flbl">F<sub>z</sub>(x, y, z) =</div>
+            <input class="fi" id="fz" value="0" oninput="onFC()">
+            <div class="em" id="fve"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="clbl">Presets</div>
+          <div class="pg" id="pg"></div>
+        </div>
+
+        <div>
+          <div class="clbl">Parameters</div>
+          <div class="slr">
+            <label>Grid density</label>
+            <input type="range" min="2" max="6" value="4" id="sl-d" oninput="onPC(this,'d')">
+            <span class="sv" id="sv-d">4</span>
+          </div>
+          <div class="slr">
+            <label>Domain ±</label>
+            <input type="range" min="1" max="4" value="2" step="0.5" id="sl-r" oninput="onPC(this,'r')">
+            <span class="sv" id="sv-r">2.0</span>
+          </div>
+          <div class="slr">
+            <label>Arrow scale</label>
+            <input type="range" min="1" max="30" value="8" id="sl-s" oninput="onPC(this,'s')">
+            <span class="sv" id="sv-s">8</span>
+          </div>
+          <div class="slr">
+            <label>Step h</label>
+            <input type="range" min="1" max="5" value="3" id="sl-h" oninput="onPC(this,'h')">
+            <span class="sv" id="sv-h">0.001</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="clbl">Point evaluation (x, y, z)</div>
+          <div class="pr">
+            <input class="pi" id="px" type="number" value="1" step="0.1" placeholder="x" oninput="updateResult()">
+            <input class="pi" id="py" type="number" value="1" step="0.1" placeholder="y" oninput="updateResult()">
+            <input class="pi" id="pz" type="number" value="0" step="0.1" placeholder="z" oninput="updateResult()">
+          </div>
+          <div class="rb" id="rb"><div class="rr"><span>Enter a function above</span></div></div>
+        </div>
+
+        <div>
+          <div class="clbl">Color scale (magnitude)</div>
+          <div class="cbr"></div>
+          <div class="cbrl"><span>Low</span><span>High</span></div>
+        </div>
+      </div>
+
+      <div id="cvwrap">
+        <canvas id="cv"></canvas>
+        <div class="badge" id="opbadge">∇f — Gradient</div>
+        <div class="hint">Drag · Scroll to zoom · Double-click to reset</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PHYSICS TAB ==================== -->
+  <div id="tab-p" class="tab" style="overflow-y:auto">
+    <div class="pc">
+      <h2>Vector Calculus — Physics Reference</h2>
+
+      <div class="ps">
+        <h3><span class="sym">∇f</span> Gradient</h3>
+        <p>The gradient of a scalar field f(x,y,z) is a vector field that at each point indicates the direction of steepest ascent and its rate. It generalizes the one-dimensional derivative to multiple dimensions.</p>
+        <div class="mb">∇f = (∂f/∂x) î + (∂f/∂y) ĵ + (∂f/∂z) k̂</div>
+        <h4>Geometric interpretation</h4>
+        <p>The gradient vector is always <strong>perpendicular to the level surfaces</strong> (isosurfaces) of f. Gradient lines are the paths of steepest descent — they cross every level surface at right angles. The magnitude |∇f| gives the local rate of change per unit distance.</p>
+        <h4>Key identities</h4>
+        <ul>
+          <li>∇(f + g) = ∇f + ∇g  (linearity)</li>
+          <li>∇(fg) = f∇g + g∇f  (product rule)</li>
+          <li>∇(f∘g) = (∇f ∘ g) · ∇g  (chain rule)</li>
+          <li>∇(constant) = 0</li>
+          <li>∇f = 0 at all critical points (minima, maxima, saddle points)</li>
+        </ul>
+        <h4>Physical applications</h4>
+        <div class="ag">
+          <div class="ac"><div class="at">Gravitational field</div><div class="ad">g = −∇φ  (φ = gravitational potential)</div></div>
+          <div class="ac"><div class="at">Electric field</div><div class="ad">E = −∇V  (V = electric potential)</div></div>
+          <div class="ac"><div class="at">Heat conduction</div><div class="ad">q = −k∇T  (Fourier's law)</div></div>
+          <div class="ac"><div class="at">Pressure force</div><div class="ad">F/V = −∇P  (hydrostatics)</div></div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <h3><span class="sym">∇·F</span> Divergence</h3>
+        <p>The divergence measures the net outflow of a vector field from an infinitesimal volume element. Positive divergence = <em>source</em> (fluid or field lines spreading out); negative divergence = <em>sink</em> (field lines converging).</p>
+        <div class="mb">∇·F = ∂F<sub>x</sub>/∂x + ∂F<sub>y</sub>/∂y + ∂F<sub>z</sub>/∂z</div>
+        <h4>Gauss's Divergence Theorem</h4>
+        <p>The total divergence integrated over a volume V equals the net flux through its bounding surface S:</p>
+        <div class="mb">∯<sub>S</sub> F · dA = ∭<sub>V</sub> (∇·F) dV</div>
+        <p>This is one of the most powerful theorems in physics — it converts a surface integral into a volume integral, or vice versa.</p>
+        <h4>Key identities</h4>
+        <ul>
+          <li>∇·(F + G) = ∇·F + ∇·G  (linearity)</li>
+          <li>∇·(fF) = f(∇·F) + F·(∇f)  (product rule)</li>
+          <li>∇·(∇×F) = 0  (divergence of any curl is zero)</li>
+          <li>Solenoidal field: ∇·F = 0  (incompressible, divergence-free)</li>
+        </ul>
+        <h4>Physical applications</h4>
+        <div class="ag">
+          <div class="ac"><div class="at">Gauss's law (E-field)</div><div class="ad">∇·E = ρ/ε₀  (charge = source of E)</div></div>
+          <div class="ac"><div class="at">Gauss's law (B-field)</div><div class="ad">∇·B = 0  (no magnetic monopoles)</div></div>
+          <div class="ac"><div class="at">Continuity equation</div><div class="ad">∂ρ/∂t + ∇·(ρv) = 0  (mass conservation)</div></div>
+          <div class="ac"><div class="at">Incompressible flow</div><div class="ad">∇·v = 0  (volume-preserving fluid)</div></div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <h3><span class="sym">∇×F</span> Curl (Rotation)</h3>
+        <p>The curl measures the local rotation of a vector field. At each point, it produces a vector whose direction is the axis of rotation (right-hand rule) and whose magnitude is twice the angular velocity of a tiny paddle wheel placed there.</p>
+        <div class="mb">∇×F = |î  ĵ  k̂|
+        |∂/∂x  ∂/∂y  ∂/∂z|
+        |F<sub>x</sub>   F<sub>y</sub>   F<sub>z</sub>|
+
+= (∂F<sub>z</sub>/∂y − ∂F<sub>y</sub>/∂z) î
++ (∂F<sub>x</sub>/∂z − ∂F<sub>z</sub>/∂x) ĵ
++ (∂F<sub>y</sub>/∂x − ∂F<sub>x</sub>/∂y) k̂</div>
+        <h4>Stokes' Theorem</h4>
+        <p>The circulation of F around a closed curve C equals the flux of the curl through any surface S bounded by C:</p>
+        <div class="mb">∮<sub>C</sub> F · dr = ∬<sub>S</sub> (∇×F) · dA</div>
+        <h4>Key identities</h4>
+        <ul>
+          <li>∇×(F + G) = ∇×F + ∇×G  (linearity)</li>
+          <li>∇×(fF) = f(∇×F) + (∇f)×F  (product rule)</li>
+          <li>∇×(∇f) = 0  (gradient fields are irrotational)</li>
+          <li>∇×F = 0 ⟹ F is conservative (path-independent work)</li>
+        </ul>
+        <h4>Physical applications</h4>
+        <div class="ag">
+          <div class="ac"><div class="at">Faraday's law</div><div class="ad">∇×E = −∂B/∂t  (changing B induces E)</div></div>
+          <div class="ac"><div class="at">Ampère–Maxwell law</div><div class="ad">∇×B = μ₀J + μ₀ε₀∂E/∂t</div></div>
+          <div class="ac"><div class="at">Vorticity (fluids)</div><div class="ad">ω = ∇×v  (local angular velocity)</div></div>
+          <div class="ac"><div class="at">Angular velocity</div><div class="ad">For rigid body: ∇×v = 2ω</div></div>
+        </div>
+      </div>
+
+      <div class="ps">
+        <h3>Fundamental vector calculus identities</h3>
+        <div class="mb">∇×(∇f) = 0           Curl of any gradient is zero
+∇·(∇×F) = 0         Divergence of any curl is zero
+∇²f = ∇·(∇f)        Laplacian of scalar
+∇²F = ∇(∇·F) − ∇×(∇×F)   Vector Laplacian
+
+∇·(F×G) = G·(∇×F) − F·(∇×G)
+∇×(F×G) = F(∇·G) − G(∇·F) + (G·∇)F − (F·∇)G</div>
+        <h4>Maxwell's equations in differential form</h4>
+        <div class="mb">∇·E = ρ/ε₀           (Gauss — electric)
+∇·B = 0              (Gauss — magnetic)
+∇×E = −∂B/∂t        (Faraday)
+∇×B = μ₀J + μ₀ε₀∂E/∂t   (Ampère–Maxwell)</div>
+        <p>These four equations, expressed using gradient, divergence, and curl, encode all of classical electromagnetism.</p>
+      </div>
+
+      <div class="ps">
+        <h3>Numerical differentiation</h3>
+        <p>This tool uses the <strong>central difference formula</strong> for all partial derivatives:</p>
+        <div class="mb">∂f/∂x ≈ [f(x+h, y, z) − f(x−h, y, z)] / (2h)</div>
+        <p>This is a second-order accurate scheme: the truncation error is O(h²). The step size h can be adjusted using the parameter slider (default h = 0.001). Smaller h gives better accuracy for smooth functions but may introduce floating-point cancellation errors.</p>
+        <div class="mb">Error ≈ (h²/6) · f'''(x)   (central difference, 2nd order)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HELP TAB ==================== -->
+  <div id="tab-h" class="tab" style="overflow-y:auto">
+    <div class="hc">
+      <h2>Help & User Guide</h2>
+
+      <div class="hs">
+        <h3>Quick start</h3>
+        <p>1. Select an <strong>operation</strong> (Gradient, Divergence, or Curl) using the three buttons at the top of the controls panel.</p>
+        <p>2. <strong>Enter your function(s)</strong> — one scalar function f(x,y,z) for gradient; three component functions Fx, Fy, Fz for divergence and curl.</p>
+        <p>3. Use the <strong>presets</strong> to load example functions instantly and explore canonical fields.</p>
+        <p>4. Set a <strong>point (x, y, z)</strong> to see exact computed values at that location.</p>
+        <p>5. <strong>Drag</strong> the 3D view to rotate, <strong>scroll</strong> to zoom, <strong>double-click</strong> to reset the camera.</p>
+      </div>
+
+      <div class="hs">
+        <h3>Function syntax</h3>
+        <p>Write standard mathematical expressions using <code>x</code>, <code>y</code>, <code>z</code> as variables. Use <code>*</code> for multiplication (e.g., <code>x*y</code> not <code>xy</code>).</p>
+        <table class="ft">
+          <tr><th>Operation</th><th>Syntax</th><th>Example</th></tr>
+          <tr><td class="mono">sin, cos, tan</td><td>sin(expr)</td><td>sin(x)*cos(y)</td></tr>
+          <tr><td class="mono">asin, acos, atan</td><td>asin(expr)</td><td>atan2(y,x)</td></tr>
+          <tr><td class="mono">Exponential</td><td>exp(x)</td><td>exp(-(x^2+y^2))</td></tr>
+          <tr><td class="mono">Natural log</td><td>ln(x) or log(x)</td><td>ln(x*x+1)</td></tr>
+          <tr><td class="mono">Square root</td><td>sqrt(x)</td><td>sqrt(x^2+y^2+z^2)</td></tr>
+          <tr><td class="mono">Power</td><td>x^n or x**n</td><td>x^3 − 3*x*y^2</td></tr>
+          <tr><td class="mono">Absolute value</td><td>abs(x)</td><td>abs(sin(x))</td></tr>
+          <tr><td class="mono">Constants</td><td>pi, e</td><td>sin(pi*x)</td></tr>
+          <tr><td class="mono">Min / Max</td><td>min(a,b)</td><td>max(x,y)</td></tr>
+        </table>
+      </div>
+
+      <div class="hs">
+        <h3>Example scalar fields (for Gradient)</h3>
+        <div class="eb">
+          <div class="el"><span class="ef">x^2 + y^2 + z^2</span><span class="ed">Paraboloid — gradient points radially outward</span></div>
+          <div class="el"><span class="ef">sin(x)*cos(y)</span><span class="ed">Standing wave pattern</span></div>
+          <div class="el"><span class="ef">exp(-(x^2+y^2+z^2))</span><span class="ed">Gaussian — gradient points toward center</span></div>
+          <div class="el"><span class="ef">x*y*z</span><span class="ed">Triple product — interesting saddle topology</span></div>
+          <div class="el"><span class="ef">sqrt(x^2+y^2+z^2)</span><span class="ed">Radial distance — unit radial gradient</span></div>
+          <div class="el"><span class="ef">x^3 - 3*x*y^2</span><span class="ed">Monkey saddle surface</span></div>
+        </div>
+      </div>
+
+      <div class="hs">
+        <h3>Example vector fields (for Divergence and Curl)</h3>
+        <div class="eb">
+          <div class="el"><span class="ef">Fx=x, Fy=y, Fz=z</span><span class="ed">Radial — div=3, curl=0 (pure source)</span></div>
+          <div class="el"><span class="ef">Fx=−y, Fy=x, Fz=0</span><span class="ed">Rotation — div=0, curl=(0,0,2)</span></div>
+          <div class="el"><span class="ef">Fx=sin(y), Fy=cos(x), Fz=0</span><span class="ed">Oscillating mixed field</span></div>
+          <div class="el"><span class="ef">Fx=y*z, Fy=x*z, Fz=x*y</span><span class="ed">Conservative field — curl=0 everywhere</span></div>
+          <div class="el"><span class="ef">Fx=x^2, Fy=y^2, Fz=z^2</span><span class="ed">Quadratic — positive divergence growing with r</span></div>
+          <div class="el"><span class="ef">Fx=−y/(x^2+y^2), Fy=x/(x^2+y^2), Fz=0</span><span class="ed">Vortex (irrotational except origin)</span></div>
+        </div>
+      </div>
+
+      <div class="hs">
+        <h3>3D viewer controls</h3>
+        <table class="ft">
+          <tr><th>Action</th><th>Mouse / Touch</th></tr>
+          <tr><td>Rotate scene</td><td>Click and drag</td></tr>
+          <tr><td>Zoom in / out</td><td>Scroll wheel or pinch</td></tr>
+          <tr><td>Reset camera</td><td>Double-click</td></tr>
+        </table>
+      </div>
+
+      <div class="hs">
+        <h3>Reading the visualization</h3>
+        <p><strong>Arrow direction</strong> — the direction of the computed vector (gradient direction, curl vector, or field direction for divergence).</p>
+        <p><strong>Arrow length</strong> — proportional to the vector magnitude at that grid point. Adjust with the Arrow Scale slider.</p>
+        <p><strong>Arrow color</strong> — follows the blue→green→yellow→red scale for magnitude. For Divergence mode, color encodes the divergence value (blue = sink, red = source) while arrow direction shows the field F.</p>
+        <p><strong>Coordinate axes</strong> — red = x, green = y, blue = z (standard right-hand convention).</p>
+      </div>
+
+      <div class="hs">
+        <h3>Parameter guide</h3>
+        <table class="ft">
+          <tr><th>Parameter</th><th>Effect</th></tr>
+          <tr><td>Grid density</td><td>Number of arrows per axis (n³ total). Increase for more detail.</td></tr>
+          <tr><td>Domain ±</td><td>The spatial extent of the visualization (±R in each axis).</td></tr>
+          <tr><td>Arrow scale</td><td>Visual scaling factor for arrow length. Increase if arrows are too small.</td></tr>
+          <tr><td>Step h</td><td>Finite difference step. Smaller = more accurate for smooth functions; larger = more stable for noisy functions.</td></tr>
+        </table>
+      </div>
+
+      <div class="hs">
+        <h3>Notes and limitations</h3>
+        <div class="note">Derivatives are computed numerically using the central difference formula with adjustable step h. For functions with discontinuities (e.g., 1/x near x=0), results near singularities may be inaccurate or NaN. The tool automatically skips NaN or infinite vectors in the visualization.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const PRESETS = {
+  gradient:[
+    {l:'x²+y²+z²',f:'x*x+y*y+z*z'},
+    {l:'sin(x)cos(y)',f:'sin(x)*cos(y)'},
+    {l:'exp(−r²)',f:'exp(-(x*x+y*y+z*z))'},
+    {l:'x·y·z',f:'x*y*z'},
+  ],
+  divergence:[
+    {l:'(x, y, z)',fx:'x',fy:'y',fz:'z'},
+    {l:'(−y, x, 0)',fx:'-y',fy:'x',fz:'0'},
+    {l:'(sin y,cos x,0)',fx:'sin(y)',fy:'cos(x)',fz:'0'},
+    {l:'(x², y², z²)',fx:'x*x',fy:'y*y',fz:'z*z'},
+  ],
+  curl:[
+    {l:'(−y, x, 0)',fx:'-y',fy:'x',fz:'0'},
+    {l:'(y·z,x·z,x·y)',fx:'y*z',fy:'x*z',fz:'x*y'},
+    {l:'(sin y,cos x,0)',fx:'sin(y)',fy:'cos(x)',fz:'0'},
+    {l:'(x,y,z)',fx:'x',fy:'y',fz:'z'},
+  ]
+};
+
+const BADGES = {gradient:'∇f — Gradient',divergence:'∇·F — Divergence',curl:'∇×F — Curl'};
+const HSTEPS = [0.1,0.01,0.001,0.0001,0.00001];
+
+let op='gradient', P={d:4,r:2,s:8,h:0.001};
+let scene,camera,renderer,arrowGrp;
+let isDrag=false,lx=0,ly=0;
+let phi=1.1,theta=0.6,camR=9;
+let vizTimer,lastTouch=null;
+
+function parseF(expr){
+  const s=expr.replace(/\^/g,'**')
+    .replace(/\b(sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|exp|sqrt|abs|ceil|floor|round|sign|pow|min|max|log2|log10)\b/g,'Math.$1')
+    .replace(/\bln\b/g,'Math.log').replace(/\blog\b(?!2|10)/g,'Math.log')
+    .replace(/\bpi\b/g,'Math.PI').replace(/(?<!\w)e(?!\w)/g,'Math.E');
+  try{
+    const f=new Function('x','y','z',`"use strict";const r=+(${s});return r;`);
+    const t=f(1,1,1);
+    if(t===undefined)return null;
+    return f;
+  }catch(e){return null;}
+}
+
+function pd(f,a,i,h){
+  const p=[...a],m=[...a];p[i]+=h;m[i]-=h;
+  const v=(f(...p)-f(...m))/(2*h);
+  return isFinite(v)?v:NaN;
+}
+function grad(f,x,y,z){const h=P.h;return[pd(f,[x,y,z],0,h),pd(f,[x,y,z],1,h),pd(f,[x,y,z],2,h)];}
+function divF(Fx,Fy,Fz,x,y,z){const h=P.h;return pd(Fx,[x,y,z],0,h)+pd(Fy,[x,y,z],1,h)+pd(Fz,[x,y,z],2,h);}
+function curlF(Fx,Fy,Fz,x,y,z){
+  const h=P.h;
+  return[
+    pd(Fz,[x,y,z],1,h)-pd(Fy,[x,y,z],2,h),
+    pd(Fx,[x,y,z],2,h)-pd(Fz,[x,y,z],0,h),
+    pd(Fy,[x,y,z],0,h)-pd(Fx,[x,y,z],1,h)
+  ];
+}
+function mag(v){return Math.sqrt(v[0]**2+v[1]**2+v[2]**2);}
+
+function tColor(t){
+  t=Math.max(0,Math.min(1,t));
+  const cs=[[0.13,0.40,0.67],[0.18,0.63,0.40],[0.99,0.68,0.38],[0.84,0.10,0.11]];
+  const si=t*(cs.length-1),i=Math.min(Math.floor(si),cs.length-2),f=si-i;
+  return cs[i].map((c,k)=>c+(cs[i+1][k]-c)*f);
+}
+function divColor(t){
+  t=Math.max(0,Math.min(1,t));
+  const b=[0.18,0.42,0.88],w=[0.82,0.82,0.78],r=[0.90,0.16,0.16];
+  if(t<0.5){const u=t*2;return b.map((c,k)=>c+(w[k]-c)*u);}
+  const u=(t-0.5)*2;return w.map((c,k)=>c+(r[k]-c)*u);
+}
+
+function initThree(){
+  const wrap=document.getElementById('cvwrap');
+  const canvas=document.getElementById('cv');
+  scene=new THREE.Scene();
+  const W=wrap.clientWidth, H=wrap.clientHeight||500;
+  camera=new THREE.PerspectiveCamera(48,W/H,0.05,100);
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(W,H);
+  renderer.setClearColor(0x000000,0);
+
+  buildAxes();
+  arrowGrp=new THREE.Group();
+  scene.add(arrowGrp);
+
+  updateCamera();
+  (function loop(){requestAnimationFrame(loop);renderer.render(scene,camera);})();
+  updateViz();
+}
+
+function buildAxes(){
+  [[1,0,0,0xff4444],[0,1,0,0x44bb44],[0,0,1,0x4488ff]].forEach(([dx,dy,dz,col])=>{
+    const len=P.r*1.4;
+    const dir=new THREE.Vector3(dx,dy,dz);
+    const a=new THREE.ArrowHelper(dir,new THREE.Vector3(0,0,0),len,col,len*0.09,len*0.045);
+    scene.add(a);
+    const an=new THREE.ArrowHelper(dir.clone().negate(),new THREE.Vector3(0,0,0),len*0.7,col,0,0);
+    scene.add(an);
+  });
+  const gMat=new THREE.LineBasicMaterial({color:0x888888,transparent:true,opacity:0.15});
+  const sz=P.r*2, n=8, sp=sz/n;
+  const pts=[];
+  for(let i=0;i<=n;i++){
+    const v=i*sp-sz/2;
+    pts.push(new THREE.Vector3(v,0,-sz/2),new THREE.Vector3(v,0,sz/2));
+    pts.push(new THREE.Vector3(-sz/2,0,v),new THREE.Vector3(sz/2,0,v));
+  }
+  const geo=new THREE.BufferGeometry().setFromPoints(pts);
+  scene.add(new THREE.LineSegments(geo,gMat));
+}
+
+function clearArrows(){
+  while(arrowGrp.children.length){
+    const a=arrowGrp.children[0];
+    a.line.geometry.dispose();a.cone.geometry.dispose();
+    arrowGrp.remove(a);
+  }
+}
+
+function updateViz(){
+  clearArrows();
+  if(!scene)return;
+  const fs=document.getElementById('fs').value.trim();
+  const fx=document.getElementById('fx').value.trim();
+  const fy=document.getElementById('fy').value.trim();
+  const fz=document.getElementById('fz').value.trim();
+  let fSc=null,fX=null,fY=null,fZ=null;
+  if(op==='gradient'){
+    fSc=parseF(fs);
+    if(!fSc){setE('fse','⚠ Invalid expression');return;}
+    clrE('fse');
+  }else{
+    fX=parseF(fx);fY=parseF(fy);fZ=parseF(fz);
+    if(!fX||!fY||!fZ){setE('fve','⚠ Invalid expression in one or more fields');return;}
+    clrE('fve');
+  }
+  const n=P.d,r=P.r,step=(2*r)/(n-1);
+  const vecs=[];
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++)for(let k=0;k<n;k++){
+    const x=-r+i*step,y=-r+j*step,z=-r+k*step;
+    let vec,dv=0;
+    try{
+      if(op==='gradient') vec=grad(fSc,x,y,z);
+      else if(op==='curl') vec=curlF(fX,fY,fZ,x,y,z);
+      else{vec=[fX(x,y,z),fY(x,y,z),fZ(x,y,z)];dv=divF(fX,fY,fZ,x,y,z);}
+    }catch(e){continue;}
+    if(!vec||vec.some(v=>!isFinite(v))||!isFinite(dv))continue;
+    vecs.push({x,y,z,vec,dv});
+  }
+  let maxM=1e-9,minDv=Infinity,maxDv=-Infinity;
+  vecs.forEach(({vec,dv})=>{
+    const m=mag(vec);if(m>maxM)maxM=m;
+    if(dv<minDv)minDv=dv;if(dv>maxDv)maxDv=dv;
+  });
+  const dvSpan=Math.max(Math.abs(minDv),Math.abs(maxDv))||1;
+  const maxLen=step*0.8*(P.s/12);
+
+  vecs.forEach(({x,y,z,vec,dv})=>{
+    const m=mag(vec);if(m<1e-10)return;
+    const dir=new THREE.Vector3(vec[0],vec[1],vec[2]).normalize();
+    const len=Math.min((m/maxM)*maxLen,step*0.88);
+    let rgb;
+    if(op==='divergence') rgb=divColor((dv/dvSpan+1)/2);
+    else rgb=tColor(m/maxM);
+    const col=new THREE.Color(rgb[0],rgb[1],rgb[2]);
+    const hl=Math.max(len*0.28,0.02),hr=Math.max(len*0.13,0.01);
+    const arrow=new THREE.ArrowHelper(dir,new THREE.Vector3(x,y,z),len,col,hl,hr);
+    arrowGrp.add(arrow);
+  });
+  updateResult();
+}
+
+function updateResult(){
+  const x=parseFloat(document.getElementById('px').value)||0;
+  const y=parseFloat(document.getElementById('py').value)||0;
+  const z=parseFloat(document.getElementById('pz').value)||0;
+  const rb=document.getElementById('rb');
+  const fs=document.getElementById('fs').value.trim();
+  const fx=document.getElementById('fx').value.trim();
+  const fy=document.getElementById('fy').value.trim();
+  const fz=document.getElementById('fz').value.trim();
+  const f4=v=>isFinite(v)?v.toFixed(4):'NaN';
+  try{
+    if(op==='gradient'){
+      const f=parseF(fs);if(!f){rb.innerHTML='<div class="rr" style="color:#e24b4a">Invalid function</div>';return;}
+      const fv=f(x,y,z);const [gx,gy,gz]=grad(f,x,y,z);const m=mag([gx,gy,gz]);
+      rb.innerHTML=`<div class="rr"><span>f(x,y,z)</span><span class="rv">${f4(fv)}</span></div>
+<div class="rr"><span>∂f/∂x</span><span class="rv">${f4(gx)}</span></div>
+<div class="rr"><span>∂f/∂y</span><span class="rv">${f4(gy)}</span></div>
+<div class="rr"><span>∂f/∂z</span><span class="rv">${f4(gz)}</span></div>
+<div class="rr rm"><span>|∇f| magnitude</span><span class="rv">${f4(m)}</span></div>`;
+    }else if(op==='divergence'){
+      const fX=parseF(fx),fY=parseF(fy),fZ=parseF(fz);
+      if(!fX||!fY||!fZ){rb.innerHTML='<div class="rr" style="color:#e24b4a">Invalid function(s)</div>';return;}
+      const Fxv=fX(x,y,z),Fyv=fY(x,y,z),Fzv=fZ(x,y,z);
+      const d=divF(fX,fY,fZ,x,y,z);
+      const fieldMag=mag([Fxv,Fyv,Fzv]);
+      rb.innerHTML=`<div class="rr"><span>Fx</span><span class="rv">${f4(Fxv)}</span></div>
+<div class="rr"><span>Fy</span><span class="rv">${f4(Fyv)}</span></div>
+<div class="rr"><span>Fz</span><span class="rv">${f4(Fzv)}</span></div>
+<div class="rr"><span>|F|</span><span class="rv">${f4(fieldMag)}</span></div>
+<div class="rr rm"><span>∇·F (divergence)</span><span class="rv">${f4(d)}</span></div>`;
+    }else{
+      const fX=parseF(fx),fY=parseF(fy),fZ=parseF(fz);
+      if(!fX||!fY||!fZ){rb.innerHTML='<div class="rr" style="color:#e24b4a">Invalid function(s)</div>';return;}
+      const [cx,cy,cz]=curlF(fX,fY,fZ,x,y,z);
+      const m=mag([cx,cy,cz]);
+      rb.innerHTML=`<div class="rr"><span>(∇×F)<sub>x</sub></span><span class="rv">${f4(cx)}</span></div>
+<div class="rr"><span>(∇×F)<sub>y</sub></span><span class="rv">${f4(cy)}</span></div>
+<div class="rr"><span>(∇×F)<sub>z</sub></span><span class="rv">${f4(cz)}</span></div>
+<div class="rr rm"><span>|∇×F| magnitude</span><span class="rv">${f4(m)}</span></div>`;
+    }
+  }catch(e){rb.innerHTML='<div class="rr" style="color:#e24b4a">Computation error</div>';}
+}
+
+function setE(id,msg){const el=document.getElementById(id);if(el)el.textContent=msg;}
+function clrE(id){const el=document.getElementById(id);if(el)el.textContent='';}
+function onFC(){clearTimeout(vizTimer);vizTimer=setTimeout(updateViz,280);}
+function onPC(el,key){
+  const v=parseFloat(el.value);
+  if(key==='d'){P.d=v;document.getElementById('sv-d').textContent=v;}
+  else if(key==='r'){P.r=v;document.getElementById('sv-r').textContent=v.toFixed(1);}
+  else if(key==='s'){P.s=v;document.getElementById('sv-s').textContent=v;}
+  else if(key==='h'){
+    const steps=[0.1,0.01,0.001,0.0001,0.00001];
+    P.h=steps[v-1];
+    document.getElementById('sv-h').textContent=P.h.toExponential(0).replace('e-0','e-').replace('e+0','');
+  }
+  updateViz();
+}
+
+function setOp(newOp,btn){
+  op=newOp;
+  document.querySelectorAll('.opb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('sci').style.display=newOp==='gradient'?'':'none';
+  document.getElementById('vci').style.display=newOp==='gradient'?'none':'';
+  document.getElementById('opbadge').textContent=BADGES[newOp];
+  buildPresets();
+  updateViz();
+}
+
+function buildPresets(){
+  const pg=document.getElementById('pg');pg.innerHTML='';
+  PRESETS[op].forEach(p=>{
+    const b=document.createElement('button');b.className='pb';b.textContent=p.l;
+    b.title=p.f||`${p.fx} | ${p.fy} | ${p.fz}`;
+    b.onclick=()=>{
+      if(p.f) document.getElementById('fs').value=p.f;
+      if(p.fx){document.getElementById('fx').value=p.fx;document.getElementById('fy').value=p.fy;document.getElementById('fz').value=p.fz;}
+      updateViz();
+    };
+    pg.appendChild(b);
+  });
+}
+
+function showTab(id,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('tab-'+id).classList.add('on');
+  btn.classList.add('on');
+  if(id==='v'&&renderer){
+    setTimeout(()=>{
+      const w=document.getElementById('cvwrap');
+      if(w.clientWidth>0&&w.clientHeight>0){
+        renderer.setSize(w.clientWidth,w.clientHeight);
+        camera.aspect=w.clientWidth/w.clientHeight;
+        camera.updateProjectionMatrix();
+      }
+    },60);
+  }
+}
+
+function updateCamera(){
+  if(!camera)return;
+  camera.position.set(
+    camR*Math.sin(phi)*Math.cos(theta),
+    camR*Math.cos(phi),
+    camR*Math.sin(phi)*Math.sin(theta)
+  );
+  camera.lookAt(0,0,0);
+}
+
+const cvwrap=document.getElementById('cvwrap');
+cvwrap.addEventListener('mousedown',e=>{isDrag=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mousemove',e=>{
+  if(!isDrag)return;
+  const dx=e.clientX-lx,dy=e.clientY-ly;
+  theta-=dx*0.011;phi=Math.max(0.12,Math.min(Math.PI-0.12,phi+dy*0.011));
+  lx=e.clientX;ly=e.clientY;updateCamera();
+});
+window.addEventListener('mouseup',()=>isDrag=false);
+cvwrap.addEventListener('wheel',e=>{
+  camR=Math.max(2.5,Math.min(22,camR+e.deltaY*0.018));
+  updateCamera();e.preventDefault();
+},{passive:false});
+cvwrap.addEventListener('dblclick',()=>{phi=1.1;theta=0.6;camR=9;updateCamera();});
+
+cvwrap.addEventListener('touchstart',e=>{lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+cvwrap.addEventListener('touchmove',e=>{
+  if(!lastTouch)return;
+  const dx=e.touches[0].clientX-lastTouch.x,dy=e.touches[0].clientY-lastTouch.y;
+  theta-=dx*0.011;phi=Math.max(0.12,Math.min(Math.PI-0.12,phi+dy*0.011));
+  lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY};updateCamera();
+},{passive:true});
+cvwrap.addEventListener('touchend',()=>lastTouch=null,{passive:true});
+
+new ResizeObserver(()=>{
+  if(!renderer)return;
+  const w=document.getElementById('cvwrap');
+  if(w.clientWidth<10||w.clientHeight<10)return;
+  renderer.setSize(w.clientWidth,w.clientHeight);
+  camera.aspect=w.clientWidth/w.clientHeight;
+  camera.updateProjectionMatrix();
+}).observe(cvwrap);
+
+buildPresets();
+function tryInit(){
+  if(typeof THREE==='undefined'){setTimeout(tryInit,60);return;}
+  initThree();
+}
+tryInit();
+</script>
+</body>
+</html>

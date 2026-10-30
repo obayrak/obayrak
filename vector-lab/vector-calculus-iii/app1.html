@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Calculus 3D — ∇ Field Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #080b10;
+  --bg2:      #0d1117;
+  --bg3:      #131820;
+  --bg4:      #1a2233;
+  --panel:    #10151f;
+  --border:   rgba(100,160,255,0.10);
+  --border2:  rgba(100,160,255,0.20);
+  --accent:   #4f9eff;
+  --accent2:  #00e5b4;
+  --accent3:  #ff6b6b;
+  --gold:     #f5c84a;
+  --text:     #e8edf5;
+  --muted:    #8899bb;
+  --faint:    #394560;
+  --grad:     linear-gradient(135deg,#4f9eff22,#00e5b422);
+  --mono:     'JetBrains Mono', monospace;
+  --head:     'Syne', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--head);overflow:hidden}
+
+/* ── HEADER ── */
+#hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:52px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  position:relative;z-index:10;
+  flex-shrink:0;
+}
+#hdr .logo{
+  display:flex;align-items:center;gap:12px;
+  font-size:17px;font-weight:700;letter-spacing:-.01em;
+}
+#hdr .logo .sym{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:#000;font-weight:800;
+}
+.tabs{display:flex;gap:2px;background:var(--bg3);border-radius:8px;padding:3px}
+.tab{
+  padding:5px 18px;font-size:12px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;border:none;border-radius:6px;
+  background:none;color:var(--muted);cursor:pointer;transition:.15s;font-family:var(--head);
+}
+.tab.on{background:var(--accent);color:#000;}
+.tab:hover:not(.on){color:var(--text);background:var(--bg4);}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:calc(100vh - 52px);overflow:hidden}
+.pane{display:none;width:100%;height:100%;overflow:hidden}
+.pane.on{display:flex}
+
+/* ── VIZ PANE ── */
+#viz-pane{flex-direction:row}
+#sidebar{
+  width:280px;min-width:280px;
+  background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+#sb-scroll{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+#sb-scroll::-webkit-scrollbar{width:4px}
+#sb-scroll::-webkit-scrollbar-track{background:transparent}
+#sb-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+#canvas-wrap{flex:1;position:relative;background:var(--bg)}
+
+/* ── SECTION LABELS ── */
+.slbl{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+/* ── OP BUTTONS ── */
+.oprow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.opbtn{
+  border:1px solid var(--border2);border-radius:8px;
+  padding:9px 4px;background:var(--bg3);cursor:pointer;
+  font-family:var(--mono);font-size:15px;color:var(--muted);
+  transition:.15s;text-align:center;line-height:1;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.opbtn span.sym2{font-size:18px;font-weight:600}
+.opbtn span.lbl2{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-family:var(--head)}
+.opbtn.on{background:var(--accent);border-color:var(--accent);color:#000}
+.opbtn:hover:not(.on){border-color:var(--accent);color:var(--text);background:var(--bg4)}
+.op-desc{font-size:11px;color:var(--muted);line-height:1.55;padding:8px 10px;background:var(--bg3);border-radius:7px;border-left:2px solid var(--accent)}
+
+/* ── INPUTS ── */
+.irow{display:flex;flex-direction:column;gap:4px}
+.ilbl{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.ilbl b{color:var(--accent2)}
+.finp{
+  font-family:var(--mono);font-size:12px;
+  width:100%;padding:7px 10px;
+  border:1px solid var(--border2);border-radius:7px;
+  background:var(--bg4);color:var(--text);
+  outline:none;transition:.15s;
+}
+.finp:focus{border-color:var(--accent);background:var(--bg3)}
+.errtxt{font-size:10.5px;color:var(--accent3);margin-top:3px;display:none;font-family:var(--mono)}
+
+/* ── SELECT ── */
+.psel{
+  width:100%;font-size:11.5px;padding:7px 10px;
+  border:1px solid var(--border2);border-radius:7px;
+  background:var(--bg4);color:var(--text);outline:none;font-family:var(--head);cursor:pointer;
+}
+
+/* ── SLIDERS ── */
+.srow{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.srow > span:first-child{min-width:82px;font-family:var(--mono);font-size:10.5px}
+.srow input[type=range]{
+  flex:1;-webkit-appearance:none;height:3px;
+  background:var(--faint);border-radius:2px;outline:none;cursor:pointer;
+}
+.srow input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:var(--accent);cursor:pointer;
+}
+.sv{min-width:32px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text)}
+
+/* ── COMPUTE BUTTON ── */
+.cbtn{
+  width:100%;padding:11px;font-size:12px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;font-family:var(--head);
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  color:#050a14;border:none;border-radius:9px;cursor:pointer;
+  transition:opacity .15s,transform .1s;
+}
+.cbtn:hover{opacity:.88}
+.cbtn:active{transform:scale(.98)}
+
+/* ── STATS ── */
+#statsbox{
+  background:var(--bg3);border-radius:8px;padding:10px 12px;
+  font-size:10.5px;font-family:var(--mono);line-height:2;color:var(--muted);
+  border:1px solid var(--border);
+}
+#statsbox .sv2{color:var(--text)}
+.badge{
+  display:inline-block;padding:1px 7px;border-radius:10px;
+  font-size:9.5px;letter-spacing:.05em;font-weight:600;
+  font-family:var(--head);text-transform:uppercase;margin:2px 2px 0 0;
+}
+.byes{background:#0d3d2a;color:#00e5b4;border:1px solid #00e5b433}
+.bno{background:#3d1515;color:#ff6b6b;border:1px solid #ff6b6b33}
+.bneu{background:#1a2233;color:var(--accent);border:1px solid var(--accent)33}
+
+/* ── LEGEND ── */
+#lgnd{
+  position:absolute;bottom:16px;right:16px;
+  background:rgba(8,11,16,.82);backdrop-filter:blur(8px);
+  border:1px solid var(--border2);border-radius:10px;padding:9px 13px;
+  display:none;
+}
+#lgnd .ltt{font-size:9.5px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;font-family:var(--head)}
+.lbar{width:110px;height:7px;border-radius:3px;margin:3px 0}
+.llab{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);font-family:var(--mono)}
+#ax-lbl{
+  position:absolute;bottom:16px;left:16px;
+  font-size:11px;font-family:var(--mono);display:flex;gap:8px;
+}
+#drgtip{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  font-size:10px;color:var(--muted);background:rgba(8,11,16,.75);
+  backdrop-filter:blur(6px);border:1px solid var(--border);
+  border-radius:20px;padding:4px 14px;letter-spacing:.04em;font-family:var(--head);
+  transition:opacity 1.4s;pointer-events:none;
+}
+
+/* ── INFO OVERLAY ── */
+#info-overlay{
+  position:absolute;top:14px;right:16px;
+  background:rgba(8,11,16,.78);backdrop-filter:blur(6px);
+  border:1px solid var(--border);border-radius:10px;padding:8px 12px;
+  font-size:10px;font-family:var(--mono);color:var(--muted);line-height:1.9;
+  display:none;max-width:200px;
+}
+#info-overlay .iov-t{color:var(--accent2);font-weight:600;font-size:9.5px;letter-spacing:.07em;font-family:var(--head);text-transform:uppercase;margin-bottom:3px}
+
+/* ── SCROLLABLE CONTENT PANES ── */
+.docpane{
+  flex-direction:column;overflow:hidden;
+  background:var(--bg2);
+}
+.doc-inner{
+  flex:1;overflow-y:auto;padding:32px 48px 48px;
+  scrollbar-width:thin;scrollbar-color:var(--faint) transparent;
+}
+.doc-inner::-webkit-scrollbar{width:5px}
+.doc-inner::-webkit-scrollbar-thumb{background:var(--faint);border-radius:3px}
+.doctabs{
+  display:flex;gap:0;border-bottom:1px solid var(--border);
+  flex-shrink:0;background:var(--panel);padding:0 24px;
+}
+.dtab{
+  padding:12px 22px;font-size:11px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;border:none;background:none;color:var(--faint);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:.15s;font-family:var(--head);
+}
+.dtab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.dsec{display:none}
+.dsec.on{display:block}
+
+/* PHYSICS / HELP STYLES */
+.dh1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;color:var(--text)}
+.dh2{font-size:18px;font-weight:700;margin:28px 0 10px;color:var(--accent2);letter-spacing:-.01em}
+.dh3{font-size:13px;font-weight:700;margin:18px 0 7px;color:var(--accent);letter-spacing:.03em;text-transform:uppercase}
+.dp{font-size:14px;line-height:1.8;color:var(--muted);margin-bottom:12px}
+.formula{
+  background:var(--bg3);border-left:3px solid var(--accent);
+  border-radius:0 10px 10px 0;padding:12px 18px;
+  font-family:var(--mono);font-size:13px;line-height:2.2;
+  color:var(--text);margin:12px 0;overflow-x:auto;
+}
+.formula .hl{color:var(--accent2)}
+.formula .hl2{color:var(--gold)}
+.formula .hl3{color:var(--accent3)}
+.dtbl{width:100%;border-collapse:collapse;font-size:13px;margin:14px 0}
+.dtbl th{
+  padding:8px 14px;text-align:left;
+  background:var(--bg4);color:var(--accent);font-size:10px;
+  text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+  border-bottom:1px solid var(--border2);
+}
+.dtbl td{
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  color:var(--muted);font-size:13px;vertical-align:top;
+}
+.dtbl td:first-child{font-family:var(--mono);font-size:12px;color:var(--text)}
+.dtbl tr:hover td{background:var(--bg4)}
+.infobox{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
+  padding:14px 18px;margin:14px 0;
+}
+.infobox .ibt{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;font-family:var(--head)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.card .ct{font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;font-family:var(--head)}
+.card .cv{font-size:13px;color:var(--muted);line-height:1.7}
+.mono{font-family:var(--mono);font-size:12px;background:var(--bg4);padding:1px 6px;border-radius:4px;color:var(--accent2)}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--head);text-transform:uppercase;letter-spacing:.04em;margin:2px}
+.tblue{background:#0e2040;color:var(--accent);border:1px solid var(--accent)33}
+.tgreen{background:#0a2e20;color:var(--accent2);border:1px solid var(--accent2)33}
+.tred{background:#2e1010;color:var(--accent3);border:1px solid var(--accent3)33}
+.tgold{background:#2e2010;color:var(--gold);border:1px solid var(--gold)33}
+
+/* responsive */
+@media(max-width:640px){
+  #sidebar{width:220px;min-width:220px}
+  .doc-inner{padding:20px 20px 40px}
+  .grid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="logo">
+    <div class="sym">∇</div>
+    <span>Vector Calculus 3D</span>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="switchPane('viz')">Simulator</button>
+    <button class="tab" onclick="switchPane('phy')">Physics</button>
+    <button class="tab" onclick="switchPane('hlp')">Help</button>
+  </div>
+</div>
+
+<div id="app">
+
+<!-- ══════════════ VISUALIZER PANE ══════════════ -->
+<div id="viz-pane" class="pane on">
+
+  <div id="sidebar">
+  <div id="sb-scroll">
+
+    <!-- Operation -->
+    <div>
+      <div class="slbl">Operation</div>
+      <div class="oprow">
+        <button class="opbtn on" id="ob-g" onclick="setOp('gradient')">
+          <span class="sym2">∇f</span><span class="lbl2">Gradient</span>
+        </button>
+        <button class="opbtn" id="ob-d" onclick="setOp('divergence')">
+          <span class="sym2">∇·F</span><span class="lbl2">Divergence</span>
+        </button>
+        <button class="opbtn" id="ob-c" onclick="setOp('curl')">
+          <span class="sym2">∇×F</span><span class="lbl2">Curl</span>
+        </button>
+      </div>
+      <div class="op-desc" id="opdsc">Gradient of scalar field f(x,y,z) — points in direction of steepest increase</div>
+    </div>
+
+    <!-- Function Inputs -->
+    <div id="finputs"></div>
+    <div class="errtxt" id="errtxt"></div>
+
+    <!-- Presets -->
+    <div>
+      <div class="slbl">Presets</div>
+      <select class="psel" id="psel" onchange="applyPreset(this.value)">
+        <option value="">— select a preset —</option>
+      </select>
+    </div>
+
+    <!-- Parameters -->
+    <div>
+      <div class="slbl">Parameters</div>
+      <div class="srow"><span>Resolution</span>
+        <input type="range" min="3" max="8" value="5" step="1" id="sl-r" oninput="upsl('r',this.value)">
+        <span class="sv" id="sv-r">5</span>
+      </div>
+      <div class="srow"><span>Domain ±</span>
+        <input type="range" min="0.5" max="5" value="2" step="0.25" id="sl-d" oninput="upsl('d',this.value)">
+        <span class="sv" id="sv-d">2.00</span>
+      </div>
+      <div class="srow"><span>Arrow scale</span>
+        <input type="range" min="0.05" max="3" value="0.8" step="0.05" id="sl-s" oninput="upsl('s',this.value)">
+        <span class="sv" id="sv-s">0.80</span>
+      </div>
+      <div class="srow"><span>Opacity</span>
+        <input type="range" min="0.1" max="1" value="0.9" step="0.05" id="sl-o" oninput="upsl('o',this.value)">
+        <span class="sv" id="sv-o">0.90</span>
+      </div>
+      <div class="srow"><span>Clip magnitude</span>
+        <input type="range" min="0" max="0.95" value="0" step="0.05" id="sl-m" oninput="upsl('m',this.value)">
+        <span class="sv" id="sv-m">0.00</span>
+      </div>
+    </div>
+
+    <!-- Render -->
+    <button class="cbtn" onclick="compute()">⟳ &nbsp;Compute &amp; Render</button>
+
+    <!-- Stats -->
+    <div>
+      <div class="slbl">Field Analysis</div>
+      <div id="statsbox">Press Compute to evaluate the field.</div>
+    </div>
+
+  </div><!-- end sb-scroll -->
+  </div><!-- end sidebar -->
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <canvas id="vc"></canvas>
+    <div id="drgtip">Drag to rotate · Scroll to zoom · Right-drag to pan</div>
+    <div id="ax-lbl">
+      <span style="color:#ff6b6b;font-weight:600">X</span>
+      <span style="color:#00e5b4;font-weight:600">Y</span>
+      <span style="color:#4f9eff;font-weight:600">Z</span>
+    </div>
+    <div id="lgnd">
+      <div class="ltt" id="lgnd-t">Magnitude</div>
+      <div class="lbar" id="lgnd-b"></div>
+      <div class="llab"><span id="lgnd-lo">0</span><span id="lgnd-hi">1</span></div>
+    </div>
+    <div id="info-overlay"></div>
+  </div>
+
+</div><!-- end viz-pane -->
+
+<!-- ══════════════ PHYSICS PANE ══════════════ -->
+<div id="phy-pane" class="pane docpane">
+  <div class="doctabs">
+    <button class="dtab on" onclick="dTab('g')">Gradient</button>
+    <button class="dtab" onclick="dTab('d')">Divergence</button>
+    <button class="dtab" onclick="dTab('c')">Curl / Rotation</button>
+    <button class="dtab" onclick="dTab('i')">Identities</button>
+    <button class="dtab" onclick="dTab('t')">Theorems</button>
+  </div>
+  <div class="doc-inner">
+
+    <!-- GRADIENT -->
+    <div id="ph-g" class="dsec on">
+      <div class="dh1">Gradient &nbsp;∇f</div>
+      <p class="dp">The gradient generalises the one-dimensional derivative to scalar fields in any number of dimensions. At every point <b style="color:var(--text)">P</b>, it produces a vector that points in the direction of <em>steepest ascent</em> of f, with magnitude equal to the rate of change in that direction.</p>
+      <div class="formula">
+        <span class="hl">∇f</span> = <span class="hl2">(∂f/∂x)</span> î + <span class="hl2">(∂f/∂y)</span> ĵ + <span class="hl2">(∂f/∂z)</span> k̂<br>
+        |<span class="hl">∇f</span>| = √[ (∂f/∂x)² + (∂f/∂y)² + (∂f/∂z)² ]<br>
+        Directional derivative: &nbsp;<span class="hl3">D_û f = ∇f · û</span>
+      </div>
+      <div class="dh3">Geometric interpretation</div>
+      <p class="dp">∇f is always <strong style="color:var(--text)">perpendicular to level surfaces</strong> f = constant. Moving along ∇f gives maximum ascent; −∇f gives steepest descent. The directional derivative in any unit direction û is simply the dot product ∇f · û — so ∇f compactly encodes all directional derivatives simultaneously.</p>
+      <div class="dh3">Coordinate systems</div>
+      <div class="formula">
+        Cartesian: &nbsp;<span class="hl">∇f</span> = ∂f/∂x î + ∂f/∂y ĵ + ∂f/∂z k̂<br>
+        Cylindrical: &nbsp;<span class="hl">∇f</span> = ∂f/∂r r̂ + (1/r)∂f/∂φ φ̂ + ∂f/∂z ẑ<br>
+        Spherical: &nbsp;<span class="hl">∇f</span> = ∂f/∂r r̂ + (1/r)∂f/∂θ θ̂ + (1/r sinθ)∂f/∂φ φ̂
+      </div>
+      <div class="dh3">Physical examples</div>
+      <table class="dtbl">
+        <tr><th>Scalar field f</th><th>Gradient ∇f</th><th>Physical law</th></tr>
+        <tr><td>Temperature T(r)</td><td>Heat flux direction</td><td>Fourier: q = −κ∇T</td></tr>
+        <tr><td>Electric potential V</td><td>E = −∇V</td><td>Maxwell's equations</td></tr>
+        <tr><td>Gravitational potential φ</td><td>g = −∇φ</td><td>Newton's gravity</td></tr>
+        <tr><td>Pressure P(r)</td><td>−∇P/ρ = acceleration</td><td>Euler fluid equations</td></tr>
+        <tr><td>Chemical concentration c</td><td>Diffusion direction</td><td>Fick's first law: J = −D∇c</td></tr>
+        <tr><td>Wavefunction amplitude |ψ|²</td><td>Probability current</td><td>Schrödinger equation</td></tr>
+      </table>
+      <div class="dh3">Numerical method — central differences</div>
+      <div class="formula">
+        ∂f/∂x ≈ <span class="hl2">[f(x+h,y,z) − f(x−h,y,z)] / 2h</span> &nbsp;&nbsp; (error O(h²))<br>
+        h = 10⁻⁴ used in this simulator — gives ~8 significant figures for smooth f
+      </div>
+    </div>
+
+    <!-- DIVERGENCE -->
+    <div id="ph-d" class="dsec">
+      <div class="dh1">Divergence &nbsp;∇·F</div>
+      <p class="dp">The divergence measures how much a vector field F <em>spreads out from</em> or <em>converges toward</em> a point. It is a scalar — the rate of outward flux per unit volume in the limit of vanishing volume.</p>
+      <div class="formula">
+        <span class="hl">∇·F</span> = <span class="hl2">∂Fₓ/∂x</span> + <span class="hl2">∂F_y/∂y</span> + <span class="hl2">∂F_z/∂z</span><br><br>
+        Integral definition: &nbsp;<span class="hl3">∇·F(P) = lim_{V→0} (1/|V|) ∯_{∂V} F·dA</span><br>
+        (outward flux per unit volume at point P)
+      </div>
+      <div class="dh3">Physical intuition — the fluid picture</div>
+      <p class="dp">Imagine F as the velocity field of a compressible fluid. Then:</p>
+      <div class="grid2">
+        <div class="card"><div class="ct">∇·F &gt; 0</div><div class="cv">Source — fluid is being created here. Field lines diverge outward.</div></div>
+        <div class="card"><div class="ct">∇·F &lt; 0</div><div class="cv">Sink — fluid is being removed here. Field lines converge inward.</div></div>
+        <div class="card"><div class="ct">∇·F = 0</div><div class="cv">Solenoidal / incompressible. No sources or sinks. Conservation holds locally.</div></div>
+        <div class="card"><div class="ct">∇·F = 0 everywhere</div><div class="cv">F = ∇×A for some vector potential A (de Rham's theorem).</div></div>
+      </div>
+      <div class="dh3">Maxwell's equations — Gauss laws</div>
+      <div class="formula">
+        <span class="hl">∇·E</span> = ρ/ε₀ &nbsp;&nbsp;&nbsp; (Gauss's law — electric sources are charges)<br>
+        <span class="hl">∇·B</span> = 0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (no magnetic monopoles exist)<br>
+        <span class="hl">∇·g</span> = −4πGρ (Gauss's law for gravity)<br>
+        <span class="hl">∇·J</span> = −∂ρ_e/∂t (charge continuity equation)
+      </div>
+      <div class="dh3">Gauss's Divergence Theorem</div>
+      <div class="formula">
+        <span class="hl2">∯_{∂V} F · dA = ∫∫∫_V (∇·F) dV</span><br><br>
+        Total outward flux through closed surface S = ∂V<br>
+        equals total divergence integrated over enclosed volume V.
+      </div>
+      <p class="dp">This theorem bridges the local divergence to global flux measurements — the core tool for deriving all conservation laws in classical and quantum field theory.</p>
+      <table class="dtbl">
+        <tr><th>Field</th><th>Divergence</th><th>Implication</th></tr>
+        <tr><td>Radial F = r/|r|³</td><td>0 (r≠0), 4πδ(r) at origin</td><td>Point source — Coulomb / gravity</td></tr>
+        <tr><td>Uniform F = (a,b,c)</td><td>0</td><td>Parallel flow, no accumulation</td></tr>
+        <tr><td>F = (x,y,z)</td><td>3</td><td>Uniform outward source throughout</td></tr>
+        <tr><td>F = (−x,−y,−z)</td><td>−3</td><td>Uniform sink throughout space</td></tr>
+        <tr><td>Vortex F = (−y,x,0)</td><td>0</td><td>Incompressible rotation</td></tr>
+      </table>
+    </div>
+
+    <!-- CURL -->
+    <div id="ph-c" class="dsec">
+      <div class="dh1">Curl &nbsp;∇×F &nbsp;<span style="font-size:16px;color:var(--muted)">(Rotation)</span></div>
+      <p class="dp">The curl measures the <em>local rotation</em> or vorticity of a vector field at each point. The resulting vector's direction is the instantaneous axis of rotation (by the right-hand rule), and its magnitude is twice the local angular velocity.</p>
+      <div class="formula">
+        <span class="hl">∇×F</span> = | î &nbsp;&nbsp;&nbsp;ĵ &nbsp;&nbsp;&nbsp;k̂ |<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| ∂/∂x &nbsp;∂/∂y &nbsp;∂/∂z |<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| Fₓ &nbsp;&nbsp;&nbsp;F_y &nbsp;&nbsp;F_z |<br><br>
+        <span class="hl2">x-component:</span> ∂F_z/∂y − ∂F_y/∂z<br>
+        <span class="hl2">y-component:</span> ∂Fₓ/∂z − ∂F_z/∂x<br>
+        <span class="hl2">z-component:</span> ∂F_y/∂x − ∂Fₓ/∂y
+      </div>
+      <div class="dh3">The paddle-wheel test</div>
+      <p class="dp">Place a tiny frictionless paddle wheel in the field F with its axis pointing in direction n̂. The wheel spins if and only if the component of ∇×F along n̂ is nonzero, with angular velocity ω = (∇×F · n̂)/2. The wheel spins fastest when n̂ ∥ ∇×F.</p>
+      <div class="dh3">Conservative vs rotational fields</div>
+      <div class="formula">
+        <span class="hl3">∇×F = 0</span> everywhere in simply-connected domain<br>
+        &nbsp;&nbsp;&nbsp;⟺ F = ∇φ for some scalar potential φ (F is conservative)<br>
+        &nbsp;&nbsp;&nbsp;⟺ ∮_C F·dl = 0 for every closed curve C (path independence)<br>
+        &nbsp;&nbsp;&nbsp;⟺ ∫_A^B F·dl depends only on A and B, not the path
+      </div>
+      <div class="dh3">Maxwell's equations — Faraday &amp; Ampère</div>
+      <div class="formula">
+        <span class="hl">∇×E</span> = −∂B/∂t &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Faraday induction)<br>
+        <span class="hl">∇×B</span> = μ₀J + μ₀ε₀∂E/∂t &nbsp;(Ampère–Maxwell)<br>
+        <span class="hl">∇×v</span> = 2ω &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(fluid vorticity)<br>
+        <span class="hl">∇×A</span> = B &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(magnetic vector potential)
+      </div>
+      <div class="dh3">Stokes' theorem</div>
+      <div class="formula">
+        <span class="hl2">∮_{∂S} F · dl = ∫∫_S (∇×F) · dA</span><br><br>
+        Circulation around closed curve C = ∂S<br>
+        equals flux of curl through any surface S bounded by C.
+      </div>
+      <table class="dtbl">
+        <tr><th>Field F</th><th>Curl ∇×F</th><th>Physical meaning</th></tr>
+        <tr><td>Vortex (−y, x, 0)</td><td>(0, 0, 2)</td><td>Uniform rotation about Z axis</td></tr>
+        <tr><td>Shear (y, 0, 0)</td><td>(0, 0, −1)</td><td>Rotation from velocity gradient</td></tr>
+        <tr><td>Radial (x, y, z)</td><td>(0, 0, 0)</td><td>Irrotational — conservative</td></tr>
+        <tr><td>Helical (−y, x, z)</td><td>(0, 0, 2)</td><td>Rotation axis along Z (helical flow)</td></tr>
+        <tr><td>∇f for any f</td><td>(0, 0, 0)</td><td>Every gradient has zero curl</td></tr>
+      </table>
+    </div>
+
+    <!-- IDENTITIES -->
+    <div id="ph-i" class="dsec">
+      <div class="dh1">Vector Identities</div>
+      <div class="dh2">Fundamental null identities</div>
+      <div class="formula">
+        <span class="hl3">∇×(∇f) = 0</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; — curl of any gradient is identically zero<br>
+        <span class="hl3">∇·(∇×F) = 0</span> &nbsp;&nbsp;&nbsp;&nbsp; — divergence of any curl is identically zero<br><br>
+        <span style="color:var(--muted);font-size:12px">These are consequences of the symmetry of mixed partial derivatives (Schwarz's theorem).<br>They are the foundation of gauge theory and electromagnetic potentials.</span>
+      </div>
+      <div class="dh2">First-order product rules</div>
+      <div class="formula">
+        ∇(fg) = f∇g + g∇f<br>
+        ∇·(fF) = f(∇·F) + F·(∇f)<br>
+        ∇×(fF) = f(∇×F) + (∇f)×F<br>
+        ∇·(F×G) = G·(∇×F) − F·(∇×G)<br>
+        ∇×(F×G) = F(∇·G) − G(∇·F) + (G·∇)F − (F·∇)G<br>
+        ∇(F·G) = F×(∇×G) + G×(∇×F) + (F·∇)G + (G·∇)F
+      </div>
+      <div class="dh2">Second-order operators</div>
+      <div class="formula">
+        <span class="hl">∇²f</span> = ∇·(∇f) = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z² &nbsp;&nbsp;&nbsp;(scalar Laplacian)<br>
+        <span class="hl">∇²F</span> = ∇(∇·F) − ∇×(∇×F) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(vector Laplacian)<br>
+        ∇×(∇×F) = ∇(∇·F) − ∇²F &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(curl-curl identity)<br>
+        ∇²(fg) = f∇²g + 2∇f·∇g + g∇²f &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Leibniz rule for ∇²)
+      </div>
+      <div class="dh2">Green's identities</div>
+      <div class="formula">
+        <span class="hl2">Green's first:</span><br>
+        ∫_V f∇²g dV = ∮_{∂V} f(∇g)·dA − ∫_V ∇f·∇g dV<br><br>
+        <span class="hl2">Green's second (reciprocity):</span><br>
+        ∫_V (f∇²g − g∇²f) dV = ∮_{∂V} (f∇g − g∇f)·dA<br><br>
+        <span style="color:var(--muted);font-size:12px">Derived by applying the divergence theorem to fF = f∇g. Green's second identity<br>
+        is the basis for boundary element methods and Green's function solutions to PDEs.</span>
+      </div>
+      <div class="dh2">Helmholtz decomposition</div>
+      <div class="formula">
+        Any smooth, rapidly decaying vector field F can be written as:<br><br>
+        <span class="hl">F = −∇φ + ∇×A</span><br><br>
+        where φ is the scalar potential (irrotational part)<br>
+        and A is the vector potential (solenoidal part).<br><br>
+        <span style="color:var(--muted);font-size:12px">This is the vector analogue of Fourier decomposition. In electrostatics:<br>E = −∇V (irrotational), B = ∇×A (solenoidal).</span>
+      </div>
+    </div>
+
+    <!-- THEOREMS -->
+    <div id="ph-t" class="dsec">
+      <div class="dh1">Fundamental Theorems</div>
+      <p class="dp">All three major integral theorems share a single deep structure: the integral of a differential operator over a domain equals the integral of a related quantity over the domain's boundary. This is captured by the <strong style="color:var(--text)">generalised Stokes theorem</strong>: ∫_M dω = ∮_{∂M} ω, where ω is a differential form on an oriented manifold M.</p>
+      <div class="dh2">1 — Gradient theorem</div>
+      <div class="formula">
+        <span class="hl2">∫_A^B ∇f · dl = f(B) − f(A)</span><br><br>
+        1D analogue: ∫_a^b f'(x)dx = f(b) − f(a) &nbsp;(Fundamental Theorem of Calculus)<br>
+        Boundary operator: endpoints — 0-dimensional boundary of a curve.
+      </div>
+      <p class="dp">Path independence: the integral of a conservative field depends only on the start and end points. Physical application — work done by gravity, electrostatic force, or any conservative force depends only on displacement, not trajectory.</p>
+      <div class="dh2">2 — Gauss's Divergence Theorem</div>
+      <div class="formula">
+        <span class="hl2">∯_{∂V} F · dA = ∫∫∫_V (∇·F) dV</span><br><br>
+        Boundary operator: ∂V is the closed surface bounding volume V.<br>
+        Dimension jump: 3D volume → 2D closed surface.
+      </div>
+      <p class="dp">Applications: derives Maxwell's Gauss laws from field equations, proves the continuity equation ∂ρ/∂t + ∇·J = 0, underpins the finite volume method in CFD. The flux through any closed surface tells you the total source strength inside.</p>
+      <div class="dh2">3 — Stokes' Theorem</div>
+      <div class="formula">
+        <span class="hl2">∮_{∂S} F · dl = ∫∫_S (∇×F) · dA</span><br><br>
+        Boundary operator: ∂S is the closed curve bounding surface S.<br>
+        Dimension jump: 2D surface → 1D closed curve.
+      </div>
+      <p class="dp">Applications: derives Faraday's induction law, Ampère's law. The classic proof of the magnetic Gauss law ∇·B = 0 uses Stokes' theorem together with ∇·(∇×A) = 0.</p>
+      <div class="dh2">Unification via differential forms</div>
+      <table class="dtbl">
+        <tr><th>Theorem</th><th>Manifold M</th><th>Boundary ∂M</th><th>Form ω</th></tr>
+        <tr><td>Gradient theorem</td><td>Curve (1D)</td><td>Two endpoints (0D)</td><td>f dl = df</td></tr>
+        <tr><td>Stokes' theorem</td><td>Surface (2D)</td><td>Closed curve (1D)</td><td>F·dl (1-form)</td></tr>
+        <tr><td>Divergence theorem</td><td>Volume (3D)</td><td>Closed surface (2D)</td><td>F·dA (2-form)</td></tr>
+        <tr><td>Green's theorem</td><td>Plane region (2D)</td><td>Closed curve (1D)</td><td>P dx + Q dy</td></tr>
+      </table>
+      <div class="dh2">de Rham cohomology connection</div>
+      <p class="dp">A form ω is <em>closed</em> if dω = 0; <em>exact</em> if ω = dα for some α. Every exact form is closed (d² = 0), but in a non-simply-connected domain, closed forms may not be exact. The de Rham cohomology groups H^k(M) = ker(d)/im(d) classify the topological obstructions — the "holes" that prevent closed forms from being exact. This is the deep reason why ∮ B·dl ≠ 0 around a solenoid even though ∇×B = 0 outside it.</p>
+    </div>
+
+  </div><!-- doc-inner -->
+</div><!-- phy-pane -->
+
+<!-- ══════════════ HELP PANE ══════════════ -->
+<div id="hlp-pane" class="pane docpane">
+  <div class="doctabs">
+    <button class="dtab on" onclick="hTab('gs')">Getting started</button>
+    <button class="dtab" onclick="hTab('sy')">Syntax</button>
+    <button class="dtab" onclick="hTab('nav')">Navigation</button>
+    <button class="dtab" onclick="hTab('ref')">Examples</button>
+  </div>
+  <div class="doc-inner">
+
+    <div id="ht-gs" class="dsec on">
+      <div class="dh1">Getting started</div>
+      <p class="dp">This simulator computes and renders gradient, divergence, and curl numerically using central finite differences (O(h²) accuracy, h = 10⁻⁴), displayed as 3D arrow fields via Three.js. All mathematical expressions are parsed live by math.js.</p>
+      <div class="dh2">Quick steps</div>
+      <div class="grid2">
+        <div class="card"><div class="ct">1 &nbsp;Choose operation</div><div class="cv">Select ∇f, ∇·F, or ∇×F using the three buttons at the top of the sidebar.</div></div>
+        <div class="card"><div class="ct">2 &nbsp;Enter function(s)</div><div class="cv">Type your scalar f(x,y,z) or vector components Fₓ, F_y, F_z in the input fields.</div></div>
+        <div class="card"><div class="ct">3 &nbsp;Adjust parameters</div><div class="cv">Set resolution, domain, arrow scale, opacity, and magnitude clip to taste.</div></div>
+        <div class="card"><div class="ct">4 &nbsp;Compute &amp; Render</div><div class="cv">Press the teal Compute button. Explore the field by dragging, scrolling, and right-dragging.</div></div>
+      </div>
+      <div class="dh2">What each operation renders</div>
+      <table class="dtbl">
+        <tr><th>Button</th><th>Input required</th><th>Arrows show</th><th>Color encodes</th></tr>
+        <tr><td>∇f</td><td>Scalar f(x,y,z)</td><td>Gradient vectors at each point</td><td>|∇f| (blue→green→red)</td></tr>
+        <tr><td>∇·F</td><td>Fₓ, F_y, F_z</td><td>Original F vectors</td><td>∇·F (blue=sink, red=source)</td></tr>
+        <tr><td>∇×F</td><td>Fₓ, F_y, F_z</td><td>Curl vectors at each point</td><td>|∇×F| (blue→green→red)</td></tr>
+      </table>
+      <div class="dh2">Color map</div>
+      <p class="dp">
+        For gradient and curl: <span class="tag tblue">blue</span> = low magnitude, <span class="tag tgreen">green</span> = medium, <span class="tag tred">red</span> = high.<br>
+        For divergence: <span class="tag tblue">blue</span> = sink (∇·F &lt; 0), white = neutral, <span class="tag tred">red</span> = source (∇·F &gt; 0).<br>
+        Axes: <span class="tag tred">X red</span> <span class="tag tgreen">Y green</span> <span class="tag tblue">Z blue</span>. Grid lies in the XZ plane.
+      </p>
+      <div class="dh2">Parameters explained</div>
+      <table class="dtbl">
+        <tr><th>Parameter</th><th>Range</th><th>Effect</th></tr>
+        <tr><td>Resolution</td><td>3 – 8</td><td>Grid points per axis. Res=5 → 125 arrows. Res=8 → 512 arrows (slower).</td></tr>
+        <tr><td>Domain ±</td><td>0.5 – 5</td><td>Spatial range: each axis spans [−d, +d].</td></tr>
+        <tr><td>Arrow scale</td><td>0.05 – 3</td><td>Visual length multiplier for all arrows.</td></tr>
+        <tr><td>Opacity</td><td>0.1 – 1</td><td>Transparency of all arrows. Lower = see overlapping arrows better.</td></tr>
+        <tr><td>Clip magnitude</td><td>0 – 0.95</td><td>Hide arrows below this fraction of max magnitude. Useful to isolate strong regions.</td></tr>
+      </table>
+    </div>
+
+    <div id="ht-sy" class="dsec">
+      <div class="dh1">Expression syntax</div>
+      <p class="dp">Functions are parsed by <strong style="color:var(--text)">math.js</strong>. Variables are <span class="mono">x</span>, <span class="mono">y</span>, <span class="mono">z</span>. All standard operators and functions are supported.</p>
+      <div class="dh2">Operators &amp; constants</div>
+      <table class="dtbl">
+        <tr><th>Syntax</th><th>Meaning</th></tr>
+        <tr><td>x^2 or x**2</td><td>x squared</td></tr>
+        <tr><td>x*y or xy (not implied)</td><td>Product — multiplication must be explicit</td></tr>
+        <tr><td>pi</td><td>π ≈ 3.14159265</td></tr>
+        <tr><td>e</td><td>Euler's number ≈ 2.71828</td></tr>
+        <tr><td>Inf</td><td>Infinity (avoid inside the domain)</td></tr>
+      </table>
+      <div class="dh2">Built-in functions</div>
+      <table class="dtbl">
+        <tr><th>Function</th><th>Description</th><th>Example</th></tr>
+        <tr><td>sin, cos, tan</td><td>Trigonometric</td><td>sin(x)*cos(y)</td></tr>
+        <tr><td>asin, acos, atan</td><td>Inverse trig</td><td>atan(y/x)</td></tr>
+        <tr><td>atan2(y,x)</td><td>2-arg arctangent</td><td>atan2(y,x)</td></tr>
+        <tr><td>exp(x)</td><td>eˣ</td><td>exp(-(x^2+y^2))</td></tr>
+        <tr><td>log(x)</td><td>Natural logarithm</td><td>log(x^2+y^2+0.01)</td></tr>
+        <tr><td>sqrt(x)</td><td>Square root</td><td>sqrt(x^2+y^2+z^2)</td></tr>
+        <tr><td>abs(x)</td><td>Absolute value</td><td>abs(x)*sign(y)</td></tr>
+        <tr><td>sign(x)</td><td>Signum function</td><td>sign(x-y)</td></tr>
+        <tr><td>floor, ceil, round</td><td>Rounding</td><td>floor(x)</td></tr>
+        <tr><td>min(a,b), max(a,b)</td><td>Min/max of two values</td><td>max(x,0)</td></tr>
+        <tr><td>sinh, cosh, tanh</td><td>Hyperbolic functions</td><td>tanh(x*y)</td></tr>
+      </table>
+      <div class="dh2">Avoiding singularities</div>
+      <p class="dp">Expressions like <span class="mono">1/r</span> blow up at the origin. Add a small regularisation constant:</p>
+      <div class="formula">
+        r = sqrt(x^2 + y^2 + z^2 + <span class="hl2">0.01</span>)  &nbsp;← regularised<br>
+        1/r²  →  1/(x^2+y^2+z^2+<span class="hl2">0.01</span>)
+      </div>
+    </div>
+
+    <div id="ht-nav" class="dsec">
+      <div class="dh1">3D Navigation</div>
+      <div class="dh2">Mouse controls</div>
+      <table class="dtbl">
+        <tr><th>Action</th><th>Effect</th></tr>
+        <tr><td>Left button drag</td><td>Orbit / rotate camera around origin</td></tr>
+        <tr><td>Right button drag</td><td>Pan camera in screen plane</td></tr>
+        <tr><td>Scroll wheel</td><td>Zoom in / out</td></tr>
+        <tr><td>Middle button drag</td><td>Pan (alternative)</td></tr>
+      </table>
+      <div class="dh2">Touch controls</div>
+      <table class="dtbl">
+        <tr><th>Gesture</th><th>Effect</th></tr>
+        <tr><td>Single finger drag</td><td>Orbit / rotate</td></tr>
+        <tr><td>Two-finger pinch</td><td>Zoom</td></tr>
+        <tr><td>Two-finger drag</td><td>Pan</td></tr>
+      </table>
+      <div class="dh2">Tips</div>
+      <p class="dp">The grid lies in the XZ plane (Y = 0). Axis colours: X=red, Y=green, Z=blue. Lower opacity makes it easier to see arrows that are behind others. Use "Clip magnitude" to hide small arrows and focus on regions of interest.</p>
+    </div>
+
+    <div id="ht-ref" class="dsec">
+      <div class="dh1">Reference examples</div>
+      <div class="dh2">Gradient examples</div>
+      <table class="dtbl">
+        <tr><th>f(x,y,z)</th><th>Gradient ∇f</th><th>Notes</th></tr>
+        <tr><td>x^2+y^2+z^2</td><td>(2x, 2y, 2z)</td><td>Paraboloid — gradient points outward radially</td></tr>
+        <tr><td>x^2-y^2</td><td>(2x, −2y, 0)</td><td>Saddle surface — hyperbolic flow</td></tr>
+        <tr><td>exp(-(x^2+y^2+z^2))</td><td>Decaying radially inward</td><td>Gaussian — maximum at origin</td></tr>
+        <tr><td>sin(x)*cos(y)</td><td>Oscillating vortex-like pattern</td><td>Harmonic function in x,y</td></tr>
+        <tr><td>1/sqrt(x^2+y^2+z^2+0.01)</td><td>Coulomb-like radial field</td><td>Approximates gravitational/electric potential</td></tr>
+        <tr><td>atan2(y,x)</td><td>Azimuthal (−y,x,0)/(x²+y²)</td><td>Phase angle — multi-valued at origin</td></tr>
+      </table>
+      <div class="dh2">Divergence/Curl examples (vector field components)</div>
+      <table class="dtbl">
+        <tr><th>Fₓ, F_y, F_z</th><th>∇·F</th><th>∇×F</th><th>Name</th></tr>
+        <tr><td>x, y, z</td><td>3</td><td>0</td><td>Radial source</td></tr>
+        <tr><td>−x, −y, −z</td><td>−3</td><td>0</td><td>Radial sink</td></tr>
+        <tr><td>−y, x, 0</td><td>0</td><td>(0,0,2)</td><td>Uniform rotation (Z-axis)</td></tr>
+        <tr><td>−y, x, z</td><td>1</td><td>(0,0,2)</td><td>Helical flow</td></tr>
+        <tr><td>y, 0, 0</td><td>0</td><td>(0,0,−1)</td><td>Shear flow</td></tr>
+        <tr><td>x, −y, 0</td><td>0</td><td>0</td><td>Saddle flow (irrotational, solenoidal)</td></tr>
+        <tr><td>y*z, x*z, x*y</td><td>0</td><td>0</td><td>Conservative (= ∇(xyz))</td></tr>
+        <tr><td>x^2, y^2, z^2</td><td>2x+2y+2z</td><td>0</td><td>Non-uniform source</td></tr>
+      </table>
+    </div>
+
+  </div><!-- doc-inner -->
+</div><!-- hlp-pane -->
+
+</div><!-- app -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.2/math.min.js"></script>
+<script>
+// ── STATE ──
+let op = 'gradient';
+let scene, cam, ren, arrGroup, orb = {th:0.7, ph:1.2, r:20};
+let panRef = null;
+const H = 1e-4;
+const PRESETS = {
+  gradient: [
+    {label:'Paraboloid r²',           f:'x^2+y^2+z^2'},
+    {label:'Saddle x² − y²',          f:'x^2-y^2'},
+    {label:'Gaussian bell',            f:'exp(-(x^2+y^2+z^2))'},
+    {label:'Harmonic sin·cos',         f:'sin(x)*cos(y)'},
+    {label:'Coulomb 1/r',             f:'1/sqrt(x^2+y^2+z^2+0.01)'},
+    {label:'Cubic wave sin(xyz)',      f:'sin(x*y*z)'},
+    {label:'Azimuthal angle',          f:'atan2(y,x)'},
+  ],
+  vector: [
+    {label:'Radial source (x,y,z)',    fx:'x',   fy:'y',   fz:'z'},
+    {label:'Vortex (−y,x,0)',          fx:'-y',  fy:'x',   fz:'0'},
+    {label:'Helical (−y,x,z)',         fx:'-y',  fy:'x',   fz:'z'},
+    {label:'Shear flow (y,0,0)',       fx:'y',   fy:'0',   fz:'0'},
+    {label:'Radial sink (−x,−y,−z)',   fx:'-x',  fy:'-y',  fz:'-z'},
+    {label:'Saddle (x,−y,0)',          fx:'x',   fy:'-y',  fz:'0'},
+    {label:'Conservative ∇(xyz)',      fx:'y*z', fy:'x*z', fz:'x*y'},
+    {label:'Quadratic (x²,y²,z²)',     fx:'x^2', fy:'y^2', fz:'z^2'},
+  ]
+};
+
+// ── PANE SWITCHING ──
+function switchPane(k) {
+  ['viz','phy','hlp'].forEach((p,i)=>{
+    document.getElementById(p+'-pane').classList.toggle('on',p===k);
+    document.querySelectorAll('.tab')[i].classList.toggle('on',p===k);
+  });
+  if(k==='viz' && ren) ren.setSize(document.getElementById('canvas-wrap').clientWidth, document.getElementById('canvas-wrap').clientHeight);
+}
+function dTab(s) {
+  const keys=['g','d','c','i','t'];
+  document.querySelectorAll('#phy-pane .dtab').forEach((b,i)=>b.classList.toggle('on',keys[i]===s));
+  document.querySelectorAll('#phy-pane .dsec').forEach((p,i)=>p.classList.toggle('on',keys[i]===s));
+}
+function hTab(s) {
+  const keys=['gs','sy','nav','ref'];
+  document.querySelectorAll('#hlp-pane .dtab').forEach((b,i)=>b.classList.toggle('on',keys[i]===s));
+  document.querySelectorAll('#hlp-pane .dsec').forEach((p,i)=>p.classList.toggle('on',keys[i]===s));
+}
+
+// ── OP SWITCHING ──
+const OP_DESC = {
+  gradient:   'Gradient ∇f of scalar field — points in direction of steepest ascent, magnitude = rate of change',
+  divergence: 'Divergence ∇·F of vector field — arrows colored red (source) ↔ blue (sink) by local flux density',
+  curl:       'Curl ∇×F of vector field — shows local rotation axis and angular velocity at each point'
+};
+function setOp(o) {
+  op = o;
+  ['gradient','divergence','curl'].forEach((v,i)=>{
+    document.querySelectorAll('.opbtn')[i].classList.toggle('on',v===o);
+  });
+  document.getElementById('opdsc').textContent = OP_DESC[o];
+  buildInputs();
+  buildPresets();
+}
+
+function buildInputs() {
+  const d = document.getElementById('finputs');
+  if (op==='gradient') {
+    d.innerHTML = `<div class="irow">
+      <div class="ilbl"><b>f</b>(x, y, z) =</div>
+      <input class="finp" id="fi-f" value="x^2+y^2+z^2" spellcheck="false">
+    </div>`;
+  } else {
+    const df = op==='curl' ? ['-y','x','0'] : ['x','y','z'];
+    d.innerHTML = `<div class="irow">
+      <div class="ilbl"><b>F</b>ₓ(x,y,z) =</div>
+      <input class="finp" id="fi-x" value="${df[0]}" spellcheck="false">
+    </div>
+    <div class="irow">
+      <div class="ilbl"><b>F</b>_y(x,y,z) =</div>
+      <input class="finp" id="fi-y" value="${df[1]}" spellcheck="false">
+    </div>
+    <div class="irow">
+      <div class="ilbl"><b>F</b>_z(x,y,z) =</div>
+      <input class="finp" id="fi-z" value="${df[2]}" spellcheck="false">
+    </div>`;
+  }
+}
+
+function buildPresets() {
+  const sel = document.getElementById('psel');
+  sel.innerHTML = '<option value="">— select a preset —</option>';
+  const list = op==='gradient' ? PRESETS.gradient : PRESETS.vector;
+  list.forEach((p,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=p.label; sel.appendChild(o); });
+}
+
+function applyPreset(v) {
+  if (!v) return;
+  const list = op==='gradient' ? PRESETS.gradient : PRESETS.vector;
+  const p = list[+v]; if(!p) return;
+  if (op==='gradient') { document.getElementById('fi-f').value=p.f; }
+  else { document.getElementById('fi-x').value=p.fx; document.getElementById('fi-y').value=p.fy; document.getElementById('fi-z').value=p.fz; }
+}
+
+function upsl(k,v) {
+  const map = {r:'sv-r',d:'sv-d',s:'sv-s',o:'sv-o',m:'sv-m'};
+  const f = parseFloat(v);
+  const fmt = k==='r' ? v : f.toFixed(k==='d'?2:2);
+  document.getElementById(map[k]).textContent = fmt;
+}
+
+// ── THREE.JS SETUP ──
+function initThree() {
+  const wrap = document.getElementById('canvas-wrap');
+  const canvas = document.getElementById('vc');
+  const W = wrap.clientWidth, H3 = wrap.clientHeight;
+  ren = new THREE.WebGLRenderer({canvas, antialias:true});
+  ren.setPixelRatio(Math.min(devicePixelRatio,2));
+  ren.setSize(W, H3);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080b10);
+  scene.fog = new THREE.FogExp2(0x080b10, 0.012);
+  cam = new THREE.PerspectiveCamera(45, W/H3, 0.1, 500);
+  updCam();
+  scene.add(new THREE.AmbientLight(0xffffff,0.8));
+  const dl = new THREE.DirectionalLight(0xffffff,0.5); dl.position.set(8,12,6); scene.add(dl);
+
+  // grid
+  const gc = new THREE.GridHelper(12,12,0x1a2540,0x111825);
+  scene.add(gc);
+  // axes
+  const ax = new THREE.AxesHelper(6); scene.add(ax);
+  // subtle origin sphere
+  const ori = new THREE.Mesh(new THREE.SphereGeometry(0.06,12,12), new THREE.MeshBasicMaterial({color:0x4f9eff,transparent:true,opacity:.5}));
+  scene.add(ori);
+
+  arrGroup = new THREE.Group(); scene.add(arrGroup);
+  setupInput(canvas, wrap);
+
+  new ResizeObserver(()=>{
+    const nw=wrap.clientWidth, nh=wrap.clientHeight;
+    if(nw<10||nh<10) return;
+    ren.setSize(nw,nh); cam.aspect=nw/nh; cam.updateProjectionMatrix();
+  }).observe(wrap);
+
+  (function loop(){ requestAnimationFrame(loop); ren.render(scene,cam); })();
+  setTimeout(()=>{ const t=document.getElementById('drgtip'); if(t) t.style.opacity='0'; }, 3200);
+}
+
+function updCam() {
+  const {th,ph,r}=orb;
+  cam.position.set(r*Math.sin(ph)*Math.sin(th), r*Math.cos(ph), r*Math.sin(ph)*Math.cos(th));
+  cam.lookAt(orb.px||0, orb.py||0, orb.pz||0);
+}
+
+function setupInput(canvas, wrap) {
+  let drag=false, rmbDrag=false, lx=0, ly=0, ltd=0;
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  canvas.addEventListener('mousedown',e=>{
+    if(e.button===0){drag=true;lx=e.clientX;ly=e.clientY;}
+    if(e.button===2||e.button===1){rmbDrag=true;lx=e.clientX;ly=e.clientY;}
+  });
+  window.addEventListener('mouseup',()=>{drag=false;rmbDrag=false;});
+  canvas.addEventListener('mousemove',e=>{
+    if(drag){ orb.th-=(e.clientX-lx)*0.007; orb.ph=Math.max(.05,Math.min(Math.PI-.05,orb.ph+(e.clientY-ly)*0.007)); lx=e.clientX;ly=e.clientY; updCam(); }
+    if(rmbDrag){
+      const dx=(e.clientX-lx)*0.01, dy=(e.clientY-ly)*0.01;
+      orb.px=(orb.px||0)-dx; orb.py=(orb.py||0)+dy;
+      lx=e.clientX;ly=e.clientY; updCam();
+    }
+  });
+  canvas.addEventListener('wheel',e=>{ e.preventDefault(); orb.r=Math.max(3,Math.min(80,orb.r+e.deltaY*0.05)); updCam(); },{passive:false});
+  // touch
+  canvas.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
+    if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;ltd=Math.sqrt(dx*dx+dy*dy);}
+  },{passive:true});
+  canvas.addEventListener('touchend',()=>drag=false,{passive:true});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(e.touches.length===1&&drag){
+      orb.th-=(e.touches[0].clientX-lx)*0.007;
+      orb.ph=Math.max(.05,Math.min(Math.PI-.05,orb.ph+(e.touches[0].clientY-ly)*0.007));
+      lx=e.touches[0].clientX;ly=e.touches[0].clientY; updCam();
+    }
+    if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      const d=Math.sqrt(dx*dx+dy*dy); orb.r=Math.max(3,Math.min(80,orb.r-(d-ltd)*0.05)); ltd=d; updCam();
+    }
+  },{passive:false});
+}
+
+// ── MATH ──
+function mkSF(expr) {
+  const c = math.compile(expr);
+  return (x,y,z)=>{ try{const v=c.evaluate({x,y,z}); return isFinite(v)?+v:0;}catch{return 0;} };
+}
+function mkVF(ex,ey,ez) {
+  const [cx,cy,cz]=[math.compile(ex),math.compile(ey),math.compile(ez)];
+  return (x,y,z)=>{
+    try{return [+cx.evaluate({x,y,z})||0,+cy.evaluate({x,y,z})||0,+cz.evaluate({x,y,z})||0];}
+    catch{return [0,0,0];}
+  };
+}
+function grad(f,x,y,z){
+  return [(f(x+H,y,z)-f(x-H,y,z))/(2*H),(f(x,y+H,z)-f(x,y-H,z))/(2*H),(f(x,y,z+H)-f(x,y,z-H))/(2*H)];
+}
+function div(F,x,y,z){
+  return (F(x+H,y,z)[0]-F(x-H,y,z)[0])/(2*H)+(F(x,y+H,z)[1]-F(x,y-H,z)[1])/(2*H)+(F(x,y,z+H)[2]-F(x,y,z-H)[2])/(2*H);
+}
+function curl(F,x,y,z){
+  return [
+    (F(x,y+H,z)[2]-F(x,y-H,z)[2])/(2*H)-(F(x,y,z+H)[1]-F(x,y,z-H)[1])/(2*H),
+    (F(x,y,z+H)[0]-F(x,y,z-H)[0])/(2*H)-(F(x+H,y,z)[2]-F(x-H,y,z)[2])/(2*H),
+    (F(x+H,y,z)[1]-F(x-H,y,z)[1])/(2*H)-(F(x,y+H,z)[0]-F(x,y-H,z)[0])/(2*H)
+  ];
+}
+
+// ── COLORS ──
+const C_BLUE = new THREE.Color(0x4f9eff);
+const C_GREEN = new THREE.Color(0x00e5b4);
+const C_RED = new THREE.Color(0xff6b6b);
+const C_WHITE = new THREE.Color(0xd0d8e8);
+function magColor(t) {
+  const c=new THREE.Color();
+  if(t<0.5) c.lerpColors(C_BLUE, C_GREEN, t*2);
+  else c.lerpColors(C_GREEN, C_RED, (t-0.5)*2);
+  return c;
+}
+function divColor(v, lo, hi) {
+  const rng=Math.max(Math.abs(lo),Math.abs(hi),0.001);
+  const t=Math.max(-1,Math.min(1,v/rng));
+  const c=new THREE.Color();
+  if(t>=0) c.lerpColors(C_WHITE, C_RED, t);
+  else c.lerpColors(C_WHITE, C_BLUE, -t);
+  return c;
+}
+
+// ── CLEAR ARROWS ──
+function clearArrows() {
+  arrGroup.children.forEach(a=>{
+    if(a.line){a.line.geometry.dispose();a.line.material.dispose();}
+    if(a.cone){a.cone.geometry.dispose();a.cone.material.dispose();}
+  });
+  while(arrGroup.children.length) arrGroup.remove(arrGroup.children[0]);
+}
+
+// ── COMPUTE ──
+function showErr(msg){ const e=document.getElementById('errtxt'); e.textContent=msg; e.style.display='block'; setTimeout(()=>e.style.display='none',6000); }
+
+function compute() {
+  const res = parseInt(document.getElementById('sl-r').value);
+  const dom = parseFloat(document.getElementById('sl-d').value);
+  const scl = parseFloat(document.getElementById('sl-s').value);
+  const opa = parseFloat(document.getElementById('sl-o').value);
+  const clipFrac = parseFloat(document.getElementById('sl-m').value);
+  document.getElementById('errtxt').style.display='none';
+
+  let vecFn, divF=null;
+  try {
+    if(op==='gradient') {
+      const f=mkSF(document.getElementById('fi-f').value.trim());
+      vecFn=(x,y,z)=>grad(f,x,y,z);
+    } else {
+      const F=mkVF(document.getElementById('fi-x').value.trim(),document.getElementById('fi-y').value.trim(),document.getElementById('fi-z').value.trim());
+      if(op==='divergence'){vecFn=F;divF=F;}
+      else vecFn=(x,y,z)=>curl(F,x,y,z);
+    }
+  } catch(e){ showErr('Parse error: '+e.message); return; }
+
+  const step = res>1 ? 2*dom/(res-1) : 0;
+  const pts=[];
+  for(let i=0;i<res;i++) for(let j=0;j<res;j++) for(let k=0;k<res;k++){
+    const x=-dom+i*step, y=-dom+j*step, z=-dom+k*step;
+    const v=vecFn(x,y,z);
+    const mag=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+    pts.push({x,y,z,v,mag});
+  }
+
+  const divVals = divF ? pts.map(({x,y,z})=>div(divF,x,y,z)) : null;
+  const mags = pts.map(p=>p.mag).filter(m=>isFinite(m)&&m>0);
+  if(!mags.length){ showErr('All vectors are zero or undefined in this domain.'); return; }
+  const maxM=Math.max(...mags), minM=Math.min(...mags), meanM=mags.reduce((a,b)=>a+b,0)/mags.length;
+  const clipThresh = clipFrac * maxM;
+  let dvLo=0,dvHi=0;
+  if(divVals){ const dv=divVals.filter(isFinite); dvLo=Math.min(...dv); dvHi=Math.max(...dv); }
+
+  clearArrows();
+  let arrowCount=0;
+  pts.forEach(({x,y,z,v,mag},idx)=>{
+    if(!isFinite(mag)||mag<1e-10||mag<clipThresh) return;
+    const dir=new THREE.Vector3(v[0],v[1],v[2]).normalize();
+    const len=Math.max(0.07, Math.min((mag/maxM)*scl*3, scl*4));
+    const hl=Math.max(0.035,len*0.30), hw=Math.max(0.018,hl*0.42);
+    const col = divVals ? divColor(divVals[idx],dvLo,dvHi) : magColor(mag/maxM);
+    const arr=new THREE.ArrowHelper(dir,new THREE.Vector3(x,y,z),len,col.getHex(),hl,hw);
+    arr.line.material.opacity=opa; arr.line.material.transparent=true;
+    arr.cone.material.opacity=opa; arr.cone.material.transparent=true;
+    arrGroup.add(arr); arrowCount++;
+  });
+
+  // stats
+  const eps=maxM*0.04;
+  let propHtml='';
+  if(op==='gradient'){
+    propHtml='<span class="badge byes">Conservative</span><span class="badge byes">∇×(∇f)=0</span>';
+  } else if(op==='divergence'&&divVals){
+    const maxAbs=Math.max(...divVals.filter(isFinite).map(Math.abs));
+    propHtml = maxAbs<eps
+      ? '<span class="badge byes">Solenoidal ✓</span>'
+      : '<span class="badge bno">Non-solenoidal</span>';
+    propHtml += `<br><span style="font-size:10px">∇·F ∈ [${dvLo.toFixed(3)}, ${dvHi.toFixed(3)}]</span>`;
+  } else {
+    const irr=maxM<eps;
+    propHtml = irr
+      ? '<span class="badge byes">Irrotational ✓</span><span class="badge byes">Conservative</span>'
+      : '<span class="badge bno">Has rotation</span>';
+    const maxCurl=maxM;
+    propHtml += `<br><span style="font-size:10px">|∇×F|_max = ${maxCurl.toFixed(4)}</span>`;
+  }
+
+  document.getElementById('statsbox').innerHTML=`
+    <div>Arrows rendered: <span class="sv2">${arrowCount}</span></div>
+    <div>Min |v|: <span class="sv2">${minM.toFixed(5)}</span></div>
+    <div>Max |v|: <span class="sv2">${maxM.toFixed(5)}</span></div>
+    <div>Mean |v|: <span class="sv2">${meanM.toFixed(5)}</span></div>
+    <div style="margin-top:6px">${propHtml}</div>
+  `;
+
+  // legend
+  const lgnd=document.getElementById('lgnd');
+  lgnd.style.display='block';
+  if(op==='divergence'){
+    document.getElementById('lgnd-t').textContent='∇·F value';
+    document.getElementById('lgnd-b').style.background='linear-gradient(to right,#4f9eff,#d0d8e8,#ff6b6b)';
+    document.getElementById('lgnd-lo').textContent=dvLo.toFixed(2);
+    document.getElementById('lgnd-hi').textContent=dvHi.toFixed(2);
+  } else {
+    document.getElementById('lgnd-t').textContent='Magnitude';
+    document.getElementById('lgnd-b').style.background='linear-gradient(to right,#4f9eff,#00e5b4,#ff6b6b)';
+    document.getElementById('lgnd-lo').textContent=minM.toFixed(3);
+    document.getElementById('lgnd-hi').textContent=maxM.toFixed(3);
+  }
+}
+
+// ── INIT ──
+window.addEventListener('load',()=>{
+  buildInputs(); buildPresets(); initThree();
+  setTimeout(compute, 150);
+});
+</script>
+</body>
+</html>
