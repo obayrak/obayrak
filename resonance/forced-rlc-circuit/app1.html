@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forced RLC Circuit — Dynamic Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syncopate:wght@400;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:      #06090d;
+  --panel:   #0b1018;
+  --border:  #1c2a3a;
+  --aL:      #f5c518; /* inductor — amber */
+  --aR:      #ff6b6b; /* resistor — coral */
+  --aC:      #4fc3f7; /* capacitor — sky */
+  --aS:      #69ff85; /* source — lime */
+  --aN:      #c084fc; /* numerical — violet */
+  --text:    #ccc4b4;
+  --muted:   #5a5040;
+  --glowL:   0 0 16px rgba(245,197,24,.35);
+  --glowR:   0 0 16px rgba(255,107,107,.35);
+  --glowC:   0 0 16px rgba(79,195,247,.35);
+  --glowS:   0 0 16px rgba(105,255,133,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  font-size:13px;min-height:100vh;overflow-x:hidden;
+}
+/* PCB grid */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    radial-gradient(circle, rgba(245,197,24,0.04) 1px, transparent 1px);
+  background-size:28px 28px;
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;
+  background:linear-gradient(180deg,rgba(245,197,24,0.025) 0%,transparent 60%);
+  pointer-events:none;z-index:0;
+}
+.app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:20px;}
+
+/* ── Header ── */
+header{text-align:center;padding:32px 0 22px;}
+header h1{
+  font-family:'Syncopate',sans-serif;
+  font-size:clamp(18px,3.5vw,38px);font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;
+  background:linear-gradient(135deg,var(--aL),var(--aR));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+header p{color:var(--muted);margin-top:8px;font-size:10px;letter-spacing:4px;text-transform:uppercase;}
+
+/* ── Theory toggle ── */
+.theory-toggle{
+  background:var(--panel);border:1px solid var(--border);border-radius:5px;
+  padding:11px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  font-family:'Syncopate',sans-serif;font-size:11px;color:var(--text);letter-spacing:1px;
+  transition:border-color .2s;user-select:none;margin-bottom:0;
+}
+.theory-toggle:hover{border-color:var(--aL);}
+.theory-toggle .arrow{color:var(--aL);transition:transform .3s;font-size:13px;}
+.theory-toggle.open .arrow{transform:rotate(180deg);}
+.theory-collapsible{display:none;margin-top:14px;}
+.theory-collapsible.visible{display:block;}
+
+/* ── Theory cards ── */
+.theory-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-bottom:14px;}
+.tcard{background:var(--panel);border:1px solid var(--border);border-radius:5px;overflow:hidden;}
+.tcard-head{
+  font-family:'Syncopate',sans-serif;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:9px 15px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.tcard-head .num{font-size:22px;font-weight:700;font-family:'Syncopate',sans-serif;opacity:.2;line-height:1;}
+.tcard-body{padding:15px;font-size:12px;line-height:1.85;color:var(--text);font-family:'Barlow',sans-serif;}
+.tcard-body p{margin-bottom:9px;}.tcard-body p:last-child{margin:0;}
+
+.eq-block{
+  background:rgba(0,0,0,.5);border-left:3px solid var(--aL);
+  padding:9px 13px;margin:9px 0;border-radius:0 4px 4px 0;
+  font-size:12px;color:var(--aL);letter-spacing:.5px;font-family:'Share Tech Mono',monospace;
+}
+.eq-block.red  {border-color:var(--aR);color:var(--aR);}
+.eq-block.blue {border-color:var(--aC);color:var(--aC);}
+.eq-block.green{border-color:var(--aS);color:var(--aS);}
+.eq-block.violet{border-color:var(--aN);color:var(--aN);}
+
+.kw{color:var(--aL);font-weight:600;}
+.hR{color:var(--aR);}
+.hC{color:var(--aC);}
+.hS{color:var(--aS);}
+.hN{color:var(--aN);}
+
+.step-list{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.step-list li{display:grid;grid-template-columns:22px 1fr;gap:9px;align-items:start;}
+.step-list li .sn{
+  width:22px;height:22px;border-radius:50%;background:rgba(245,197,24,.08);
+  border:1px solid var(--aL);color:var(--aL);font-size:10px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;
+  font-family:'Share Tech Mono',monospace;
+}
+
+.comp-table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0;}
+.comp-table th,.comp-table td{padding:6px 9px;border:1px solid var(--border);text-align:left;font-family:'Share Tech Mono',monospace;}
+.comp-table th{color:var(--muted);background:rgba(0,0,0,.3);}
+.comp-table tr:nth-child(even) td{background:rgba(0,0,0,.2);}
+
+.rk4-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px;}
+.rk4-box{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.rk4-box .rk-lbl{font-size:9px;color:var(--muted);margin-bottom:3px;}
+.rk4-box .rk-eq{font-size:11px;color:var(--aN);font-family:'Share Tech Mono',monospace;}
+
+/* ── Live banner ── */
+.eq-banner{
+  background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--aL);
+  padding:13px 18px;margin:16px 0;border-radius:4px;
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+}
+.eq-banner .eq-main{font-size:clamp(13px,2.2vw,20px);color:var(--aL);flex:1;text-align:center;letter-spacing:.5px;font-family:'Share Tech Mono',monospace;}
+.eq-banner .eq-parts{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+.eq-badge{background:rgba(245,197,24,.06);border:1px solid var(--border);padding:4px 9px;border-radius:3px;font-size:11px;color:var(--muted);}
+.eq-badge span{color:var(--text);}
+
+/* ── Layout ── */
+.main-grid{display:grid;grid-template-columns:270px 1fr;gap:14px;}
+@media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+
+/* ── Panel ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:5px;overflow:hidden;}
+.panel-title{
+  font-family:'Syncopate',sans-serif;font-size:9px;font-weight:700;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:9px 15px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--aL);box-shadow:var(--glowL);}
+
+/* ── Controls ── */
+.controls-inner{padding:13px 15px;display:flex;flex-direction:column;gap:13px;}
+.param-group label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:11px;}
+.param-group label .pname{color:var(--muted);font-family:'Barlow',sans-serif;}
+.param-group label .pval{color:var(--aL);font-weight:600;}
+.param-group label .psym{margin-right:4px;}
+.psym-L{color:var(--aL);} .psym-R{color:var(--aR);} .psym-C{color:var(--aC);} .psym-S{color:var(--aS);}
+
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--aL);box-shadow:0 0 7px var(--aL);cursor:pointer;border:2px solid var(--bg);}
+input[type=range].sR::-webkit-slider-thumb{background:var(--aR);box-shadow:0 0 7px var(--aR);}
+input[type=range].sC::-webkit-slider-thumb{background:var(--aC);box-shadow:0 0 7px var(--aC);}
+input[type=range].sS::-webkit-slider-thumb{background:var(--aS);box-shadow:0 0 7px var(--aS);}
+
+.divider{border:none;border-top:1px solid var(--border);}
+
+.btn{
+  width:100%;padding:9px;background:transparent;border:1px solid var(--aL);
+  color:var(--aL);font-family:'Share Tech Mono',monospace;font-size:11px;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s;
+}
+.btn:hover{background:rgba(245,197,24,.08);box-shadow:var(--glowL);}
+.btn.danger{border-color:var(--aR);color:var(--aR);}
+.btn.danger:hover{background:rgba(255,107,107,.08);}
+.btn-row{display:flex;gap:7px;}
+
+.regime-indicator{padding:6px 9px;border-radius:3px;font-size:11px;text-align:center;border:1px solid var(--border);transition:all .3s;}
+.reg-under {border-color:var(--aS); color:var(--aS); background:rgba(105,255,133,.06);}
+.reg-crit  {border-color:var(--aL); color:var(--aL); background:rgba(245,197,24,.06);}
+.reg-over  {border-color:var(--aR); color:var(--aR); background:rgba(255,107,107,.06);}
+
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.metric-box{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.metric-box .mk{font-size:9px;color:var(--muted);margin-bottom:2px;font-family:'Barlow',sans-serif;}
+.metric-box .mv{font-size:13px;font-weight:600;color:var(--aL);}
+
+/* ── Right pane ── */
+.right-pane{display:flex;flex-direction:column;gap:14px;}
+
+.sim-area{display:grid;grid-template-columns:1fr 2fr;gap:0;border-radius:5px;overflow:hidden;border:1px solid var(--border);}
+@media(max-width:700px){.sim-area{grid-template-columns:1fr;}}
+
+canvas{display:block;width:100%;background:#070c0f;}
+.canvas-label{font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;padding:5px 11px;border-bottom:1px solid var(--border);font-family:'Syncopate',sans-serif;}
+.canvas-wrap{display:flex;flex-direction:column;}
+.canvas-wrap:first-child{border-right:1px solid var(--border);}
+
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.bottom-grid{grid-template-columns:1fr;}}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:7px 13px;border-top:1px solid var(--border);}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.leg-line{width:18px;height:2px;border-radius:1px;}
+
+.sol-box{
+  background:rgba(0,0,0,.4);border:1px solid var(--border);border-left:3px solid var(--aS);
+  padding:10px 13px;font-size:11px;line-height:1.9;margin:0 13px 13px;
+  border-radius:0 3px 3px 0;font-family:'Share Tech Mono',monospace;
+}
+.sol-box .sol-title{color:var(--aS);font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;font-family:'Syncopate',sans-serif;}
+.sol-box .sol-eq span{color:var(--aL);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════════════ HEADER ══════════════════════════════════════════════════ -->
+<header>
+  <h1>Forced Series RLC Circuit</h1>
+  <p>Equation Derivation · Analytical &amp; Numerical Solution · Phasor · Frequency Response</p>
+</header>
+
+<!-- ═══════════════ THEORY ══════════════════════════════════════════════════ -->
+<div style="margin-bottom:16px;">
+  <div class="theory-toggle open" id="theoryToggle" onclick="toggleTheory()">
+    <span>📐 &nbsp; Theory — How is the RLC equation derived and solved?</span>
+    <span class="arrow">▲</span>
+  </div>
+
+  <div class="theory-collapsible visible" id="theoryBody">
+
+    <div class="theory-row">
+
+      <!-- Card 01: KVL derivation -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">01</span>Kirchhoff's Voltage Law &amp; the ODE</div>
+        <div class="tcard-body">
+          <p>In a <strong>series RLC circuit</strong> driven by a sinusoidal source V<sub>s</sub>cos(Ωt), a single loop current i(t) flows through all three components. Applying <strong>KVL</strong> — the sum of all voltage drops equals the source voltage:</p>
+          <div class="eq-block">V_L + V_R + V_C = V_s·cos(Ωt)</div>
+          <p>Substituting the component voltage–current relations:</p>
+          <ul class="step-list">
+            <li><div class="sn">L</div><div><span class="kw">Inductor:</span> V_L = L·di/dt &nbsp;(opposes change in current)</div></li>
+            <li><div class="sn">R</div><div><span class="hR">Resistor:</span> V_R = R·i &nbsp;(instantaneous Ohm's law)</div></li>
+            <li><div class="sn">C</div><div><span class="hC">Capacitor:</span> V_C = q/C, &nbsp;where i = dq/dt</div></li>
+          </ul>
+          <p style="margin-top:9px;">Writing everything in terms of charge <strong>q</strong> (since i = q̇):</p>
+          <div class="eq-block">L·q̈ + R·q̇ + (1/C)·q = V_s·cos(Ωt)</div>
+          <p>This is the governing ODE — a linear 2nd-order system identical in structure to the mass–spring–damper equation, with the electro-mechanical analogy: L↔m, R↔c, 1/C↔k.</p>
+        </div>
+      </div>
+
+      <!-- Card 02: Standard form & parameters -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">02</span>Standard Form &amp; Key Parameters</div>
+        <div class="tcard-body">
+          <p>Dividing by L converts to the canonical form with two characteristic quantities:</p>
+          <div class="eq-block">q̈ + (R/L)·q̇ + (1/LC)·q = (V_s/L)·cos(Ωt)</div>
+          <table class="comp-table">
+            <tr><th>Symbol</th><th>Name</th><th>Formula</th></tr>
+            <tr><td class="kw">ω₀</td><td>Resonant frequency</td><td>1/√(LC)</td></tr>
+            <tr><td class="hR">ζ</td><td>Damping ratio</td><td>R/(2√(L/C))</td></tr>
+            <tr><td class="hC">Q</td><td>Quality factor</td><td>ω₀L/R = 1/(2ζ)</td></tr>
+            <tr><td class="hS">BW</td><td>−3 dB Bandwidth</td><td>R/L = ω₀/Q rad/s</td></tr>
+          </table>
+          <p style="margin-top:8px;">The <strong>Q factor</strong> measures how sharply the circuit resonates — a high-Q circuit stores energy much more efficiently than it dissipates it. At resonance, V_C and V_L can be Q times larger than V_s!</p>
+          <div class="eq-block blue">Impedance: Z(Ω) = R + j(ΩL − 1/ΩC)</div>
+          <p style="color:var(--muted);font-size:11px;">At resonance Ω = ω₀, the reactive terms cancel: Z = R (purely resistive, minimum impedance, maximum current).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="theory-row">
+
+      <!-- Card 03: Analytical solution -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">03</span>Analytical Solution (Closed Form)</div>
+        <div class="tcard-body">
+          <p>The <strong>general solution</strong> is the sum of the homogeneous (transient) and particular (steady-state) parts:</p>
+          <div class="eq-block">q(t) = q_h(t) + q_p(t)</div>
+          <p>The <strong>transient response</strong> q_h solves the unforced equation. Its character depends on ζ:</p>
+          <table class="comp-table">
+            <tr><th>Regime</th><th>Condition</th><th>q_h(t)</th></tr>
+            <tr><td class="hS">Under-damped</td><td class="hS">ζ &lt; 1</td><td>e<sup>−ζω₀t</sup>[A cos(ωd t)+B sin(ωd t)]</td></tr>
+            <tr><td class="kw">Critically damped</td><td class="kw">ζ = 1</td><td>(A + Bt)·e<sup>−ω₀t</sup></td></tr>
+            <tr><td class="hR">Over-damped</td><td class="hR">ζ &gt; 1</td><td>A·e<sup>s₁t</sup> + B·e<sup>s₂t</sup></td></tr>
+          </table>
+          <p style="margin-top:8px;">The <strong>steady-state response</strong> (particular solution) for sinusoidal forcing:</p>
+          <div class="eq-block green">q_p(t) = (V_s/L) · [P·cos(Ωt) + Q·sin(Ωt)] / (…)</div>
+          <p>where P = (ω₀²−Ω²) and Q = 2ζω₀Ω. Constants A, B are fixed by initial conditions q(0) = q₀, q̇(0) = i₀. The transient decays as e<sup>−ζω₀t</sup>, leaving only q_p at steady state.</p>
+        </div>
+      </div>
+
+      <!-- Card 04: RK4 -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">04</span>Numerical Solution — RK4</div>
+        <div class="tcard-body">
+          <p>The 2nd-order ODE is split into two coupled 1st-order equations using state vector [q, i]:</p>
+          <div class="eq-block violet">q̇ = i<br>i̇ = [V_s cos(Ωt) − R·i − q/C] / L</div>
+          <p>The <strong>4th-order Runge-Kutta</strong> method evaluates four slope estimates per time-step h = 1/500 s:</p>
+          <div class="rk4-grid">
+            <div class="rk4-box"><div class="rk-lbl">k₁ — start of interval</div><div class="rk-eq">f(tₙ, yₙ)</div></div>
+            <div class="rk4-box"><div class="rk-lbl">k₂ — midpoint estimate 1</div><div class="rk-eq">f(tₙ+h/2, yₙ+h·k₁/2)</div></div>
+            <div class="rk4-box"><div class="rk-lbl">k₃ — midpoint estimate 2</div><div class="rk-eq">f(tₙ+h/2, yₙ+h·k₂/2)</div></div>
+            <div class="rk4-box"><div class="rk-lbl">k₄ — end of interval</div><div class="rk-eq">f(tₙ+h, yₙ+h·k₃)</div></div>
+          </div>
+          <div class="eq-block violet" style="margin-top:9px;">yₙ₊₁ = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)</div>
+          <p style="color:var(--muted);font-size:11px;margin-top:6px;">Local truncation error is O(h⁵). The simulation updates physics 500 times per second using a fixed-step accumulator, so the displayed waveform stays accurate regardless of monitor frame rate.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="theory-row">
+
+      <!-- Card 05: Phasor analysis -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">05</span>Phasor Analysis &amp; Impedance</div>
+        <div class="tcard-body">
+          <p>At <strong>steady state</strong>, every voltage and current in a linear circuit oscillates at the driving frequency Ω. Phasors represent these sinusoids as rotating vectors in the complex plane:</p>
+          <div class="eq-block">I = V_s / Z_total &nbsp;(complex division)</div>
+          <ul class="step-list">
+            <li><div class="sn">R</div><div><span class="hR">Resistor</span> — Z_R = R (real). V_R in phase with current.</div></li>
+            <li><div class="sn">L</div><div><span class="kw">Inductor</span> — Z_L = jΩL. V_L leads current by 90°.</div></li>
+            <li><div class="sn">C</div><div><span class="hC">Capacitor</span> — Z_C = −j/ΩC. V_C lags current by 90°.</div></li>
+          </ul>
+          <div class="eq-block">|Z| = √[R² + (ΩL − 1/ΩC)²]</div>
+          <div class="eq-block">φ = arctan[(ΩL − 1/ΩC) / R]</div>
+          <p style="color:var(--muted);font-size:11px;">The phasor diagram in the simulation shows V_R, V_L, V_C, and V_total as live rotating arrows. Watch how V_L and V_C (90° apart) can be many times larger than V_s near resonance — they cancel each other in the KVL sum, but individually they are enormous.</p>
+        </div>
+      </div>
+
+      <!-- Card 06: Frequency response -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">06</span>Frequency Response &amp; Resonance</div>
+        <div class="tcard-body">
+          <p>The <strong>steady-state current amplitude</strong> as a function of driving frequency Ω:</p>
+          <div class="eq-block green">|I(Ω)| = V_s / √[R² + (ΩL − 1/ΩC)²]</div>
+          <p>Three frequency regimes:</p>
+          <ul class="step-list">
+            <li><div class="sn">▸</div><div><strong>Ω ≪ ω₀</strong> — capacitor dominates (high Z_C). Current is small, lags source by ≈ 90°.</div></li>
+            <li><div class="sn">★</div><div><strong>Ω = ω₀</strong> — <span class="kw">resonance</span>. Z_L = Z_C cancel. |I| = V_s/R (maximum). Phase = 0°.</div></li>
+            <li><div class="sn">▸</div><div><strong>Ω ≫ ω₀</strong> — inductor dominates (high Z_L). Current is small, leads source by ≈ 90°.</div></li>
+          </ul>
+          <p style="margin-top:7px;">The <strong>bandwidth</strong> is the frequency range where |I| ≥ |I_max|/√2 (−3 dB power points):</p>
+          <div class="eq-block red">BW = R/L &nbsp;&nbsp; Q = ω₀/BW = ω₀L/R</div>
+          <p style="color:var(--muted);font-size:11px;margin-top:6px;">Try sweeping Ω toward ω₀ with small R to see resonant amplification. Lower R → sharper peak → higher Q → narrower bandwidth. This selectivity is the basis of radio tuning circuits.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ LIVE BANNER ═════════════════════════════════════════════ -->
+<div class="eq-banner">
+  <div class="eq-main">L·q̈ + R·q̇ + (1/C)·q = V_s·cos(Ωt)</div>
+  <div class="eq-parts">
+    <div class="eq-badge">ω₀ = <span id="b-w0">—</span> rad/s</div>
+    <div class="eq-badge">ζ = <span id="b-zeta">—</span></div>
+    <div class="eq-badge">Q = <span id="b-Q">—</span></div>
+    <div class="eq-badge">|Z| = <span id="b-Z">—</span> Ω</div>
+    <div class="eq-badge">φ = <span id="b-phi">—</span>°</div>
+  </div>
+</div>
+
+<!-- ═══════════════ SIMULATION ═══════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- Controls -->
+  <div>
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div>Circuit Parameters</div>
+      <div class="controls-inner">
+
+        <div class="param-group">
+          <label><span><span class="psym psym-L">L</span><span class="pname"> — Inductance</span></span><span class="pval" id="v-L">1.000 H</span></label>
+          <input type="range" id="s-L" min="0.01" max="5" step="0.01" value="1">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym psym-R">R</span><span class="pname"> — Resistance</span></span><span class="pval" id="v-R">2.00 Ω</span></label>
+          <input type="range" id="s-R" class="sR" min="0.1" max="30" step="0.1" value="2">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym psym-C">C</span><span class="pname"> — Capacitance</span></span><span class="pval" id="v-C">0.100 F</span></label>
+          <input type="range" id="s-C" class="sC" min="0.005" max="1" step="0.005" value="0.1">
+        </div>
+
+        <hr class="divider">
+        <div class="param-group">
+          <label><span><span class="psym psym-S">V_s</span><span class="pname"> — Source Amplitude</span></span><span class="pval" id="v-Vs">5.00 V</span></label>
+          <input type="range" id="s-Vs" class="sS" min="0" max="20" step="0.1" value="5">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym psym-S">Ω</span><span class="pname"> — Driving Frequency</span></span><span class="pval" id="v-Om">3.16 rad/s</span></label>
+          <input type="range" id="s-Om" class="sS" min="0.1" max="20" step="0.05" value="3.16">
+        </div>
+
+        <hr class="divider">
+        <div class="param-group">
+          <label><span><span class="psym psym-L">q₀</span><span class="pname"> — Initial Charge</span></span><span class="pval" id="v-q0">0.00 C</span></label>
+          <input type="range" id="s-q0" min="-2" max="2" step="0.05" value="0">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym psym-R">i₀</span><span class="pname"> — Initial Current</span></span><span class="pval" id="v-i0">0.00 A</span></label>
+          <input type="range" id="s-i0" class="sR" min="-5" max="5" step="0.05" value="0">
+        </div>
+
+        <hr class="divider">
+        <div id="regime-ind" class="regime-indicator reg-under">Under-damped (ζ &lt; 1)</div>
+
+        <div class="metrics">
+          <div class="metric-box"><div class="mk">ω₀ (rad/s)</div><div class="mv" id="m-w0">—</div></div>
+          <div class="metric-box"><div class="mk">ζ (damping ratio)</div><div class="mv" id="m-zeta">—</div></div>
+          <div class="metric-box"><div class="mk">Q (quality factor)</div><div class="mv" id="m-Q">—</div></div>
+          <div class="metric-box"><div class="mk">BW (rad/s)</div><div class="mv" id="m-BW">—</div></div>
+        </div>
+
+        <hr class="divider">
+        <div class="btn-row">
+          <button class="btn" onclick="startSim()">▶ Start</button>
+          <button class="btn danger" onclick="resetSim()">⟳ Reset</button>
+        </div>
+        <button class="btn" onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Right -->
+  <div class="right-pane">
+
+    <!-- Circuit diagram + time plot -->
+    <div class="sim-area">
+      <div class="canvas-wrap">
+        <div class="canvas-label">⚡ Circuit Diagram</div>
+        <canvas id="circCanvas" height="260"></canvas>
+      </div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">📈 Current &amp; Voltages vs. Time</div>
+        <canvas id="plotCanvas" height="260"></canvas>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="leg-line" style="background:var(--aS)"></div>V_source</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aL)"></div>i(t) current (×scale)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aC)"></div>V_C (capacitor)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aR)"></div>V_R (resistor)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aN);opacity:.7"></div>Analytical q(t)</div>
+    </div>
+
+    <!-- Analytical solution readout -->
+    <div class="panel">
+      <div class="panel-title"><div class="dot" style="background:var(--aS);box-shadow:var(--glowS)"></div>Analytical Solution — Transient Response</div>
+      <div class="sol-box">
+        <div class="sol-title">Free oscillation (V_s = 0 component)</div>
+        <div class="sol-eq" id="sol-eq-text">Computing…</div>
+      </div>
+    </div>
+
+    <!-- Phasor + frequency response -->
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aC);box-shadow:var(--glowC)"></div>Phasor Diagram (steady-state)</div>
+        <canvas id="phasCanvas" height="230"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aR);box-shadow:var(--glowR)"></div>Frequency Response |I| vs. Ω</div>
+        <canvas id="freqCanvas" height="230"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ SCRIPT ══════════════════════════════════════════════════ -->
+<script>
+// ── Theory toggle ───────────────────────────────────────────────────────────
+function toggleTheory(){
+  const b=document.getElementById('theoryBody'),t=document.getElementById('theoryToggle');
+  t.classList.toggle('open',b.classList.toggle('visible'));
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let L=1, R=2, C=0.1, Vs=5, Om=3.16, q0=0, i0=0;
+let simQ=0, simI=0, simT=0;
+let running=false, paused=false, animId=null, lastTs=null;
+let history=[], maxHist=700;
+let physDt=1/500, physAcc=0;
+
+// ── Canvas refs ─────────────────────────────────────────────────────────────
+const circC =document.getElementById('circCanvas');
+const plotC =document.getElementById('plotCanvas');
+const phasC =document.getElementById('phasCanvas');
+const freqC =document.getElementById('freqCanvas');
+const ctxCirc=circC.getContext('2d');
+const ctxPlot=plotC.getContext('2d');
+const ctxPhas=phasC.getContext('2d');
+const ctxFreq=freqC.getContext('2d');
+
+function resizeAll(){
+  [circC,plotC].forEach(c=>{c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;});
+  [phasC,freqC].forEach(c=>{c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;});
+}
+window.addEventListener('resize',()=>{resizeAll();drawAll();});
+resizeAll();
+
+// ── ODE / RK4 ───────────────────────────────────────────────────────────────
+function deriv(t,q,i){
+  return{dq:i, di:(Vs*Math.cos(Om*t)-R*i-q/C)/L};
+}
+function rk4(t,q,i,dt){
+  const k1=deriv(t,q,i);
+  const k2=deriv(t+dt/2, q+dt/2*k1.dq, i+dt/2*k1.di);
+  const k3=deriv(t+dt/2, q+dt/2*k2.dq, i+dt/2*k2.di);
+  const k4=deriv(t+dt,   q+dt*k3.dq,   i+dt*k3.di);
+  return{
+    q:q+dt/6*(k1.dq+2*k2.dq+2*k3.dq+k4.dq),
+    i:i+dt/6*(k1.di+2*k2.di+2*k3.di+k4.di)
+  };
+}
+
+// ── Analytical q(t) ─────────────────────────────────────────────────────────
+function analyticalQ(t){
+  const w0=1/Math.sqrt(L*C), z=R/(2*Math.sqrt(L/C));
+  // homogeneous
+  let qh;
+  if(z<1-1e-6){
+    const wd=w0*Math.sqrt(1-z*z);
+    const A=q0, B=(i0+z*w0*q0)/wd;
+    qh=Math.exp(-z*w0*t)*(A*Math.cos(wd*t)+B*Math.sin(wd*t));
+  } else if(z>1+1e-6){
+    const s1=-z*w0+w0*Math.sqrt(z*z-1), s2=-z*w0-w0*Math.sqrt(z*z-1);
+    const A=(i0-s2*q0)/(s1-s2), B=q0-A;
+    qh=A*Math.exp(s1*t)+B*Math.exp(s2*t);
+  } else {
+    const A=q0, B=i0+w0*q0;
+    qh=(A+B*t)*Math.exp(-w0*t);
+  }
+  if(Vs===0) return qh;
+  // particular: q_p = P*cos + Q*sin
+  const w02=1/(L*C), num=Vs/L;
+  const dr=w02-Om*Om, di2=(R/L)*Om;
+  const denom=dr*dr+di2*di2;
+  const P=num*dr/denom, Qs=-num*di2/denom;
+  return qh+P*Math.cos(Om*t)+Qs*Math.sin(Om*t);
+}
+
+// ── Parameters ───────────────────────────────────────────────────────────────
+function params(){
+  const w0=1/Math.sqrt(L*C);
+  const z=R/(2*Math.sqrt(L/C));
+  const Q_=w0*L/R;
+  const BW=R/L;
+  const wd=z<1?w0*Math.sqrt(1-z*z):0;
+  // impedance at current Om
+  const XL=Om*L, XC=1/(Om*C);
+  const Zmag=Math.sqrt(R*R+(XL-XC)*(XL-XC));
+  const phi=Math.atan2(XL-XC,R)*180/Math.PI;
+  return{w0,z,Q:Q_,BW,wd,Zmag,phi};
+}
+
+// ── Component voltages ───────────────────────────────────────────────────────
+function compV(q,i,t){
+  return{
+    Vsrc: Vs*Math.cos(Om*t),
+    VR:   R*i,
+    VL:   L*(Vs*Math.cos(Om*t)-R*i-q/C)/L, // = di/dt * L
+    VC:   q/C
+  };
+}
+
+// ── UI update ────────────────────────────────────────────────────────────────
+function updateUI(){
+  const p=params();
+  document.getElementById('v-L').textContent=L.toFixed(3)+' H';
+  document.getElementById('v-R').textContent=R.toFixed(2)+' Ω';
+  document.getElementById('v-C').textContent=C.toFixed(3)+' F';
+  document.getElementById('v-Vs').textContent=Vs.toFixed(2)+' V';
+  document.getElementById('v-Om').textContent=Om.toFixed(2)+' rad/s';
+  document.getElementById('v-q0').textContent=q0.toFixed(2)+' C';
+  document.getElementById('v-i0').textContent=i0.toFixed(2)+' A';
+
+  const fmt=n=>isFinite(n)?n.toFixed(3):'∞';
+  ['m-w0','b-w0'].forEach(id=>document.getElementById(id).textContent=p.w0.toFixed(3));
+  ['m-zeta','b-zeta'].forEach(id=>document.getElementById(id).textContent=p.z.toFixed(3));
+  ['m-Q','b-Q'].forEach(id=>document.getElementById(id).textContent=p.Q.toFixed(2));
+  document.getElementById('m-BW').textContent=p.BW.toFixed(3);
+  document.getElementById('b-Z').textContent=p.Zmag.toFixed(3);
+  document.getElementById('b-phi').textContent=p.phi.toFixed(1);
+
+  const ri=document.getElementById('regime-ind');
+  ri.className='regime-indicator';
+  if(p.z<1-1e-4){ri.classList.add('reg-under');ri.textContent=`Under-damped — ζ = ${p.z.toFixed(3)} < 1`;}
+  else if(p.z>1+1e-4){ri.classList.add('reg-over');ri.textContent=`Over-damped — ζ = ${p.z.toFixed(3)} > 1`;}
+  else{ri.classList.add('reg-crit');ri.textContent=`Critically damped — ζ ≈ 1`;}
+
+  updateSolText(p);
+}
+
+function updateSolText(p){
+  const el=document.getElementById('sol-eq-text');
+  const w0f=p.w0.toFixed(3),zf=p.z.toFixed(3),wdf=p.wd.toFixed(3);
+  if(p.z<1-1e-4){
+    const B=((i0+p.z*p.w0*q0)/p.wd).toFixed(3);
+    el.innerHTML=`q_h(t) = e<sup>−${(p.z*p.w0).toFixed(3)}t</sup> · [<span>${q0.toFixed(3)}</span>·cos(<span>${wdf}</span>t) + <span>${B}</span>·sin(<span>${wdf}</span>t)]<br>
+    <br>ω₀ = <span>${w0f}</span> rad/s &nbsp; ωd = <span>${wdf}</span> rad/s &nbsp; τ = <span>${(1/(p.z*p.w0)).toFixed(3)}</span> s<br>
+    Q = <span>${p.Q.toFixed(2)}</span> &nbsp; BW = <span>${p.BW.toFixed(3)}</span> rad/s`;
+  } else if(p.z>1+1e-4){
+    const s1=(-p.z*p.w0+p.w0*Math.sqrt(p.z*p.z-1)).toFixed(3);
+    const s2=(-p.z*p.w0-p.w0*Math.sqrt(p.z*p.z-1)).toFixed(3);
+    el.innerHTML=`q_h(t) = A·e<sup><span>${s1}</span>t</sup> + B·e<sup><span>${s2}</span>t</sup><br>
+    <br>s₁ = <span>${s1}</span> &nbsp; s₂ = <span>${s2}</span> &nbsp; ζ = <span>${zf}</span><br>Both poles real & negative → aperiodic decay.`;
+  } else {
+    el.innerHTML=`q_h(t) = (<span>${q0.toFixed(3)}</span> + <span>${(i0+p.w0*q0).toFixed(3)}</span>·t)·e<sup>−<span>${w0f}</span>t</sup><br>
+    <br>Critically damped: fastest decay without oscillation.<br>ω₀ = <span>${w0f}</span> rad/s &nbsp; Q = <span>${p.Q.toFixed(2)}</span>`;
+  }
+}
+
+// ── Draw helpers ─────────────────────────────────────────────────────────────
+function clr(ctx){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);}
+function grid(ctx,W,H,col='rgba(28,42,58,0.7)'){
+  ctx.strokeStyle=col;ctx.lineWidth=1;
+  for(let x=0;x<W;x+=W/8){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=H/6){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+
+// ── Circuit diagram ──────────────────────────────────────────────────────────
+function drawCircuit(){
+  const W=circC.width, H=circC.height, ctx=ctxCirc, dpr=devicePixelRatio;
+  clr(ctx);
+  const p=params();
+  const v=compV(simQ,simI,simT);
+  const lw=2*dpr;
+
+  // Circuit layout: rectangle loop
+  // Corners: TL, TR, BR, BL
+  const mx=W*0.15, my=H*0.12, mw=W*0.7, mh=H*0.76;
+  const TLx=mx, TLy=my;
+  const TRx=mx+mw, TRy=my;
+  const BRx=mx+mw, BRy=my+mh;
+  const BLx=mx, BLy=my+mh;
+
+  // Wire colour based on current magnitude
+  const iNorm=Math.min(Math.abs(simI)/5,1);
+  const wireCol=`rgba(245,197,24,${0.15+iNorm*0.5})`;
+
+  // Draw wires
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  // Top wire (L and R live here — draw in segments)
+  // Bottom wire
+  ctx.beginPath(); ctx.moveTo(BLx,BLy); ctx.lineTo(BRx,BRy); ctx.stroke();
+
+  // ── Inductor (top-left segment) ──
+  const Lx1=TLx, Lx2=TLx+mw*0.38, Ly=TLy;
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(TLx, Ly); ctx.lineTo(Lx1+mw*0.04, Ly); ctx.stroke();
+  // coil loops
+  ctx.strokeStyle=`rgba(245,197,24,0.85)`; ctx.lineWidth=lw*1.1;
+  const coilN=6, coilW=(mw*0.32)/coilN, coilH=H*0.07;
+  for(let ci=0;ci<coilN;ci++){
+    const cx=Lx1+mw*0.05+ci*coilW+coilW/2;
+    ctx.beginPath(); ctx.arc(cx, Ly, coilW/2, Math.PI, 0, false); ctx.stroke();
+  }
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(Lx1+mw*0.05+coilN*coilW, Ly); ctx.lineTo(Lx2, Ly); ctx.stroke();
+
+  // ── Resistor (top-right segment) ──
+  const Rx1=Lx2, Rx2=TRx, Ry=TLy;
+  const rW=(Rx2-Rx1)*0.55, rH=H*0.055, rX=(Rx1+Rx2)/2-rW/2, rY=Ry-rH/2;
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(Rx1,Ry); ctx.lineTo(rX,Ry); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rX+rW,Ry); ctx.lineTo(Rx2,Ry); ctx.stroke();
+  ctx.strokeStyle=`rgba(255,107,107,0.85)`; ctx.lineWidth=lw*1.1;
+  // zigzag resistor
+  const rzN=8;
+  ctx.beginPath(); ctx.moveTo(rX,Ry);
+  for(let ri=0;ri<=rzN;ri++){
+    const rx=rX+ri*(rW/rzN);
+    const ry=Ry+(ri%2===0?rH/2:-rH/2);
+    ctx.lineTo(rx,ry);
+  }
+  ctx.lineTo(rX+rW,Ry); ctx.stroke();
+
+  // ── Right wire (source side) ──
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(TRx,TRy); ctx.lineTo(BRx,BRy); ctx.stroke();
+
+  // ── Capacitor (bottom segment, left part) ──
+  const Cx1=BLx+mw*0.12, Cx2=BLx+mw*0.45, Cy=BLy;
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(BLx,Cy); ctx.lineTo(Cx1,Cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(Cx2,Cy); ctx.lineTo(BRx,Cy); ctx.stroke();
+  const cMid=(Cx1+Cx2)/2, platH=H*0.065, platW=H*0.07;
+  // Charge glow on capacitor
+  const vcNorm=Math.min(Math.abs(simQ/C)/(Vs+0.01),1);
+  ctx.strokeStyle=`rgba(79,195,247,${0.5+vcNorm*0.5})`; ctx.lineWidth=lw*2;
+  ctx.beginPath(); ctx.moveTo(cMid-H*0.01,Cy-platH/2); ctx.lineTo(cMid-H*0.01,Cy+platH/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cMid+H*0.01,Cy-platH/2); ctx.lineTo(cMid+H*0.01,Cy+platH/2); ctx.stroke();
+  // charge dots
+  ctx.fillStyle=`rgba(79,195,247,${0.3+vcNorm*0.5})`;
+  for(let di=0;di<3;di++){
+    const dy=Cy-platH/2+di*(platH/2);
+    ctx.beginPath(); ctx.arc(cMid-H*0.025,dy,2*dpr,0,Math.PI*2); ctx.fill();
+  }
+
+  // ── Source (left wire) ──
+  const sX=BLx, sY1=TLy+mh*0.25, sY2=TLy+mh*0.75, sMid=(sY1+sY2)/2;
+  ctx.strokeStyle=wireCol; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(sX,TLy); ctx.lineTo(sX,sY1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sX,sY2); ctx.lineTo(sX,BLy); ctx.stroke();
+  // Source circle
+  const srcR=mh*0.14;
+  const vsNorm=Math.abs(v.Vsrc)/(Vs+0.001);
+  ctx.strokeStyle=`rgba(105,255,133,${0.5+vsNorm*0.5})`; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.arc(sX,sMid,srcR,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle=`rgba(105,255,133,${0.05+vsNorm*0.1})`;
+  ctx.beginPath(); ctx.arc(sX,sMid,srcR,0,Math.PI*2); ctx.fill();
+  // ~ symbol inside
+  ctx.strokeStyle='rgba(105,255,133,0.9)'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();
+  for(let si=0;si<20;si++){
+    const sx=sX-srcR*0.6+si*(srcR*1.2/19);
+    const sy=sMid+Math.sin(si/19*Math.PI*2)*srcR*0.35;
+    if(si===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+  }
+  ctx.stroke();
+
+  // ── Current flow dots ──
+  if(Math.abs(simI)>0.01){
+    const spd=Math.min(Math.abs(simI)/3,1);
+    const dir=simI>0?1:-1;
+    const dotT=(simT*spd*0.4)%1;
+    const dotCol='rgba(245,197,24,0.9)';
+    ctx.fillStyle=dotCol;
+    // 4 dots at equal spacing around the loop
+    const loopPts=[];
+    // top wire L→R
+    const nTop=20;
+    for(let i=0;i<=nTop;i++) loopPts.push({x:TLx+i*(mw/nTop),y:TLy});
+    // right wire T→B
+    const nRight=15;
+    for(let i=1;i<=nRight;i++) loopPts.push({x:TRx,y:TRy+i*(mh/nRight)});
+    // bottom wire R→L
+    for(let i=1;i<=nTop;i++) loopPts.push({x:BRx-i*(mw/nTop),y:BLy});
+    // left wire B→T
+    for(let i=1;i<=nRight;i++) loopPts.push({x:BLx,y:BLy-i*(mh/nRight)});
+    const total=loopPts.length;
+    for(let d=0;d<3;d++){
+      let idx=Math.floor(((dotT+d/3)*dir*total+total*10)%total);
+      const pt=loopPts[idx];
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,3*dpr,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // ── Component labels ──
+  const fs=9*dpr;
+  ctx.font=`${fs}px Share Tech Mono`; ctx.textAlign='center';
+  ctx.fillStyle='rgba(245,197,24,0.8)';
+  ctx.fillText(`L=${L.toFixed(2)}H`,TLx+mw*0.18,TLy-8*dpr);
+  ctx.fillText(`V_L=${v.VL.toFixed(1)}V`,TLx+mw*0.18,TLy+12*dpr);
+
+  ctx.fillStyle='rgba(255,107,107,0.8)';
+  ctx.fillText(`R=${R.toFixed(1)}Ω`,TLx+mw*0.72,TRy-8*dpr);
+  ctx.fillText(`V_R=${v.VR.toFixed(1)}V`,TLx+mw*0.72,TRy+12*dpr);
+
+  ctx.fillStyle='rgba(79,195,247,0.8)';
+  ctx.fillText(`C=${C.toFixed(3)}F`,BLx+mw*0.28,BLy+14*dpr);
+  ctx.fillText(`V_C=${v.VC.toFixed(1)}V`,BLx+mw*0.28,BLy+26*dpr);
+
+  ctx.fillStyle='rgba(105,255,133,0.8)';
+  ctx.textAlign='right';
+  ctx.fillText(`${v.Vsrc.toFixed(1)}V`,sX-srcR-4*dpr,sMid-4*dpr);
+  ctx.fillText(`i=${simI.toFixed(2)}A`,sX-srcR-4*dpr,sMid+10*dpr);
+
+  // time
+  ctx.fillStyle='rgba(90,80,64,0.9)'; ctx.textAlign='left';
+  ctx.fillText(`t=${simT.toFixed(2)}s`, 6*dpr, H-6*dpr);
+}
+
+// ── Time-domain plot ─────────────────────────────────────────────────────────
+function drawPlot(){
+  const W=plotC.width, H=plotC.height, ctx=ctxPlot, dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:38*dpr,r:10*dpr,t:10*dpr,b:26*dpr};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  ctx.strokeStyle='#1c2a3a'; ctx.lineWidth=dpr;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,H-pad.b); ctx.lineTo(W-pad.r,H-pad.b); ctx.stroke();
+
+  if(history.length<2) return;
+  const tWin=20, tMax=Math.max(simT,tWin), tMin=tMax-tWin;
+
+  // gather voltage ranges
+  const allV=history.flatMap(h=>[h.Vsrc,h.VC,h.VR,h.i*3]);
+  const vMax=Math.max(...allV.map(Math.abs),0.1)*1.2;
+  const mX=t=>(t-tMin)/tWin*pw+pad.l;
+  const mY=v=>ph/2-(v/vMax)*ph/2+pad.t;
+
+  // zero line
+  ctx.strokeStyle='rgba(90,80,64,0.3)'; ctx.lineWidth=dpr; ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath(); ctx.moveTo(pad.l,mY(0)); ctx.lineTo(W-pad.r,mY(0)); ctx.stroke(); ctx.setLineDash([]);
+
+  const drawTrace=(key,col,lw,dash=[])=>{
+    ctx.strokeStyle=col; ctx.lineWidth=lw*dpr; ctx.setLineDash(dash.map(v=>v*dpr));
+    ctx.beginPath();
+    history.forEach((h,i)=>{
+      const y=mY(h[key]); const x=mX(h.t);
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+
+  drawTrace('Vsrc','rgba(105,255,133,0.6)',1.2);
+  drawTrace('VC','rgba(79,195,247,0.8)',1.5);
+  drawTrace('VR','rgba(255,107,107,0.7)',1.2);
+  drawTrace('iS','rgba(245,197,24,0.9)',2);
+
+  // Analytical q overlay → VC_ana = q_ana/C
+  ctx.strokeStyle='rgba(192,132,252,0.5)'; ctx.lineWidth=1.5*dpr; ctx.setLineDash([5*dpr,3*dpr]);
+  ctx.beginPath(); let fa=true;
+  for(let ti=tMin;ti<=tMax;ti+=0.05){
+    const vc=analyticalQ(ti)/C; const x=mX(ti), y=mY(vc);
+    if(fa){ctx.moveTo(x,y);fa=false;}else ctx.lineTo(x,y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  ctx.fillStyle='rgba(90,80,64,0.8)'; ctx.font=`${8*dpr}px Share Tech Mono`; ctx.textAlign='center';
+  ctx.fillText('t (s) →', W/2, H-4*dpr);
+  ctx.save(); ctx.translate(10*dpr,H/2); ctx.rotate(-Math.PI/2); ctx.fillText('V / A', 0, 0); ctx.restore();
+  ctx.fillText(tMin.toFixed(0),pad.l,H-pad.b+10*dpr); ctx.fillText(tMax.toFixed(0),W-pad.r,H-pad.b+10*dpr);
+  ctx.textAlign='right';
+  ctx.fillText(vMax.toFixed(1),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillText((-vMax).toFixed(1),pad.l-2*dpr,H-pad.b-2*dpr);
+}
+
+// ── Phasor diagram ───────────────────────────────────────────────────────────
+function drawPhasor(){
+  const W=phasC.width, H=phasC.height, ctx=ctxPhas, dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H,'rgba(28,42,58,0.5)');
+  const cx=W/2, cy=H/2, r=Math.min(W,H)*0.36;
+
+  // axes
+  ctx.strokeStyle='#1c2a3a'; ctx.lineWidth=dpr;
+  ctx.beginPath(); ctx.moveTo(cx-r*1.1,cy); ctx.lineTo(cx+r*1.1,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy-r*1.1); ctx.lineTo(cx,cy+r*1.1); ctx.stroke();
+
+  // labels
+  ctx.fillStyle='rgba(90,80,64,0.7)'; ctx.font=`${8*dpr}px Share Tech Mono`; ctx.textAlign='center';
+  ctx.fillText('Re →', cx+r*1.1, cy-4*dpr);
+  ctx.save(); ctx.translate(cx+4*dpr, cy-r*1.1); ctx.rotate(Math.PI/2);
+  ctx.fillText('Im ↑', 0, 0); ctx.restore();
+
+  // Compute steady-state phasors
+  const XL=Om*L, XC=1/(Om*C);
+  const Zmag=Math.sqrt(R*R+(XL-XC)*(XL-XC));
+  const phi=Math.atan2(XL-XC, R); // current lags source by phi
+  const Imag=Vs/Zmag;
+
+  // Scale so Vs circle fits
+  const scale=r/Vs;
+  const angle=Om*simT; // rotating phase
+
+  // Current phasor (reference — along 0°)
+  const iAngle=-phi+angle; // current phasor rotates at Om*t - phi
+  const iRe=Imag*Math.cos(iAngle)*R*scale;
+  const iIm=-Imag*Math.sin(iAngle)*R*scale;
+
+  // Draw unit circle reference
+  ctx.strokeStyle='rgba(90,80,64,0.2)'; ctx.lineWidth=dpr; ctx.setLineDash([3*dpr,3*dpr]);
+  ctx.beginPath(); ctx.arc(cx,cy,Vs*scale,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+
+  function drawPhasorArrow(ctx, ox, oy, ex, ey, color, label){
+    ctx.strokeStyle=color; ctx.lineWidth=2*dpr;
+    ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ex,ey); ctx.stroke();
+    const ang=Math.atan2(ey-oy,ex-ox);
+    const as=8*dpr;
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-as*Math.cos(ang-0.4),ey-as*Math.sin(ang-0.4));
+    ctx.lineTo(ex-as*Math.cos(ang+0.4),ey-as*Math.sin(ang+0.4));
+    ctx.closePath(); ctx.fill();
+    if(label){
+      ctx.font=`bold ${9*dpr}px Share Tech Mono`; ctx.textAlign='center';
+      ctx.fillStyle=color;
+      ctx.fillText(label, ex+12*dpr*Math.cos(ang), ey+12*dpr*Math.sin(ang));
+    }
+  }
+
+  // V_R (in phase with current)
+  const VRmag=Imag*R, VLmag=Imag*XL, VCmag=Imag*XC;
+  // Source phasor
+  const Vsang=angle;
+  const VsRe=Vs*Math.cos(Vsang)*scale, VsIm=-Vs*Math.sin(Vsang)*scale;
+
+  // Current direction angle (source angle - phi)
+  const iDir=Vsang-phi;
+  const VRRe=VRmag*Math.cos(iDir)*scale, VRIm=-VRmag*Math.sin(iDir)*scale;
+  const VLRe=VLmag*Math.cos(iDir+Math.PI/2)*scale, VLIm=-VLmag*Math.sin(iDir+Math.PI/2)*scale;
+  const VCRe=VCmag*Math.cos(iDir-Math.PI/2)*scale, VCIm=-VCmag*Math.sin(iDir-Math.PI/2)*scale;
+
+  // Draw phasors tip-to-tail from centre
+  // V_R
+  drawPhasorArrow(ctx,cx,cy,cx+VRRe,cy+VRIm,'rgba(255,107,107,0.9)','V_R');
+  // V_L (starting from tip of V_R)
+  drawPhasorArrow(ctx,cx+VRRe,cy+VRIm,cx+VRRe+VLRe,cy+VRIm+VLIm,'rgba(245,197,24,0.9)','V_L');
+  // V_C (starting from tip of V_R+V_L)
+  drawPhasorArrow(ctx,cx+VRRe+VLRe,cy+VRIm+VLIm,cx+VRRe+VLRe+VCRe,cy+VRIm+VLIm+VCIm,'rgba(79,195,247,0.9)','V_C');
+  // V_source (resultant)
+  drawPhasorArrow(ctx,cx,cy,cx+VsRe,cy+VsIm,'rgba(105,255,133,0.9)','V_s');
+
+  // Current (thin, separate)
+  const iScale=r*0.6/Imag;
+  drawPhasorArrow(ctx,cx,cy,cx+Imag*Math.cos(iDir)*iScale,cy-Imag*Math.sin(iDir)*iScale,'rgba(245,197,24,0.4)','i');
+
+  // Labels
+  ctx.fillStyle='rgba(90,80,64,0.8)'; ctx.font=`${8*dpr}px Share Tech Mono`; ctx.textAlign='left';
+  ctx.fillText(`φ=${(phi*180/Math.PI).toFixed(1)}°`, 6*dpr, 14*dpr);
+  ctx.fillText(`|Z|=${Zmag.toFixed(2)}Ω`, 6*dpr, 24*dpr);
+}
+
+// ── Frequency response ───────────────────────────────────────────────────────
+function drawFreq(){
+  const W=freqC.width, H=freqC.height, ctx=ctxFreq, dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:38*dpr,r:10*dpr,t:10*dpr,b:26*dpr};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  const w0=1/Math.sqrt(L*C);
+  const Ommin=0.05, Ommax=w0*5+2;
+  const N=300;
+
+  const Iarr=[], VCarr=[], Zarr=[];
+  for(let ni=0;ni<=N;ni++){
+    const om=Ommin+(Ommax-Ommin)*ni/N;
+    const XL=om*L, XC=1/(om*C);
+    const Zmag=Math.sqrt(R*R+(XL-XC)*(XL-XC));
+    const Imag=Vs/Zmag;
+    Iarr.push({om,v:Imag});
+    VCarr.push({om,v:Imag/om/C});
+    Zarr.push({om,v:Zmag});
+  }
+
+  const Imax=Math.max(...Iarr.map(p=>p.v));
+  const VCmax=Math.max(...VCarr.map(p=>p.v));
+  const yMax=Math.max(Imax,VCmax,Vs/R)*1.1;
+
+  const mX=om=>(om-Ommin)/(Ommax-Ommin)*pw+pad.l;
+  const mY=v=>ph-(v/yMax)*ph+pad.t;
+
+  ctx.strokeStyle='#1c2a3a'; ctx.lineWidth=dpr;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,H-pad.b); ctx.lineTo(W-pad.r,H-pad.b); ctx.stroke();
+
+  // V_C curve
+  ctx.strokeStyle='rgba(79,195,247,0.6)'; ctx.lineWidth=1.5*dpr;
+  ctx.beginPath(); VCarr.forEach((p,i)=>{if(i===0)ctx.moveTo(mX(p.om),mY(p.v));else ctx.lineTo(mX(p.om),mY(p.v));});
+  ctx.stroke();
+
+  // |I| curve
+  ctx.strokeStyle='rgba(245,197,24,0.9)'; ctx.lineWidth=2*dpr;
+  ctx.beginPath(); Iarr.forEach((p,i)=>{if(i===0)ctx.moveTo(mX(p.om),mY(p.v));else ctx.lineTo(mX(p.om),mY(p.v));});
+  ctx.stroke();
+
+  // Resonance vertical
+  ctx.strokeStyle='rgba(105,255,133,0.35)'; ctx.lineWidth=dpr; ctx.setLineDash([5*dpr,3*dpr]);
+  ctx.beginPath(); ctx.moveTo(mX(w0),pad.t); ctx.lineTo(mX(w0),H-pad.b); ctx.stroke(); ctx.setLineDash([]);
+
+  // Current driving frequency marker
+  if(Om>=Ommin && Om<=Ommax){
+    const XL=Om*L, XC=1/(Om*C);
+    const Zmag=Math.sqrt(R*R+(XL-XC)*(XL-XC));
+    const Inow=Vs/Zmag;
+    ctx.fillStyle='rgba(245,197,24,0.9)';
+    ctx.beginPath(); ctx.arc(mX(Om),mY(Inow),5*dpr,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(79,195,247,0.9)';
+    ctx.beginPath(); ctx.arc(mX(Om),mY(Inow/Om/C),5*dpr,0,Math.PI*2); ctx.fill();
+  }
+
+  // BW shading
+  const BW=R/L;
+  const Om1=Math.max(w0-BW/2,Ommin), Om2=Math.min(w0+BW/2,Ommax);
+  ctx.fillStyle='rgba(105,255,133,0.04)';
+  ctx.fillRect(mX(Om1),pad.t, mX(Om2)-mX(Om1), ph);
+
+  // Labels
+  ctx.fillStyle='rgba(90,80,64,0.8)'; ctx.font=`${8*dpr}px Share Tech Mono`; ctx.textAlign='center';
+  ctx.fillText('Ω (rad/s) →', W/2, H-4*dpr);
+  ctx.fillText('ω₀='+w0.toFixed(2), mX(w0), pad.t+14*dpr);
+  ctx.fillText('Ω='+Om.toFixed(2), mX(Math.min(Math.max(Om,Ommin),Ommax)), H-pad.b-8*dpr);
+  ctx.save(); ctx.translate(10*dpr,H/2); ctx.rotate(-Math.PI/2); ctx.fillText('|I|, |V_C|', 0, 0); ctx.restore();
+  ctx.textAlign='right';
+  ctx.fillText(yMax.toFixed(2),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillText(Ommin.toFixed(1),pad.l,H-pad.b+10*dpr); ctx.textAlign='right';
+  ctx.fillText(Ommax.toFixed(1),W-pad.r,H-pad.b+10*dpr);
+
+  // Legend
+  ctx.fillStyle='rgba(245,197,24,0.8)'; ctx.textAlign='left';
+  ctx.fillText('— |I(Ω)|', pad.l+4*dpr, pad.t+12*dpr);
+  ctx.fillStyle='rgba(79,195,247,0.8)';
+  ctx.fillText('— |V_C(Ω)|', pad.l+4*dpr, pad.t+22*dpr);
+}
+
+function drawAll(){ drawCircuit(); drawPlot(); drawPhasor(); drawFreq(); }
+
+// ── Sim loop ──────────────────────────────────────────────────────────────────
+function loop(ts){
+  if(!running||paused){lastTs=null;return;}
+  if(lastTs===null){lastTs=ts;animId=requestAnimationFrame(loop);return;}
+  let dt=(ts-lastTs)/1000; lastTs=ts; dt=Math.min(dt,0.04);
+  physAcc+=dt;
+  while(physAcc>=physDt){
+    const s=rk4(simT,simQ,simI,physDt);
+    simQ=s.q; simI=s.i; simT+=physDt; physAcc-=physDt;
+    const v=compV(simQ,simI,simT);
+    history.push({t:simT,q:simQ,i:simI,
+      Vsrc:v.Vsrc, VR:v.VR, VC:simQ/C, VL:v.VL,
+      iS:simI*3 // scale current for display
+    });
+    if(history.length>maxHist)history.shift();
+  }
+  drawAll(); animId=requestAnimationFrame(loop);
+}
+
+function startSim(){
+  if(animId)cancelAnimationFrame(animId);
+  running=true;paused=false;lastTs=null;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  animId=requestAnimationFrame(loop);
+}
+function resetSim(){
+  if(animId)cancelAnimationFrame(animId);
+  simQ=q0;simI=i0;simT=0;history=[];running=false;paused=false;physAcc=0;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  drawAll();
+}
+function togglePause(){
+  if(!running)return;
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(!paused){lastTs=null;animId=requestAnimationFrame(loop);}
+}
+
+// ── Sliders ──────────────────────────────────────────────────────────────────
+function bind(id,fn){
+  document.getElementById(id).addEventListener('input',function(){
+    fn(parseFloat(this.value)); updateUI(); drawAll();
+  });
+}
+bind('s-L',  v=>{L=v;});
+bind('s-R',  v=>{R=v;});
+bind('s-C',  v=>{C=v;});
+bind('s-Vs', v=>{Vs=v;});
+bind('s-Om', v=>{Om=v;});
+bind('s-q0', v=>{q0=v;simQ=v;history=[];simT=0;simI=i0;});
+bind('s-i0', v=>{i0=v;simI=v;history=[];simT=0;simQ=q0;});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+// Set Ω slider to ω₀ initially
+const w0init=1/Math.sqrt(L*C);
+document.getElementById('s-Om').value=w0init.toFixed(2);
+Om=w0init;
+updateUI(); resetSim(); startSim();
+</script>
+</body>
+</html>

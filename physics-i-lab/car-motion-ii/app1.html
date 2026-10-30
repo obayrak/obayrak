@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Motion Physics Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+:root {
+  --bg: #07090f;
+  --surface: #0d1017;
+  --surface2: #121620;
+  --border: #1c2230;
+  --border2: #252e40;
+  --c: #e2f4ff;
+  --cm: #7a9ab5;
+  --cd: #3a4e65;
+  --cyan: #38c8f0;
+  --orange: #f07038;
+  --green: #5ef0a0;
+  --violet: #b090f8;
+  --yellow: #f0c838;
+  --red: #f05870;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--c);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ── LAYOUT ── */
+.shell {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  grid-template-rows: 44px 1fr;
+  height: 100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.topbar-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.topbar-meta { color: var(--cd); font-size: 10px; }
+
+.status-pill {
+  margin-left: auto;
+  padding: 3px 12px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid;
+  transition: all 0.3s;
+}
+.status-pill.ready  { color: var(--cm); border-color: var(--border2); }
+.status-pill.running{ color: var(--yellow); border-color: rgba(240,200,56,0.4); background: rgba(240,200,56,0.08); }
+.status-pill.done   { color: var(--green); border-color: rgba(94,240,160,0.4); background: rgba(94,240,160,0.08); }
+
+.topbar-btns { display: flex; gap: 8px; }
+
+.btn {
+  padding: 5px 16px;
+  border-radius: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.15s;
+}
+.btn-run  { color: var(--cyan);   border-color: rgba(56,200,240,0.5); background: rgba(56,200,240,0.08); }
+.btn-run:hover  { background: rgba(56,200,240,0.2); }
+.btn-stop { color: var(--red);    border-color: rgba(240,88,112,0.5);  background: rgba(240,88,112,0.08); }
+.btn-stop:hover { background: rgba(240,88,112,0.2); }
+.btn-reset{ color: var(--cm);     border-color: var(--border2);        background: transparent; }
+.btn-reset:hover{ background: var(--surface2); }
+
+/* ── LEFT PANEL: PARAMS ── */
+.panel-left {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.panel-left::-webkit-scrollbar { width: 3px; }
+.panel-left::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.section-head {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--cd);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.param { display: flex; flex-direction: column; gap: 3px; }
+
+.param-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--cm);
+}
+.param-val { font-weight: 700; }
+.pv-cyan   { color: var(--cyan); }
+.pv-orange { color: var(--orange); }
+.pv-green  { color: var(--green); }
+.pv-violet { color: var(--violet); }
+.pv-yellow { color: var(--yellow); }
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--border2);
+  border-radius: 1px;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.4); }
+.r-cyan   input::-webkit-slider-thumb { background: var(--cyan); }
+.r-orange input::-webkit-slider-thumb { background: var(--orange); }
+.r-green  input::-webkit-slider-thumb { background: var(--green); }
+.r-violet input::-webkit-slider-thumb { background: var(--violet); }
+.r-yellow input::-webkit-slider-thumb { background: var(--yellow); }
+
+select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--c);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  outline: none;
+  border-radius: 2px;
+}
+
+/* ── CENTER: SCENE + CHARTS ── */
+.panel-center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scene-wrap {
+  height: 130px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  background: #050810;
+}
+.scene-wrap canvas { width: 100%; height: 100%; display: block; }
+
+/* time scrubber */
+.time-bar {
+  height: 28px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--surface);
+}
+.time-label { font-size: 10px; color: var(--cd); }
+.time-val   { font-size: 11px; font-weight: 700; color: var(--cyan); min-width: 60px; }
+#timeProgress {
+  flex: 1;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+#timeProgressBar {
+  height: 100%;
+  background: var(--cyan);
+  width: 0%;
+  transition: width 0.05s linear;
+  box-shadow: 0 0 6px rgba(56,200,240,0.6);
+}
+
+/* charts grid */
+.charts-grid {
+  flex: 1;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+
+.chart-cell {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 8px;
+  overflow: hidden;
+}
+
+.chart-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.cl-cyan   { color: var(--cyan); }
+.cl-orange { color: var(--orange); }
+.cl-green  { color: var(--green); }
+
+.chart-inner {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+.chart-inner canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── RIGHT PANEL: PHYSICS NARRATION ── */
+.panel-right {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.narr-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--cd);
+  flex-shrink: 0;
+}
+
+/* Phase badge */
+.phase-badge {
+  margin: 12px 16px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--cyan);
+  background: rgba(56,200,240,0.06);
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--cyan);
+  line-height: 1.3;
+  transition: all 0.4s;
+  flex-shrink: 0;
+}
+.phase-badge.accel  { border-color: var(--green);  background: rgba(94,240,160,0.06);  color: var(--green); }
+.phase-badge.coast  { border-color: var(--yellow); background: rgba(240,200,56,0.06);  color: var(--yellow); }
+.phase-badge.decel  { border-color: var(--red);    background: rgba(240,88,112,0.06);  color: var(--red); }
+.phase-badge.climb  { border-color: var(--orange); background: rgba(240,112,56,0.06);  color: var(--orange); }
+.phase-badge.descend{ border-color: var(--violet); background: rgba(176,144,248,0.06); color: var(--violet); }
+
+/* Plain English */
+.narr-english {
+  margin: 10px 16px 0;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--cm);
+  min-height: 52px;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+/* Equation block */
+.eq-block {
+  margin: 10px 16px 0;
+  flex-shrink: 0;
+}
+
+.eq-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cd);
+  margin-bottom: 6px;
+}
+
+.eq-card {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.eq-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.eq-lhs  { color: var(--cm); min-width: 110px; }
+.eq-sym  { color: var(--cd); }
+.eq-rhs  { color: var(--c); font-weight: 500; flex: 1; }
+.eq-result { font-weight: 700; margin-left: 4px; }
+
+.eq-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+
+/* Force bar chart */
+.force-bars {
+  margin: 10px 16px 0;
+  flex-shrink: 0;
+}
+.fb-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--cd); margin-bottom: 8px;
+}
+.fb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.fb-name { font-size: 10px; color: var(--cm); min-width: 90px; }
+.fb-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+.fb-bar {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.15s ease-out;
+  min-width: 2px;
+}
+.fb-val { font-size: 10px; font-weight: 700; min-width: 64px; text-align: right; }
+
+/* Net force result */
+.net-force-row {
+  margin: 8px 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.nf-label { font-size: 10px; color: var(--cm); }
+.nf-val   { font-size: 13px; font-weight: 700; }
+.nf-pos   { color: var(--green); }
+.nf-neg   { color: var(--red); }
+.nf-zero  { color: var(--yellow); }
+
+/* Spacer */
+.narr-spacer { flex: 1; }
+
+/* Live numbers grid at bottom */
+.live-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.live-cell {
+  background: var(--surface);
+  padding: 8px 12px;
+  text-align: center;
+}
+.live-val   { font-size: 14px; font-weight: 700; line-height: 1; }
+.live-unit  { font-size: 9px; color: var(--cd); margin-top: 2px; }
+.lv-cyan   { color: var(--cyan); }
+.lv-orange { color: var(--orange); }
+.lv-green  { color: var(--green); }
+.lv-violet { color: var(--violet); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title">Car Motion Simulator</div>
+    <div class="topbar-meta">RK4 · Live Physics · Real-time</div>
+    <div class="topbar-btns">
+      <button class="btn btn-run"   onclick="startSim()">▶ Run</button>
+      <button class="btn btn-stop"  onclick="stopSim()">■ Stop</button>
+      <button class="btn btn-reset" onclick="resetSim()">⟳ Reset</button>
+    </div>
+    <div class="status-pill ready" id="statusPill">READY</div>
+  </div>
+
+  <!-- LEFT: PARAMS -->
+  <aside class="panel-left">
+
+    <div class="section-head">Vehicle</div>
+
+    <div class="param r-cyan">
+      <div class="param-top"><span>Mass  m</span><span class="param-val pv-cyan" id="vMass">1200 kg</span></div>
+      <input type="range" id="mass" min="500" max="3000" value="1200" step="50">
+    </div>
+    <div class="param r-orange">
+      <div class="param-top"><span>Drive Force  F</span><span class="param-val pv-orange" id="vForce">3000 N</span></div>
+      <input type="range" id="force" min="0" max="10000" value="3000" step="100">
+    </div>
+    <div class="param r-green">
+      <div class="param-top"><span>Drag coeff  Cᵈ</span><span class="param-val pv-green" id="vCd">0.30</span></div>
+      <input type="range" id="cd" min="0.1" max="1.0" value="0.30" step="0.01">
+    </div>
+    <div class="param r-violet">
+      <div class="param-top"><span>Frontal area  A</span><span class="param-val pv-violet" id="vArea">2.2 m²</span></div>
+      <input type="range" id="area" min="1.0" max="4.0" value="2.2" step="0.1">
+    </div>
+    <div class="param r-yellow">
+      <div class="param-top"><span>Rolling friction  μ</span><span class="param-val pv-yellow" id="vMu">0.015</span></div>
+      <input type="range" id="mu" min="0.005" max="0.10" value="0.015" step="0.001">
+    </div>
+    <div class="param r-cyan">
+      <div class="param-top"><span>Initial velocity  v₀</span><span class="param-val pv-cyan" id="vV0">0 m/s</span></div>
+      <input type="range" id="v0" min="0" max="40" value="0" step="1">
+    </div>
+
+    <div class="section-head">Road Profile</div>
+
+    <div class="param">
+      <div class="param-top"><span>Road type</span></div>
+      <select id="roadType">
+        <option value="flat">Flat</option>
+        <option value="uphill">Uphill</option>
+        <option value="downhill">Downhill</option>
+        <option value="mixed" selected>Mixed (flat → hill → flat)</option>
+      </select>
+    </div>
+    <div class="param r-orange">
+      <div class="param-top"><span>Incline  θ</span><span class="param-val pv-orange" id="vTheta">8°</span></div>
+      <input type="range" id="theta" min="0" max="30" value="8" step="0.5">
+    </div>
+    <div class="param r-green">
+      <div class="param-top"><span>Flat section length</span><span class="param-val pv-green" id="vFlatLen">100 m</span></div>
+      <input type="range" id="flatLen" min="20" max="300" value="100" step="10">
+    </div>
+
+    <div class="section-head">Simulation</div>
+
+    <div class="param r-cyan">
+      <div class="param-top"><span>Duration  T</span><span class="param-val pv-cyan" id="vDur">30 s</span></div>
+      <input type="range" id="duration" min="5" max="120" value="30" step="5">
+    </div>
+    <div class="param r-violet">
+      <div class="param-top"><span>Time step  dt</span><span class="param-val pv-violet" id="vDt">0.05 s</span></div>
+      <input type="range" id="dt" min="0.01" max="0.2" value="0.05" step="0.01">
+    </div>
+    <div class="param r-yellow">
+      <div class="param-top"><span>Playback speed</span><span class="param-val pv-yellow" id="vSpeed">5×</span></div>
+      <input type="range" id="playSpeed" min="1" max="30" value="5" step="1">
+    </div>
+
+  </aside>
+
+  <!-- CENTER -->
+  <div class="panel-center">
+
+    <!-- Road scene -->
+    <div class="scene-wrap">
+      <canvas id="roadCanvas"></canvas>
+    </div>
+
+    <!-- Time progress bar -->
+    <div class="time-bar">
+      <span class="time-label">TIME</span>
+      <span class="time-val" id="timeDisplay">0.00 s</span>
+      <div id="timeProgress"><div id="timeProgressBar"></div></div>
+      <span class="time-label" id="timeDurLabel">/ 30 s</span>
+    </div>
+
+    <!-- Live charts -->
+    <div class="charts-grid">
+      <div class="chart-cell">
+        <div class="chart-label cl-cyan">Position  x(t)  [m]</div>
+        <div class="chart-inner"><canvas id="chartX"></canvas></div>
+      </div>
+      <div class="chart-cell">
+        <div class="chart-label cl-orange">Velocity  v(t)  [m/s]</div>
+        <div class="chart-inner"><canvas id="chartV"></canvas></div>
+      </div>
+      <div class="chart-cell">
+        <div class="chart-label cl-green">Acceleration  a(t)  [m/s²]</div>
+        <div class="chart-inner"><canvas id="chartA"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: PHYSICS NARRATION -->
+  <div class="panel-right">
+    <div class="narr-head">Physics Narration</div>
+
+    <div class="phase-badge accel" id="phaseBadge">Awaiting simulation...</div>
+
+    <div class="narr-english" id="narrEnglish">
+      Press <strong style="color:var(--cyan)">Run</strong> to start the simulation. The car will be governed by Newton's second law with aerodynamic drag, rolling friction, and gravitational components.
+    </div>
+
+    <!-- Live equation block -->
+    <div class="eq-block">
+      <div class="eq-title">Equation of Motion — Live Values</div>
+      <div class="eq-card">
+        <div class="eq-row">
+          <span class="eq-lhs">m · a</span>
+          <span class="eq-sym">=</span>
+          <span class="eq-rhs">F − F<sub>drag</sub> − F<sub>roll</sub> − F<sub>grav</sub></span>
+        </div>
+        <hr class="eq-divider">
+        <div class="eq-row">
+          <span class="eq-lhs">F<sub>drag</sub> = ½ρC<sub>d</sub>Av²</span>
+          <span class="eq-sym">=</span>
+          <span class="eq-rhs"><span id="eqDrag">—</span> <span class="eq-result" id="eqDragVal" style="color:var(--orange)"></span></span>
+        </div>
+        <div class="eq-row">
+          <span class="eq-lhs">F<sub>roll</sub> = μmg cosθ</span>
+          <span class="eq-sym">=</span>
+          <span class="eq-rhs"><span id="eqRoll">—</span> <span class="eq-result" id="eqRollVal" style="color:var(--yellow)"></span></span>
+        </div>
+        <div class="eq-row">
+          <span class="eq-lhs">F<sub>grav</sub> = mg sinθ</span>
+          <span class="eq-sym">=</span>
+          <span class="eq-rhs"><span id="eqGrav">—</span> <span class="eq-result" id="eqGravVal" style="color:var(--violet)"></span></span>
+        </div>
+        <hr class="eq-divider">
+        <div class="eq-row">
+          <span class="eq-lhs">a = F<sub>net</sub> / m</span>
+          <span class="eq-sym">=</span>
+          <span class="eq-rhs"><span id="eqFnet">—</span> <span class="eq-result" id="eqAccel" style="color:var(--green)"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Force bars -->
+    <div class="force-bars">
+      <div class="fb-title">Force Balance</div>
+      <div class="fb-row">
+        <span class="fb-name">Drive  F</span>
+        <div class="fb-bar-wrap"><div class="fb-bar" id="barDrive" style="background:var(--cyan);width:0%"></div></div>
+        <span class="fb-val" id="valDrive" style="color:var(--cyan)">—</span>
+      </div>
+      <div class="fb-row">
+        <span class="fb-name">Drag  F<sub>d</sub></span>
+        <div class="fb-bar-wrap"><div class="fb-bar" id="barDrag" style="background:var(--orange);width:0%"></div></div>
+        <span class="fb-val" id="valDrag" style="color:var(--orange)">—</span>
+      </div>
+      <div class="fb-row">
+        <span class="fb-name">Rolling  F<sub>r</sub></span>
+        <div class="fb-bar-wrap"><div class="fb-bar" id="barRoll" style="background:var(--yellow);width:0%"></div></div>
+        <span class="fb-val" id="valRoll" style="color:var(--yellow)">—</span>
+      </div>
+      <div class="fb-row">
+        <span class="fb-name">Gravity  F<sub>g</sub></span>
+        <div class="fb-bar-wrap"><div class="fb-bar" id="barGrav" style="background:var(--violet);width:0%"></div></div>
+        <span class="fb-val" id="valGrav" style="color:var(--violet)">—</span>
+      </div>
+    </div>
+
+    <!-- Net force -->
+    <div class="net-force-row" id="netForceRow">
+      <span class="nf-label">Net Force  F<sub>net</sub></span>
+      <span class="nf-val nf-zero" id="netForceVal">—</span>
+    </div>
+
+    <div class="narr-spacer"></div>
+
+    <!-- Live readout cells -->
+    <div class="live-grid">
+      <div class="live-cell"><div class="live-val lv-cyan"  id="liveX">—</div><div class="live-unit">position (m)</div></div>
+      <div class="live-cell"><div class="live-val lv-orange" id="liveV">—</div><div class="live-unit">velocity (m/s)</div></div>
+      <div class="live-cell"><div class="live-val lv-green"  id="liveA">—</div><div class="live-unit">accel (m/s²)</div></div>
+      <div class="live-cell"><div class="live-val lv-violet" id="liveVt">—</div><div class="live-unit">v_terminal (m/s)</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const RHO = 1.225, G = 9.81;
+let charts = {}, animFrame = null, simRunning = false;
+let simData = null; // precomputed full solution
+
+// ── PARAMS ──────────────────────────────────────────────────────────────────
+function getP() {
+  return {
+    m:        +document.getElementById('mass').value,
+    F:        +document.getElementById('force').value,
+    cd:       +document.getElementById('cd').value,
+    area:     +document.getElementById('area').value,
+    mu:       +document.getElementById('mu').value,
+    v0:       +document.getElementById('v0').value,
+    theta:    +document.getElementById('theta').value,
+    flatLen:  +document.getElementById('flatLen').value,
+    roadType: document.getElementById('roadType').value,
+    duration: +document.getElementById('duration').value,
+    dt:       +document.getElementById('dt').value,
+    speed:    +document.getElementById('playSpeed').value,
+  };
+}
+
+function getRoadAngle(x, p) {
+  const θ = p.theta * Math.PI / 180;
+  if (p.roadType === 'flat')     return 0;
+  if (p.roadType === 'uphill')   return θ;
+  if (p.roadType === 'downhill') return -θ;
+  // mixed
+  if (x < p.flatLen)       return 0;
+  if (x < p.flatLen * 2)   return θ;
+  return 0;
+}
+
+function terminalV(p, angle) {
+  const k     = 0.5 * RHO * p.cd * p.area;
+  const passive = p.mu * p.m * G * Math.cos(angle) + p.m * G * Math.sin(angle);
+  const num = p.F - passive;
+  return num > 0 ? Math.sqrt(num / k) : 0;
+}
+
+// ── RK4 ─────────────────────────────────────────────────────────────────────
+function accel(x, v, p) {
+  const θ     = getRoadAngle(x, p);
+  const drag  = 0.5 * RHO * p.cd * p.area * v * Math.abs(v);
+  const roll  = p.mu * p.m * G * Math.cos(θ);
+  const grav  = p.m * G * Math.sin(θ);
+  return (p.F - drag - roll - grav) / p.m;
+}
+
+function runRK4(p) {
+  const steps = Math.ceil(p.duration / p.dt);
+  const t=[], x=[], v=[], a=[], drag=[], roll=[], grav=[], fnet=[];
+  let xi = 0, vi = p.v0;
+
+  for (let i = 0; i <= steps; i++) {
+    const θ = getRoadAngle(xi, p);
+    const fd = 0.5 * RHO * p.cd * p.area * vi * Math.abs(vi);
+    const fr = p.mu * p.m * G * Math.cos(θ);
+    const fg = p.m * G * Math.sin(θ);
+    const ai = (p.F - fd - fr - fg) / p.m;
+
+    t.push(i * p.dt); x.push(xi); v.push(vi); a.push(ai);
+    drag.push(fd); roll.push(fr); grav.push(fg);
+    fnet.push(p.F - fd - fr - fg);
+
+    const k1v = ai,                        k1x = vi;
+    const v2 = vi+0.5*p.dt*k1v, x2 = xi+0.5*p.dt*k1x;
+    const k2v = accel(x2,v2,p),            k2x = v2;
+    const v3 = vi+0.5*p.dt*k2v, x3 = xi+0.5*p.dt*k2x;
+    const k3v = accel(x3,v3,p),            k3x = v3;
+    const v4 = vi+p.dt*k3v,     x4 = xi+p.dt*k3x;
+    const k4v = accel(x4,v4,p),            k4x = v4;
+
+    vi = vi + (p.dt/6)*(k1v+2*k2v+2*k3v+k4v);
+    xi = xi + (p.dt/6)*(k1x+2*k2x+2*k3x+k4x);
+    if (vi < 0) vi = 0;
+  }
+  return { t, x, v, a, drag, roll, grav, fnet };
+}
+
+// ── CHARTS ──────────────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: {
+      type: 'linear',
+      ticks: { color: '#3a4e65', font: { family: 'JetBrains Mono', size: 8 }, maxTicksLimit: 7 },
+      grid: { color: 'rgba(255,255,255,0.03)' },
+      border: { color: '#1c2230' },
+      title: { display: true, text: 'time (s)', color: '#3a4e65', font: { size: 8, family: 'JetBrains Mono' } }
+    },
+    y: {
+      ticks: { color: '#3a4e65', font: { family: 'JetBrains Mono', size: 8 }, maxTicksLimit: 5 },
+      grid: { color: 'rgba(255,255,255,0.04)' },
+      border: { color: '#1c2230' }
+    }
+  }
+};
+
+function initCharts() {
+  ['chartX','chartV','chartA'].forEach(id => {
+    if (charts[id]) { charts[id].destroy(); charts[id] = null; }
+  });
+
+  const makeOpts = (yLabel, color) => ({
+    ...CHART_DEFAULTS,
+    scales: {
+      ...CHART_DEFAULTS.scales,
+      y: { ...CHART_DEFAULTS.scales.y,
+           title: { display: true, text: yLabel, color: '#3a4e65', font: { size: 8, family: 'JetBrains Mono' } } }
+    }
+  });
+
+  charts.chartX = new Chart(document.getElementById('chartX'), {
+    type: 'line',
+    data: { datasets: [{
+      borderColor: '#38c8f0', borderWidth: 2, pointRadius: 0,
+      tension: 0.3, data: []
+    }]},
+    options: makeOpts('x (m)')
+  });
+
+  charts.chartV = new Chart(document.getElementById('chartV'), {
+    type: 'line',
+    data: { datasets: [
+      { borderColor: '#f07038', borderWidth: 2, pointRadius: 0, tension: 0.3, data: [], label: 'v' },
+      { borderColor: 'rgba(94,240,160,0.45)', borderWidth: 1.5, borderDash: [5,3], pointRadius: 0, data: [], label: 'v∞' }
+    ]},
+    options: { ...makeOpts('v (m/s)'), plugins: { legend: { display: false } } }
+  });
+
+  charts.chartA = new Chart(document.getElementById('chartA'), {
+    type: 'line',
+    data: { datasets: [
+      { borderColor: '#5ef0a0', borderWidth: 2, pointRadius: 0, tension: 0.3, data: [], label: 'a' },
+      { borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderDash: [3,3], pointRadius: 0, data: [], label: '0' }
+    ]},
+    options: { ...makeOpts('a (m/s²)'), plugins: { legend: { display: false } } }
+  });
+}
+
+// ── ROAD CANVAS ──────────────────────────────────────────────────────────────
+function roundedRect(ctx, cx, cy, rw, rh, r) {
+  ctx.beginPath();
+  ctx.moveTo(cx+r, cy);
+  ctx.lineTo(cx+rw-r, cy);
+  ctx.quadraticCurveTo(cx+rw, cy, cx+rw, cy+r);
+  ctx.lineTo(cx+rw, cy+rh-r);
+  ctx.quadraticCurveTo(cx+rw, cy+rh, cx+rw-r, cy+rh);
+  ctx.lineTo(cx+r, cy+rh);
+  ctx.quadraticCurveTo(cx, cy+rh, cx, cy+rh-r);
+  ctx.lineTo(cx, cy+r);
+  ctx.quadraticCurveTo(cx, cy, cx+r, cy);
+  ctx.closePath();
+}
+
+function drawRoad(cx_world, cv, p) {
+  const canvas = document.getElementById('roadCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // sky
+  const sky = ctx.createLinearGradient(0,0,0,H*0.7);
+  sky.addColorStop(0,'#030507'); sky.addColorStop(1,'#0a1020');
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H*0.7);
+
+  // stars
+  for (let i=0; i<35; i++) {
+    const sx = ((i*293 + cx_world*0.05)%1000/1000)*W;
+    const sy = ((i*97)%100/100)*(H*0.6);
+    ctx.fillStyle = `rgba(200,220,255,${0.2+0.3*(i%3===0?1:0)})`;
+    ctx.beginPath(); ctx.arc(sx,sy, i%4===0?1.2:0.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  const roadY = H*0.68;
+  const θ = p.theta * Math.PI/180;
+  let segs;
+  if      (p.roadType==='flat')     segs=[{s:0,e:1e6,a:0}];
+  else if (p.roadType==='uphill')   segs=[{s:0,e:1e6,a:θ}];
+  else if (p.roadType==='downhill') segs=[{s:0,e:1e6,a:-θ}];
+  else segs=[{s:0,e:p.flatLen,a:0},{s:p.flatLen,e:p.flatLen*2,a:θ},{s:p.flatLen*2,e:1e6,a:0}];
+
+  const scale = 2.5;
+  const offX = W*0.28 - cx_world*scale;
+
+  function w2s(wx) {
+    let wy=0, prev=0;
+    for (const seg of segs) {
+      if (wx<=seg.s) break;
+      const dx = Math.min(wx,seg.e)-Math.max(prev,seg.s);
+      wy -= dx*Math.tan(seg.a);
+      prev = seg.e;
+    }
+    return { sx: wx*scale+offX, sy: roadY+wy*scale };
+  }
+
+  const pts=[];
+  const xStart = Math.max(0, cx_world - W/scale);
+  const xEnd   = cx_world + W/scale;
+  for (let wx=xStart; wx<xEnd; wx+=2) pts.push(w2s(wx));
+
+  // ground fill
+  ctx.beginPath();
+  ctx.moveTo(0,H);
+  if (pts.length) { ctx.lineTo(pts[0].sx,pts[0].sy); pts.forEach(pt=>ctx.lineTo(pt.sx,pt.sy)); }
+  ctx.lineTo(W,H); ctx.closePath();
+  const rg = ctx.createLinearGradient(0,roadY,0,H);
+  rg.addColorStop(0,'#141e30'); rg.addColorStop(1,'#080d18');
+  ctx.fillStyle=rg; ctx.fill();
+
+  // road edge
+  ctx.beginPath();
+  if (pts.length) { ctx.moveTo(pts[0].sx,pts[0].sy); pts.forEach(pt=>ctx.lineTo(pt.sx,pt.sy)); }
+  ctx.strokeStyle='#2a3a55'; ctx.lineWidth=2; ctx.stroke();
+
+  // dashes
+  ctx.setLineDash([12*scale, 6*scale]);
+  ctx.strokeStyle='rgba(255,190,50,0.15)'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  if (pts.length) { ctx.moveTo(pts[0].sx,pts[0].sy-4); pts.forEach(pt=>ctx.lineTo(pt.sx,pt.sy-4)); }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // segment markers (mixed)
+  if (p.roadType==='mixed') {
+    [w2s(p.flatLen), w2s(p.flatLen*2)].forEach(pt=>{
+      ctx.beginPath(); ctx.moveTo(pt.sx,pt.sy-28); ctx.lineTo(pt.sx,pt.sy);
+      ctx.strokeStyle='rgba(56,200,240,0.35)'; ctx.lineWidth=1.2;
+      ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+    });
+  }
+
+  // car
+  const cp = w2s(cx_world);
+  const carAngle = getRoadAngle(cx_world, p);
+  ctx.save();
+  ctx.translate(cp.sx, cp.sy);
+  ctx.rotate(-carAngle);
+
+  const cw=42, ch=17;
+  const bodyG = ctx.createLinearGradient(0,-ch,0,0);
+  bodyG.addColorStop(0,'#1c3a70'); bodyG.addColorStop(1,'#0e1e3c');
+  ctx.fillStyle=bodyG;
+  roundedRect(ctx,-cw/2,-ch,cw,ch,4); ctx.fill();
+  ctx.strokeStyle='#38c8f0'; ctx.lineWidth=0.8; ctx.stroke();
+
+  ctx.fillStyle='#162850';
+  roundedRect(ctx,-cw/4,-ch-10,cw*0.52,11,3); ctx.fill();
+  ctx.strokeStyle='rgba(56,200,240,0.3)'; ctx.lineWidth=0.5; ctx.stroke();
+
+  const hgX = cw/2+2;
+  const hg = ctx.createRadialGradient(hgX,-ch/2,0,hgX,-ch/2,22);
+  hg.addColorStop(0,'rgba(56,200,240,0.55)'); hg.addColorStop(1,'rgba(56,200,240,0)');
+  ctx.fillStyle=hg; ctx.fillRect(hgX-23,-ch-4,26,14);
+
+  [-cw/3, cw/3-2].forEach(wx=>{
+    ctx.beginPath(); ctx.arc(wx,0,6,0,Math.PI*2);
+    ctx.fillStyle='#07090f'; ctx.fill();
+    ctx.strokeStyle='#253050'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(wx,0,2.5,0,Math.PI*2);
+    ctx.fillStyle='#182040'; ctx.fill();
+  });
+  ctx.restore();
+
+  // speed HUD
+  ctx.fillStyle='rgba(7,9,15,0.7)'; ctx.fillRect(W-128,6,120,44);
+  ctx.strokeStyle='rgba(56,200,240,0.2)'; ctx.lineWidth=1; ctx.strokeRect(W-128,6,120,44);
+  ctx.fillStyle='#3a4e65'; ctx.font='8px JetBrains Mono';
+  ctx.fillText('km/h  |  m', W-118, 20);
+  ctx.fillStyle='#38c8f0'; ctx.font='bold 14px JetBrains Mono';
+  ctx.fillText((cv*3.6).toFixed(1), W-118, 38);
+  ctx.fillStyle='#f07038'; ctx.font='11px JetBrains Mono';
+  ctx.fillText(cx_world.toFixed(1), W-64, 38);
+}
+
+// ── NARRATION ENGINE ─────────────────────────────────────────────────────────
+function getPhase(v, a, fnet, θ_deg, p, vt) {
+  const nearTerminal = Math.abs(v - vt) < 0.5 && vt > 0;
+  if (nearTerminal)           return 'coast';
+  if (θ_deg > 1  && a < 0.1) return 'climb';
+  if (θ_deg < -1 && a > 0.1) return 'descend';
+  if (a > 0.05)               return 'accel';
+  if (a < -0.05)              return 'decel';
+  return 'coast';
+}
+
+const PHASE_LABELS = {
+  accel:   '↑ Accelerating',
+  coast:   '⇒ Near Terminal Velocity',
+  decel:   '↓ Decelerating',
+  climb:   '⟋ Climbing Incline',
+  descend: '⟍ Descending Incline',
+};
+const PHASE_CLASSES = { accel:'accel', coast:'coast', decel:'decel', climb:'climb', descend:'descend' };
+
+function updateNarration(i, p, data, vt) {
+  const v = data.v[i], a = data.a[i], x = data.x[i];
+  const θ_rad = getRoadAngle(x, p);
+  const θ_deg = θ_rad * 180 / Math.PI;
+  const fd = data.drag[i], fr = data.roll[i], fg = data.grav[i], fn = data.fnet[i];
+
+  const phase = getPhase(v, a, fn, θ_deg, p, vt);
+  const badge = document.getElementById('phaseBadge');
+  badge.textContent = PHASE_LABELS[phase];
+  badge.className = 'phase-badge ' + PHASE_CLASSES[phase];
+
+  // Plain English narration
+  let eng = '';
+  if (phase === 'accel') {
+    eng = `Drive force (${p.F.toFixed(0)} N) exceeds total resistance (${(fd+fr+fg).toFixed(0)} N). The car accelerates at ${a.toFixed(2)} m/s². As speed rises, aerodynamic drag grows as v², progressively narrowing the force gap.`;
+  } else if (phase === 'coast') {
+    eng = `Net force ≈ 0. Drive force nearly balances drag + friction + gravity. The car approaches its terminal velocity of ${vt.toFixed(1)} m/s (${(vt*3.6).toFixed(1)} km/h). Acceleration asymptotically approaches zero.`;
+  } else if (phase === 'decel') {
+    eng = `Total resistance (${(fd+fr+fg).toFixed(0)} N) exceeds drive force (${p.F.toFixed(0)} N). Net force is negative — the car decelerates at ${Math.abs(a).toFixed(2)} m/s².`;
+  } else if (phase === 'climb') {
+    eng = `Car climbs a ${θ_deg.toFixed(1)}° incline. Gravity component adds ${fg.toFixed(0)} N of resistance. Combined resistance = ${(fd+fr+fg).toFixed(0)} N vs drive = ${p.F.toFixed(0)} N. Net: ${fn.toFixed(0)} N.`;
+  } else if (phase === 'descend') {
+    eng = `Descending ${Math.abs(θ_deg).toFixed(1)}°. Gravity now assists motion (${Math.abs(fg).toFixed(0)} N forward). Terminal velocity increases on this slope.`;
+  }
+  document.getElementById('narrEnglish').innerHTML = eng;
+
+  // Equation values
+  document.getElementById('eqDrag').textContent = `½·${RHO}·${p.cd}·${p.area}·${v.toFixed(2)}²`;
+  document.getElementById('eqDragVal').textContent = `= ${fd.toFixed(1)} N`;
+  document.getElementById('eqRoll').textContent = `${p.mu}·${p.m}·${G}·cos(${θ_deg.toFixed(1)}°)`;
+  document.getElementById('eqRollVal').textContent = `= ${fr.toFixed(1)} N`;
+  document.getElementById('eqGrav').textContent = `${p.m}·${G}·sin(${θ_deg.toFixed(1)}°)`;
+  document.getElementById('eqGravVal').textContent = `= ${fg.toFixed(1)} N`;
+  document.getElementById('eqFnet').textContent = `(${p.F} − ${fd.toFixed(0)} − ${fr.toFixed(0)} − ${fg.toFixed(0)}) / ${p.m}`;
+  document.getElementById('eqAccel').textContent = `= ${a.toFixed(3)} m/s²`;
+
+  // Force bars
+  const maxF = Math.max(p.F, fd, fr, fg, 1);
+  const barPct = f => Math.min(100, Math.abs(f)/maxF*100).toFixed(1)+'%';
+  document.getElementById('barDrive').style.width = barPct(p.F);
+  document.getElementById('barDrag').style.width  = barPct(fd);
+  document.getElementById('barRoll').style.width  = barPct(fr);
+  document.getElementById('barGrav').style.width  = barPct(fg);
+  document.getElementById('valDrive').textContent = p.F.toFixed(0)+' N';
+  document.getElementById('valDrag').textContent  = fd.toFixed(0)+' N';
+  document.getElementById('valRoll').textContent  = fr.toFixed(0)+' N';
+  document.getElementById('valGrav').textContent  = fg.toFixed(0)+' N';
+
+  // Net force
+  const nfEl = document.getElementById('netForceVal');
+  nfEl.textContent = (fn>0?'+':'')+fn.toFixed(1)+' N';
+  nfEl.className = 'nf-val ' + (fn>5?'nf-pos':fn<-5?'nf-neg':'nf-zero');
+
+  // Live readouts
+  document.getElementById('liveX').textContent  = x.toFixed(1);
+  document.getElementById('liveV').textContent  = v.toFixed(2);
+  document.getElementById('liveA').textContent  = a.toFixed(3);
+  document.getElementById('liveVt').textContent = vt.toFixed(2);
+}
+
+// ── PLAYBACK ─────────────────────────────────────────────────────────────────
+function startPlayback(p, data) {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  const n   = data.t.length;
+  const vt0 = terminalV(p, getRoadAngle(0, p));
+
+  // pre-compute terminal velocity per step for varying slope
+  const vtArr = data.x.map(x => terminalV(p, getRoadAngle(x, p)));
+
+  let frameIdx = 0;
+
+  // How many data steps to advance per animation frame:
+  // p.speed = user playback multiplier; we target ~60fps display
+  // dt * steps_per_frame = simulated_seconds_per_frame
+  // simulated_sec/frame = p.speed / 60
+  const stepsPerFrame = Math.max(1, Math.round(p.speed / (60 * p.dt)));
+
+  function tick() {
+    if (!simRunning) return;
+    const i = Math.min(frameIdx, n-1);
+
+    // Push one data point to charts
+    const t  = data.t[i];
+    charts.chartX.data.datasets[0].data.push({ x: t, y: data.x[i] });
+    charts.chartV.data.datasets[0].data.push({ x: t, y: data.v[i] });
+    charts.chartV.data.datasets[1].data.push({ x: t, y: vtArr[i] });
+    charts.chartA.data.datasets[0].data.push({ x: t, y: data.a[i] });
+    charts.chartA.data.datasets[1].data.push({ x: t, y: 0 });
+
+    charts.chartX.update('none');
+    charts.chartV.update('none');
+    charts.chartA.update('none');
+
+    // Road
+    drawRoad(data.x[i], data.v[i], p);
+
+    // Time progress
+    const pct = (t / p.duration * 100).toFixed(1);
+    document.getElementById('timeProgressBar').style.width = pct + '%';
+    document.getElementById('timeDisplay').textContent = t.toFixed(2) + ' s';
+
+    // Narration
+    updateNarration(i, p, data, vtArr[i]);
+
+    if (i >= n-1) {
+      setStatus('done');
+      simRunning = false;
+      return;
+    }
+
+    frameIdx += stepsPerFrame;
+    animFrame = requestAnimationFrame(tick);
+  }
+
+  tick();
+}
+
+// ── CONTROLS ─────────────────────────────────────────────────────────────────
+function setStatus(s) {
+  const el = document.getElementById('statusPill');
+  el.textContent = s === 'ready' ? 'READY' : s === 'running' ? 'RUNNING' : 'COMPLETE';
+  el.className = 'status-pill ' + s;
+}
+
+function startSim() {
+  resetSim();
+  const p = getP();
+  simData = runRK4(p);
+  document.getElementById('timeDurLabel').textContent = '/ ' + p.duration + ' s';
+  simRunning = true;
+  setStatus('running');
+  startPlayback(p, simData);
+}
+
+function stopSim() {
+  simRunning = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  setStatus('ready');
+}
+
+function resetSim() {
+  stopSim();
+  ['chartX','chartV','chartA'].forEach(id => {
+    if (charts[id]) { charts[id].data.datasets.forEach(ds => ds.data = []); charts[id].update('none'); }
+  });
+  document.getElementById('timeProgressBar').style.width = '0%';
+  document.getElementById('timeDisplay').textContent = '0.00 s';
+  ['liveX','liveV','liveA','liveVt'].forEach(id => document.getElementById(id).textContent = '—');
+  ['eqDrag','eqDragVal','eqRoll','eqRollVal','eqGrav','eqGravVal','eqFnet','eqAccel'].forEach(id => document.getElementById(id).textContent = '—');
+  ['barDrive','barDrag','barRoll','barGrav'].forEach(id => document.getElementById(id).style.width = '0%');
+  ['valDrive','valDrag','valRoll','valGrav'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('netForceVal').textContent = '—';
+  document.getElementById('phaseBadge').textContent = 'Awaiting simulation...';
+  document.getElementById('phaseBadge').className = 'phase-badge accel';
+  document.getElementById('narrEnglish').innerHTML = 'Press <strong style="color:var(--cyan)">Run</strong> to start the simulation.';
+  drawRoad(0, 0, getP());
+  setStatus('ready');
+}
+
+// ── SLIDERS ──────────────────────────────────────────────────────────────────
+const sliders = [
+  ['mass','vMass', v => v+' kg'],
+  ['force','vForce', v => v+' N'],
+  ['cd','vCd', v => (+v).toFixed(2)],
+  ['area','vArea', v => (+v).toFixed(1)+' m²'],
+  ['mu','vMu', v => (+v).toFixed(3)],
+  ['v0','vV0', v => v+' m/s'],
+  ['theta','vTheta', v => v+'°'],
+  ['flatLen','vFlatLen', v => v+' m'],
+  ['duration','vDur', v => v+' s'],
+  ['dt','vDt', v => v+' s'],
+  ['playSpeed','vSpeed', v => v+'×'],
+];
+sliders.forEach(([id, lid, fmt]) => {
+  document.getElementById(id).addEventListener('input', e => {
+    document.getElementById(lid).textContent = fmt(e.target.value);
+  });
+});
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  initCharts();
+  drawRoad(0, 0, getP());
+});
+
+window.addEventListener('resize', () => {
+  const c = document.getElementById('roadCanvas');
+  c.width = c.offsetWidth; c.height = c.offsetHeight;
+  if (simData && !simRunning) drawRoad(simData.x[simData.x.length-1], simData.v[simData.v.length-1], getP());
+  else drawRoad(0, 0, getP());
+});
+</script>
+</body>
+</html>

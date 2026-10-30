@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocket Motion Simulator — 3D Physics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03050a;
+  --s1:#070d1a;
+  --s2:#0a1220;
+  --s3:#0f1a2e;
+  --s4:#142038;
+  --border:rgba(0,180,255,0.12);
+  --border2:rgba(0,180,255,0.25);
+  --border3:rgba(0,180,255,0.4);
+  --text:#c8dff8;
+  --muted:#5a7898;
+  --dim:#2a3d55;
+  --cyan:#00c8ff;
+  --cyan2:#00a8d8;
+  --orange:#ff6a00;
+  --orange2:#ff9040;
+  --red:#ff3040;
+  --green:#00ff90;
+  --green2:#00c870;
+  --yellow:#ffe040;
+  --purple:#a060ff;
+  --white:#e8f4ff;
+  --mono:'Share Tech Mono',monospace;
+  --sans:'Exo 2',sans-serif;
+  --title:'Rajdhani',sans-serif;
+  --r:8px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* Scanline overlay */
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:1000}
+
+/* Header */
+.hdr{background:linear-gradient(90deg,#070d1a 0%,#0a1525 50%,#070d1a 100%);border-bottom:1px solid var(--border3);padding:0 2rem;height:56px;display:flex;align-items:center;gap:1.5rem;position:sticky;top:0;z-index:100}
+.hdr-logo{font-family:var(--title);font-size:1.4rem;font-weight:700;color:var(--cyan);letter-spacing:.08em}
+.hdr-logo span{color:var(--orange)}
+.hdr-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.hdr-status{margin-left:auto;display:flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:.7rem}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.wrap{max-width:1600px;margin:0 auto;padding:1.25rem 1.25rem 3rem}
+
+/* Layout */
+.main-layout{display:grid;grid-template-columns:1fr 320px;gap:1rem;margin-bottom:1rem}
+@media(max-width:1100px){.main-layout{grid-template-columns:1fr}}
+
+/* Panel */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.panel-hdr{padding:.6rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem;background:var(--s2)}
+.ph-badge{width:6px;height:6px;border-radius:50%}
+.ph-title{font-family:var(--mono);font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);flex:1}
+.ph-info{font-family:var(--mono);font-size:.65rem;color:var(--cyan);opacity:.7}
+
+/* 3D canvas */
+#c3d{display:block;width:100%;height:500px;cursor:grab;background:#03050a}
+#c3d:active{cursor:grabbing}
+
+/* Controls panel */
+.ctrl-body{padding:1rem;display:flex;flex-direction:column;gap:.9rem;max-height:560px;overflow-y:auto}
+.ctrl-body::-webkit-scrollbar{width:4px}
+.ctrl-body::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px}
+
+.ctrl-grp{display:flex;flex-direction:column;gap:.3rem}
+.ctrl-lbl{font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:flex;justify-content:space-between}
+.ctrl-lbl .cv{color:var(--cyan);font-weight:600}
+input[type=range]{width:100%;appearance:none;height:3px;border-radius:2px;background:var(--s4);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 6px var(--cyan)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid var(--bg)}
+
+.divider{height:1px;background:var(--border);margin:.2rem 0}
+.section-lbl{font-family:var(--title);font-size:.75rem;font-weight:600;color:var(--orange);letter-spacing:.1em;text-transform:uppercase}
+
+/* Buttons */
+.btn-row{display:flex;gap:.5rem;padding:0 1rem 1rem}
+.btn{flex:1;padding:8px 12px;font-family:var(--title);font-size:.9rem;font-weight:600;letter-spacing:.06em;border-radius:5px;cursor:pointer;border:1px solid;transition:all .15s;text-transform:uppercase}
+.btn-launch{background:linear-gradient(135deg,#ff4000,#ff8000);border-color:#ff6000;color:#fff}
+.btn-launch:hover{box-shadow:0 0 16px rgba(255,96,0,.5)}
+.btn-reset{background:transparent;border-color:var(--border2);color:var(--muted)}
+.btn-reset:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* Stats HUD */
+.hud-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem}
+@media(max-width:700px){.hud-grid{grid-template-columns:repeat(2,1fr)}}
+.hud-card{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:.6rem .75rem;position:relative;overflow:hidden}
+.hud-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px}
+.hud-t{background:var(--s2);padding:.6rem .75rem;border-bottom:1px solid var(--border);}
+.hud-t::before{background:var(--cyan)}
+.hud-v{background:var(--s2);}
+.hud-v::before{background:var(--green)}
+.hud-a{background:var(--s2);}
+.hud-a::before{background:var(--orange)}
+.hud-m{background:var(--s2);}
+.hud-m::before{background:var(--purple)}
+.hud-lbl{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.hud-val{font-family:var(--mono);font-size:1rem;font-weight:600;margin-top:2px;white-space:nowrap}
+.hud-unit{font-size:.6rem;color:var(--muted);font-weight:400}
+.hud-sub{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:1px}
+
+/* Graphs */
+.graphs-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:1100px){.graphs-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.graphs-row{grid-template-columns:1fr}}
+.graph-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.graph-hdr{padding:.5rem .75rem;border-bottom:1px solid var(--border);background:var(--s2);display:flex;align-items:center;justify-content:space-between}
+.graph-title{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.graph-eq{font-family:var(--mono);font-size:.6rem;color:var(--yellow);opacity:.8}
+.graph-wrap{position:relative;height:180px;padding:.5rem}
+
+/* Extra graphs row */
+.graphs-row2{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:900px){.graphs-row2{grid-template-columns:1fr}}
+
+/* Equations panel */
+.eq-panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:1rem}
+.eq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0}
+.eq-card{padding:1rem 1.25rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.eq-card:last-child{border-right:none}
+.eq-card-title{font-family:var(--title);font-size:.8rem;font-weight:600;color:var(--orange);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.eq-box{background:var(--s3);border:1px solid var(--border);border-left:2px solid var(--cyan);padding:.5rem .75rem;border-radius:0 5px 5px 0;font-family:var(--mono);font-size:.78rem;color:#c0dff8;margin:.35rem 0;line-height:1.9}
+.eq-box .g{color:var(--yellow)}
+.eq-box .b{color:var(--cyan)}
+.eq-box .r{color:var(--orange)}
+.eq-box .p{color:var(--purple)}
+.eq-box .gr{color:var(--green)}
+.prose{font-family:var(--sans);font-size:.82rem;color:#6a8aaa;line-height:1.7;font-style:italic;margin:.3rem 0}
+
+/* Phase label */
+.phase-bar{display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;background:var(--s2);border-top:1px solid var(--border)}
+.phase-badge{font-family:var(--mono);font-size:.65rem;padding:3px 10px;border-radius:3px;border:1px solid}
+.pb-powered{background:rgba(255,106,0,.12);border-color:rgba(255,106,0,.4);color:var(--orange)}
+.pb-coast{background:rgba(0,200,255,.08);border-color:rgba(0,200,255,.3);color:var(--cyan)}
+.pb-descent{background:rgba(255,48,64,.1);border-color:rgba(255,48,64,.3);color:var(--red)}
+.pb-land{background:rgba(0,255,144,.08);border-color:rgba(0,255,144,.3);color:var(--green)}
+.phase-info{font-family:var(--mono);font-size:.65rem;color:var(--muted)}
+
+/* Progress */
+.prog-wrap{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-bottom:1px solid var(--border)}
+.prog-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);white-space:nowrap}
+.prog-bar-bg{flex:1;height:3px;background:var(--s4);border-radius:2px;overflow:hidden}
+.prog-bar-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--yellow));border-radius:2px;transition:width .1s}
+
+/* Trajectory axis selectors */
+.axis-row{display:flex;gap:.5rem;padding:.5rem 1rem;border-bottom:1px solid var(--border);align-items:center}
+.axis-lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+.axis-btn{padding:3px 10px;border-radius:3px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;transition:all .15s}
+.axis-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,200,255,.08)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">ROCKET<span>SIM</span></div>
+  <div class="hdr-sub">3D Physics Engine · RK4 Integrator</div>
+  <div class="hdr-status">
+    <div class="status-dot"></div>
+    <span style="font-family:var(--mono);font-size:.65rem;color:var(--green)">SYSTEM NOMINAL</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- HUD -->
+<div class="hud-grid">
+  <div class="hud-card hud-t"><div class="hud-lbl">Mission Time</div><div class="hud-val" id="hud_t" style="color:var(--cyan)">0.00 <span class="hud-unit">s</span></div><div class="hud-sub" id="hud_phase">PRE-LAUNCH</div></div>
+  <div class="hud-card hud-v"><div class="hud-lbl">Speed |v|</div><div class="hud-val" id="hud_v" style="color:var(--green)">0.00 <span class="hud-unit">m/s</span></div><div class="hud-sub" id="hud_mach">Mach 0.00</div></div>
+  <div class="hud-card hud-a"><div class="hud-lbl">Accel |a|</div><div class="hud-val" id="hud_a" style="color:var(--orange)">0.00 <span class="hud-unit">m/s²</span></div><div class="hud-sub" id="hud_g">0.00 g</div></div>
+  <div class="hud-card hud-m"><div class="hud-lbl">Mass</div><div class="hud-val" id="hud_m" style="color:var(--purple)">— <span class="hud-unit">kg</span></div><div class="hud-sub" id="hud_alt">Alt: 0 m</div></div>
+  <div class="hud-card"><div class="hud-lbl">x position</div><div class="hud-val" id="hud_x" style="color:var(--white)">0.00 <span class="hud-unit">m</span></div></div>
+  <div class="hud-card"><div class="hud-lbl">y position</div><div class="hud-val" id="hud_y" style="color:var(--white)">0.00 <span class="hud-unit">m</span></div></div>
+  <div class="hud-card"><div class="hud-lbl">z (altitude)</div><div class="hud-val" id="hud_z" style="color:var(--white)">0.00 <span class="hud-unit">m</span></div></div>
+  <div class="hud-card"><div class="hud-lbl">Max Altitude</div><div class="hud-val" id="hud_apogee" style="color:var(--yellow)">— <span class="hud-unit">m</span></div></div>
+</div>
+
+<!-- Main: 3D + Controls -->
+<div class="main-layout">
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="ph-badge" style="background:var(--orange)"></div>
+      <span class="ph-title">3D Trajectory — Drag to rotate · Scroll to zoom</span>
+      <span class="ph-info" id="ph_time">t = 0.00 s</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-lbl">View:</span>
+      <button class="axis-btn active" onclick="setView('iso')">ISO</button>
+      <button class="axis-btn" onclick="setView('top')">TOP (XY)</button>
+      <button class="axis-btn" onclick="setView('side')">SIDE (XZ)</button>
+      <button class="axis-btn" onclick="setView('front')">FRONT (YZ)</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.5rem">
+        <span class="axis-lbl">Fuel:</span>
+        <div class="prog-bar-bg" style="width:80px"><div class="prog-bar-fill" id="fuelBar" style="width:100%"></div></div>
+        <span class="axis-lbl" id="fuelPct">100%</span>
+      </div>
+    </div>
+    <canvas id="c3d"></canvas>
+    <div class="phase-bar">
+      <span class="phase-badge pb-powered" id="phaseBadge">POWERED ASCENT</span>
+      <span class="phase-info" id="phaseInfo">Awaiting launch</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="ph-badge" style="background:var(--cyan)"></div>
+      <span class="ph-title">Mission Parameters</span>
+    </div>
+    <div class="ctrl-body">
+      <div class="section-lbl">▶ Rocket</div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Dry mass m₀ (kg) <span class="cv" id="lv_m0">5000</span></div><input type="range" id="sl_m0" min="500" max="20000" step="100" value="5000"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Fuel mass m_f (kg) <span class="cv" id="lv_mf">8000</span></div><input type="range" id="sl_mf" min="500" max="50000" step="500" value="8000"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Exhaust vel v_e (m/s) <span class="cv" id="lv_ve">2500</span></div><input type="range" id="sl_ve" min="500" max="5000" step="50" value="2500"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Burn rate ṁ (kg/s) <span class="cv" id="lv_mdot">150</span></div><input type="range" id="sl_mdot" min="10" max="1000" step="10" value="150"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Cross-section A (m²) <span class="cv" id="lv_A">3.5</span></div><input type="range" id="sl_A" min="0.1" max="20" step="0.1" value="3.5"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Drag coeff C_d <span class="cv" id="lv_Cd">0.30</span></div><input type="range" id="sl_Cd" min="0.05" max="2.0" step="0.01" value="0.30"></div>
+      <div class="divider"></div>
+      <div class="section-lbl">▶ Launch Angle</div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Pitch θ from vertical (°) <span class="cv" id="lv_theta">10</span></div><input type="range" id="sl_theta" min="0" max="89" step="1" value="10"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Azimuth φ (°) <span class="cv" id="lv_phi">45</span></div><input type="range" id="sl_phi" min="0" max="360" step="5" value="45"></div>
+      <div class="divider"></div>
+      <div class="section-lbl">▶ Environment</div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Surface gravity g (m/s²) <span class="cv" id="lv_g">9.81</span></div><input type="range" id="sl_g" min="1.0" max="25" step="0.1" value="9.81"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Scale height H (m) <span class="cv" id="lv_H">8500</span></div><input type="range" id="sl_H" min="1000" max="20000" step="100" value="8500"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Surface density ρ₀ (kg/m³) <span class="cv" id="lv_rho">1.225</span></div><input type="range" id="sl_rho" min="0.0" max="3.0" step="0.01" value="1.225"></div>
+      <div class="ctrl-grp"><div class="ctrl-lbl">Wind speed (m/s) <span class="cv" id="lv_wind">0</span></div><input type="range" id="sl_wind" min="0" max="50" step="1" value="0"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-launch" id="btnLaunch" onclick="toggleSim()">▶ LAUNCH</button>
+      <button class="btn btn-reset" onclick="resetSim()">↺ RESET</button>
+    </div>
+  </div>
+</div>
+
+<!-- Graphs Row 1 -->
+<div class="graphs-row">
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Altitude z(t)</span><span class="graph-eq">z vs t</span></div>
+    <div class="graph-wrap"><canvas id="gZT"></canvas></div>
+  </div>
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Speed |v|(t)</span><span class="graph-eq">|v| vs t</span></div>
+    <div class="graph-wrap"><canvas id="gVT"></canvas></div>
+  </div>
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Acceleration |a|(t)</span><span class="graph-eq">|a| vs t</span></div>
+    <div class="graph-wrap"><canvas id="gAT"></canvas></div>
+  </div>
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Mass m(t)</span><span class="graph-eq">Tsiolkovsky</span></div>
+    <div class="graph-wrap"><canvas id="gMT"></canvas></div>
+  </div>
+</div>
+
+<!-- Graphs Row 2 -->
+<div class="graphs-row2">
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Thrust vs Drag (N)</span><span class="graph-eq">F_T − F_D</span></div>
+    <div class="graph-wrap"><canvas id="gFT"></canvas></div>
+  </div>
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">XY Ground Track</span><span class="graph-eq">x(t) vs y(t)</span></div>
+    <div class="graph-wrap"><canvas id="gXY"></canvas></div>
+  </div>
+  <div class="graph-card">
+    <div class="graph-hdr"><span class="graph-title">Atmospheric Density ρ(z)</span><span class="graph-eq">ρ = ρ₀·e^(−z/H)</span></div>
+    <div class="graph-wrap"><canvas id="gRho"></canvas></div>
+  </div>
+</div>
+
+<!-- Equations -->
+<div class="eq-panel">
+  <div class="panel-hdr" style="background:var(--s2)">
+    <div class="ph-badge" style="background:var(--yellow)"></div>
+    <span class="ph-title">Physics Equations & Solution Method</span>
+  </div>
+  <div class="eq-grid">
+    <div class="eq-card">
+      <div class="eq-card-title">1 · Tsiolkovsky Rocket Equation</div>
+      <p class="prose">The ideal rocket equation relates velocity gain to mass ratio. Derived from conservation of momentum for a variable-mass system:</p>
+      <div class="eq-box">F<sub>thrust</sub> = <span class="b">v_e</span> · |ṁ|</div>
+      <div class="eq-box">Δv<sub>ideal</sub> = <span class="b">v_e</span> · ln(<span class="g">m₀ / m_f</span>)</div>
+      <div class="eq-box">m(t) = <span class="g">m₀</span> − <span class="r">ṁ · t</span>  (while fuel > 0)</div>
+      <p class="prose">v_e = exhaust velocity, m₀ = initial mass, ṁ = mass flow rate. After burnout, m = m_dry = constant.</p>
+    </div>
+    <div class="eq-card">
+      <div class="eq-card-title">2 · Equations of Motion (3D)</div>
+      <p class="prose">Newton's 2nd law in 3D. The net force vector determines acceleration:</p>
+      <div class="eq-box"><span class="g">m(t)</span> · <span class="b">a⃗</span> = <span class="r">F⃗_thrust</span> + <span class="p">F⃗_drag</span> + <span class="gr">F⃗_gravity</span> + F⃗_wind</div>
+      <div class="eq-box"><span class="b">ṙ⃗</span> = v⃗  ,   <span class="b">v̇⃗</span> = a⃗ = F⃗_net / m(t)</div>
+      <div class="eq-box">State: [x, y, z, vx, vy, vz, m]ᵀ  →  7 ODEs</div>
+      <p class="prose">Integrated simultaneously at each timestep using 4th-order Runge-Kutta (RK4).</p>
+    </div>
+    <div class="eq-card">
+      <div class="eq-card-title">3 · Thrust Vector</div>
+      <p class="prose">Thrust acts along the rocket axis, defined by launch pitch θ and azimuth φ:</p>
+      <div class="eq-box">n̂ = [sin(θ)cos(φ), sin(θ)sin(φ), cos(θ)]</div>
+      <div class="eq-box">F⃗_thrust = <span class="b">v_e</span> · <span class="r">ṁ</span> · <span class="g">n̂</span>  (powered phase)</div>
+      <div class="eq-box">F⃗_thrust = <span class="gr">0⃗</span>  (coast & descent)</div>
+      <p class="prose">θ = pitch angle from vertical, φ = azimuth bearing. n̂ is the unit thrust direction vector.</p>
+    </div>
+    <div class="eq-card">
+      <div class="eq-card-title">4 · Aerodynamic Drag</div>
+      <p class="prose">Drag opposes the velocity vector, depends on atmospheric density and speed:</p>
+      <div class="eq-box"><span class="p">ρ(z)</span> = ρ₀ · exp(−z / H)</div>
+      <div class="eq-box">|F_drag| = ½ · <span class="p">ρ(z)</span> · <span class="b">C_d</span> · A · |v|²</div>
+      <div class="eq-box">F⃗_drag = −|F_drag| · v̂  (opposes motion)</div>
+      <p class="prose">H = atmospheric scale height (~8500 m Earth), ρ₀ = surface density. Drag vanishes as density → 0 at high altitude.</p>
+    </div>
+    <div class="eq-card">
+      <div class="eq-card-title">5 · Gravity Model</div>
+      <p class="prose">Gravity varies with altitude. Using inverse-square law from planet center (radius R_planet):</p>
+      <div class="eq-box"><span class="gr">g(z)</span> = g₀ · (R_p / (R_p + z))²</div>
+      <div class="eq-box">F⃗_gravity = −<span class="gr">m(t) · g(z)</span> · ẑ</div>
+      <div class="eq-box">R_p = 6,371,000 m (Earth)</div>
+      <p class="prose">For low altitudes g(z) ≈ g₀. For high altitudes (> 100 km), the 1/r² reduction becomes significant.</p>
+    </div>
+    <div class="eq-card">
+      <div class="eq-card-title">6 · RK4 Numerical Integration</div>
+      <p class="prose">The 7-component state vector is advanced each timestep h = 0.1 s using RK4, giving O(h⁴) global error:</p>
+      <div class="eq-box"><span class="b">k₁</span> = f(tₙ, yₙ)</div>
+      <div class="eq-box"><span class="b">k₂</span> = f(tₙ+h/2, yₙ+h·k₁/2)</div>
+      <div class="eq-box"><span class="b">k₃</span> = f(tₙ+h/2, yₙ+h·k₂/2)</div>
+      <div class="eq-box"><span class="b">k₄</span> = f(tₙ+h, yₙ+h·k₃)</div>
+      <div class="eq-box">y<sub>n+1</sub> = yₙ + <span class="g">(h/6)</span>·(k₁+2k₂+2k₃+k₄)</div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ─── Constants ───────────────────────────────────────────────────
+const R_EARTH = 6371000;
+const dt = 0.1;
+const MAX_PTS = 3000;
+const SPEED_SOUND = 343;
+
+// ─── State ───────────────────────────────────────────────────────
+let simData = null;
+let animIdx = 0;
+let animPlaying = false;
+let animRafId = null;
+let rotX = 0.35, rotY = -0.5, zoom = 1.0;
+let isDragging = false, lastMX, lastMY;
+let viewPreset = 'iso';
+let charts = {};
+let apogee = 0;
+
+// ─── Slider wiring ───────────────────────────────────────────────
+const slDefs = {m0:{dp:0},mf:{dp:0},ve:{dp:0},mdot:{dp:0},A:{dp:1},Cd:{dp:2},theta:{dp:0},phi:{dp:0},g:{dp:2},H:{dp:0},rho:{dp:3},wind:{dp:0}};
+Object.keys(slDefs).forEach(id => {
+  const el = document.getElementById('sl_'+id);
+  const lv = document.getElementById('lv_'+id);
+  el.addEventListener('input', () => { lv.textContent = parseFloat(el.value).toFixed(slDefs[id].dp); });
+});
+
+function getP() {
+  const g = id => parseFloat(document.getElementById('sl_'+id).value);
+  return {
+    m0: g('m0'), mf: g('mf'), ve: g('ve'), mdot: g('mdot'),
+    A: g('A'), Cd: g('Cd'),
+    theta: g('theta') * Math.PI / 180,
+    phi: g('phi') * Math.PI / 180,
+    g0: g('g'), H: g('H'), rho0: g('rho'), wind: g('wind')
+  };
+}
+
+// ─── Physics ─────────────────────────────────────────────────────
+function rho(z, p) { return p.rho0 * Math.exp(-Math.max(0,z) / p.H); }
+function grav(z, p) { return p.g0 * Math.pow(R_EARTH / (R_EARTH + Math.max(0,z)), 2); }
+
+function derivatives(state, t, p, fuelLeft) {
+  const [x, y, z, vx, vy, vz, m] = state;
+  const speed = Math.sqrt(vx*vx + vy*vy + vz*vz);
+  const rhoZ = rho(z, p);
+  const gz = grav(z, p);
+
+  // Thrust direction (fixed orientation simplification)
+  const nx = Math.sin(p.theta) * Math.cos(p.phi);
+  const ny = Math.sin(p.theta) * Math.sin(p.phi);
+  const nz = Math.cos(p.theta);
+
+  // Thrust force
+  const burning = fuelLeft > 0;
+  const Fthrust = burning ? p.ve * p.mdot : 0;
+  const FTx = burning ? Fthrust * nx : 0;
+  const FTy = burning ? Fthrust * ny : 0;
+  const FTz = burning ? Fthrust * nz : 0;
+
+  // Drag force
+  const Fdrag = 0.5 * rhoZ * p.Cd * p.A * speed * speed;
+  const FDx = speed > 0 ? -Fdrag * vx / speed : 0;
+  const FDy = speed > 0 ? -Fdrag * vy / speed : 0;
+  const FDz = speed > 0 ? -Fdrag * vz / speed : 0;
+
+  // Wind force (horizontal, x-direction)
+  const Fwindx = 0.5 * rhoZ * p.Cd * p.A * p.wind * Math.abs(p.wind);
+
+  // Gravity (downward = -z)
+  const FGz = -m * gz;
+
+  const ax = (FTx + FDx + Fwindx) / m;
+  const ay = (FTy + FDy) / m;
+  const az = (FTz + FDz + FGz) / m;
+  const dm = burning ? -p.mdot : 0;
+
+  return [vx, vy, vz, ax, ay, az, dm];
+}
+
+function rk4Step(state, t, p, fuelLeft) {
+  const k1 = derivatives(state, t, p, fuelLeft);
+  const s2 = state.map((s,i) => s + dt/2 * k1[i]);
+  const k2 = derivatives(s2, t + dt/2, p, fuelLeft - p.mdot * dt/2);
+  const s3 = state.map((s,i) => s + dt/2 * k2[i]);
+  const k3 = derivatives(s3, t + dt/2, p, fuelLeft - p.mdot * dt/2);
+  const s4 = state.map((s,i) => s + dt * k3[i]);
+  const k4 = derivatives(s4, t + dt, p, fuelLeft - p.mdot * dt);
+  return state.map((s,i) => s + (dt/6) * (k1[i] + 2*k2[i] + 2*k3[i] + k4[i]));
+}
+
+// ─── Run full simulation ──────────────────────────────────────────
+function runSim() {
+  const p = getP();
+  const totalMass = p.m0 + p.mf;
+  const burnTime = p.mf / p.mdot;
+
+  let state = [0, 0, 0, 0, 0, 0, totalMass];
+  let t = 0;
+  let fuelLeft = p.mf;
+
+  const ts=[],xs=[],ys=[],zs=[],vxs=[],vys=[],vzs=[],speeds=[],accels=[],ms=[],thrusts=[],drags=[],phases=[];
+
+  let maxT = burnTime * 8;
+  let steps = 0;
+  const maxSteps = 80000;
+
+  while (steps < maxSteps) {
+    // Enforce ground
+    if (state[2] < 0 && t > 1) { state[2] = 0; break; }
+
+    const speed = Math.sqrt(state[3]**2 + state[4]**2 + state[5]**2);
+    const rhoZ = rho(state[2], p);
+    const burning = fuelLeft > 0;
+    const Fthrust = burning ? p.ve * p.mdot : 0;
+    const Fdrag = 0.5 * rhoZ * p.Cd * p.A * speed**2;
+    const gz = grav(state[2], p);
+
+    // Acceleration magnitude
+    const aCmp = derivatives(state, t, p, fuelLeft);
+    const aMag = Math.sqrt(aCmp[3]**2 + aCmp[4]**2 + aCmp[5]**2);
+
+    // Phase
+    let phase = burning ? 'POWERED' : (state[5] >= 0 ? 'COAST' : 'DESCENT');
+    if (!burning && state[2] <= 1 && t > 1) phase = 'LANDED';
+
+    if (steps % 3 === 0) { // decimate for performance
+      ts.push(+t.toFixed(2));
+      xs.push(+state[0].toFixed(1));
+      ys.push(+state[1].toFixed(1));
+      zs.push(+state[2].toFixed(1));
+      speeds.push(+speed.toFixed(2));
+      accels.push(+aMag.toFixed(3));
+      ms.push(+state[6].toFixed(1));
+      thrusts.push(+Fthrust.toFixed(0));
+      drags.push(+Fdrag.toFixed(0));
+      phases.push(phase);
+    }
+
+    // RK4 step
+    const newState = rk4Step(state, t, p, fuelLeft);
+    fuelLeft = Math.max(0, fuelLeft - p.mdot * dt);
+    if (newState[6] < p.m0) { newState[6] = p.m0; }
+    state = newState;
+    t += dt;
+    steps++;
+
+    if (state[2] < 0 && t > burnTime) { state[2] = 0; break; }
+  }
+
+  apogee = Math.max(...zs);
+  return { ts, xs, ys, zs, speeds, accels, ms, thrusts, drags, phases, p, burnTime };
+}
+
+// ─── Charts ──────────────────────────────────────────────────────
+function makeChart(id, label, color, yLabel, datasets_in) {
+  const ctx = document.getElementById(id).getContext('2d');
+  const ds = datasets_in || [{label, data:[], borderColor:color, borderWidth:1.5, pointRadius:0, tension:0.2, fill:false}];
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { display: ds.length > 1, labels: { color:'#5a7898', font:{size:9,family:"'Share Tech Mono'"}, boxWidth:10, boxHeight:2, padding:8 } },
+        tooltip: { enabled: false }
+      },
+      scales: {
+        x: { ticks:{color:'#3a5070',font:{size:9},maxTicksLimit:6}, grid:{color:'rgba(0,180,255,0.05)'}, border:{color:'rgba(0,180,255,0.15)'} },
+        y: { ticks:{color:'#3a5070',font:{size:9},maxTicksLimit:5}, grid:{color:'rgba(0,180,255,0.05)'}, border:{color:'rgba(0,180,255,0.15)'} }
+      }
+    }
+  });
+}
+
+function initCharts() {
+  Object.values(charts).forEach(c => c && c.destroy());
+  charts.zT  = makeChart('gZT','Altitude (m)','#00ff90','z (m)');
+  charts.vT  = makeChart('gVT','Speed (m/s)','#00c8ff','|v| (m/s)');
+  charts.aT  = makeChart('gAT','|a| (m/s²)','#ff6a00','|a|');
+  charts.mT  = makeChart('gMT','Mass (kg)','#a060ff','m (kg)');
+  charts.fT  = makeChart('gFT', null, null, 'N', [
+    {label:'Thrust',data:[],borderColor:'#ff6a00',borderWidth:1.5,pointRadius:0,tension:0.2,fill:false},
+    {label:'Drag',data:[],borderColor:'#ff3040',borderWidth:1.5,pointRadius:0,tension:0.2,fill:false},
+  ]);
+  charts.xy  = makeChart('gXY','Y (m)','#ffe040','y(m)');
+  charts.rho = makeChart('gRho','ρ','#a060ff','ρ (kg/m³)');
+
+  // Pre-draw density profile
+  const p = getP();
+  const zArr=[], rArr=[];
+  for(let z=0;z<=50000;z+=500){zArr.push(z);rArr.push(+rho(z,p).toFixed(4));}
+  charts.rho.data.labels = zArr.map(z=>z.toFixed(0));
+  charts.rho.data.datasets[0].data = rArr;
+  charts.rho.options.scales.x.title = {display:true,text:'Altitude (m)',color:'#3a5070',font:{size:9}};
+  charts.rho.update('none');
+}
+
+function updateChartsAt(idx) {
+  if (!simData) return;
+  const d = simData;
+  const N = idx + 1;
+  const step = Math.max(1, Math.floor(N / MAX_PTS));
+  const idxArr = Array.from({length: Math.ceil(N/step)}, (_,i) => Math.min(i*step, N-1));
+
+  const labels = idxArr.map(i => d.ts[i].toFixed(1));
+
+  function setDS(ch, dsIdx, arr) {
+    ch.data.labels = labels;
+    ch.data.datasets[dsIdx].data = idxArr.map(i => arr[i]);
+  }
+
+  setDS(charts.zT, 0, d.zs);  charts.zT.update('none');
+  setDS(charts.vT, 0, d.speeds); charts.vT.update('none');
+  setDS(charts.aT, 0, d.accels); charts.aT.update('none');
+  setDS(charts.mT, 0, d.ms);  charts.mT.update('none');
+
+  charts.fT.data.labels = labels;
+  charts.fT.data.datasets[0].data = idxArr.map(i => d.thrusts[i]);
+  charts.fT.data.datasets[1].data = idxArr.map(i => d.drags[i]);
+  charts.fT.update('none');
+
+  charts.xy.data.labels = idxArr.map(i => d.xs[i].toFixed(0));
+  charts.xy.data.datasets[0].data = idxArr.map(i => d.ys[i]);
+  charts.xy.update('none');
+}
+
+// ─── 3D Renderer ─────────────────────────────────────────────────
+const canvas3d = document.getElementById('c3d');
+let viewAngles = {iso:[0.35,-0.5], top:[Math.PI/2,0], side:[0.1,0], front:[0.1,Math.PI/2]};
+
+function setView(v) {
+  viewPreset = v;
+  document.querySelectorAll('.axis-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  [rotX, rotY] = viewAngles[v];
+  draw3D();
+}
+
+canvas3d.addEventListener('mousedown', e => { isDragging=true; lastMX=e.clientX; lastMY=e.clientY; });
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  rotY += (e.clientX - lastMX) * 0.008;
+  rotX += (e.clientY - lastMY) * 0.006;
+  lastMX=e.clientX; lastMY=e.clientY;
+  draw3D();
+});
+window.addEventListener('mouseup', () => isDragging=false);
+canvas3d.addEventListener('wheel', e => { zoom *= e.deltaY>0?0.92:1.09; zoom=Math.max(0.2,Math.min(5,zoom)); draw3D(); e.preventDefault(); },{passive:false});
+canvas3d.addEventListener('touchstart', e => { if(e.touches.length===1){isDragging=true;lastMX=e.touches[0].clientX;lastMY=e.touches[0].clientY;} });
+canvas3d.addEventListener('touchmove', e => {
+  if(!isDragging||e.touches.length!==1)return;
+  rotY+=(e.touches[0].clientX-lastMX)*0.01; rotX+=(e.touches[0].clientY-lastMY)*0.008;
+  lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY;
+  draw3D(); e.preventDefault();
+},{passive:false});
+canvas3d.addEventListener('touchend',()=>isDragging=false);
+
+function proj3(x, y, z) {
+  const cosX=Math.cos(rotX),sinX=Math.sin(rotX),cosY=Math.cos(rotY),sinY=Math.sin(rotY);
+  const rx = cosY*x + sinY*z;
+  const ry = sinX*(-sinY*x+cosY*z)+cosX*y;
+  const rz = cosX*(-sinY*x+cosY*z)-sinX*y;
+  const fov = 6;
+  const pz = rz/fov+1;
+  return {px:rx/pz, py:ry/pz, depth:rz};
+}
+
+function draw3D() {
+  const W = canvas3d.width = canvas3d.offsetWidth * Math.min(devicePixelRatio,2);
+  const H = canvas3d.height = canvas3d.offsetHeight * Math.min(devicePixelRatio,2);
+  const ctx = canvas3d.getContext('2d');
+  // We will translate the canvas so scene centre stays centred
+  const margin = 48 * Math.min(devicePixelRatio,2); // keep rocket this far from edge
+
+  ctx.clearRect(0,0,W,H);
+
+  // Starfield
+  ctx.fillStyle = '#03050a';
+  ctx.fillRect(0,0,W,H);
+  for(let i=0;i<120;i++){
+    const sx=(Math.sin(i*2731.1)*0.5+0.5)*W;
+    const sy=(Math.sin(i*1597.3)*0.5+0.5)*H;
+    const sa=0.2+(Math.sin(i*4099.7)*0.5+0.5)*0.5;
+    ctx.fillStyle=`rgba(200,230,255,${sa.toFixed(2)})`;
+    ctx.fillRect(sx,sy,1,1);
+  }
+
+  if (!simData) {
+    ctx.fillStyle = '#2a3d55';
+    ctx.font = `${16*Math.min(devicePixelRatio,2)}px Share Tech Mono`;
+    ctx.textAlign = 'center';
+    ctx.fillText('SET PARAMETERS AND LAUNCH', W/2, H/2);
+    return;
+  }
+
+  const d = simData;
+  const n = Math.min(animIdx+1, d.ts.length);
+
+  // ── Scale: always fit the FULL trajectory so view never changes ──
+  const maxZ = Math.max(Math.max(...d.zs), 1);
+  const maxX = Math.max(Math.max(...d.xs.map(Math.abs)), 1);
+  const maxY = Math.max(Math.max(...d.ys.map(Math.abs)), 1);
+  const maxDim = Math.max(maxZ, maxX, maxY, 1);
+
+  // usable canvas area (minus margin on all sides)
+  const usableW = W - 2*margin;
+  const usableH = H - 2*margin;
+  const sc = Math.min(usableW, usableH) * 0.42 * zoom / maxDim;
+
+  // Project 3D→2D, then shift by (cx,cy) = canvas centre
+  const cx = W/2, cy = H/2;
+  function p3(x,y,z){
+    const r = proj3(x*sc, y*sc, z*sc);
+    const px = cx + r.px * Math.min(usableW,usableH) * 0.5;
+    const py = cy - r.py * Math.min(usableW,usableH) * 0.5;
+    return {x:px, y:py, depth:r.depth};
+  }
+
+  // ── After projecting the full trail, find bounding box of all projected pts ──
+  // Then compute an offset to keep everything (especially rocket) inside canvas.
+  // Compute projected rocket position first (before any canvas offset).
+  const rawRocket = p3(d.xs[n-1], d.ys[n-1], d.zs[n-1]);
+
+  // Clamp: if rocket would go outside [margin … W-margin] / [margin … H-margin]
+  // we pan the entire scene by an offset so rocket stays inside.
+  let panX = 0, panY = 0;
+  const rocketEdgePad = 28 * Math.min(devicePixelRatio,2);
+  if (rawRocket.x < margin + rocketEdgePad)  panX = margin + rocketEdgePad - rawRocket.x;
+  if (rawRocket.x > W - margin - rocketEdgePad) panX = W - margin - rocketEdgePad - rawRocket.x;
+  if (rawRocket.y < margin + rocketEdgePad)  panY = margin + rocketEdgePad - rawRocket.y;
+  if (rawRocket.y > H - margin - rocketEdgePad) panY = H - margin - rocketEdgePad - rawRocket.y;
+
+  // Redefine p3 with pan applied
+  function p3pan(x,y,z){
+    const r = proj3(x*sc, y*sc, z*sc);
+    return {
+      x: cx + r.px*Math.min(usableW,usableH)*0.5 + panX,
+      y: cy - r.py*Math.min(usableW,usableH)*0.5 + panY,
+      depth: r.depth
+    };
+  }
+
+  // ── Clip all drawing to canvas bounds ──
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0,0,W,H);
+  ctx.clip();
+
+  // Ground grid
+  const gridN=8, gridSize=maxDim;
+  ctx.strokeStyle='rgba(0,180,255,0.08)'; ctx.lineWidth=1;
+  for(let i=-gridN;i<=gridN;i++){
+    const g0=p3pan(-gridSize,i/gridN*gridSize,0), g1=p3pan(gridSize,i/gridN*gridSize,0);
+    const g2=p3pan(i/gridN*gridSize,-gridSize,0), g3=p3pan(i/gridN*gridSize,gridSize,0);
+    ctx.beginPath(); ctx.moveTo(g0.x,g0.y); ctx.lineTo(g1.x,g1.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(g2.x,g2.y); ctx.lineTo(g3.x,g3.y); ctx.stroke();
+  }
+
+  // Axes
+  const axLen = maxDim * 0.6;
+  const axDef = [[axLen,0,0,'#ff3040','X'],[0,axLen,0,'#00ff90','Y'],[0,0,axLen,'#00c8ff','Z']];
+  axDef.forEach(([dx,dy,dz,col,lbl]) => {
+    const a0=p3pan(0,0,0), a1=p3pan(dx,dy,dz);
+    ctx.save(); ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.globalAlpha=0.5; ctx.setLineDash([8,5]);
+    ctx.beginPath(); ctx.moveTo(a0.x,a0.y); ctx.lineTo(a1.x,a1.y); ctx.stroke();
+    ctx.globalAlpha=0.8; ctx.fillStyle=col;
+    ctx.font=`${11*Math.min(devicePixelRatio,2)}px Share Tech Mono`;
+    ctx.textAlign='center'; ctx.fillText(lbl, a1.x+8, a1.y-4);
+    ctx.restore();
+  });
+
+  // Trajectory trail (colour by phase progress)
+  const step = Math.max(1, Math.floor(n/800));
+  for (let i=step; i<n; i+=step) {
+    const p0=p3pan(d.xs[i-step],d.ys[i-step],d.zs[i-step]);
+    const p1=p3pan(d.xs[i],d.ys[i],d.zs[i]);
+    const t=i/d.ts.length;
+    const r=Math.round(255*Math.min(1,t*2));
+    const b=Math.round(255*Math.max(0,1-t*2));
+    const g=Math.round(200*(1-Math.abs(t-0.5)*2));
+    ctx.save(); ctx.strokeStyle=`rgb(${r},${g},${b})`; ctx.lineWidth=1.5; ctx.globalAlpha=0.8;
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Ground shadow
+  if (n > 1) {
+    ctx.save(); ctx.strokeStyle='rgba(255,200,100,0.15)'; ctx.lineWidth=1; ctx.setLineDash([4,6]);
+    ctx.beginPath();
+    for(let i=0;i<n;i+=step){
+      const pp=p3pan(d.xs[i],d.ys[i],0);
+      i===0?ctx.moveTo(pp.x,pp.y):ctx.lineTo(pp.x,pp.y);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+
+  // Apogee marker
+  const apIdx = d.zs.indexOf(apogee);
+  if (apIdx>=0 && apIdx<n) {
+    const ap = p3pan(d.xs[apIdx],d.ys[apIdx],d.zs[apIdx]);
+    ctx.save();
+    ctx.strokeStyle='#ffe040'; ctx.lineWidth=1.5; ctx.globalAlpha=0.9;
+    const ar=8*Math.min(devicePixelRatio,2);
+    ctx.beginPath(); ctx.arc(ap.x,ap.y,ar,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#ffe040';
+    ctx.font=`${9*Math.min(devicePixelRatio,2)}px Share Tech Mono`;
+    ctx.textAlign='left';
+    ctx.fillText('APOGEE '+apogee.toFixed(0)+'m', ap.x+ar+4, ap.y-4);
+    ctx.restore();
+  }
+
+  // ── Rocket: always clamped to visible area ──
+  const cur = p3pan(d.xs[n-1], d.ys[n-1], d.zs[n-1]);
+  // Hard clamp rocket screen position so it NEVER leaves the canvas
+  cur.x = Math.max(margin, Math.min(W-margin, cur.x));
+  cur.y = Math.max(margin, Math.min(H-margin, cur.y));
+
+  const phase = d.phases[n-1] || 'COAST';
+  const rocketCol = phase==='POWERED'?'#ff6a00':(phase==='COAST'?'#00c8ff':'#ff3040');
+
+  const rs = 7*Math.min(devicePixelRatio,2);
+  ctx.save();
+  ctx.globalAlpha=1.0;
+
+  // Glow ring
+  ctx.strokeStyle=rocketCol; ctx.lineWidth=1; ctx.globalAlpha=0.3;
+  ctx.beginPath(); ctx.arc(cur.x,cur.y,rs*2.5,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha=1.0;
+
+  // Body
+  ctx.fillStyle=rocketCol;
+  ctx.beginPath();
+  ctx.moveTo(cur.x, cur.y-rs*2.2);
+  ctx.lineTo(cur.x-rs*0.75, cur.y+rs);
+  ctx.lineTo(cur.x+rs*0.75, cur.y+rs);
+  ctx.closePath(); ctx.fill();
+
+  // Window
+  ctx.fillStyle='rgba(200,240,255,0.7)';
+  ctx.beginPath(); ctx.arc(cur.x, cur.y-rs*0.5, rs*0.35, 0, Math.PI*2); ctx.fill();
+
+  // Fins
+  ctx.fillStyle=rocketCol; ctx.globalAlpha=0.6;
+  ctx.beginPath();
+  ctx.moveTo(cur.x-rs*0.75,cur.y+rs*0.5);
+  ctx.lineTo(cur.x-rs*1.5,cur.y+rs*1.5);
+  ctx.lineTo(cur.x-rs*0.75,cur.y+rs); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cur.x+rs*0.75,cur.y+rs*0.5);
+  ctx.lineTo(cur.x+rs*1.5,cur.y+rs*1.5);
+  ctx.lineTo(cur.x+rs*0.75,cur.y+rs); ctx.closePath(); ctx.fill();
+
+  // Exhaust flame
+  if (phase==='POWERED') {
+    ctx.globalAlpha=0.7+0.3*Math.sin(Date.now()*0.025);
+    const flen = rs*(2.5+Math.random()*1.2);
+    const fgrad=ctx.createLinearGradient(cur.x,cur.y+rs,cur.x,cur.y+rs+flen);
+    fgrad.addColorStop(0,'rgba(255,240,120,1)');
+    fgrad.addColorStop(0.35,'rgba(255,110,10,0.85)');
+    fgrad.addColorStop(1,'rgba(255,30,0,0)');
+    ctx.fillStyle=fgrad;
+    ctx.beginPath();
+    ctx.moveTo(cur.x-rs*0.6,cur.y+rs);
+    ctx.quadraticCurveTo(cur.x-rs*0.2, cur.y+rs+flen*0.6, cur.x, cur.y+rs+flen);
+    ctx.quadraticCurveTo(cur.x+rs*0.2, cur.y+rs+flen*0.6, cur.x+rs*0.6, cur.y+rs);
+    ctx.closePath(); ctx.fill();
+  }
+
+  ctx.globalAlpha=1; ctx.restore();
+  ctx.restore(); // clip
+
+  // HUD overlay (always in fixed screen position, unaffected by pan/scale)
+  const hudLines=[
+    `t = ${d.ts[n-1].toFixed(1)} s`,
+    `|v| = ${d.speeds[n-1].toFixed(1)} m/s`,
+    `|a| = ${d.accels[n-1].toFixed(2)} m/s²`,
+    `z = ${d.zs[n-1].toFixed(0)} m`,
+  ];
+  const fsHUD=10*Math.min(devicePixelRatio,2);
+  ctx.save();
+  ctx.font=`${fsHUD}px Share Tech Mono`;
+  hudLines.forEach((line,i)=>{
+    ctx.fillStyle='rgba(0,180,255,0.15)';
+    ctx.fillRect(8, 8+i*(fsHUD+6), ctx.measureText(line).width+12, fsHUD+4);
+    ctx.fillStyle='#00c8ff';
+    ctx.fillText(line, 14, 8+i*(fsHUD+6)+fsHUD);
+  });
+  ctx.restore();
+}
+
+// ─── Animation Loop ───────────────────────────────────────────────
+let lastAnimTime = 0;
+const animSpeed = 3; // steps per frame
+
+function animLoop(timestamp) {
+  if (!animPlaying) return;
+  const elapsed = timestamp - lastAnimTime;
+  if (elapsed > 16) { // ~60fps cap
+    lastAnimTime = timestamp;
+    animIdx = Math.min(animIdx + animSpeed, simData.ts.length - 1);
+    updateHUD();
+    draw3D();
+    updateChartsAt(animIdx);
+    if (animIdx >= simData.ts.length - 1) {
+      animPlaying = false;
+      document.getElementById('btnLaunch').textContent = '▶ RELAUNCH';
+    }
+  }
+  if (animPlaying) animRafId = requestAnimationFrame(animLoop);
+}
+
+function updateHUD() {
+  if (!simData) return;
+  const d = simData;
+  const i = animIdx;
+  const t = d.ts[i], x=d.xs[i], y=d.ys[i], z=d.zs[i];
+  const sp=d.speeds[i], ac=d.accels[i], m=d.ms[i];
+  const phase = d.phases[i]||'COAST';
+
+  document.getElementById('hud_t').innerHTML = t.toFixed(1)+' <span class="hud-unit">s</span>';
+  document.getElementById('hud_v').innerHTML = sp.toFixed(1)+' <span class="hud-unit">m/s</span>';
+  document.getElementById('hud_a').innerHTML = ac.toFixed(2)+' <span class="hud-unit">m/s²</span>';
+  document.getElementById('hud_m').innerHTML = m.toFixed(0)+' <span class="hud-unit">kg</span>';
+  document.getElementById('hud_x').innerHTML = x.toFixed(1)+' <span class="hud-unit">m</span>';
+  document.getElementById('hud_y').innerHTML = y.toFixed(1)+' <span class="hud-unit">m</span>';
+  document.getElementById('hud_z').innerHTML = z.toFixed(1)+' <span class="hud-unit">m</span>';
+  document.getElementById('hud_apogee').innerHTML = apogee.toFixed(0)+' <span class="hud-unit">m</span>';
+  document.getElementById('hud_mach').textContent = 'Mach '+( sp/SPEED_SOUND ).toFixed(2);
+  document.getElementById('hud_g').textContent = (ac/9.81).toFixed(2)+' g';
+  document.getElementById('hud_alt').textContent = 'Alt: '+z.toFixed(0)+' m';
+  document.getElementById('ph_time').textContent = 't = '+t.toFixed(2)+' s';
+
+  const p = getP();
+  const fuelLeft = Math.max(0, p.mf - p.mdot*t);
+  const fuelPct = Math.round(fuelLeft/p.mf*100);
+  document.getElementById('fuelBar').style.width = fuelPct+'%';
+  document.getElementById('fuelPct').textContent = fuelPct+'%';
+
+  const badge = document.getElementById('phaseBadge');
+  badge.className = 'phase-badge ';
+  badge.textContent = phase;
+  if(phase==='POWERED'){badge.className+='pb-powered';}
+  else if(phase==='COAST'){badge.className+='pb-coast';}
+  else if(phase==='DESCENT'){badge.className+='pb-descent';}
+  else{badge.className+='pb-land';}
+
+  const phInfo = {
+    POWERED:`Thrust = ${(p.ve*p.mdot).toFixed(0)} N | ṁ = ${p.mdot} kg/s`,
+    COAST:`Engine off — ballistic trajectory | Alt ${z.toFixed(0)} m`,
+    DESCENT:`Descending — gravity dominant | |v| = ${sp.toFixed(1)} m/s`,
+    LANDED:`Impact — mission complete | Range ${Math.sqrt(x*x+y*y).toFixed(0)} m`
+  };
+  document.getElementById('phaseInfo').textContent = phInfo[phase]||'';
+}
+
+// ─── Controls ────────────────────────────────────────────────────
+function toggleSim() {
+  if (!simData || animIdx >= simData.ts.length - 1) {
+    resetSim();
+    simData = runSim();
+    apogee = Math.max(...simData.zs);
+    animIdx = 0;
+    animPlaying = true;
+    document.getElementById('btnLaunch').textContent = '⏸ PAUSE';
+    lastAnimTime = 0;
+    animRafId = requestAnimationFrame(animLoop);
+  } else {
+    animPlaying = !animPlaying;
+    document.getElementById('btnLaunch').textContent = animPlaying ? '⏸ PAUSE' : '▶ RESUME';
+    if (animPlaying) { lastAnimTime = 0; animRafId = requestAnimationFrame(animLoop); }
+  }
+}
+
+function resetSim() {
+  cancelAnimationFrame(animRafId);
+  animPlaying = false;
+  animIdx = 0;
+  simData = null;
+  apogee = 0;
+  document.getElementById('btnLaunch').textContent = '▶ LAUNCH';
+  document.getElementById('fuelBar').style.width='100%';
+  document.getElementById('fuelPct').textContent='100%';
+  ['hud_t','hud_v','hud_a','hud_m'].forEach(id => {
+    document.getElementById(id).innerHTML='—';
+  });
+  initCharts();
+  draw3D();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+initCharts();
+draw3D();
+// Auto-rotate when idle
+let lastAction = Date.now();
+document.addEventListener('mousemove',()=>lastAction=Date.now());
+(function autoRot(){
+  if (!isDragging && !animPlaying && Date.now()-lastAction>4000 && !simData) {
+    rotY += 0.003; draw3D();
+  }
+  requestAnimationFrame(autoRot);
+})();
+</script>
+</body>
+</html>

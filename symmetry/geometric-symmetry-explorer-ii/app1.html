@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometric Symmetry Simulator</title>
+<script>
+MathJax = {
+  tex:{ inlineMath:[['\\(','\\)']], displayMath:[['\\[','\\]']] },
+  options:{ skipHtmlTags:['script','noscript','style','textarea'] },
+  startup:{ typeset:false }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & ROOT ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#050812;--bg1:#090d1f;--bg2:#0e1428;--bg3:#131c35;--bg4:#1a2448;
+  --c1:#00d4ff;--c2:#6e4ffc;--c3:#00f09d;--c4:#f0b800;--c5:#ff4470;
+  --txt:#d8e8ff;--txt2:#7f9bbf;--txt3:#3d5278;
+  --bdr:rgba(0,212,255,.10);--bdr2:rgba(0,212,255,.28);
+  --glow1:0 0 28px rgba(0,212,255,.22);
+  --sh:0 6px 40px rgba(0,0,0,.55);
+}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg0);color:var(--txt);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg1)}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+
+/* ─── HEADER ───────────────────────────────────────────────── */
+.hdr{
+  background:linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 100%);
+  border-bottom:1px solid var(--bdr2);
+  padding:14px 28px;display:flex;align-items:center;gap:20px;
+  position:relative;overflow:hidden;z-index:10;
+}
+.hdr::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--c1) 30%,var(--c2) 70%,transparent);
+}
+.hdr::after{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(60deg,transparent,transparent 30px,rgba(0,212,255,.012) 30px,rgba(0,212,255,.012) 31px);
+  pointer-events:none;
+}
+.hdr-icon{
+  width:46px;height:46px;border-radius:12px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(0,212,255,.2),rgba(110,79,252,.2));
+  border:1px solid var(--bdr2);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:var(--glow1);position:relative;z-index:1;
+}
+.hdr-copy{position:relative;z-index:1}
+.hdr-copy h1{
+  font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:700;letter-spacing:.08em;
+  background:linear-gradient(90deg,var(--c1),var(--c2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hdr-copy p{font-size:.8rem;color:var(--txt2);margin-top:2px;letter-spacing:.02em}
+.hdr-badge{
+  margin-left:auto;background:var(--bg3);border:1px solid var(--bdr2);
+  border-radius:20px;padding:4px 14px;
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--c1);
+  position:relative;z-index:1;white-space:nowrap;
+}
+
+/* ─── TABS ──────────────────────────────────────────────────── */
+.tabbar{
+  background:var(--bg1);border-bottom:1px solid var(--bdr);
+  display:flex;padding:0 20px;gap:4px;position:sticky;top:0;z-index:9;
+}
+.tbtn{
+  background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--txt2);font-family:'Exo 2',sans-serif;font-size:.88rem;font-weight:500;
+  padding:11px 18px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:7px;
+}
+.tbtn:hover{color:var(--txt)}
+.tbtn.active{color:var(--c1);border-bottom-color:var(--c1)}
+.tc{display:none}.tc.active{display:block}
+
+/* ─── THEORY ────────────────────────────────────────────────── */
+.theory{max-width:1160px;margin:0 auto;padding:28px 22px}
+.th-intro{
+  background:linear-gradient(145deg,var(--bg2),var(--bg3));
+  border:1px solid var(--bdr2);border-radius:16px;padding:26px 30px;
+  margin-bottom:24px;position:relative;overflow:hidden;
+}
+.th-intro::before{
+  content:'';position:absolute;top:-60%;right:-20%;
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,212,255,.04),transparent 70%);pointer-events:none;
+}
+.th-intro h2{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--c1);letter-spacing:.1em;margin-bottom:12px;}
+.th-intro p{font-size:.88rem;color:var(--txt2);line-height:1.75;max-width:820px}
+.th-intro p+p{margin-top:8px}
+.def-box{
+  margin-top:16px;background:var(--bg1);border:1px solid var(--bdr);
+  border-left:3px solid var(--c1);border-radius:0 8px 8px 0;
+  padding:14px 18px;font-size:.86rem;line-height:1.7;
+}
+.def-box code{
+  font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--c3);
+  background:rgba(0,240,157,.08);padding:1px 5px;border-radius:3px;
+}
+
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:800px){.sg{grid-template-columns:1fr}}
+.sc{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+.sc:hover{box-shadow:var(--glow1)}
+.sc.r:hover{border-color:rgba(0,212,255,.35)}
+.sc.ro:hover{border-color:rgba(110,79,252,.35)}
+.sc.t:hover{border-color:rgba(0,240,157,.25)}
+.sc.s:hover{border-color:rgba(240,184,0,.25)}
+
+.sc-hd{padding:16px 20px 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:flex-start;gap:13px;}
+.sc-ic{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.sc-ic.r{background:rgba(0,212,255,.12)}
+.sc-ic.ro{background:rgba(110,79,252,.12)}
+.sc-ic.t{background:rgba(0,240,157,.10)}
+.sc-ic.s{background:rgba(240,184,0,.10)}
+
+.sc-tt h3{font-family:'Orbitron',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.06em}
+.sc-tt .grp{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--txt3);margin-top:2px}
+.sc.r .sc-tt h3{color:var(--c1)}
+.sc.ro .sc-tt h3{color:var(--c2)}
+.sc.t .sc-tt h3{color:var(--c3)}
+.sc.s .sc-tt h3{color:var(--c4)}
+
+.sc-bd{padding:16px 20px}
+.sc-bd p{font-size:.84rem;color:var(--txt2);line-height:1.7;margin-bottom:12px}
+.meq{
+  background:var(--bg1);border:1px solid var(--bdr);border-left:3px solid var(--c1);
+  border-radius:0 7px 7px 0;padding:10px 14px;margin:8px 0;overflow-x:auto;font-size:.88rem;
+}
+.meq.ro{border-left-color:var(--c2)}.meq.t{border-left-color:var(--c3)}.meq.s{border-left-color:var(--c4)}
+.meq strong{display:block;font-size:.76rem;color:var(--txt2);margin-bottom:5px;font-family:'Exo 2',sans-serif;letter-spacing:.03em}
+.exrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.ebadge{background:var(--bg3);border:1px solid var(--bdr);border-radius:16px;padding:2px 9px;font-size:.74rem;color:var(--txt2);font-family:'JetBrains Mono',monospace;}
+.ebadge.hl{color:var(--c1);border-color:rgba(0,212,255,.28)}
+.ebadge.hl.ro{color:var(--c2);border-color:rgba(110,79,252,.28)}
+.ebadge.hl.t{color:var(--c3);border-color:rgba(0,240,157,.2)}
+.ebadge.hl.s{color:var(--c4);border-color:rgba(240,184,0,.2)}
+
+.ptbl{width:100%;border-collapse:collapse;margin-top:12px;font-size:.78rem}
+.ptbl th{background:var(--bg3);color:var(--txt2);padding:5px 9px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600}
+.ptbl td{padding:5px 9px;border-bottom:1px solid var(--bdr);color:var(--txt2)}
+.ptbl tr:last-child td{border-bottom:none}
+.ptbl td:first-child{font-family:'JetBrains Mono',monospace;color:var(--c1)}
+.sc.ro .ptbl td:first-child{color:var(--c2)}
+.sc.t  .ptbl td:first-child{color:var(--c3)}
+.sc.s  .ptbl td:first-child{color:var(--c4)}
+
+/* ─── SIMULATOR ─────────────────────────────────────────────── */
+.simwrap{display:flex;height:calc(100vh - 112px);overflow:hidden}
+@media(max-width:880px){.simwrap{flex-direction:column;height:auto}}
+
+.canvas-area{flex:1;display:flex;flex-direction:column;background:var(--bg1);overflow:hidden;position:relative;}
+.ctoolbar{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:7px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ttog{
+  background:var(--bg3);border:1px solid var(--bdr);border-radius:5px;
+  color:var(--txt2);font-family:'Exo 2',sans-serif;font-size:.72rem;
+  padding:4px 9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;
+}
+.ttog.on{background:rgba(0,212,255,.10);border-color:rgba(0,212,255,.38);color:var(--c1)}
+.ttog:hover{border-color:var(--bdr2)}
+
+.canvaswrap{flex:1;display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden;}
+#mc{
+  border:1px solid rgba(0,212,255,.25);border-radius:8px;background:var(--bg0);
+  box-shadow:var(--sh),0 0 35px rgba(0,212,255,.12),0 0 70px rgba(0,212,255,.04);
+  max-width:100%;max-height:100%;cursor:crosshair;display:block;
+}
+.statusbar{
+  padding:7px 16px;background:var(--bg2);border-top:1px solid var(--bdr);
+  display:flex;align-items:center;gap:12px;
+}
+.sind{width:10px;height:10px;border-radius:50%;background:var(--txt3);flex-shrink:0;transition:all .3s;}
+.sind.ok{background:var(--c3);box-shadow:0 0 8px rgba(0,240,157,.6)}
+.sind.no{background:var(--c5);box-shadow:0 0 8px rgba(255,68,112,.6)}
+#stxt{font-size:.78rem;color:var(--txt2)}
+#crdsp{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--txt3)}
+
+/* ─── CONTROL PANEL ─────────────────────────────────────────── */
+.cpanel{width:296px;background:var(--bg2);border-left:1px solid var(--bdr);overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column;}
+@media(max-width:880px){.cpanel{width:100%;border-left:none;border-top:1px solid var(--bdr)}}
+
+.csec{padding:13px 14px;border-bottom:1px solid var(--bdr)}
+.csec:last-child{border-bottom:none}
+.cstitle{
+  font-family:'Orbitron',sans-serif;font-size:.66rem;font-weight:700;
+  color:var(--txt3);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;gap:7px;
+}
+.cstitle::after{content:'';flex:1;height:1px;background:var(--bdr)}
+.crow{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.crow:last-child{margin-bottom:0}
+.clbl{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--txt2)}
+.cval{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--c1);background:var(--bg3);padding:1px 7px;border-radius:3px}
+
+select{
+  width:100%;background:var(--bg3);border:1px solid var(--bdr2);border-radius:6px;
+  color:var(--txt);font-family:'Exo 2',sans-serif;font-size:.8rem;padding:6px 9px;
+  cursor:pointer;outline:none;transition:border-color .2s;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300d4ff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+}
+select:hover,select:focus{border-color:var(--c1)}
+
+input[type=range]{width:100%;height:3px;background:var(--bg4);border-radius:2px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;margin-top:2px;}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--c1);box-shadow:0 0 6px rgba(0,212,255,.55);cursor:pointer;}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--c1);box-shadow:0 0 6px rgba(0,212,255,.55);border:none;cursor:pointer;}
+
+.pbtns{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.pbtn{
+  background:var(--bg3);border:1px solid var(--bdr);border-radius:4px;
+  color:var(--txt2);font-family:'JetBrains Mono',monospace;
+  font-size:.68rem;padding:3px 9px;cursor:pointer;transition:all .14s;
+}
+.pbtn:hover{background:var(--bg4);border-color:var(--bdr2);color:var(--c1)}
+.pbtn.sel{background:rgba(0,212,255,.10);border-color:rgba(0,212,255,.38);color:var(--c1)}
+
+.actbtn{
+  width:100%;background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(110,79,252,.12));
+  border:1px solid var(--bdr2);border-radius:7px;color:var(--c1);
+  font-family:'Exo 2',sans-serif;font-size:.84rem;font-weight:600;
+  padding:8px 14px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:7px;margin-top:5px;
+}
+.actbtn:hover{background:linear-gradient(135deg,rgba(0,212,255,.22),rgba(110,79,252,.22));box-shadow:var(--glow1)}
+.actbtn.stop{color:var(--c5);border-color:rgba(255,68,112,.35);background:rgba(255,68,112,.08)}
+.actbtn.stop:hover{background:rgba(255,68,112,.16)}
+
+.infocard{background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:9px 12px;margin-top:8px;}
+.infocard h4{font-family:'JetBrains Mono',monospace;font-size:.74rem;color:var(--c1);margin-bottom:5px;}
+.infocard p{font-size:.77rem;color:var(--txt2);line-height:1.55}
+
+.dynctrl{display:none}
+.dynctrl.vis{display:block}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════════════════════════ -->
+<header class="hdr">
+  <div class="hdr-icon">⬡</div>
+  <div class="hdr-copy">
+    <h1>GEOMETRIC SYMMETRY SIMULATOR</h1>
+    <p>Interactive exploration of crystallographic &amp; mathematical symmetry transformations</p>
+  </div>
+  <div class="hdr-badge">v3.1 · Canvas · MathJax</div>
+</header>
+
+<!-- ═══════════════ TAB BAR ══════════════════════════════════ -->
+<div class="tabbar">
+  <button class="tbtn active" id="tab-theory" onclick="switchTab('theory')">📐 Theory &amp; Classification</button>
+  <button class="tbtn"        id="tab-sim"    onclick="switchTab('sim')">🔬 Interactive Simulator</button>
+</div>
+
+<!-- ═══════════════ THEORY ═══════════════════════════════════ -->
+<div id="theory-tab" class="tc active">
+<div class="theory">
+
+  <div class="th-intro">
+    <h2>DEFINITION OF GEOMETRIC SYMMETRY</h2>
+    <p>A geometric figure possesses <strong>symmetry</strong> under a transformation \(\hat{T}\) if and only if the transformation maps the figure onto itself — leaving it indistinguishable from its original state. The complete set of all symmetry operations forms a <strong>symmetry group</strong> \(G\) (closed under composition, satisfying the group axioms).</p>
+    <p>In crystallography, <em>point groups</em> describe molecular symmetry, and the 230 <em>space groups</em> classify all distinct periodic crystal structures in 3D. The <strong>Neumann Principle</strong> states that every physical property of a crystal must exhibit at least the symmetry of the crystal's point group.</p>
+    <div class="def-box">
+      <strong>Formal symmetry condition:</strong>&nbsp; \(\hat{T}(S)=S\) where \(S\) is the shape/pattern and \(\hat{T}\) is the symmetry operator.<br>
+      <strong>Group axioms:</strong>&nbsp; <code>Closure</code> · <code>Associativity</code> · <code>Identity \(\hat{I}\)</code> · <code>Inverse \(\hat{T}^{-1}\)</code><br>
+      <strong>Order of \(\hat{T}\):</strong>&nbsp; the smallest integer \(n\) such that \(\hat{T}^n = \hat{I}\)
+    </div>
+  </div>
+
+  <div class="sg">
+
+    <!-- REFLECTION -->
+    <div class="sc r">
+      <div class="sc-hd">
+        <div class="sc-ic r">🪞</div>
+        <div class="sc-tt">
+          <h3>REFLECTION SYMMETRY</h3>
+          <div class="grp">Mirror / Line Symmetry · Groups: Cₙᵥ, Dₙ</div>
+        </div>
+      </div>
+      <div class="sc-bd">
+        <p>A shape has <strong>reflection symmetry</strong> if folding it along a <em>mirror line</em> makes both halves coincide exactly. The line can be in any direction; not all shapes have one — a scalene triangle has none, an isosceles has 1, and an equilateral has 3. The operation is an <em>isometry</em> (distance-preserving) with \(\det=-1\), making it an <em>improper</em> transformation.</p>
+        <div class="meq">
+          <strong>Reflection matrices across principal axes:</strong>
+          \[ M_x=\begin{pmatrix}1&0\\0&-1\end{pmatrix},\quad M_y=\begin{pmatrix}-1&0\\0&1\end{pmatrix} \]
+        </div>
+        <div class="meq">
+          <strong>General reflection across line at angle \(\theta\) through origin:</strong>
+          \[ M_\theta=\begin{pmatrix}\cos 2\theta & \sin 2\theta\\ \sin 2\theta & -\cos 2\theta\end{pmatrix},\quad \det M_\theta=-1 \]
+        </div>
+        <p><strong>Real-world examples:</strong></p>
+        <div class="exrow">
+          <span class="ebadge hl">H₂O — C₂ᵥ (2 planes)</span>
+          <span class="ebadge hl">NH₃ — C₃ᵥ (3 planes)</span>
+          <span class="ebadge hl">BF₃ — C₃ᵥ</span>
+          <span class="ebadge hl">Benzene — D₆ₕ</span>
+          <span class="ebadge">Butterfly wings</span>
+          <span class="ebadge">Leaves</span>
+          <span class="ebadge">Architecture</span>
+        </div>
+        <table class="ptbl">
+          <tr><th>Molecule / Shape</th><th>Group</th><th>Mirror planes σ</th></tr>
+          <tr><td>H₂O</td><td>C₂ᵥ</td><td>2 vertical (σᵥ)</td></tr>
+          <tr><td>BF₃</td><td>C₃ᵥ</td><td>3 vertical (σᵥ)</td></tr>
+          <tr><td>Benzene</td><td>D₆ₕ</td><td>7 total (σₕ + 6σᵥ)</td></tr>
+          <tr><td>Snowflake</td><td>D₆</td><td>6 mirror axes</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- ROTATION -->
+    <div class="sc ro">
+      <div class="sc-hd">
+        <div class="sc-ic ro">🔄</div>
+        <div class="sc-tt">
+          <h3>ROTATIONAL SYMMETRY</h3>
+          <div class="grp">Order-n Symmetry · Groups: Cₙ, Dₙ</div>
+        </div>
+      </div>
+      <div class="sc-bd">
+        <p>A shape has <strong>n-fold rotational symmetry</strong> if rotating it by \(360°/n\) about a fixed center maps it onto itself. The integer \(n\) is the <em>order</em>. A circle has C∞ (infinite-fold) symmetry. The <strong>Crystallographic Restriction Theorem</strong> forbids 5-, 7- and higher-fold axes in periodic lattices (only orders 1, 2, 3, 4, 6 are compatible).</p>
+        <div class="meq ro">
+          <strong>Rotation matrix by angle \(\theta\) (proper, \(\det = +1\)):</strong>
+          \[ R(\theta)=\begin{pmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{pmatrix} \]
+        </div>
+        <div class="meq ro">
+          <strong>n-fold symmetry condition and orbit:</strong>
+          \[ C_n:\;\theta=\frac{2\pi}{n},\quad R_n^{\,n}=I,\quad \{R_n^k\,S\}_{k=0}^{n-1}=S \]
+        </div>
+        <p><strong>Real-world examples:</strong></p>
+        <div class="exrow">
+          <span class="ebadge hl ro">Snowflakes — C₆</span>
+          <span class="ebadge hl ro">Benzene ring — C₆</span>
+          <span class="ebadge hl ro">Quasicrystals — C₅</span>
+          <span class="ebadge">Propellers — C₃</span>
+          <span class="ebadge">Virus capsids</span>
+          <span class="ebadge">Crystal axes</span>
+        </div>
+        <table class="ptbl">
+          <tr><th>Shape</th><th>Group</th><th>Sym. angle</th></tr>
+          <tr><td>Square</td><td>C₄</td><td>90°</td></tr>
+          <tr><td>Hexagon</td><td>C₆</td><td>60°</td></tr>
+          <tr><td>Pentagon (quasicrystal)</td><td>C₅</td><td>72°</td></tr>
+          <tr><td>Circle</td><td>C∞</td><td>any θ</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRANSLATION -->
+    <div class="sc t">
+      <div class="sc-hd">
+        <div class="sc-ic t">➡️</div>
+        <div class="sc-tt">
+          <h3>TRANSLATIONAL SYMMETRY</h3>
+          <div class="grp">Bravais Lattices · 14 types · 7 crystal systems</div>
+        </div>
+      </div>
+      <div class="sc-bd">
+        <p>A pattern has <strong>translational symmetry</strong> if displacing it by a <em>lattice vector</em> \(\mathbf{T}\) leaves it invariant. A <strong>Bravais lattice</strong> is an infinite, periodic array generated by integer multiples of primitive vectors. There are exactly 14 distinct 3D Bravais lattice types in 7 crystal systems. Bloch's theorem uses this symmetry to simplify quantum-mechanical solutions in periodic potentials.</p>
+        <div class="meq t">
+          <strong>Lattice translation vector (2D):</strong>
+          \[ \mathbf{T}=n_1\mathbf{a}_1+n_2\mathbf{a}_2,\quad n_1,n_2\in\mathbb{Z} \]
+        </div>
+        <div class="meq t">
+          <strong>Bloch condition (quantum solid-state physics):</strong>
+          \[ \psi_{n\mathbf{k}}(\mathbf{r}+\mathbf{T})=e^{i\mathbf{k}\cdot\mathbf{T}}\,\psi_{n\mathbf{k}}(\mathbf{r}) \]
+        </div>
+        <p><strong>Real-world examples:</strong></p>
+        <div class="exrow">
+          <span class="ebadge hl t">NaCl crystal (cubic)</span>
+          <span class="ebadge hl t">Graphene (hexagonal)</span>
+          <span class="ebadge hl t">γ=60° HCP metals</span>
+          <span class="ebadge hl t">γ=90° BCC/FCC</span>
+          <span class="ebadge">Wallpaper patterns</span>
+          <span class="ebadge">DNA double helix</span>
+        </div>
+        <table class="ptbl">
+          <tr><th>Lattice</th><th>Vectors</th><th>Angle γ</th></tr>
+          <tr><td>Cubic</td><td>a = b</td><td>90° (NaCl)</td></tr>
+          <tr><td>Hexagonal</td><td>a = b</td><td>60° (Graphene)</td></tr>
+          <tr><td>Orthorhombic</td><td>a ≠ b</td><td>90°</td></tr>
+          <tr><td>Monoclinic</td><td>a ≠ b</td><td>γ ≠ 90°</td></tr>
+          <tr><td>Triclinic</td><td>a ≠ b</td><td>any γ</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCALING -->
+    <div class="sc s">
+      <div class="sc-hd">
+        <div class="sc-ic s">🔭</div>
+        <div class="sc-tt">
+          <h3>SCALING (DILATION) SYMMETRY</h3>
+          <div class="grp">Self-Similarity · Fractal Geometry · Scale Invariance</div>
+        </div>
+      </div>
+      <div class="sc-bd">
+        <p>A shape has <strong>scaling symmetry</strong> (self-similarity) if it looks identical after magnification or contraction by factor \(s\). <em>Fractals</em> exhibit self-similarity at every scale. Their <strong>Hausdorff dimension</strong> \(d_H\) often exceeds the topological dimension, quantifying how detail proliferates with magnification. Power-law behavior and scale invariance underpin both critical phenomena in physics and natural pattern formation.</p>
+        <div class="meq s">
+          <strong>Scaling (dilation) transformation:</strong>
+          \[ S_s:(x,y)\to(sx,\,sy),\quad s\in\mathbb{R}^+\setminus\{0\} \]
+        </div>
+        <div class="meq s">
+          <strong>Hausdorff (fractal) dimension:</strong>
+          \[ d_H=\frac{\log N}{\log(1/r)}\quad\text{(N self-similar copies at scale }r\text{)} \]
+        </div>
+        <p><strong>Real-world examples:</strong></p>
+        <div class="exrow">
+          <span class="ebadge hl s">Coastlines d≈1.25</span>
+          <span class="ebadge hl s">Ferns (IFS)</span>
+          <span class="ebadge hl s">Blood vessels</span>
+          <span class="ebadge hl s">Golden ratio φ</span>
+          <span class="ebadge">Mountain profiles</span>
+          <span class="ebadge">Galaxy clusters</span>
+        </div>
+        <table class="ptbl">
+          <tr><th>Fractal</th><th>d_H</th><th>Formula</th></tr>
+          <tr><td>Koch curve</td><td>≈ 1.261</td><td>log4 / log3</td></tr>
+          <tr><td>Sierpiński △</td><td>≈ 1.585</td><td>log3 / log2</td></tr>
+          <tr><td>Golden ratio φ</td><td>1.618…</td><td>(1+√5)/2</td></tr>
+          <tr><td>Mandelbrot bdy</td><td>≈ 2.0</td><td>d_H = 2</td></tr>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /sg -->
+</div><!-- /theory -->
+</div><!-- /theory-tab -->
+
+<!-- ═══════════════ SIMULATOR ════════════════════════════════ -->
+<div id="sim-tab" class="tc">
+<div class="simwrap">
+
+  <!-- Canvas Area -->
+  <div class="canvas-area">
+    <div class="ctoolbar">
+      <button class="ttog on"  id="tog-orig"   onclick="tog('showOrig')">⬡ Original</button>
+      <button class="ttog on"  id="tog-trans"  onclick="tog('showTrans')">◈ Transformed</button>
+      <button class="ttog on"  id="tog-axis"   onclick="tog('showAxis')">✕ Sym.Axis</button>
+      <button class="ttog on"  id="tog-grid"   onclick="tog('showGrid')">⊞ Grid</button>
+      <button class="ttog on"  id="tog-labels" onclick="tog('showLabels')">🏷 Labels</button>
+      <button class="ttog"     id="tog-anim"   onclick="tog('smoothAnim')">▶ Smooth Anim</button>
+    </div>
+    <div class="canvaswrap">
+      <canvas id="mc" width="700" height="500"></canvas>
+    </div>
+    <div class="statusbar">
+      <div class="sind" id="sind"></div>
+      <div id="stxt">Select a symmetry type to begin exploring</div>
+      <div id="crdsp">hover over canvas</div>
+    </div>
+  </div>
+
+  <!-- Control Panel -->
+  <div class="cpanel">
+
+    <!-- Type & Shape -->
+    <div class="csec">
+      <div class="cstitle">Symmetry Operation</div>
+      <div class="crow">
+        <div class="clbl"><span>Type</span></div>
+        <select id="sel-sym" onchange="onSymChange()">
+          <option value="reflection">🪞 Reflection</option>
+          <option value="rotation">🔄 Rotation</option>
+          <option value="translation">➡️ Translation</option>
+          <option value="scaling">🔭 Scaling / Dilation</option>
+          <option value="inversion">⊕ Point Inversion</option>
+        </select>
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Shape</span></div>
+        <select id="sel-shape" onchange="onShapeChange()">
+          <optgroup label="Regular Polygons">
+            <option value="triangle">Equilateral Triangle</option>
+            <option value="square" selected>Square</option>
+            <option value="rectangle">Rectangle</option>
+            <option value="pentagon">Pentagon</option>
+            <option value="hexagon">Hexagon</option>
+          </optgroup>
+          <optgroup label="Special Shapes">
+            <option value="star5">5-Pointed Star</option>
+            <option value="star6">6-Pointed Star (Snowflake)</option>
+            <option value="cross">Cross / Plus</option>
+            <option value="arrow">Arrow</option>
+          </optgroup>
+          <optgroup label="Letter Tests">
+            <option value="letterA">Letter A</option>
+            <option value="letterB">Letter B</option>
+            <option value="letterH">Letter H</option>
+          </optgroup>
+          <optgroup label="Fractals &amp; Lattices">
+            <option value="kochSnowflake">Koch Snowflake</option>
+            <option value="sierpinski">Sierpiński Triangle</option>
+            <option value="latticeCell">Unit Cell (Lattice)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <!-- REFLECTION CONTROLS -->
+    <div class="csec dynctrl vis" id="ctrl-reflection">
+      <div class="cstitle">Reflection Controls</div>
+      <div class="crow">
+        <div class="clbl"><span>Mirror Axis</span></div>
+        <select id="sel-axis" onchange="onAxisChange()">
+          <option value="x">x-axis  (y = 0)</option>
+          <option value="y">y-axis  (x = 0)</option>
+          <option value="d1">Diagonal  (y = x)</option>
+          <option value="d2">Anti-diagonal  (y = −x)</option>
+          <option value="custom">Custom angle</option>
+        </select>
+      </div>
+      <div class="crow" id="customAngleRow" style="display:none">
+        <div class="clbl"><span>Axis angle θ</span><span class="cval" id="v-axang">0°</span></div>
+        <input type="range" id="sl-axang" min="0" max="180" value="0" oninput="onSl('axang')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Presets</span></div>
+        <div class="pbtns">
+          <button class="pbtn" onclick="preset('refl','C2v')">C₂ᵥ H₂O</button>
+          <button class="pbtn" onclick="preset('refl','C3v')">C₃ᵥ BF₃</button>
+          <button class="pbtn" onclick="preset('refl','D6h')">D₆ₕ Benzene</button>
+          <button class="pbtn" onclick="preset('refl','D6')">D₆ Snowflake</button>
+        </div>
+      </div>
+      <div class="infocard" id="refl-info">
+        <h4 id="refl-info-title">x-axis reflection</h4>
+        <p id="refl-info-eq">\((x,y)\to(x,-y)\)</p>
+      </div>
+    </div>
+
+    <!-- ROTATION CONTROLS -->
+    <div class="csec dynctrl" id="ctrl-rotation">
+      <div class="cstitle">Rotation Controls</div>
+      <div class="crow">
+        <div class="clbl"><span>Angle θ</span><span class="cval" id="v-ang">45°</span></div>
+        <input type="range" id="sl-ang" min="0" max="360" value="45" oninput="onSl('ang')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Symmetry order n</span><span class="cval" id="v-ord">4</span></div>
+        <input type="range" id="sl-ord" min="2" max="12" value="4" step="1" oninput="onSl('ord')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Rotation center</span></div>
+        <select id="sel-rctr" onchange="onCtrlChange()">
+          <option value="origin">Origin (0, 0)</option>
+          <option value="obj">Object centroid</option>
+          <option value="click">Click canvas to set</option>
+        </select>
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Presets</span></div>
+        <div class="pbtns">
+          <button class="pbtn" onclick="preset('rot','C4')">C₄ Square 90°</button>
+          <button class="pbtn" onclick="preset('rot','C6')">C₆ Hex 60°</button>
+          <button class="pbtn" onclick="preset('rot','C5')">C₅ Quasicrystal</button>
+          <button class="pbtn" onclick="preset('rot','C3')">C₃ Triangle</button>
+          <button class="pbtn" onclick="preset('rot','C2')">C₂ 180°</button>
+        </div>
+      </div>
+      <div class="infocard">
+        <h4>Group C<span id="inf-Cn">4</span></h4>
+        <p>Symmetry angle: <span id="inf-rang" style="font-family:monospace;color:var(--c1)">90°</span><br>
+           Status: <span id="inf-rchk">—</span></p>
+      </div>
+    </div>
+
+    <!-- TRANSLATION CONTROLS -->
+    <div class="csec dynctrl" id="ctrl-translation">
+      <div class="cstitle">Translation Controls</div>
+      <div class="crow">
+        <div class="clbl"><span>Shift dx</span><span class="cval" id="v-dx">80px</span></div>
+        <input type="range" id="sl-dx" min="-200" max="200" value="80" oninput="onSl('dx')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Shift dy</span><span class="cval" id="v-dy">0px</span></div>
+        <input type="range" id="sl-dy" min="-200" max="200" value="0" oninput="onSl('dy')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Crystal system</span></div>
+        <select id="sel-lat" onchange="onCtrlChange()">
+          <option value="cubic">Cubic — NaCl (γ=90°)</option>
+          <option value="hexagonal">Hexagonal — Graphene (γ=60°)</option>
+          <option value="rectangular">Rectangular (Orthorhombic)</option>
+          <option value="monoclinic">Monoclinic (Oblique)</option>
+          <option value="tetragonal">Tetragonal (a≠c)</option>
+          <option value="rhombohedral">Rhombohedral</option>
+          <option value="triclinic">Triclinic</option>
+        </select>
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Motion path</span></div>
+        <select id="sel-latpath" onchange="onCtrlChange()">
+          <option value="a1">Along a₁  →  (1 step)</option>
+          <option value="a2">Along a₂  ↑  (1 step)</option>
+          <option value="a1a2">Along a₁ then a₂  (L-path)</option>
+          <option value="zigzag">Zigzag  a₁→a₁+a₂→a₂→O  (loop)</option>
+        </select>
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Speed</span><span class="cval" id="v-latspd">1.0×</span></div>
+        <input type="range" id="sl-latspd" min="1" max="40" value="10" oninput="onSl('latspd')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Presets</span></div>
+        <div class="pbtns">
+          <button class="pbtn" onclick="preset('trans','NaCl')">NaCl Cubic</button>
+          <button class="pbtn" onclick="preset('trans','graphene')">Graphene Hex</button>
+          <button class="pbtn" onclick="preset('trans','HCP')">HCP γ=60°</button>
+          <button class="pbtn" onclick="preset('trans','BCC')">BCC γ=90°</button>
+        </div>
+      </div>
+      <div class="infocard">
+        <h4>Lattice vectors</h4>
+        <p id="inf-lat" style="font-family:monospace;font-size:.73rem">a₁ = (80, 0) · a₂ = (0, 80)</p>
+        <p id="inf-latpos" style="font-family:monospace;font-size:.71rem;color:var(--c3);margin-top:4px">T = (0, 0)</p>
+      </div>
+    </div>
+
+    <!-- SCALING CONTROLS -->
+    <div class="csec dynctrl" id="ctrl-scaling">
+      <div class="cstitle">Scaling Controls</div>
+      <div class="crow">
+        <div class="clbl"><span>Scale factor s</span><span class="cval" id="v-sc">0.50</span></div>
+        <input type="range" id="sl-sc" min="10" max="300" value="50" oninput="onSl('sc')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Iterations (fractals)</span><span class="cval" id="v-it">3</span></div>
+        <input type="range" id="sl-it" min="1" max="6" value="3" step="1" oninput="onSl('it')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Presets</span></div>
+        <div class="pbtns">
+          <button class="pbtn" onclick="preset('scale','koch')">Koch d≈1.261</button>
+          <button class="pbtn" onclick="preset('scale','sier')">Sierpiński d≈1.585</button>
+          <button class="pbtn" onclick="preset('scale','gold')">Golden φ≈1.618</button>
+          <button class="pbtn" onclick="preset('scale','inv')">Scale Invariant</button>
+        </div>
+      </div>
+      <div class="infocard">
+        <h4>Fractal dimension</h4>
+        <p id="inf-frac">\(d_H = \log N / \log(1/r)\)</p>
+      </div>
+    </div>
+
+    <!-- INVERSION CONTROLS -->
+    <div class="csec dynctrl" id="ctrl-inversion">
+      <div class="cstitle">Point Inversion Controls</div>
+      <div class="crow">
+        <div class="clbl"><span>Center cₓ</span><span class="cval" id="v-ix">0</span></div>
+        <input type="range" id="sl-ix" min="-200" max="200" value="0" oninput="onSl('ix')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Center c_y</span><span class="cval" id="v-iy">0</span></div>
+        <input type="range" id="sl-iy" min="-200" max="200" value="0" oninput="onSl('iy')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Presets</span></div>
+        <div class="pbtns">
+          <button class="pbtn" onclick="preset('inv','origin')">Origin (0,0)</button>
+          <button class="pbtn" onclick="preset('inv','centroid')">Object centroid</button>
+        </div>
+      </div>
+      <div class="infocard">
+        <h4>Inversion formula</h4>
+        <p>\((x,y)\to(2c_x-x,\;2c_y-y)\)</p>
+      </div>
+    </div>
+
+    <!-- Object size -->
+    <div class="csec">
+      <div class="cstitle">Object Size</div>
+      <div class="crow">
+        <div class="clbl"><span>Width / Radius</span><span class="cval" id="v-wd">70px</span></div>
+        <input type="range" id="sl-wd" min="20" max="150" value="70" oninput="onSl('wd')">
+      </div>
+      <div class="crow">
+        <div class="clbl"><span>Height (rect only)</span><span class="cval" id="v-ht">45px</span></div>
+        <input type="range" id="sl-ht" min="20" max="150" value="45" oninput="onSl('ht')">
+      </div>
+    </div>
+
+    <!-- Animation -->
+    <div class="csec">
+      <div class="cstitle">Animation &amp; Controls</div>
+      <button class="actbtn" id="animBtn" onclick="toggleAnim()">▶ Play Animation</button>
+      <button class="actbtn" style="margin-top:6px;background:rgba(110,79,252,.08);border-color:rgba(110,79,252,.3);color:var(--c2)" onclick="resetAll()">↺ Reset All</button>
+    </div>
+
+  </div><!-- /cpanel -->
+</div><!-- /simwrap -->
+</div><!-- /sim-tab -->
+
+<!-- ═══════════════ JAVASCRIPT ════════════════════════════════ -->
+<script>
+/* ──────────────────────────────────────────────────────────────
+   STATE
+────────────────────────────────────────────────────────────── */
+const S = {
+  symType:'reflection', shape:'square',
+  axis:'x', axAng:0,
+  rotAng:45, rotOrd:4, rotCtr:'origin', clickCtr:{x:0,y:0},
+  dx:80, dy:0, lattice:'cubic', latPath:'a1', latT:0,
+  scale:0.5, iter:3,
+  ix:0, iy:0,
+  showOrig:true, showTrans:true, showAxis:true,
+  showGrid:true, showLabels:true, smoothAnim:false,
+  wd:70, ht:45,
+  animating:false, animProg:1, animDir:1,
+  isSym:null,
+};
+
+/* ──────────────────────────────────────────────────────────────
+   CANVAS
+────────────────────────────────────────────────────────────── */
+const canvas = document.getElementById('mc');
+const ctx    = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const OX = W/2, OY = H/2;
+const GRID = 40;
+
+/* ──────────────────────────────────────────────────────────────
+   SHAPE BUILDERS
+────────────────────────────────────────────────────────────── */
+function poly(n, r) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    pts.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return pts;
+}
+function star(n, ro, ri) {
+  const pts = [];
+  for (let i = 0; i < 2 * n; i++) {
+    const a = (i * Math.PI / n) - Math.PI / 2;
+    const r = (i % 2 === 0) ? ro : ri;
+    pts.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return pts;
+}
+function getShape(name, w, h) {
+  w = w || 70; h = h || 45;
+  switch (name) {
+    case 'triangle':    return poly(3, w);
+    case 'square':      return [[-w,-w],[w,-w],[w,w],[-w,w]];
+    case 'rectangle':   return [[-w,-h],[w,-h],[w,h],[-w,h]];
+    case 'pentagon':    return poly(5, w);
+    case 'hexagon':     return poly(6, w);
+    case 'star5':       return star(5, w, w*0.42);
+    case 'star6':       return star(6, w, w*0.50);
+    case 'latticeCell': return [[-w,-w],[w,-w],[w,w],[-w,w]];
+    case 'cross': {
+      const t = w * 0.36;
+      return [[-t,-w],[t,-w],[t,-t],[w,-t],[w,t],[t,t],[t,w],[-t,w],[-t,t],[-w,t],[-w,-t],[-t,-t]];
+    }
+    case 'arrow':
+      return [[0,-w],[w*.58,-w*.32],[w*.25,-w*.32],[w*.25,w],[-w*.25,w],[-w*.25,-w*.32],[-w*.58,-w*.32]];
+    case 'letterA': {
+      const s = w/70;
+      return [[0,-70*s],[44*s,70*s],[28*s,70*s],[14*s,16*s],[-14*s,16*s],[-28*s,70*s],[-44*s,70*s]];
+    }
+    case 'letterB': {
+      const s = w/65;
+      return [[-32*s,-68*s],[-32*s,68*s],[14*s,68*s],[32*s,50*s],[32*s,16*s],
+              [8*s,2*s],[32*s,-14*s],[32*s,-50*s],[14*s,-68*s]];
+    }
+    case 'letterH': {
+      const s = w/65, t = 18*s;
+      return [[-35*s,-68*s],[-35*s+2*t,-68*s],[-35*s+2*t,-t],
+              [35*s-2*t,-t],[35*s-2*t,-68*s],[35*s,-68*s],
+              [35*s,68*s],[35*s-2*t,68*s],[35*s-2*t,t],
+              [-35*s+2*t,t],[-35*s+2*t,68*s],[-35*s,68*s]];
+    }
+    default: return [[-w,-w],[w,-w],[w,w],[-w,w]];
+  }
+}
+function centroid(pts) {
+  const n = pts.length;
+  return [pts.reduce((s,[x])=>s+x,0)/n, pts.reduce((s,[,y])=>s+y,0)/n];
+}
+
+/* ──────────────────────────────────────────────────────────────
+   TRANSFORMATIONS
+────────────────────────────────────────────────────────────── */
+function reflectPts(pts, axis, ang) {
+  return pts.map(([x, y]) => {
+    switch (axis) {
+      case 'x':  return [x, -y];
+      case 'y':  return [-x, y];
+      case 'd1': return [y, x];
+      case 'd2': return [-y, -x];
+      case 'custom': {
+        const a = ang * Math.PI / 180;
+        const c2 = Math.cos(2*a), s2 = Math.sin(2*a);
+        return [c2*x + s2*y, s2*x - c2*y];
+      }
+      default: return [x, -y];
+    }
+  });
+}
+function rotatePts(pts, deg, cx, cy) {
+  cx = cx||0; cy = cy||0;
+  const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return pts.map(([x, y]) => {
+    const dx = x - cx, dy = y - cy;
+    return [c*dx - s*dy + cx, s*dx + c*dy + cy];
+  });
+}
+function translatePts(pts, dx, dy) { return pts.map(([x,y]) => [x+dx, y+dy]); }
+function scalePts(pts, sc, cx, cy) {
+  cx = cx||0; cy = cy||0;
+  return pts.map(([x,y]) => [(x-cx)*sc+cx, (y-cy)*sc+cy]);
+}
+function invertPts(pts, cx, cy) {
+  cx = cx||0; cy = cy||0;
+  return pts.map(([x,y]) => [2*cx-x, 2*cy-y]);
+}
+function getRotCtr() {
+  if (S.rotCtr === 'origin') return {x:0, y:0};
+  if (S.rotCtr === 'click')  return S.clickCtr;
+  const pts = getShape(S.shape, S.wd, S.ht);
+  const [cx, cy] = centroid(pts);
+  return {x:cx, y:cy};
+}
+function getTransformed(base, t) {
+  t = (t === undefined) ? 1 : t;
+  const lerp = (a, b, frac) => a.map(([x,y],i) => [x+(b[i][0]-x)*frac, y+(b[i][1]-y)*frac]);
+  switch (S.symType) {
+    case 'reflection': {
+      const r = reflectPts(base, S.axis, S.axAng);
+      return (t === 1) ? r : lerp(base, r, t);
+    }
+    case 'rotation': {
+      const {x:cx, y:cy} = getRotCtr();
+      return rotatePts(base, S.rotAng * t, cx, cy);
+    }
+    case 'translation':
+      return translatePts(base, S.dx * t, S.dy * t);
+    case 'scaling':
+      return scalePts(base, 1 + (S.scale - 1) * t, 0, 0);
+    case 'inversion': {
+      const r = invertPts(base, S.ix, S.iy);
+      return (t === 1) ? r : lerp(base, r, t);
+    }
+  }
+  return base;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SYMMETRY CHECK
+────────────────────────────────────────────────────────────── */
+function shapesMatch(a, b, tol) {
+  tol = tol || 12;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    let found = false;
+    for (let j = 0; j < b.length; j++) {
+      const dx = a[i][0]-b[j][0], dy = a[i][1]-b[j][1];
+      if (dx*dx + dy*dy < tol*tol) { found=true; break; }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+function checkSym(orig, trans) {
+  if (!orig || !trans || orig.length !== trans.length) return null;
+  const [c1x,c1y] = centroid(orig);
+  const [c2x,c2y] = centroid(trans);
+  const n1 = orig.map( ([x,y]) => [x-c1x, y-c1y]);
+  const n2 = trans.map(([x,y]) => [x-c2x, y-c2y]);
+  return shapesMatch(n1, n2, 13);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   FRACTALS
+────────────────────────────────────────────────────────────── */
+function kochIter(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length-1; i++) {
+    const [x1,y1] = pts[i], [x2,y2] = pts[i+1];
+    const dx = (x2-x1)/3, dy = (y2-y1)/3;
+    const ax = x1+dx,   ay = y1+dy;
+    const bx = x1+2*dx, by = y1+2*dy;
+    const ex = ax + dx*Math.cos(-Math.PI/3) - dy*Math.sin(-Math.PI/3);
+    const ey = ay + dx*Math.sin(-Math.PI/3) + dy*Math.cos(-Math.PI/3);
+    out.push([x1,y1],[ax,ay],[ex,ey],[bx,by]);
+  }
+  out.push(pts[pts.length-1]);
+  return out;
+}
+function kochFlake(r, iter) {
+  let pts = [];
+  for (let i = 0; i < 3; i++) {
+    const a = -Math.PI/2 + i*2*Math.PI/3;
+    pts.push([r*Math.cos(a), r*Math.sin(a)]);
+  }
+  pts.push([...pts[0]]);
+  for (let i = 0; i < Math.min(iter, 5); i++) pts = kochIter(pts);
+  return pts;
+}
+function drawSierpinski(ctx, x1,y1, x2,y2, x3,y3, depth, col) {
+  if (depth === 0) {
+    ctx.beginPath();
+    ctx.moveTo(OX+x1, OY+y1); ctx.lineTo(OX+x2, OY+y2); ctx.lineTo(OX+x3, OY+y3);
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    return;
+  }
+  const mx12=(x1+x2)/2, my12=(y1+y2)/2;
+  const mx23=(x2+x3)/2, my23=(y2+y3)/2;
+  const mx13=(x1+x3)/2, my13=(y1+y3)/2;
+  drawSierpinski(ctx, x1,y1, mx12,my12, mx13,my13, depth-1, col);
+  drawSierpinski(ctx, mx12,my12, x2,y2, mx23,my23, depth-1, col);
+  drawSierpinski(ctx, mx13,my13, mx23,my23, x3,y3, depth-1, col);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   LATTICE
+────────────────────────────────────────────────────────────── */
+function latVecs(type, a) {
+  const b = a * 0.80;
+  switch (type) {
+    case 'cubic':        return [[a,0], [0,a]];
+    case 'hexagonal':    return [[a,0], [a*0.5, -a*Math.sqrt(3)/2]];
+    case 'rectangular':  return [[a,0], [0,b]];
+    case 'monoclinic':   return [[a,0], [b*0.55, b*0.83]];
+    case 'tetragonal':   return [[a,0], [0,a*1.55]];
+    case 'rhombohedral': return [[a*0.87,-a*0.5], [a*0.87,a*0.5]];
+    case 'triclinic':    return [[a,0], [b*0.40,b*0.92]];
+    default:             return [[a,0], [0,a]];
+  }
+}
+function drawLattice() {
+  const a = S.wd * 2.4;
+  const [v1, v2] = latVecs(S.lattice, a);
+  const cellShape = getShape(S.shape === 'latticeCell' ? 'square' : S.shape, S.wd*0.44, S.ht*0.44);
+  const pts = [];
+  for (let i = -5; i <= 5; i++) for (let j = -5; j <= 5; j++) {
+    const tx = i*v1[0]+j*v2[0], ty = i*v1[1]+j*v2[1];
+    if (Math.abs(tx)>W/2+90 || Math.abs(ty)>H/2+90) continue;
+    pts.push({tx, ty, isO: i===0&&j===0});
+  }
+  pts.sort((a,b)=>a.isO-b.isO);
+  pts.forEach(({tx,ty,isO}) => {
+    const shifted = cellShape.map(([x,y])=>[x+tx, y+ty]);
+    if (S.showOrig || isO) {
+      drawPolygon(shifted,
+        isO ? 'rgba(0,212,255,.14)' : 'rgba(0,212,255,.05)',
+        isO ? 'rgba(0,212,255,.9)'  : 'rgba(0,212,255,.22)',
+        1, isO ? 1.5 : 1);
+    }
+    ctx.fillStyle = isO ? 'rgba(0,212,255,.95)' : 'rgba(0,212,255,.40)';
+    ctx.beginPath(); ctx.arc(OX+tx, OY+ty, isO?5:2.5, 0, 2*Math.PI); ctx.fill();
+  });
+  // Lattice vectors
+  if (S.showAxis) {
+    ctx.save();
+    ctx.strokeStyle='rgba(240,184,0,.75)'; ctx.lineWidth=2; ctx.setLineDash([]);
+    drawArrow(ctx, OX, OY, OX+v1[0], OY+v1[1], 'rgba(240,184,0,.75)');
+    drawArrow(ctx, OX, OY, OX+v2[0], OY+v2[1], 'rgba(240,184,0,.75)');
+    if (S.showLabels) {
+      ctx.fillStyle='rgba(240,184,0,.9)'; ctx.font='bold 13px JetBrains Mono,monospace';
+      ctx.textAlign='left';
+      ctx.fillText('a₁', OX+v1[0]+8, OY+v1[1]-4);
+      ctx.fillText('a₂', OX+v2[0]+8, OY+v2[1]+14);
+    }
+    ctx.restore();
+  }
+  document.getElementById('inf-lat').textContent =
+    `a₁=(${Math.round(v1[0])},${Math.round(-v1[1])}) · a₂=(${Math.round(v2[0])},${Math.round(-v2[1])})`;
+  setStatus(true, 'Lattice has translational symmetry by definition — T = n₁a₁ + n₂a₂');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DRAWING HELPERS
+────────────────────────────────────────────────────────────── */
+function drawGrid() {
+  ctx.strokeStyle='rgba(20,30,62,.95)'; ctx.lineWidth=1;
+  for (let x = 0; x < W; x+=GRID) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y+=GRID) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+}
+function drawArrow(ctx, x1, y1, x2, y2, color) {
+  const angle = Math.atan2(y2-y1, x2-x1);
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.save(); ctx.translate(x2,y2); ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-9,-4); ctx.lineTo(-9,4); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawAxes() {
+  // axes lines
+  ctx.strokeStyle='rgba(0,212,255,.30)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(0,OY); ctx.lineTo(W,OY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(OX,0); ctx.lineTo(OX,H); ctx.stroke();
+  // arrowheads
+  ctx.fillStyle='rgba(0,212,255,.45)';
+  ctx.beginPath(); ctx.moveTo(W-4,OY); ctx.lineTo(W-13,OY-5); ctx.lineTo(W-13,OY+5); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(OX,4); ctx.lineTo(OX-5,13); ctx.lineTo(OX+5,13); ctx.fill();
+  // origin dot
+  ctx.fillStyle='rgba(0,212,255,.65)';
+  ctx.beginPath(); ctx.arc(OX,OY,3.5,0,2*Math.PI); ctx.fill();
+  if (!S.showLabels) return;
+  ctx.font = '10px JetBrains Mono,monospace';
+  ctx.fillStyle='rgba(0,212,255,.40)';
+  // x-axis tick labels
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for (let xi = -8; xi <= 8; xi++) {
+    if (xi===0) continue;
+    const cx = OX + xi*GRID;
+    if (cx<12||cx>W-12) continue;
+    ctx.fillText(xi, cx, OY+5);
+  }
+  // y-axis tick labels
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for (let yi = -6; yi <= 6; yi++) {
+    if (yi===0) continue;
+    const cy = OY + yi*GRID;
+    if (cy<12||cy>H-12) continue;
+    ctx.fillText(-yi, OX-5, cy);
+  }
+  // axis labels
+  ctx.fillStyle='rgba(0,212,255,.55)'; ctx.font='11px JetBrains Mono,monospace';
+  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText('x →', W-30, OY-13);
+  ctx.textAlign='center'; ctx.textBaseline='top';  ctx.fillText('↑ y', OX+16, 5);
+}
+function drawPolygon(pts, fill, stroke, alpha, lw) {
+  if (!pts || pts.length < 2) return;
+  alpha = (alpha===undefined)?1:alpha; lw = lw||1.5;
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.moveTo(OX+pts[0][0], OY+pts[0][1]);
+  for (let i=1; i<pts.length; i++) ctx.lineTo(OX+pts[i][0], OY+pts[i][1]);
+  ctx.closePath();
+  if (fill)   { ctx.fillStyle=fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.lineJoin='round'; ctx.stroke(); }
+  ctx.restore();
+}
+function drawVertexDots(pts, color) {
+  if (!S.showLabels || !pts || pts.length > 26) return;
+  ctx.fillStyle = color;
+  pts.forEach(([x,y]) => { ctx.beginPath(); ctx.arc(OX+x,OY+y,2.5,0,2*Math.PI); ctx.fill(); });
+}
+function drawCentroidLabel(pts, text, color) {
+  if (!S.showLabels || !pts) return;
+  const [cx, cy] = centroid(pts);
+  ctx.save();
+  ctx.fillStyle = color; ctx.font = 'bold 13px JetBrains Mono,monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, OX+cx, OY+cy);
+  ctx.restore();
+}
+function drawSymAxis() {
+  if (!S.showAxis) return;
+  ctx.save();
+  ctx.setLineDash([7,4]); ctx.lineWidth = 1.5;
+
+  if (S.symType === 'reflection') {
+    ctx.strokeStyle = 'rgba(240,184,0,.70)';
+    let x1, y1, x2, y2;
+    const L = 320;
+    const ax = S.axis, ang = S.axAng;
+    if      (ax==='x')  { x1=-L;y1=0;  x2=L;y2=0;  }
+    else if (ax==='y')  { x1=0; y1=-L; x2=0;y2=L;  }
+    else if (ax==='d1') { x1=-220;y1=-220;x2=220;y2=220; }
+    else if (ax==='d2') { x1=-220;y1=220; x2=220;y2=-220;}
+    else { const a=ang*Math.PI/180; x1=-L*Math.cos(a);y1=-L*Math.sin(a);x2=L*Math.cos(a);y2=L*Math.sin(a); }
+    ctx.beginPath(); ctx.moveTo(OX+x1,OY+y1); ctx.lineTo(OX+x2,OY+y2); ctx.stroke();
+    // label
+    if (S.showLabels) {
+      ctx.fillStyle='rgba(240,184,0,.80)'; ctx.font='10px JetBrains Mono,monospace';
+      ctx.textAlign='left'; ctx.setLineDash([]);
+      const labels = {x:'x-axis (y=0)',y:'y-axis (x=0)',d1:'y = x',d2:'y = −x',custom:ang+'°'};
+      ctx.fillText(labels[ax], OX+x2+6, OY+y2-6);
+    }
+  }
+  else if (S.symType === 'rotation') {
+    const {x:cx, y:cy} = getRotCtr();
+    ctx.setLineDash([]); ctx.strokeStyle='rgba(110,79,252,.55)';
+    // center marker
+    ctx.beginPath(); ctx.arc(OX+cx, OY+cy, 14, 0, 2*Math.PI); ctx.stroke();
+    ctx.fillStyle='rgba(110,79,252,.70)';
+    ctx.beginPath(); ctx.arc(OX+cx, OY+cy, 3.5, 0, 2*Math.PI); ctx.fill();
+    // angle arc
+    const displayAng = (S.animating && S.smoothAnim) ? S.animProg * S.rotAng : S.rotAng;
+    ctx.strokeStyle='rgba(110,79,252,.35)'; ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    ctx.arc(OX+cx, OY+cy, 55, -Math.PI/2, -Math.PI/2 + displayAng*Math.PI/180, false);
+    ctx.stroke();
+    if (S.showLabels) {
+      ctx.fillStyle='rgba(110,79,252,.85)'; ctx.font='10px JetBrains Mono,monospace';
+      ctx.textAlign='center'; ctx.setLineDash([]);
+      ctx.fillText(Math.round(displayAng)+'°', OX+cx+44, OY+cy-44);
+    }
+  }
+  else if (S.symType === 'inversion') {
+    const cx=S.ix, cy=S.iy;
+    ctx.setLineDash([]); ctx.strokeStyle='rgba(0,240,157,.55)';
+    ctx.beginPath(); ctx.arc(OX+cx, OY+cy, 17, 0, 2*Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(OX+cx-17,OY+cy); ctx.lineTo(OX+cx+17,OY+cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(OX+cx,OY+cy-17); ctx.lineTo(OX+cx,OY+cy+17); ctx.stroke();
+    if (S.showLabels) {
+      ctx.fillStyle='rgba(0,240,157,.80)'; ctx.font='10px JetBrains Mono,monospace';
+      ctx.textAlign='left';
+      ctx.fillText('('+Math.round(cx/GRID)+','+Math.round(-cy/GRID)+')', OX+cx+22, OY+cy-9);
+    }
+  }
+  else if (S.symType === 'translation') {
+    // drawn inside drawLattice
+  }
+  ctx.restore();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   STATUS BAR
+────────────────────────────────────────────────────────────── */
+function setStatus(isSym, msg) {
+  const ind = document.getElementById('sind');
+  const txt = document.getElementById('stxt');
+  if (isSym === true) {
+    ind.className='sind ok';
+    txt.innerHTML='<strong style="color:var(--c3)">✓ SYMMETRIC</strong> — '+msg;
+  } else if (isSym === false) {
+    ind.className='sind no';
+    txt.innerHTML='<strong style="color:var(--c5)">✗ NOT SYMMETRIC</strong> — '+msg;
+  } else {
+    ind.className='sind';
+    txt.innerHTML = msg;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   MAIN RENDER
+────────────────────────────────────────────────────────────── */
+function render() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#050812'; ctx.fillRect(0,0,W,H);
+  if (S.showGrid) drawGrid();
+  drawAxes();
+
+  /* ── TRANSLATION: draw tiling ── */
+  if (S.symType === 'translation') { drawLattice(); return; }
+
+  /* ── KOCH SNOWFLAKE ── */
+  if (S.shape === 'kochSnowflake') {
+    const r = Math.max(40, S.wd * 1.3);
+    const kpts = kochFlake(r, Math.min(S.iter, 5));
+    // base triangle guide
+    if (S.showOrig) {
+      const tri = poly(3, r);
+      drawPolygon(tri,'rgba(0,212,255,.06)','rgba(0,212,255,.30)',1,1);
+    }
+    ctx.save(); ctx.lineJoin='round';
+    ctx.fillStyle='rgba(0,240,157,.08)'; ctx.strokeStyle='rgba(0,240,157,.90)'; ctx.lineWidth=1.4;
+    ctx.beginPath();
+    kpts.forEach(([x,y],i)=>{ if(i===0) ctx.moveTo(OX+x,OY+y); else ctx.lineTo(OX+x,OY+y); });
+    ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+    document.getElementById('inf-frac').innerHTML = 'd<sub>H</sub> = log4/log3 ≈ 1.261 | iter='+Math.min(S.iter,5);
+    setStatus(true,'Koch snowflake — D₆ symmetry: 6-fold rotation + 6 reflection axes');
+    return;
+  }
+
+  /* ── SIERPINSKI ── */
+  if (S.shape === 'sierpinski') {
+    const r = Math.max(50, S.wd * 1.3);
+    const y1t = -r, y2t = r*0.5, x2t = r * Math.sin(2*Math.PI/3);
+    drawSierpinski(ctx, 0,y1t, x2t,y2t, -x2t,y2t, Math.min(S.iter,6), 'rgba(110,79,252,.72)');
+    // outline
+    ctx.save(); ctx.strokeStyle='rgba(110,79,252,.45)'; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(OX,OY+y1t); ctx.lineTo(OX+x2t,OY+y2t); ctx.lineTo(OX-x2t,OY+y2t); ctx.closePath(); ctx.stroke();
+    ctx.restore();
+    document.getElementById('inf-frac').innerHTML = 'd<sub>H</sub> = log3/log2 ≈ 1.585 | iter='+Math.min(S.iter,6);
+    setStatus(true,'Sierpiński triangle — C₃ᵥ symmetry: 3-fold rotation + 3 mirror planes');
+    return;
+  }
+
+  /* ── STANDARD POLYGON ── */
+  const base  = getShape(S.shape, S.wd, S.ht);
+  const t     = (S.smoothAnim && S.animating) ? S.animProg : 1;
+  const trans = getTransformed(base, t);
+  S.isSym = checkSym(base, trans);
+
+  /* Color scheme: green=symmetric, red=not, cyan/purple=neutral */
+  let origFill, origStroke, transFill, transStroke;
+  if (S.isSym === true) {
+    origFill='rgba(0,240,157,.10)'; origStroke='rgba(0,240,157,.90)';
+    transFill='rgba(0,240,157,.16)'; transStroke='rgba(0,240,157,.70)';
+  } else if (S.isSym === false) {
+    origFill='rgba(0,212,255,.10)'; origStroke='rgba(0,212,255,.90)';
+    transFill='rgba(255,68,112,.14)'; transStroke='rgba(255,68,112,.90)';
+  } else {
+    origFill='rgba(0,212,255,.10)'; origStroke='rgba(0,212,255,.90)';
+    transFill='rgba(110,79,252,.14)'; transStroke='rgba(110,79,252,.90)';
+  }
+
+  /* Draw symmetry axis first (behind shapes) */
+  drawSymAxis();
+
+  /* Inversion connecting lines */
+  if (S.symType === 'inversion' && S.showAxis && base && trans) {
+    ctx.save(); ctx.strokeStyle='rgba(0,240,157,.18)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+    base.forEach(([x,y],i) => {
+      if (trans[i]) {
+        ctx.beginPath(); ctx.moveTo(OX+x,OY+y); ctx.lineTo(OX+trans[i][0],OY+trans[i][1]); ctx.stroke();
+      }
+    });
+    ctx.restore();
+  }
+
+  /* Rotation: show all copies up to order n */
+  if (S.symType === 'rotation' && S.showAxis) {
+    const {x:cx, y:cy} = getRotCtr();
+    const symAng = 360 / S.rotOrd;
+    for (let k = 1; k < S.rotOrd; k++) {
+      const ghost = rotatePts(base, k * symAng, cx, cy);
+      drawPolygon(ghost,'rgba(110,79,252,.04)','rgba(110,79,252,.22)',1,1);
+    }
+  }
+
+  /* Original shape */
+  if (S.showOrig) {
+    drawPolygon(base, origFill, origStroke);
+    drawVertexDots(base, origStroke);
+    drawCentroidLabel(base, 'S', origStroke);
+  }
+
+  /* Transformed shape */
+  if (S.showTrans && trans) {
+    drawPolygon(trans, transFill, transStroke, 0.9);
+    drawVertexDots(trans, transStroke);
+    drawCentroidLabel(trans, "S'", transStroke);
+  }
+
+  /* Status messages */
+  const msgs = {
+    reflection: S.isSym
+      ? 'Shape maps to itself under this reflection — valid symmetry axis'
+      : 'Shape NOT preserved — try a different axis or a symmetric shape',
+    rotation: S.isSym
+      ? `Shape maps to itself at ${Math.round(S.rotAng)}° — valid C${S.rotOrd} rotation`
+      : `Shape NOT preserved — for C${S.rotOrd} symmetry try θ = ${Math.round(360/S.rotOrd)}°`,
+    scaling: S.isSym
+      ? 'Scale factor s≈1: shape is invariant (fractals are self-similar at all scales)'
+      : 'Scale s≠1: shape changes — set s=1 for invariance, or use Koch/Sierpiński',
+    inversion: S.isSym
+      ? 'Shape is centrosymmetric — maps to itself through this inversion center'
+      : 'Shape NOT centrosymmetric under this center — try origin or centroid',
+  };
+  setStatus(S.isSym, msgs[S.symType] || '');
+
+  /* Update rotation info card */
+  if (S.symType === 'rotation') {
+    document.getElementById('inf-Cn').textContent = S.rotOrd;
+    document.getElementById('inf-rang').textContent = Math.round(360/S.rotOrd)+'°';
+    document.getElementById('inf-rchk').innerHTML = S.isSym
+      ? '<span style="color:var(--c3)">✓ Symmetric</span>'
+      : '<span style="color:var(--c5)">✗ Not symmetric</span>';
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   ANIMATION
+────────────────────────────────────────────────────────────── */
+let animId = null;
+function toggleAnim() { S.animating ? stopAnim() : startAnim(); }
+function startAnim() {
+  S.animating = true; S.animProg = 0; S.animDir = 1;
+  const btn = document.getElementById('animBtn');
+  btn.textContent='⏹ Stop Animation'; btn.classList.add('stop');
+  (function loop() {
+    S.animProg += 0.013 * S.animDir;
+    if (S.animProg >= 1) { S.animProg=1; S.animDir=-1; }
+    if (S.animProg <= 0) { S.animProg=0; S.animDir=1; }
+    render();
+    if (S.animating) animId = requestAnimationFrame(loop);
+  })();
+}
+function stopAnim() {
+  S.animating=false; S.animProg=1;
+  if (animId) cancelAnimationFrame(animId);
+  const btn = document.getElementById('animBtn');
+  btn.textContent='▶ Play Animation'; btn.classList.remove('stop');
+  render();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   PRESETS
+────────────────────────────────────────────────────────────── */
+function preset(type, name) {
+  if (type==='refl') {
+    const m = {
+      C2v:['rectangle','y'], C3v:['triangle','y'],
+      D6h:['hexagon','d1'],   D6:['star6','x']
+    };
+    if (m[name]) {
+      S.shape=m[name][0]; S.axis=m[name][1];
+      document.getElementById('sel-shape').value=S.shape;
+      document.getElementById('sel-axis').value=S.axis;
+      document.getElementById('customAngleRow').style.display='none';
+    }
+    updateReflInfo(); render();
+  }
+  if (type==='rot') {
+    const m = {C4:['square',90,4],C6:['hexagon',60,6],C5:['pentagon',72,5],C3:['triangle',120,3],C2:['rectangle',180,2]};
+    if (m[name]) {
+      const [sh,ang,ord]=m[name];
+      S.shape=sh; S.rotAng=ang; S.rotOrd=ord;
+      document.getElementById('sel-shape').value=sh;
+      setSlider('ang',ang,'v-ang',v=>v+'°');
+      setSlider('ord',ord,'v-ord',v=>v);
+    }
+    render();
+  }
+  if (type==='trans') {
+    const m={NaCl:['cubic','square'],graphene:['hexagonal','hexagon'],HCP:['hexagonal','hexagon'],BCC:['cubic','square']};
+    if (m[name]) {
+      S.lattice=m[name][0]; S.shape=m[name][1];
+      document.getElementById('sel-lat').value=S.lattice;
+      document.getElementById('sel-shape').value=S.shape;
+    }
+    render();
+  }
+  if (type==='scale') {
+    if (name==='koch') { S.shape='kochSnowflake'; S.iter=4; document.getElementById('sel-shape').value='kochSnowflake'; setSlider('it',4,'v-it',v=>v); }
+    if (name==='sier') { S.shape='sierpinski';    S.iter=5; document.getElementById('sel-shape').value='sierpinski';    setSlider('it',5,'v-it',v=>v); }
+    if (name==='gold') { S.scale=1/1.618; setSlider('sc',Math.round(100/1.618),'v-sc',v=>(v/100).toFixed(2)); }
+    if (name==='inv')  { S.scale=1;       setSlider('sc',100,'v-sc',v=>(v/100).toFixed(2)); }
+    render();
+  }
+  if (type==='inv') {
+    if (name==='origin') {
+      S.ix=0; S.iy=0;
+      setSlider('ix',0,'v-ix',v=>v); setSlider('iy',0,'v-iy',v=>v);
+    }
+    if (name==='centroid') {
+      const [cx,cy]=centroid(getShape(S.shape,S.wd,S.ht));
+      S.ix=Math.round(cx); S.iy=Math.round(cy);
+      setSlider('ix',S.ix,'v-ix',v=>v); setSlider('iy',S.iy,'v-iy',v=>v);
+    }
+    render();
+  }
+}
+function setSlider(id, val, vidId, fmt) {
+  const el=document.getElementById('sl-'+id);
+  if(el){ el.value=val; }
+  const vel=document.getElementById(vidId);
+  if(vel){ vel.textContent=fmt(val); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SLIDER HANDLER
+────────────────────────────────────────────────────────────── */
+function onSl(id) {
+  const v = parseFloat(document.getElementById('sl-'+id).value);
+  const map = {
+    ang:  ()=>{ S.rotAng=v;  document.getElementById('v-ang').textContent=Math.round(v)+'°'; },
+    ord:  ()=>{ S.rotOrd=v;  document.getElementById('v-ord').textContent=Math.round(v); },
+    dx:   ()=>{ S.dx=v;      document.getElementById('v-dx').textContent=Math.round(v)+'px'; },
+    dy:   ()=>{ S.dy=v;      document.getElementById('v-dy').textContent=Math.round(v)+'px'; },
+    sc:   ()=>{ S.scale=v/100; document.getElementById('v-sc').textContent=(v/100).toFixed(2); },
+    it:   ()=>{ S.iter=v;    document.getElementById('v-it').textContent=Math.round(v); },
+    ix:   ()=>{ S.ix=v;      document.getElementById('v-ix').textContent=Math.round(v); },
+    iy:   ()=>{ S.iy=v;      document.getElementById('v-iy').textContent=Math.round(v); },
+    wd:   ()=>{ S.wd=v;      document.getElementById('v-wd').textContent=Math.round(v)+'px'; },
+    ht:   ()=>{ S.ht=v;      document.getElementById('v-ht').textContent=Math.round(v)+'px'; },
+    axang:()=>{ S.axAng=v;   document.getElementById('v-axang').textContent=Math.round(v)+'°'; updateReflInfo(); },
+  };
+  if (map[id]) map[id]();
+  if (!S.animating) render();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DROPDOWN HANDLERS
+────────────────────────────────────────────────────────────── */
+function onSymChange() {
+  S.symType = document.getElementById('sel-sym').value;
+  stopAnim();
+  // show correct control section
+  document.querySelectorAll('.dynctrl').forEach(el=>el.classList.remove('vis'));
+  const el = document.getElementById('ctrl-'+S.symType);
+  if (el) el.classList.add('vis');
+  render();
+}
+function onShapeChange() {
+  S.shape = document.getElementById('sel-shape').value; render();
+}
+function onAxisChange() {
+  S.axis = document.getElementById('sel-axis').value;
+  document.getElementById('customAngleRow').style.display = (S.axis==='custom')?'flex':'none';
+  updateReflInfo(); render();
+}
+function onCtrlChange() {
+  S.lattice  = document.getElementById('sel-lat')?.value  || S.lattice;
+  S.rotCtr   = document.getElementById('sel-rctr')?.value || S.rotCtr;
+  render();
+}
+function updateReflInfo() {
+  const labels = {
+    x:     ['x-axis reflection',          '\\((x,y)\\to(x,-y)\\)'],
+    y:     ['y-axis reflection',           '\\((x,y)\\to(-x,y)\\)'],
+    d1:    ['Diagonal reflection (y=x)',   '\\((x,y)\\to(y,x)\\)'],
+    d2:    ['Anti-diagonal (y=−x)',        '\\((x,y)\\to(-y,-x)\\)'],
+    custom:['Custom angle '+S.axAng+'°',   '\\(M_\\theta\\mathbf{v}\\)'],
+  };
+  const [t,e] = labels[S.axis]||labels.x;
+  document.getElementById('refl-info-title').textContent = t;
+  document.getElementById('refl-info-eq').textContent = e;
+  if (window.MathJax) MathJax.typesetPromise([document.getElementById('refl-info')]).catch(()=>{});
+}
+
+/* ──────────────────────────────────────────────────────────────
+   TOGGLE BUTTONS
+────────────────────────────────────────────────────────────── */
+function tog(key) {
+  S[key] = !S[key];
+  const togMap = {
+    showOrig:'tog-orig', showTrans:'tog-trans', showAxis:'tog-axis',
+    showGrid:'tog-grid', showLabels:'tog-labels', smoothAnim:'tog-anim',
+  };
+  const btn = document.getElementById(togMap[key]);
+  if (btn) btn.classList.toggle('on', S[key]);
+  render();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   RESET
+────────────────────────────────────────────────────────────── */
+function resetAll() {
+  stopAnim();
+  S.symType='reflection'; S.shape='square';
+  S.axis='x'; S.axAng=0;
+  S.rotAng=45; S.rotOrd=4; S.rotCtr='origin'; S.clickCtr={x:0,y:0};
+  S.dx=80; S.dy=0; S.lattice='cubic';
+  S.scale=0.5; S.iter=3;
+  S.ix=0; S.iy=0;
+  S.showOrig=true; S.showTrans=true; S.showAxis=true;
+  S.showGrid=true; S.showLabels=true; S.smoothAnim=false;
+  S.wd=70; S.ht=45;
+  // reset UI
+  document.getElementById('sel-sym').value='reflection';
+  document.getElementById('sel-shape').value='square';
+  document.getElementById('sel-axis').value='x';
+  document.getElementById('sel-lat').value='cubic';
+  document.getElementById('sel-rctr').value='origin';
+  document.getElementById('customAngleRow').style.display='none';
+  const sliders = {ang:45,ord:4,dx:80,dy:0,sc:50,it:3,ix:0,iy:0,wd:70,ht:45,axang:0};
+  Object.entries(sliders).forEach(([id,val])=>{ const el=document.getElementById('sl-'+id); if(el) el.value=val; });
+  document.getElementById('v-ang').textContent='45°'; document.getElementById('v-ord').textContent='4';
+  document.getElementById('v-dx').textContent='80px'; document.getElementById('v-dy').textContent='0px';
+  document.getElementById('v-sc').textContent='0.50'; document.getElementById('v-it').textContent='3';
+  document.getElementById('v-ix').textContent='0';    document.getElementById('v-iy').textContent='0';
+  document.getElementById('v-wd').textContent='70px'; document.getElementById('v-ht').textContent='45px';
+  document.getElementById('v-axang').textContent='0°';
+  ['tog-orig','tog-trans','tog-axis','tog-grid','tog-labels'].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.classList.add('on');
+  });
+  document.getElementById('tog-anim')?.classList.remove('on');
+  document.querySelectorAll('.dynctrl').forEach(el=>el.classList.remove('vis'));
+  document.getElementById('ctrl-reflection').classList.add('vis');
+  onSymChange();
+}
+
+/* ──────────────────────────────────────────────────────────────
+   CANVAS MOUSE
+────────────────────────────────────────────────────────────── */
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width  / rect.width;
+  const sy = canvas.height / rect.height;
+  const mx = (e.clientX - rect.left) * sx;
+  const my = (e.clientY - rect.top)  * sy;
+  const gx = ((mx - OX) / GRID).toFixed(2);
+  const gy = (-(my - OY) / GRID).toFixed(2);
+  document.getElementById('crdsp').textContent = `x: ${gx}  y: ${gy}`;
+});
+canvas.addEventListener('click', e => {
+  if (S.rotCtr !== 'click') return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width  / rect.width;
+  const sy = canvas.height / rect.height;
+  S.clickCtr.x = (e.clientX - rect.left) * sx - OX;
+  S.clickCtr.y = (e.clientY - rect.top)  * sy - OY;
+  render();
+});
+
+/* ──────────────────────────────────────────────────────────────
+   TAB SWITCH
+────────────────────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tc').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(el=>el.classList.remove('active'));
+  document.getElementById(name+'-tab').classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='sim') render();
+  if (name==='theory' && window.MathJax) {
+    MathJax.typesetPromise().catch(()=>{});
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  onSymChange();
+  render();
+  // MathJax on theory tab
+  if (window.MathJax) {
+    MathJax.startup.promise.then(()=>{ MathJax.typesetPromise(); }).catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>

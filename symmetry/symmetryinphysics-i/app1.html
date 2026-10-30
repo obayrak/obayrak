@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Symmetry in Physics — Interactive Simulation</title>
+<script>
+MathJax = {
+  tex: { inlineMath:[['$','$']], displayMath:[['$$','$$']] },
+  options:{ skipHtmlTags:['script','noscript','style','textarea'] }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#030a14;--bg2:#07111f;--bg3:#0c1a2e;
+  --blue:#0af;--gold:#f5c518;--violet:#b06fff;
+  --green:#00ffb0;--red:#ff4f6e;--orange:#ff8c42;
+  --text:#dde5f5;--muted:#6a82a8;
+  --border:rgba(0,170,255,0.14);--r:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Crimson Pro',Georgia,serif;font-size:18px;line-height:1.8;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,170,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,170,255,.022) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(3,10,20,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);height:52px;padding:0 1.5rem;display:flex;align-items:center;gap:0;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+.nav-logo{font-family:'Orbitron',monospace;font-size:.68rem;font-weight:800;color:var(--blue);letter-spacing:.18em;white-space:nowrap;margin-right:2rem;text-shadow:0 0 16px rgba(0,170,255,.5)}
+nav a{color:var(--muted);text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;padding:0 .85rem;height:52px;display:flex;align-items:center;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+nav a:hover{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* HERO */
+.hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:8rem 2rem 4rem}
+#hero-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero-inner{position:relative;z-index:1;max-width:800px}
+.hero-tag{font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.3em;color:var(--blue);text-transform:uppercase;margin-bottom:1.5rem;opacity:.85}
+.hero h1{font-family:'Orbitron',monospace;font-size:clamp(2.2rem,8vw,5.5rem);font-weight:800;line-height:1.05;background:linear-gradient(135deg,#fff 0%,var(--blue) 45%,var(--violet) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:1.5rem;letter-spacing:-.03em}
+.hero-sub{font-size:1.25rem;font-style:italic;color:var(--muted);max-width:580px;margin:0 auto 2.5rem}
+.hero-eq{display:inline-block;background:rgba(0,170,255,.07);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.8rem;margin-bottom:2.5rem;font-size:.95rem}
+.scroll-hint{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.2em;color:var(--muted);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* SECTIONS */
+.wrap{max-width:1060px;margin:0 auto;padding:5.5rem 2rem;position:relative;z-index:1}
+.wrap.tight{padding-top:3rem;padding-bottom:3rem}
+.sec-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.3em;color:var(--gold);text-transform:uppercase;margin-bottom:.7rem}
+h2{font-family:'Orbitron',monospace;font-size:clamp(1.3rem,4vw,2rem);font-weight:600;color:#fff;margin-bottom:1.5rem;letter-spacing:-.02em}
+h3{font-family:'Orbitron',monospace;font-size:.95rem;font-weight:600;color:var(--blue);margin:2rem 0 .75rem;letter-spacing:.04em}
+h4{font-family:'Orbitron',monospace;font-size:.82rem;font-weight:600;color:var(--violet);margin:1.5rem 0 .5rem;letter-spacing:.03em}
+p{margin-bottom:1rem}
+.lead{font-size:1.15rem;font-style:italic;color:#a8c0dc}
+strong{color:#fff;font-weight:600}
+
+/* EQ BOX */
+.eq{background:rgba(0,170,255,.05);border-left:3px solid var(--blue);border-radius:0 var(--r) var(--r) 0;padding:.9rem 1.4rem;margin:1.4rem 0;overflow-x:auto;font-size:.95rem}
+.eq-gold{border-left-color:var(--gold);background:rgba(245,197,24,.04)}
+.eq-violet{border-left-color:var(--violet);background:rgba(176,111,255,.04)}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.6rem;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--violet),transparent)}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin:1.8rem 0}
+@media(max-width:660px){.card-grid{grid-template-columns:1fr}}
+
+/* SYM CARDS */
+.sym-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;margin:2rem 0}
+@media(max-width:660px){.sym-grid{grid-template-columns:1fr}}
+@media(min-width:661px) and (max-width:880px){.sym-grid{grid-template-columns:1fr 1fr}}
+.scard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem;transition:all .25s}
+.scard:hover{border-color:rgba(0,170,255,.4);transform:translateY(-3px);box-shadow:0 6px 24px rgba(0,170,255,.1)}
+.scard-icon{font-size:1.6rem;margin-bottom:.55rem;display:block}
+.scard h4{font-family:'Orbitron',monospace;font-size:.74rem;font-weight:600;color:var(--blue);margin-bottom:.4rem;letter-spacing:.04em}
+.scard p{font-size:.9rem;color:var(--muted);line-height:1.5;margin:0}
+.scard .law{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--gold);margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(245,197,24,.2)}
+
+/* SIMULATION WRAPPER */
+.sim{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin:2.5rem 0;overflow:hidden}
+.sim-bar{background:var(--bg3);border-bottom:1px solid var(--border);padding:.65rem 1.2rem;display:flex;align-items:center;gap:.45rem}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dr{background:#ff4f6e}.dy{background:#f5c518}.dg{background:#00ffb0}
+.sim-title{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--muted);margin-left:.5rem}
+.sim-body{display:grid;grid-template-columns:1fr 250px}
+@media(max-width:660px){.sim-body{grid-template-columns:1fr}}
+canvas.sc{display:block;width:100%;height:310px;background:#020b14}
+canvas.sc-sm{height:160px}
+.sim-ctrl{background:var(--bg3);border-left:1px solid var(--border);padding:1.2rem;display:flex;flex-direction:column;gap:.9rem;min-width:0}
+@media(max-width:660px){.sim-ctrl{border-left:none;border-top:1px solid var(--border)}}
+
+/* CONTROLS */
+.cg label{display:block;font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem}
+.cg input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:rgba(0,170,255,.18);border-radius:2px;outline:none;cursor:pointer}
+.cg input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 0 8px rgba(0,170,255,.6)}
+.cg .val{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--blue);margin-top:.2rem}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.08em;padding:.4rem .85rem;border-radius:4px;border:1px solid;cursor:pointer;transition:all .18s;background:transparent;text-transform:uppercase}
+.bb{color:var(--blue);border-color:var(--blue)}.bb:hover{background:rgba(0,170,255,.12)}
+.bg-btn{color:var(--gold);border-color:var(--gold)}.bg-btn:hover{background:rgba(245,197,24,.1)}
+.bgg{color:var(--green);border-color:var(--green)}.bgg:hover{background:rgba(0,255,176,.08)}
+.br{color:var(--red);border-color:var(--red)}.br:hover{background:rgba(255,79,110,.1)}
+.bv{color:var(--violet);border-color:var(--violet)}.bv:hover{background:rgba(176,111,255,.1)}
+.bo{color:var(--orange);border-color:var(--orange)}.bo:hover{background:rgba(255,140,66,.1)}
+.btn-row{display:flex;flex-wrap:wrap;gap:.35rem}
+.readout{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--green);background:rgba(0,255,176,.05);border:1px solid rgba(0,255,176,.15);border-radius:4px;padding:.6rem;line-height:1.9}
+.readout-r{color:var(--red);background:rgba(255,79,110,.05);border-color:rgba(255,79,110,.15)}
+.pill{display:inline-flex;align-items:center;gap:.3rem;font-family:'JetBrains Mono',monospace;font-size:.6rem;padding:.22rem .65rem;border-radius:20px;border:1px solid}
+.pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;animation:blink 1.4s infinite}
+.pill-g{color:var(--green);border-color:rgba(0,255,176,.3);background:rgba(0,255,176,.07)}
+.pill-r{color:var(--red);border-color:rgba(255,79,110,.3);background:rgba(255,79,110,.07)}
+
+/* NOETHER FLOW */
+.n-flow{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:1.4rem 0}
+.nbox{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.55rem 1rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;text-align:center;white-space:nowrap}
+.nbox.s{border-color:rgba(0,170,255,.4);color:var(--blue)}
+.nbox.c{border-color:rgba(245,197,24,.4);color:var(--gold)}
+.n-arr{color:var(--muted);font-size:1.3rem}
+
+/* CPT TABLE */
+table.cpt{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:.7rem;margin-top:.8rem}
+.cpt th{background:var(--bg3);color:var(--blue);padding:.5rem .9rem;text-align:left;border-bottom:1px solid var(--border)}
+.cpt td{padding:.4rem .9rem;border-bottom:1px solid rgba(255,255,255,.04)}
+.cpt tr:hover td{background:rgba(0,170,255,.03)}
+.yes{color:var(--green)}.no{color:var(--red)}.unk{color:var(--gold)}
+
+/* DIVIDER */
+.div-line{height:1px;max-width:450px;margin:4rem auto;background:linear-gradient(90deg,transparent,var(--border),transparent)}
+
+/* SCROLL */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:rgba(0,170,255,.3);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- NAVIGATION -->
+<nav>
+  <span class="nav-logo">⬡ SYMMETRY · PHYSICS</span>
+</nav>
+
+<!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
+<section class="hero" id="top">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-inner">
+    <p class="hero-tag">Interactive Physics Simulation</p>
+    <h1>SYMMETRY<br>IN PHYSICS</h1>
+    <p class="hero-sub">When the laws of nature remain unchanged under a transformation, something profound must be conserved</p>
+    <div class="hero-eq">$$\frac{d}{dt}\!\left(\frac{\partial\mathcal{L}}{\partial\dot{q}}\right) - \frac{\partial\mathcal{L}}{\partial q} = 0 \quad\Longrightarrow\quad Q = \text{const}$$</div>
+    <p class="scroll-hint">▼ &nbsp; SCROLL TO EXPLORE &nbsp; ▼</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ CONCEPT ═══════════════════════════ -->
+<div class="wrap" id="concept">
+  <p class="sec-tag">01 — Introduction</p>
+  <h2>What is Symmetry in Physics?</h2>
+  <p class="lead">A symmetry is a transformation that leaves the <em>laws of physics</em> unchanged.</p>
+  <p>In everyday language, symmetry suggests balance and beauty. In physics it has a precise, operational meaning: a <strong>symmetry</strong> is a transformation applied to a physical system such that the system's equations of motion, its predictions, and all observable outcomes remain completely identical after the transformation is applied.</p>
+  <p>This idea—deceptively simple—is one of the most powerful organizing principles in all of science. Emmy Noether proved in 1915 that every <em>continuous</em> symmetry of the laws of physics corresponds exactly to a conserved quantity, a number that never changes with time.</p>
+
+  <div class="eq-gold">
+    <strong>The Core Idea:</strong><br>
+    $$\text{Symmetry of }\mathcal{L}\;\xrightarrow{\;\text{Noether's Theorem}\;}\;\text{Conservation Law}$$
+    If the action $S = \int \mathcal{L}\,dt$ is invariant under a continuous transformation, there exists a corresponding conserved charge $Q$ with $\dot{Q}=0$.
+  </div>
+
+  <p>The symmetries of the Standard Model predict conservation of energy, momentum, angular momentum, electric charge, baryon number, and lepton number. Understanding symmetry means understanding the deep structure of physical reality itself.</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>Symmetry as Invariance</h3>
+      <p>We say system $S$ has symmetry $T$ if applying $T$ gives $T(S) \equiv S$ in the sense that every measurable quantity is unchanged. Mathematically, symmetry transformations form a <strong>group</strong> $G$ under composition.</p>
+      <div class="eq">$g_1, g_2 \in G \Rightarrow g_1 \circ g_2 \in G$, &nbsp; identity $e \in G$, &nbsp; $\exists\,g^{-1} \in G$</div>
+    </div>
+    <div class="card">
+      <h3>Continuous vs Discrete</h3>
+      <p><strong>Continuous symmetries</strong> (parameterized by a real number, like rotation angle) generate conservation laws via Noether's theorem. <strong>Discrete symmetries</strong> (like reflection) do not generate conserved quantities directly, but are still fundamental constraints.</p>
+      <div class="eq">Continuous: SO(3), U(1), SU(2), SU(3)...<br>Discrete: $\mathbb{Z}_2$ (parity), $\mathcal{T}$ (time reversal)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ GEO VS PHYS ═══════════════════════════ -->
+<div class="div-line"></div>
+<div class="wrap" id="geomphys">
+  <p class="sec-tag">02 — Distinction</p>
+  <h2>Geometric vs. Physical Symmetry</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>🔷 Geometric Symmetry</h3>
+      <p>A shape or object appears identical after a geometric transformation. This is the classical mathematical notion from Euclidean geometry and group theory.</p>
+      <p><strong>Example:</strong> A regular hexagon looks identical after a 60° rotation about its center. A circle is symmetric under any rotation.</p>
+      <div class="eq">Symmetry groups: $D_6$, $C_{4v}$, $\text{SO}(2)$...<br>The <em>object</em> is unchanged.</div>
+    </div>
+    <div class="card">
+      <h3>⚛️ Physical Symmetry</h3>
+      <p>The <em>laws of physics themselves</em> are unchanged under a transformation, even when the system appears different. This is far more profound.</p>
+      <p><strong>Example:</strong> Moving a physics experiment from Paris to Tokyo changes its position, but Newton's laws are identical at both locations.</p>
+      <div class="eq">$\mathcal{L}(\mathbf{r}+\mathbf{a},\dot{\mathbf{r}}) = \mathcal{L}(\mathbf{r},\dot{\mathbf{r}})$<br>The <em>Lagrangian</em> is unchanged.</div>
+    </div>
+  </div>
+
+  <p>Physical symmetries operate on the <strong>action functional</strong> $S[\mathbf{q}(t)] = \int_{t_1}^{t_2}\mathcal{L}(\mathbf{q},\dot{\mathbf{q}},t)\,dt$. When $S$ is invariant under a continuous group of transformations, Noether's theorem guarantees a conservation law. This is why physical symmetry is the deeper, more fundamental notion: it dictates the very structure of what quantities nature preserves.</p>
+</div>
+
+<!-- ═══════════════════════════ CLASSIFICATION ═══════════════════════════ -->
+<div class="div-line"></div>
+<div class="wrap" id="classification">
+  <p class="sec-tag">03 — Classification</p>
+  <h2>Six Fundamental Symmetries</h2>
+  <p class="lead">The universe is structured around these six symmetry principles</p>
+
+  <div class="sym-grid">
+    <div class="scard">
+      <span class="scard-icon">⟷</span>
+      <h4>Translational Symmetry</h4>
+      <p>Physics is the same at every point in space. Shifting a system by any vector $\mathbf{a}$ doesn't change the laws.</p>
+      <div class="law">→ Conservation of Momentum</div>
+    </div>
+    <div class="scard">
+      <span class="scard-icon">↻</span>
+      <h4>Rotational Symmetry</h4>
+      <p>Physics is the same in every direction. Rotating a system by any angle about any axis doesn't change the laws.</p>
+      <div class="law">→ Conservation of Angular Momentum</div>
+    </div>
+    <div class="scard">
+      <span class="scard-icon">⏱</span>
+      <h4>Time Symmetry</h4>
+      <p>Physics is the same at every moment in time. Shifting the experiment to a different epoch leaves the laws unchanged.</p>
+      <div class="law">→ Conservation of Energy</div>
+    </div>
+    <div class="scard">
+      <span class="scard-icon">🪞</span>
+      <h4>Parity (Reflection)</h4>
+      <p>Mirror image of a physical process is also a valid physical process. $(x,y,z)\to(-x,-y,-z)$. Discrete symmetry, violated by weak force.</p>
+      <div class="law">Discrete — no Noether charge</div>
+    </div>
+    <div class="scard">
+      <span class="scard-icon">🌀</span>
+      <h4>Gauge Symmetry</h4>
+      <p>Global and local phase redefinition of quantum fields leaves all observables unchanged. Source of all fundamental forces.</p>
+      <div class="law">→ Conservation of Charge (U(1))</div>
+    </div>
+    <div class="scard">
+      <span class="scard-icon">⚡</span>
+      <h4>CPT Symmetry</h4>
+      <p>Combined charge conjugation $C$, parity $P$, and time reversal $T$. Believed to be an exact symmetry of all Lorentz-invariant local quantum field theories.</p>
+      <div class="law">Fundamental theorem (exact)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TRANSLATIONAL ═══════════════════════════ -->
+<div class="div-line"></div>
+<div class="wrap" id="translation">
+  <p class="sec-tag">04a — Translational Symmetry</p>
+  <h2>Translational Symmetry</h2>
+  <p class="lead">The laws of physics are the same at every point in space.</p>
+  <p>If we take a physical system and move it bodily from one location to another — translating every particle by the same vector $\mathbf{a}$ — the dynamics are completely unchanged. The forces between particles depend only on their <em>relative</em> positions $\mathbf{r}_i - \mathbf{r}_j$, not on their absolute positions.</p>
+
+  <div class="eq">
+    $$\text{Translation: }\quad \mathbf{r}_i \;\mapsto\; \mathbf{r}_i + \mathbf{a}$$
+    $$V(\mathbf{r}_1,\ldots,\mathbf{r}_N) = V(\mathbf{r}_1+\mathbf{a},\ldots,\mathbf{r}_N+\mathbf{a})$$
+    $$\Rightarrow\quad \sum_i \mathbf{F}_i = \frac{d}{dt}\sum_i m_i\dot{\mathbf{r}}_i = \frac{d\mathbf{P}}{dt} = 0$$
+  </div>
+
+  <p>Because the Lagrangian is independent of the center-of-mass coordinate, the total momentum $\mathbf{P} = \sum_i m_i \dot{\mathbf{r}}_i$ is conserved. This is Newton's first law elevated to a fundamental principle.</p>
+
+  <!-- SIM -->
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Translational Symmetry — Spring-Connected Particles</span></div>
+    <div class="sim-body">
+      <canvas id="c-trans" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Translate X</label>
+          <input type="range" id="trans-x" min="-150" max="150" value="0" step="1" oninput="updateTrans()">
+          <div class="val" id="tx-val">0 m</div>
+        </div>
+        <div class="cg">
+          <label>Translate Y</label>
+          <input type="range" id="trans-y" min="-80" max="80" value="0" step="1" oninput="updateTrans()">
+          <div class="val" id="ty-val">0 m</div>
+        </div>
+        <div class="cg">
+          <label>Spring Constant k</label>
+          <input type="range" id="trans-k" min="0.5" max="5" value="2" step="0.1" oninput="updateTrans()">
+          <div class="val" id="tk-val">k = 2.0</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bb" onclick="resetTrans()">Reset</button>
+          <button class="btn bg-btn" id="trans-anim-btn" onclick="toggleTransAnim()">Animate</button>
+        </div>
+        <div class="readout" id="trans-readout">
+          F₁₂ = — N<br>
+          F₁₃ = — N<br>
+          U_total = — J<br>
+          P_total = 0 (conserved)
+        </div>
+        <span class="pill pill-g">Momentum Conserved</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ ROTATIONAL ═══════════════════════════ -->
+<div class="wrap tight" id="rotation">
+  <p class="sec-tag">04b — Rotational Symmetry</p>
+  <h2>Rotational Symmetry</h2>
+  <p class="lead">The laws of physics are the same in every direction in space.</p>
+  <p>Rotating the entire universe — or equivalently, rotating our measuring apparatus — leaves all physical predictions unchanged. Central force laws like gravity and electrostatics depend only on $|\mathbf{r}|$, making them spherically symmetric. Rotating a planetary orbit by any angle gives an equally valid orbit.</p>
+
+  <div class="eq">
+    $$V(\mathbf{r}) = V(|\mathbf{r}|) \quad\Rightarrow\quad \frac{\partial \mathcal{L}}{\partial \theta} = 0$$
+    $$\Rightarrow\quad L = m r^2 \dot{\theta} = \text{const} \qquad\text{(angular momentum conserved)}$$
+  </div>
+
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Rotational Symmetry — Kepler Orbit</span></div>
+    <div class="sim-body">
+      <canvas id="c-rot" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Frame Rotation θ</label>
+          <input type="range" id="rot-angle" min="0" max="360" value="0" step="1" oninput="updateRot()">
+          <div class="val" id="rot-angle-val">θ = 0°</div>
+        </div>
+        <div class="cg">
+          <label>Eccentricity e</label>
+          <input type="range" id="rot-ecc" min="0" max="0.85" value="0.5" step="0.01" oninput="restartRot()">
+          <div class="val" id="rot-ecc-val">e = 0.50</div>
+        </div>
+        <div class="cg">
+          <label>Orbit Speed</label>
+          <input type="range" id="rot-speed" min="0.2" max="3" value="1" step="0.1" oninput="updateRotSpeed()">
+          <div class="val" id="rot-speed-val">1.0×</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bb" onclick="presetCircle()">Circular</button>
+          <button class="btn bg-btn" onclick="presetEllipse()">Elliptical</button>
+          <button class="btn bv" onclick="presetComet()">Comet</button>
+        </div>
+        <div class="readout" id="rot-readout">
+          L = — kg·m²/s<br>
+          r = — AU<br>
+          v = — AU/yr<br>
+          T = — yr
+        </div>
+        <span class="pill pill-g">Angular Momentum Conserved</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ TIME SYMMETRY ═══════════════════════════ -->
+<div class="wrap tight" id="time">
+  <p class="sec-tag">04c — Time Symmetry</p>
+  <h2>Time Symmetry (Time-Translation Invariance)</h2>
+  <p class="lead">The laws of physics are the same at every moment in time.</p>
+  <p>If an experiment yields a particular result today, the same experiment performed tomorrow (or a billion years from now) yields the same result. Mathematically, the Lagrangian has no explicit time dependence: $\partial \mathcal{L}/\partial t = 0$. This single condition is sufficient to guarantee conservation of energy.</p>
+
+  <div class="eq">
+    $$\frac{\partial \mathcal{L}}{\partial t} = 0 \quad\Rightarrow\quad H = \sum_i \dot{q}_i \frac{\partial \mathcal{L}}{\partial \dot{q}_i} - \mathcal{L} = E = \text{const}$$
+  </div>
+
+  <p><strong>Time-reversal symmetry</strong> is a related but distinct concept: for conservative systems, if $\mathbf{q}(t)$ is a valid trajectory, then $\mathbf{q}(-t)$ (with $\dot{\mathbf{q}}\to -\dot{\mathbf{q}}$) is also valid. Watch an elastic collision forward and backward — you cannot tell which direction is "physical."</p>
+
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Time Symmetry — Elastic Collision (reversible)</span></div>
+    <div class="sim-body">
+      <canvas id="c-time" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Mass ratio m₂/m₁</label>
+          <input type="range" id="time-mass" min="0.2" max="4" value="1" step="0.1" oninput="restartTime()">
+          <div class="val" id="time-mass-val">m₂/m₁ = 1.0</div>
+        </div>
+        <div class="cg">
+          <label>Initial Speed</label>
+          <input type="range" id="time-speed" min="0.5" max="5" value="0.5" step="0.5" oninput="restartTime()">
+          <div class="val" id="time-speed-val">v₀ = 0.5</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bb" id="time-play-btn" onclick="toggleTimePause()">Pause</button>
+          <button class="btn bgg" onclick="reverseTime()">⟵ Reverse</button>
+          <button class="btn bg-btn" onclick="restartTime()">Reset</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn bv" onclick="presetEqual()">Equal Mass</button>
+          <button class="btn bo" onclick="presetHeavy()">Heavy Target</button>
+        </div>
+        <div class="readout" id="time-readout">
+          KE_total = — J<br>
+          p_total = — kg·m/s<br>
+          Time dir: → FORWARD
+        </div>
+        <span class="pill pill-g" id="time-pill">Energy Conserved</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PARITY ═══════════════════════════ -->
+<div class="wrap tight" id="parity">
+  <p class="sec-tag">04d — Reflection Symmetry</p>
+  <h2>Parity (Reflection) Symmetry</h2>
+  <p class="lead">A mirror image of a physical process is also a valid physical process — usually.</p>
+  <p>Parity transformation $P$ sends every spatial coordinate to its negative: $(x,y,z) \mapsto (-x,-y,-z)$. This is equivalent to a full spatial inversion (mirror reflection plus a 180° rotation). Under parity, polar vectors like position and momentum flip: $\mathbf{r} \to -\mathbf{r}$, $\mathbf{p} \to -\mathbf{p}$. Axial vectors (pseudovectors) like angular momentum and magnetic field do <em>not</em> flip: $\mathbf{L} \to +\mathbf{L}$, $\mathbf{B} \to +\mathbf{B}$.</p>
+
+  <div class="eq">
+    $$P:\; (x,y,z) \to (-x,-y,-z)$$
+    $$\mathbf{p} \to -\mathbf{p},\quad \mathbf{L} = \mathbf{r}\times\mathbf{p} \to \mathbf{L},\quad \mathbf{B} \to \mathbf{B}$$
+  </div>
+
+  <p>Electromagnetism and gravity are <strong>parity-symmetric</strong>. But in 1956, Lee and Yang predicted (and Wu confirmed) that the <strong>weak force violates parity</strong> — nature has a preferred handedness at the fundamental level!</p>
+
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Parity Symmetry — Charged Particle in Magnetic Field</span></div>
+    <div class="sim-body">
+      <canvas id="c-par" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>B Field Strength</label>
+          <input type="range" id="par-b" min="0.5" max="3" value="1.5" step="0.1" oninput="updatePar()">
+          <div class="val" id="par-b-val">B = 1.5 T</div>
+        </div>
+        <div class="cg">
+          <label>Particle Speed</label>
+          <input type="range" id="par-v" min="1" max="4" value="2" step="0.1" oninput="updatePar()">
+          <div class="val" id="par-v-val">v = 2.0</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bb" onclick="applyParity()">Apply P</button>
+          <button class="btn bg-btn" onclick="resetParity()">Reset</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn br" onclick="setWeakForce(true)">Weak Force (P violated)</button>
+          <button class="btn bgg" onclick="setWeakForce(false)">EM Force (P preserved)</button>
+        </div>
+        <div class="readout" id="par-readout">
+          Radius r = — m<br>
+          Charge: +e (electron-like)<br>
+          B field: ⊙ out of page<br>
+          Mode: Electromagnetic
+        </div>
+        <span class="pill pill-g" id="par-pill">P Symmetry Preserved</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ GAUGE ═══════════════════════════ -->
+<div class="wrap tight" id="gauge">
+  <p class="sec-tag">04e — Gauge Symmetry</p>
+  <h2>Gauge Symmetry</h2>
+  <p class="lead">A global (and local) phase redefinition of quantum fields leaves all observables unchanged.</p>
+  <p>In quantum mechanics, a particle is described by a complex wavefunction $\psi(\mathbf{r},t)$. Physical observables depend on $|\psi|^2$, not on $\psi$ itself. Multiplying $\psi$ by a global phase factor $e^{i\alpha}$ (where $\alpha$ is a real constant) has absolutely no observable consequence:</p>
+
+  <div class="eq">
+    $$\psi \;\mapsto\; e^{i\alpha}\psi \quad\Rightarrow\quad |\psi'|^2 = |e^{i\alpha}\psi|^2 = |\psi|^2 \quad \text{(unchanged)}$$
+  </div>
+
+  <p>This <strong>global U(1) gauge symmetry</strong> leads via Noether's theorem to conservation of electric charge. When we demand the symmetry be <em>local</em> — $\alpha \to \alpha(\mathbf{r},t)$ — we are forced to introduce a gauge field (the electromagnetic four-potential $A_\mu$), and this naturally generates Maxwell's equations and the electromagnetic interaction. The entire theory of electrodynamics emerges from gauge invariance alone!</p>
+
+  <div class="eq-violet">
+    <strong>Local gauge invariance:</strong><br>
+    $\psi \to e^{i\alpha(\mathbf{r},t)}\psi$ requires $A_\mu \to A_\mu - \frac{1}{e}\partial_\mu\alpha$
+    <br>→ This generates the photon and electromagnetic force.
+  </div>
+
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Gauge Symmetry — Wavefunction Phase Visualization</span></div>
+    <div class="sim-body">
+      <canvas id="c-gauge" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Global Phase δ</label>
+          <input type="range" id="gauge-phase" min="0" max="628" value="0" step="1" oninput="updateGauge()">
+          <div class="val" id="gauge-phase-val">δ = 0.00 rad</div>
+        </div>
+        <div class="cg">
+          <label>Wave Number k</label>
+          <input type="range" id="gauge-k" min="1" max="5" value="2" step="0.5" oninput="updateGauge()">
+          <div class="val" id="gauge-k-val">k = 2</div>
+        </div>
+        <div class="cg">
+          <label>Wavepacket Width</label>
+          <input type="range" id="gauge-w" min="20" max="120" value="60" step="5" oninput="updateGauge()">
+          <div class="val" id="gauge-w-val">σ = 60</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bgg" onclick="animatePhase()">Auto-rotate Phase</button>
+          <button class="btn bb" onclick="stopPhaseAnim()">Stop</button>
+        </div>
+        <div class="readout" id="gauge-readout">
+          Phase δ = 0.00 rad<br>
+          Re(ψ) amplitude: —<br>
+          |ψ|² peak: — (const)<br>
+          Observable: unchanged
+        </div>
+        <span class="pill pill-g">Observable |ψ|² Invariant</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ CPT ═══════════════════════════ -->
+<div class="wrap tight" id="cpt">
+  <p class="sec-tag">04f — CPT Symmetry</p>
+  <h2>CPT Symmetry</h2>
+  <p class="lead">The combined transformation of Charge conjugation, Parity, and Time reversal is an exact symmetry of all known physics.</p>
+
+  <div class="eq-gold">
+    $C$: Particles ↔ Antiparticles (flip charge, spin, flavor)<br>
+    $P$: Spatial inversion $(x,y,z)\to(-x,-y,-z)$<br>
+    $T$: Time reversal $t \to -t$, reversing momenta and spins
+  </div>
+
+  <p>Individual symmetries C, P, and T may be violated. The weak force violates <strong>P</strong> (Wu experiment 1956). It also violates <strong>C</strong> and <strong>CP</strong> (Cronin–Fitch 1964, B-factory experiments). But the <strong>CPT theorem</strong> guarantees the combined operation is always preserved in any Lorentz-invariant local quantum field theory. A violation of CPT would be revolutionary physics beyond the Standard Model.</p>
+
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">CPT Symmetry — Transformation Visualizer</span></div>
+    <div class="sim-body">
+      <canvas id="c-cpt" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Initial Velocity</label>
+          <input type="range" id="cpt-v" min="1" max="4" value="2" step="0.5" oninput="restartCPT()">
+          <div class="val" id="cpt-v-val">v = 2.0</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bb" onclick="resetCPT()">Original</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn bgg" onclick="applyC()">Apply C</button>
+          <button class="btn bv" onclick="applyP()">Apply P</button>
+          <button class="btn bg-btn" onclick="applyT()">Apply T</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn bo" onclick="applyCPT()">Apply CPT</button>
+        </div>
+        <div class="readout" id="cpt-readout">
+          State: Original<br>
+          Particle: electron (e⁻)<br>
+          Velocity: → +v<br>
+          Spin: ↑ up
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Symmetry Violations by Force</h3>
+  <table class="cpt">
+    <tr><th>Force</th><th>C</th><th>P</th><th>T</th><th>CP</th><th>CPT</th></tr>
+    <tr><td>Gravity</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Electromagnetism</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Strong Force</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Weak Force</td><td class="no">✗</td><td class="no">✗</td><td class="unk">~</td><td class="no">✗</td><td class="yes">✓</td></tr>
+    <tr><td>Standard Model total</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="yes">✓</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════ NOETHER ═══════════════════════════ -->
+<div class="div-line"></div>
+<div class="wrap" id="noether">
+  <p class="sec-tag">05 — Noether's Theorem</p>
+  <h2>Noether's Theorem</h2>
+  <p class="lead">Emmy Noether (1915): Every differentiable symmetry of the action of a physical system corresponds to a conservation law.</p>
+
+  <p>This is arguably the most profound theorem in all of physics. Noether proved that the connection between symmetry and conservation is not a coincidence or an approximation — it is a mathematical inevitability. The theorem works in both classical and quantum mechanics (via the path integral).</p>
+
+  <div class="eq-gold">
+    <strong>Noether's Theorem — Formal Statement:</strong><br>
+    If the action $S = \int \mathcal{L}\,dt$ is invariant under the infinitesimal transformation<br>
+    $q_i \to q_i + \varepsilon K_i(q,\dot{q},t)$,<br>
+    then the quantity<br>
+    $$Q = \sum_i \frac{\partial \mathcal{L}}{\partial \dot{q}_i} K_i$$
+    is conserved: $\dot{Q} = 0$.
+  </div>
+
+  <h3>The Three Great Conservation Laws</h3>
+
+  <div class="n-flow">
+    <div class="nbox s">Space is uniform</div>
+    <div class="n-arr">→</div>
+    <div class="nbox s">Translation symmetry</div>
+    <div class="n-arr">⟹</div>
+    <div class="nbox c">$\mathbf{P} = \sum m_i \dot{\mathbf{r}}_i = \text{const}$</div>
+  </div>
+  <div class="n-flow">
+    <div class="nbox s">Space is isotropic</div>
+    <div class="n-arr">→</div>
+    <div class="nbox s">Rotation symmetry</div>
+    <div class="n-arr">⟹</div>
+    <div class="nbox c">$\mathbf{L} = \sum \mathbf{r}_i \times m_i \dot{\mathbf{r}}_i = \text{const}$</div>
+  </div>
+  <div class="n-flow">
+    <div class="nbox s">Time is uniform</div>
+    <div class="n-arr">→</div>
+    <div class="nbox s">Time-translation symmetry</div>
+    <div class="n-arr">⟹</div>
+    <div class="nbox c">$E = T + V = \text{const}$</div>
+  </div>
+
+  <p>These are not independent assumptions — they are consequences of the deep structure of space-time. The homogeneity and isotropy of space, and the uniformity of time, are the most fundamental experimental facts in all of physics, and they directly produce the three most important conservation laws.</p>
+</div>
+
+<!-- ═══════════════════════════ CONSERVATION LAWS SIMS ═══════════════════════════ -->
+<div class="div-line"></div>
+<div class="wrap" id="conservation">
+  <p class="sec-tag">06 — Conservation Laws</p>
+  <h2>Symmetry → Conservation (Interactive)</h2>
+  <p class="lead">Break the symmetry — watch the conservation law fail</p>
+
+  <!-- MOMENTUM SIM -->
+  <h3>🔵 Translational Symmetry → Momentum Conservation</h3>
+  <p>A system of particles with only pairwise interactions conserves total momentum. Introduce an <strong>external potential</strong> that depends on absolute position (breaking translational symmetry), and momentum is no longer conserved.</p>
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Momentum Conservation — Particle Gas</span></div>
+    <div class="sim-body">
+      <canvas id="c-mom" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Particle Count</label>
+          <input type="range" id="mom-n" min="3" max="12" value="6" step="1" oninput="restartMom()">
+          <div class="val" id="mom-n-val">N = 6</div>
+        </div>
+        <div class="cg">
+          <label>External Field Strength</label>
+          <input type="range" id="mom-ext" min="0" max="3" value="0" step="0.1" oninput="updateMomExt()">
+          <div class="val" id="mom-ext-val">F_ext = 0 (symmetric)</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bgg" onclick="setMomExt(0)">Symmetric</button>
+          <button class="btn br" onclick="setMomExt(1.5)">Break Symmetry</button>
+        </div>
+        <div class="readout" id="mom-readout">
+          Px_total = — kg·m/s<br>
+          Py_total = — kg·m/s<br>
+          |P| = — kg·m/s
+        </div>
+        <span class="pill pill-g" id="mom-pill">Momentum Conserved</span>
+      </div>
+    </div>
+    <canvas id="c-mom-graph" class="sc sc-sm" style="border-top:1px solid var(--border)"></canvas>
+  </div>
+
+  <!-- ENERGY SIM -->
+  <h3>🟡 Time Symmetry → Energy Conservation</h3>
+  <p>A conservative pendulum (no friction) has time-translation symmetry: $\partial\mathcal{L}/\partial t = 0$. Adding viscous friction introduces explicit time dependence and breaks time-reversal symmetry — energy is no longer conserved.</p>
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Energy Conservation — Pendulum</span></div>
+    <div class="sim-body">
+      <canvas id="c-pend" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Initial Angle θ₀</label>
+          <input type="range" id="pend-theta" min="10" max="160" value="60" step="5" oninput="restartPend()">
+          <div class="val" id="pend-theta-val">θ₀ = 60°</div>
+        </div>
+        <div class="cg">
+          <label>Friction / Damping γ</label>
+          <input type="range" id="pend-damp" min="0" max="0.5" value="0" step="0.01" oninput="updatePendDamp()">
+          <div class="val" id="pend-damp-val">γ = 0.00 (symmetric)</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bgg" onclick="setPendDamp(0)">No Friction</button>
+          <button class="btn br" onclick="setPendDamp(0.15)">Add Friction</button>
+        </div>
+        <div class="readout" id="pend-readout">
+          KE = — J<br>
+          PE = — J<br>
+          E_total = — J<br>
+          θ = — °
+        </div>
+        <span class="pill pill-g" id="pend-pill">Energy Conserved</span>
+      </div>
+    </div>
+    <canvas id="c-pend-graph" class="sc sc-sm" style="border-top:1px solid var(--border)"></canvas>
+  </div>
+
+  <!-- ANGULAR MOMENTUM SIM -->
+  <h3>🟣 Rotational Symmetry → Angular Momentum Conservation</h3>
+  <p>A planet orbiting a spherically symmetric star conserves angular momentum (Kepler's second law: equal areas in equal times). Add a non-central perturbation force breaking rotational symmetry, and $L$ is no longer conserved.</p>
+  <div class="sim">
+    <div class="sim-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="sim-title">Angular Momentum — Kepler Orbit + Perturbation</span></div>
+    <div class="sim-body">
+      <canvas id="c-ang" class="sc"></canvas>
+      <div class="sim-ctrl">
+        <div class="cg">
+          <label>Perturbation Strength</label>
+          <input type="range" id="ang-pert" min="0" max="1.5" value="0" step="0.05" oninput="updateAngPert()">
+          <div class="val" id="ang-pert-val">F_pert = 0 (symmetric)</div>
+        </div>
+        <div class="cg">
+          <label>Eccentricity</label>
+          <input type="range" id="ang-ecc" min="0" max="0.7" value="0.3" step="0.05" oninput="restartAng()">
+          <div class="val" id="ang-ecc-val">e = 0.30</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn bgg" onclick="setAngPert(0)">Symmetric</button>
+          <button class="btn br" onclick="setAngPert(0.8)">Break Symmetry</button>
+        </div>
+        <div class="readout" id="ang-readout">
+          L = — kg·m²/s<br>
+          r = — AU<br>
+          v = — km/s
+        </div>
+        <span class="pill pill-g" id="ang-pill">Angular Momentum Conserved</span>
+      </div>
+    </div>
+    <canvas id="c-ang-graph" class="sc sc-sm" style="border-top:1px solid var(--border)"></canvas>
+  </div>
+</div>
+
+<div style="height:4rem"></div>
+<footer style="border-top:1px solid var(--border);padding:1.5rem 2rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);position:relative;z-index:1">
+  Symmetry in Physics — Interactive Simulation &nbsp;|&nbsp; Emmy Noether (1882–1935) &nbsp;|&nbsp; MathJax equations rendered with TeX
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function initCanvas(id){
+  const c=document.getElementById(id);
+  const dpr=window.devicePixelRatio||1;
+  const W=c.clientWidth,H=c.clientHeight;
+  c.width=W*dpr;c.height=H*dpr;
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  return {ctx,W,H};
+}
+function drawGrid(ctx,W,H,col='rgba(0,170,255,0.07)',size=40){
+  ctx.strokeStyle=col;ctx.lineWidth=0.5;
+  for(let x=0;x<W;x+=size){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=size){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+}
+function arrow(ctx,x1,y1,x2,y2,col='#0af',w=2){
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+  if(len<2)return;
+  const ax=-dy/len*6,ay=dx/len*6;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=w;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-dx/len*10+ax,y2-dy/len*10+ay);
+  ctx.lineTo(x2-dx/len*10-ax,y2-dy/len*10-ay);ctx.closePath();ctx.fill();
+}
+function circle(ctx,x,y,r,fill,stroke='#fff',sw=1.5){
+  ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);
+  ctx.fillStyle=fill;ctx.fill();
+  ctx.strokeStyle=stroke;ctx.lineWidth=sw;ctx.stroke();
+}
+function label(ctx,txt,x,y,col='#dde5f5',size=12){
+  ctx.fillStyle=col;ctx.font=`${size}px 'JetBrains Mono',monospace`;
+  ctx.fillText(txt,x,y);
+}
+
+// ═══════════════════════════════════════════════════════
+// HERO CANVAS
+// ═══════════════════════════════════════════════════════
+(function(){
+  const c=document.getElementById('hero-canvas');
+  let W,H,pts=[],t=0,raf;
+  function resize(){
+    W=c.width=c.offsetWidth;H=c.height=c.offsetHeight;
+    pts=[];
+    const N=70;
+    for(let i=0;i<N;i++){
+      const orbit=Math.random()<0.45;
+      pts.push({
+        x:Math.random()*W,y:Math.random()*H,
+        vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,
+        r:Math.random()*1.8+.5,
+        orbit,angle:Math.random()*Math.PI*2,
+        orbitR:30+Math.random()*90,
+        speed:(Math.random()-.5)*.006,
+        cx:Math.random()*W,cy:Math.random()*H,
+        hue:Math.random()<.5?200:280
+      });
+    }
+  }
+  function frame(){
+    const ctx=c.getContext('2d');
+    ctx.clearRect(0,0,W,H);
+    // rotating hex lines
+    ctx.save();ctx.translate(W/2,H/2);
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI/3+t*.00008;
+      ctx.beginPath();ctx.moveTo(0,0);
+      ctx.lineTo(Math.cos(a)*Math.max(W,H),Math.sin(a)*Math.max(W,H));
+      ctx.strokeStyle=`rgba(0,170,255,${.02+.015*Math.sin(t*.001+i)})`;ctx.lineWidth=1;ctx.stroke();
+    }
+    ctx.restore();
+    // particles
+    pts.forEach((p,i)=>{
+      if(p.orbit){p.angle+=p.speed;p.x=p.cx+Math.cos(p.angle)*p.orbitR;p.y=p.cy+Math.sin(p.angle)*p.orbitR;}
+      else{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;}
+    });
+    pts.forEach((p,i)=>{
+      pts.forEach((q,j)=>{
+        if(j<=i)return;
+        const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<130){
+          ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+          ctx.strokeStyle=`rgba(0,170,255,${(1-d/130)*.18})`;ctx.lineWidth=.6;ctx.stroke();
+        }
+      });
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.orbit?`rgba(176,111,255,.9)`:`rgba(0,170,255,.85)`;ctx.fill();
+    });
+    t++;raf=requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize',()=>{resize();});
+  resize();frame();
+})();
+
+// ═══════════════════════════════════════════════════════
+// TRANSLATIONAL SYMMETRY
+// ═══════════════════════════════════════════════════════
+let transState={tx:0,ty:0,k:2,anim:false,angle:0,raf:null};
+let {ctx:tCtx,W:tW,H:tH}={ctx:null,W:0,H:0};
+window.addEventListener('load',()=>{
+  const r=initCanvas('c-trans');tCtx=r.ctx;tW=r.W;tH=r.H;
+  drawTrans();
+});
+function drawTrans(){
+  const {tx,ty,k}=transState;
+  const ctx=tCtx,W=tW,H=tH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  // base positions
+  const cx=W/2,cy=H/2;
+  const r0=80;
+  const base=[
+    {x:cx+tx,y:cy-r0*0.9+ty,col:'#ff4f6e',lbl:'m₁'},
+    {x:cx-r0*0.85+tx,y:cy+r0*0.5+ty,col:'#0af',lbl:'m₂'},
+    {x:cx+r0*0.85+tx,y:cy+r0*0.5+ty,col:'#00ffb0',lbl:'m₃'}
+  ];
+  // spring connections
+  function spring(ctx,x1,y1,x2,y2,col){
+    const steps=12,dx=(x2-x1)/steps,dy=(y2-y1)/steps;
+    const nx=-(y2-y1)/Math.sqrt((x2-x1)**2+(y2-y1)**2)*8;
+    const ny=(x2-x1)/Math.sqrt((x2-x1)**2+(y2-y1)**2)*8;
+    ctx.beginPath();ctx.moveTo(x1,y1);
+    for(let i=0;i<=steps;i++){
+      const sign=(i%2===0)?1:-1;
+      ctx.lineTo(x1+dx*i+nx*sign,y1+dy*i+ny*sign);
+    }
+    ctx.lineTo(x2,y2);
+    ctx.strokeStyle=col||'rgba(0,170,255,0.5)';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  spring(ctx,base[0].x,base[0].y,base[1].x,base[1].y,'rgba(255,200,0,0.5)');
+  spring(ctx,base[1].x,base[1].y,base[2].x,base[2].y,'rgba(255,200,0,0.5)');
+  spring(ctx,base[0].x,base[0].y,base[2].x,base[2].y,'rgba(255,200,0,0.5)');
+  base.forEach(p=>{circle(ctx,p.x,p.y,16,p.col+'33',p.col,2);label(ctx,p.lbl,p.x-8,p.y+5,'#fff',12)});
+  // center of mass
+  const cmx=(base[0].x+base[1].x+base[2].x)/3,cmy=(base[0].y+base[1].y+base[2].y)/3;
+  circle(ctx,cmx,cmy,5,'#f5c518','#f5c518',1);
+  label(ctx,'CM',cmx+8,cmy-5,'#f5c518',11);
+  // forces
+  base.forEach((p,i)=>{
+    const others=base.filter((_,j)=>j!==i);
+    let fx=0,fy=0;
+    others.forEach(q=>{
+      const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+      const r0=r0||100;const f=k*(d-100)/d;
+      fx+=f*dx;fy+=f*dy;
+    });
+    const fmag=Math.sqrt(fx*fx+fy*fy);
+    if(fmag>1){arrow(ctx,p.x,p.y,p.x+fx*.3,p.y+fy*.3,'#f5c518',1.5);}
+  });
+  // translation indicator
+  if(Math.abs(tx)>2||Math.abs(ty)>2){
+    ctx.strokeStyle='rgba(0,255,176,0.3)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(W/2,H/2-80*.9);ctx.lineTo(W/2+tx,H/2-80*.9+ty);ctx.stroke();
+    ctx.setLineDash([]);
+    label(ctx,`Δ=(${tx.toFixed(0)},${ty.toFixed(0)})`,10,20,'#00ffb0',11);
+  }
+  // physics readout
+  const d12=Math.sqrt((base[0].x-base[1].x)**2+(base[0].y-base[1].y)**2);
+  const d13=Math.sqrt((base[0].x-base[2].x)**2+(base[0].y-base[2].y)**2);
+  const F12=(k*(d12-100)).toFixed(2),F13=(k*(d13-100)).toFixed(2);
+  const U=(0.5*k*(d12-100)**2+0.5*k*(d13-100)**2+0.5*k*(Math.sqrt((base[1].x-base[2].x)**2+(base[1].y-base[2].y)**2)-100)**2).toFixed(1);
+  document.getElementById('trans-readout').innerHTML=`F₁₂ = ${F12} N<br>F₁₃ = ${F13} N<br>U_total = ${U} J<br><span style="color:#f5c518">P_total = 0 (conserved)</span>`;
+}
+function updateTrans(){
+  transState.tx=+document.getElementById('trans-x').value;
+  transState.ty=+document.getElementById('trans-y').value;
+  transState.k=+document.getElementById('trans-k').value;
+  document.getElementById('tx-val').textContent=transState.tx+' m';
+  document.getElementById('ty-val').textContent=transState.ty+' m';
+  document.getElementById('tk-val').textContent='k = '+transState.k.toFixed(1);
+  drawTrans();
+}
+function resetTrans(){
+  document.getElementById('trans-x').value=0;document.getElementById('trans-y').value=0;
+  transState.tx=0;transState.ty=0;drawTrans();
+}
+function toggleTransAnim(){
+  transState.anim=!transState.anim;
+  document.getElementById('trans-anim-btn').textContent=transState.anim?'Stop':'Animate';
+  if(transState.anim)animTrans();
+}
+function animTrans(){
+  if(!transState.anim)return;
+  transState.angle+=0.02;
+  transState.tx=Math.sin(transState.angle)*120;
+  transState.ty=Math.cos(transState.angle)*60;
+  document.getElementById('trans-x').value=transState.tx;
+  document.getElementById('trans-y').value=transState.ty;
+  document.getElementById('tx-val').textContent=transState.tx.toFixed(0)+' m';
+  document.getElementById('ty-val').textContent=transState.ty.toFixed(0)+' m';
+  drawTrans();
+  requestAnimationFrame(animTrans);
+}
+
+// ═══════════════════════════════════════════════════════
+// ROTATIONAL SYMMETRY — KEPLER ORBIT
+// ═══════════════════════════════════════════════════════
+let rotState={ecc:.5,angle:0,speed:1,t:0,paused:false,trail:[],raf:null};
+let rCtx,rW,rH;
+window.addEventListener('load',()=>{const r=initCanvas('c-rot');rCtx=r.ctx;rW=r.W;rH=r.H;startRot();});
+function keplerPos(ecc,t){
+  // Solve Kepler's equation E - ecc*sin(E) = M via Newton's method
+  let M=t%(2*Math.PI),E=M;
+  for(let i=0;i<20;i++)E-=(E-ecc*Math.sin(E)-M)/(1-ecc*Math.cos(E));
+  const x=Math.cos(E)-ecc;const y=Math.sqrt(1-ecc*ecc)*Math.sin(E);
+  return{x,y};
+}
+function startRot(){
+  if(rotState.raf)cancelAnimationFrame(rotState.raf);
+  rotState.t=0;rotState.trail=[];
+  animRot();
+}
+function animRot(){
+  const{ecc,angle,speed,t}=rotState;
+  rotState.t+=0.02*speed;
+  const ctx=rCtx,W=rW,H=rH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  const cx=W/2,cy=H/2,scale=Math.min(W,H)*0.33;
+  // draw full orbit (ellipse) rotated by angle
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+  const a=scale,b=scale*Math.sqrt(1-ecc*ecc);
+  ctx.beginPath();ctx.ellipse(-ecc*scale,0,a,b,0,0,2*Math.PI);
+  ctx.strokeStyle='rgba(0,170,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+  ctx.restore();
+  // planet position
+  const pos=keplerPos(ecc,rotState.t);
+  const px=cx+(pos.x*scale)*Math.cos(angle)-(pos.y*scale)*Math.sin(angle);
+  const py=cy+(pos.x*scale)*Math.sin(angle)+(pos.y*scale)*Math.cos(angle);
+  rotState.trail.push({x:px,y:py});
+  if(rotState.trail.length>200)rotState.trail.shift();
+  // trail
+  if(rotState.trail.length>2){
+    ctx.beginPath();ctx.moveTo(rotState.trail[0].x,rotState.trail[0].y);
+    rotState.trail.forEach(p=>ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle='rgba(0,170,255,0.4)';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  // sun
+  circle(ctx,cx,cy,14,'#f5c518aa','#f5c518',2);
+  label(ctx,'☀',cx-7,cy+6,'#f5c518',14);
+  // planet
+  circle(ctx,px,py,9,'#0afaa','#0af',2);
+  // line from sun to planet (sweeps equal areas)
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);
+  ctx.strokeStyle='rgba(0,255,176,0.2)';ctx.lineWidth=1;ctx.stroke();
+  // L indicator
+  const r=Math.sqrt((px-cx)**2+(py-cy)**2);
+  const vx=-pos.y/(r/scale),vy=pos.x/(r/scale);
+  const L=(r/scale)*Math.sqrt(vx*vx+vy*vy);
+  // rotation indicator
+  if(Math.abs(angle)>0.01){
+    ctx.beginPath();ctx.arc(cx,cy,25,0,angle>0?angle:2*Math.PI+angle);
+    ctx.strokeStyle='rgba(176,111,255,0.6)';ctx.lineWidth=2;ctx.stroke();
+    label(ctx,`θ=${(angle*180/Math.PI).toFixed(0)}°`,cx+30,cy-10,'#b06fff',11);
+  }
+  label(ctx,'Frame rotation leaves orbit invariant',10,H-12,'rgba(0,170,255,0.5)',10);
+  // readout
+  const rv=r/scale;
+  document.getElementById('rot-readout').innerHTML=`L = ${(L*100).toFixed(0)} units<br>r = ${rv.toFixed(2)} AU<br>e = ${ecc.toFixed(2)}<br>T = 1 yr (unit)`;
+  rotState.raf=requestAnimationFrame(animRot);
+}
+function updateRot(){
+  rotState.angle=+document.getElementById('rot-angle').value*Math.PI/180;
+  document.getElementById('rot-angle-val').textContent='θ = '+document.getElementById('rot-angle').value+'°';
+}
+function restartRot(){
+  rotState.ecc=+document.getElementById('rot-ecc').value;
+  document.getElementById('rot-ecc-val').textContent='e = '+rotState.ecc.toFixed(2);
+  startRot();
+}
+function updateRotSpeed(){
+  rotState.speed=+document.getElementById('rot-speed').value;
+  document.getElementById('rot-speed-val').textContent=rotState.speed.toFixed(1)+'×';
+}
+function presetCircle(){document.getElementById('rot-ecc').value=0.01;restartRot();}
+function presetEllipse(){document.getElementById('rot-ecc').value=0.6;restartRot();}
+function presetComet(){document.getElementById('rot-ecc').value=0.85;restartRot();}
+
+// ═══════════════════════════════════════════════════════
+// TIME SYMMETRY — ELASTIC COLLISION
+// ═══════════════════════════════════════════════════════
+let timeState={m1:1,m2:1,v0:3,paused:false,reversed:false,t:0,phase:'before',b1:{},b2:{},raf:null};
+let tmCtx,tmW,tmH;
+window.addEventListener('load',()=>{const r=initCanvas('c-time');tmCtx=r.ctx;tmW=r.W;tmH=r.H;restartTime();});
+function restartTime(){
+  if(timeState.raf)cancelAnimationFrame(timeState.raf);
+  const m2r=+document.getElementById('time-mass').value;
+  const v0=+document.getElementById('time-speed').value;
+  timeState.m1=1;timeState.m2=m2r;timeState.v0=v0;
+  timeState.reversed=false;timeState.paused=false;timeState.phase='before';
+  document.getElementById('time-play-btn').textContent='Pause';
+  document.getElementById('time-mass-val').textContent='m₂/m₁ = '+m2r.toFixed(1);
+  document.getElementById('time-speed-val').textContent='v₀ = '+v0.toFixed(1);
+  const W=tmW,H=tmH;
+  timeState.b1={x:W*0.15,y:H/2,vx:v0*30,vy:0,m:1,r:20};
+  timeState.b2={x:W*0.78,y:H/2,vx:0,vy:0,m:timeState.m2,r:20+timeState.m2*4};
+  animTime();
+}
+function animTime(){
+  if(timeState.paused){timeState.raf=requestAnimationFrame(animTime);return;}
+  const ctx=tmCtx,W=tmW,H=tmH;
+  const{b1,b2,reversed}=timeState;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  // move
+  const dir=reversed?-1:1;
+  b1.x+=b1.vx*dir*0.5;b2.x+=b2.vx*dir*0.5;
+  // collision detection
+  const dist=Math.abs(b1.x-b2.x)-(b1.r+b2.r);
+  if(dist<=0&&timeState.phase==='before'){
+    timeState.phase='after';
+    const m1=b1.m,m2=b2.m,u1=b1.vx,u2=b2.vx;
+    b1.vx=((m1-m2)*u1+2*m2*u2)/(m1+m2);
+    b2.vx=((m2-m1)*u2+2*m1*u1)/(m1+m2);
+  }
+  // walls
+  if(b1.x-b1.r<0){b1.x=b1.r;b1.vx=Math.abs(b1.vx);}
+  if(b1.x+b1.r>W){b1.x=W-b1.r;b1.vx=-Math.abs(b1.vx);}
+  if(b2.x-b2.r<0){b2.x=b2.r;b2.vx=Math.abs(b2.vx);}
+  if(b2.x+b2.r>W){b2.x=W-b2.r;b2.vx=-Math.abs(b2.vx);}
+  // draw
+  const py=H/2;
+  ctx.strokeStyle='rgba(0,170,255,0.15)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);ctx.stroke();
+  circle(ctx,b1.x,py,b1.r,'#ff4f6e88','#ff4f6e',2);
+  circle(ctx,b2.x,py,b2.r,'#0af88','#0af',2);
+  label(ctx,'m₁',b1.x-8,py+5,'#fff',12);
+  label(ctx,'m₂',b2.x-8,py+5,'#fff',12);
+  // velocity arrows
+  if(Math.abs(b1.vx)>0.5)arrow(ctx,b1.x,py-b1.r-8,b1.x+b1.vx*2,py-b1.r-8,'#ff4f6e',2);
+  if(Math.abs(b2.vx)>0.5)arrow(ctx,b2.x,py-b2.r-8,b2.x+b2.vx*2,py-b2.r-8,'#0af',2);
+  // time direction indicator
+  const tdir=reversed?'← REVERSED':'→ FORWARD';
+  const tcol=reversed?'#b06fff':'#00ffb0';
+  label(ctx,`Time: ${tdir}`,10,20,tcol,11);
+  label(ctx,'Both are valid solutions to F=ma',10,H-12,'rgba(0,170,255,0.4)',10);
+  // KE
+  const KE1=0.5*b1.m*b1.vx**2,KE2=0.5*b2.m*b2.vx**2;
+  const KE=KE1+KE2;
+  const px=b1.m*b1.vx+b2.m*b2.vx;
+  const initKE=0.5*timeState.m1*timeState.v0**2;
+  document.getElementById('time-readout').innerHTML=`KE_total = ${KE.toFixed(0)} J (init: ${initKE.toFixed(0)})<br>p_total = ${px.toFixed(1)} kg·m/s<br>Time dir: ${reversed?'← REVERSED':'→ FORWARD'}`;
+  // pill
+  const conserved=Math.abs(KE-initKE)<initKE*0.15;
+  document.getElementById('time-pill').className='pill '+(conserved?'pill-g':'pill-r');
+  document.getElementById('time-pill').textContent=conserved?'Energy Conserved':'Energy Varies';
+  timeState.raf=requestAnimationFrame(animTime);
+}
+function toggleTimePause(){
+  timeState.paused=!timeState.paused;
+  document.getElementById('time-play-btn').textContent=timeState.paused?'Play':'Pause';
+}
+function reverseTime(){
+  timeState.reversed=!timeState.reversed;
+  timeState.b1.vx*=-1;timeState.b2.vx*=-1;
+  timeState.phase=timeState.reversed?'after':'before';
+}
+function presetEqual(){document.getElementById('time-mass').value=1;restartTime();}
+function presetHeavy(){document.getElementById('time-mass').value=4;restartTime();}
+
+// ═══════════════════════════════════════════════════════
+// PARITY SYMMETRY
+// ═══════════════════════════════════════════════════════
+let parState={B:1.5,v:2,parityApplied:false,weakForce:false,t:0,raf:null};
+let parCtx,parW,parH;
+window.addEventListener('load',()=>{const r=initCanvas('c-par');parCtx=r.ctx;parW=r.W;parH=r.H;startPar();});
+function startPar(){
+  if(parState.raf)cancelAnimationFrame(parState.raf);
+  parState.t=0;animPar();
+}
+function animPar(){
+  const{B,v,parityApplied,weakForce}=parState;
+  parState.t+=0.03;
+  const ctx=parCtx,W=parW,H=parH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  const cx=W/2,cy=H/2;
+  // B field indicators (dots = out of page)
+  for(let ix=0;ix<W;ix+=50){for(let iy=0;iy<H;iy+=50){
+    ctx.fillStyle='rgba(0,170,255,0.25)';ctx.font='14px serif';
+    ctx.fillText('⊙',ix-6,iy+5);
+  }}
+  label(ctx,'B⃗ out of page',10,15,'rgba(0,170,255,0.5)',10);
+  // draw cyclotron radius
+  const r_cyclotron=v*60/B;
+  // original particle (electron, charge -e, spirals counterclockwise in B out of page)
+  const sign=parityApplied?-1:1;
+  const wx=weakForce&&parityApplied?0.5:0; // weak force parity violation offset
+  const pAngle=parState.t*sign*B*0.8;
+  const startX=parityApplied?cx-r_cyclotron+wx*80:cx-r_cyclotron;
+  const px=startX+r_cyclotron*Math.cos(pAngle-Math.PI/2);
+  const py=cy+r_cyclotron*Math.sin(pAngle-Math.PI/2);
+  // orbit
+  ctx.beginPath();ctx.arc(parityApplied?startX:cx-r_cyclotron,cy,r_cyclotron,0,2*Math.PI);
+  ctx.strokeStyle=parityApplied?'rgba(176,111,255,0.25)':'rgba(255,79,110,0.25)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+  // particle
+  const pcol=parityApplied?'#b06fff':'#ff4f6e';
+  circle(ctx,px,py,12,pcol+'44',pcol,2);
+  label(ctx,parityApplied?'e⁺':'e⁻',px-8,py+5,'#fff',11);
+  // velocity arrow
+  const vAngle=pAngle+Math.PI/2*sign;
+  arrow(ctx,px,py,px+Math.cos(vAngle)*30,py+Math.sin(vAngle)*30,'#f5c518',2);
+  // mirror line (when parity applied)
+  if(parityApplied){
+    ctx.save();ctx.strokeStyle='rgba(0,255,176,0.5)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    label(ctx,'Mirror plane (P)',cx+5,20,'#00ffb0',11);
+    if(!weakForce){
+      // original orbit faint
+      ctx.beginPath();ctx.arc(cx-r_cyclotron,cy,r_cyclotron,0,2*Math.PI);
+      ctx.strokeStyle='rgba(255,79,110,0.12)';ctx.lineWidth=1;ctx.stroke();
+      label(ctx,'Original (EM symmetric)',10,H-12,'rgba(0,255,176,0.5)',10);
+    } else {
+      label(ctx,'Weak force breaks parity!',10,H-12,'rgba(255,79,110,0.7)',11);
+    }
+  }
+  const r=r_cyclotron;
+  document.getElementById('par-readout').innerHTML=`Radius r = ${r.toFixed(0)} px<br>Charge: ${parityApplied?'+e (positron)':'-e (electron)'}<br>B field: ⊙ out of page<br>Mode: ${weakForce?'<span style="color:#ff4f6e">Weak (P violated)</span>':'<span style="color:#00ffb0">EM (P preserved)</span>'}`;
+  const par_conserved=!weakForce;
+  document.getElementById('par-pill').className='pill '+(par_conserved?'pill-g':'pill-r');
+  document.getElementById('par-pill').textContent=par_conserved?'P Symmetry Preserved':'P Symmetry Violated';
+  parState.raf=requestAnimationFrame(animPar);
+}
+function updatePar(){
+  parState.B=+document.getElementById('par-b').value;
+  parState.v=+document.getElementById('par-v').value;
+  document.getElementById('par-b-val').textContent='B = '+parState.B.toFixed(1)+' T';
+  document.getElementById('par-v-val').textContent='v = '+parState.v.toFixed(1);
+}
+function applyParity(){parState.parityApplied=!parState.parityApplied;}
+function resetParity(){parState.parityApplied=false;parState.weakForce=false;parState.t=0;}
+function setWeakForce(on){parState.weakForce=on;}
+
+// ═══════════════════════════════════════════════════════
+// GAUGE SYMMETRY
+// ═══════════════════════════════════════════════════════
+let gaugeState={phase:0,k:2,sigma:60,animating:false,raf:null,phaseAngle:0};
+let gCtx,gW,gH;
+window.addEventListener('load',()=>{const r=initCanvas('c-gauge');gCtx=r.ctx;gW=r.W;gH=r.H;drawGauge();});
+function drawGauge(){
+  const{phase,k,sigma}=gaugeState;
+  const ctx=gCtx,W=gW,H=gH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  // LEFT: Argand diagram (complex plane)
+  const argCx=W*0.22,argCy=H/2,argR=Math.min(W*.15,H*.35);
+  ctx.strokeStyle='rgba(0,170,255,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(argCx,argCy,argR,0,2*Math.PI);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(argCx-argR-10,argCy);ctx.lineTo(argCx+argR+10,argCy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(argCx,argCy-argR-10);ctx.lineTo(argCx,argCy+argR+10);ctx.stroke();
+  label(ctx,'Re(ψ)',argCx+argR+5,argCy+4,'var(--muted)',10);
+  label(ctx,'Im(ψ)',argCx+4,argCy-argR-8,'rgba(0,170,255,0.6)',10);
+  label(ctx,'Argand diagram',argCx-45,H-12,'rgba(0,170,255,0.4)',10);
+  // psi arrow
+  const ex=argCx+argR*Math.cos(phase),ey=argCy-argR*Math.sin(phase);
+  arrow(ctx,argCx,argCy,ex,ey,'#b06fff',2.5);
+  circle(ctx,ex,ey,4,'#b06fff','#b06fff',1);
+  label(ctx,'ψ',ex+5,ey-5,'#b06fff',12);
+  // phase indicator
+  ctx.beginPath();ctx.arc(argCx,argCy,argR*0.35,0,-phase,phase>0);
+  ctx.strokeStyle='rgba(245,197,24,0.6)';ctx.lineWidth=1.5;ctx.stroke();
+  label(ctx,'δ='+((phase%(2*Math.PI))*180/Math.PI).toFixed(0)+'°',argCx+argR*.2,argCy-argR*.2,'#f5c518',11);
+  // MIDDLE: Wavefunction plot
+  const wCx=W*0.5,wW=W*0.45,wH_half=H*.28;
+  label(ctx,'Re(ψ) — oscillation',wCx-wW*.5,H*0.2,'rgba(0,170,255,0.5)',10);
+  label(ctx,'|ψ|² — probability density (invariant)',wCx-wW*.5,H*0.58,'rgba(0,255,176,0.6)',10);
+  // Re(psi) wave
+  ctx.beginPath();
+  for(let i=0;i<=wW;i++){
+    const xx=wCx-wW/2+i;
+    const xi=(i-wW/2);
+    const amp=Math.exp(-xi*xi/(2*sigma*sigma));
+    const re=amp*Math.cos(k*xi*.05+phase);
+    const y=H*.35-re*wH_half;
+    i===0?ctx.moveTo(xx,y):ctx.lineTo(xx,y);
+  }
+  ctx.strokeStyle='#b06fff';ctx.lineWidth=2;ctx.stroke();
+  // |psi|^2
+  ctx.beginPath();
+  for(let i=0;i<=wW;i++){
+    const xx=wCx-wW/2+i;
+    const xi=(i-wW/2);
+    const amp=Math.exp(-xi*xi/(2*sigma*sigma));
+    const p2=amp*amp;
+    const y=H*.7-p2*wH_half;
+    i===0?ctx.moveTo(xx,y):ctx.lineTo(xx,y);
+  }
+  ctx.strokeStyle='#00ffb0';ctx.lineWidth=2.5;ctx.stroke();
+  label(ctx,'← phase shifts, |ψ|² stays fixed',wCx-40,H-12,'rgba(0,255,176,0.4)',10);
+  document.getElementById('gauge-phase-val').textContent='δ = '+(phase%(2*Math.PI)).toFixed(2)+' rad';
+  const peak=1.0;
+  document.getElementById('gauge-readout').innerHTML=`Phase δ = ${(phase%(2*Math.PI)).toFixed(2)} rad<br>Re(ψ) oscillates with δ<br>|ψ|² peak = ${peak.toFixed(2)} (const)<br><span style="color:#00ffb0">Observable: unchanged ✓</span>`;
+}
+function updateGauge(){
+  gaugeState.phase=+document.getElementById('gauge-phase').value/100;
+  gaugeState.k=+document.getElementById('gauge-k').value;
+  gaugeState.sigma=+document.getElementById('gauge-w').value;
+  document.getElementById('gauge-k-val').textContent='k = '+gaugeState.k;
+  document.getElementById('gauge-w-val').textContent='σ = '+gaugeState.sigma;
+  drawGauge();
+}
+function animatePhase(){
+  gaugeState.animating=true;
+  function step(){
+    if(!gaugeState.animating)return;
+    gaugeState.phaseAngle+=0.04;
+    gaugeState.phase=gaugeState.phaseAngle;
+    document.getElementById('gauge-phase').value=(gaugeState.phase*100)%628;
+    drawGauge();
+    gaugeState.raf=requestAnimationFrame(step);
+  }
+  step();
+}
+function stopPhaseAnim(){gaugeState.animating=false;if(gaugeState.raf)cancelAnimationFrame(gaugeState.raf);}
+
+// ═══════════════════════════════════════════════════════
+// CPT SYMMETRY
+// ═══════════════════════════════════════════════════════
+let cptState={ops:[],v:2,t:0,raf:null};
+let cCtx,cW,cH;
+window.addEventListener('load',()=>{const r=initCanvas('c-cpt');cCtx=r.ctx;cW=r.W;cH=r.H;restartCPT();});
+function getCPTProps(){
+  const ops=cptState.ops;
+  const C=ops.filter(o=>o==='C').length%2;
+  const P=ops.filter(o=>o==='P').length%2;
+  const T=ops.filter(o=>o==='T').length%2;
+  return{
+    charge:C?+1:-1, // +1=positron, -1=electron
+    parity:P?-1:1,  // -1=mirrored
+    timeRev:T?-1:1, // -1=reversed
+    name:C&&P&&T?'CPT':ops.length===0?'Original':ops.join('')
+  };
+}
+function restartCPT(){
+  if(cptState.raf)cancelAnimationFrame(cptState.raf);
+  cptState.t=0;cptState.v=+document.getElementById('cpt-v').value;
+  document.getElementById('cpt-v-val').textContent='v = '+cptState.v.toFixed(1);
+  animCPT();
+}
+function animCPT(){
+  cptState.t+=0.03;
+  const{t,v}=cptState;
+  const{charge,parity,timeRev,name}=getCPTProps();
+  const ctx=cCtx,W=cW,H=cH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  const cx=W/2,cy=H/2;
+  const isPositron=charge>0;
+  const pcol=isPositron?'#ff4f6e':'#0af';
+  const label2=isPositron?'e⁺':'e⁻';
+  // Trajectory: particle moves in curve (B field)
+  const B=1.2;
+  const r_orb=v*55;
+  const tEff=timeRev<0?(2*Math.PI-t%( 2*Math.PI)):t%(2*Math.PI);
+  const spiralAngle=tEff*charge*B*0.6*parity;
+  // center of orbit depends on parity
+  const orbitCx=cx+parity*r_orb*0.2;
+  const px=orbitCx+r_orb*Math.cos(spiralAngle-Math.PI/2);
+  const py=cy+r_orb*Math.sin(spiralAngle-Math.PI/2);
+  // trail
+  const trail=[];
+  for(let i=0;i<60;i++){
+    const ta=tEff*charge*B*0.6*parity-i*0.07;
+    trail.push({x:orbitCx+r_orb*Math.cos(ta-Math.PI/2),y:cy+r_orb*Math.sin(ta-Math.PI/2)});
+  }
+  ctx.beginPath();trail.forEach((p,i)=>{i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)});
+  ctx.strokeStyle=pcol+'55';ctx.lineWidth=2;ctx.stroke();
+  // full orbit faint
+  ctx.beginPath();ctx.arc(orbitCx,cy,r_orb,0,2*Math.PI);
+  ctx.strokeStyle=pcol+'22';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+  // B field
+  label(ctx,timeRev<0?'B (reversed T: B→B)':'B⃗',10,15,'rgba(0,170,255,0.4)',10);
+  for(let ix=0;ix<W;ix+=55){for(let iy=0;iy<H;iy+=55){
+    ctx.fillStyle='rgba(0,170,255,0.15)';ctx.font='12px serif';ctx.fillText('⊙',ix-5,iy+4);
+  }}
+  // particle
+  circle(ctx,px,py,13,pcol+'55',pcol,2.5);
+  label(ctx,label2,px-8,py+5,'#fff',12);
+  // velocity arrow
+  const vdir=spiralAngle+Math.PI/2;
+  arrow(ctx,px,py,px+Math.cos(vdir)*28,py+Math.sin(vdir)*28,'#f5c518',2);
+  // spin indicator
+  const spinUp=charge<0?true:false;
+  label(ctx,'spin: '+(spinUp?'↑':'↓'),px+15,py-20,'#b06fff',11);
+  // parity mirror
+  if(parity<0){
+    ctx.save();ctx.strokeStyle='rgba(0,255,176,0.5)';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
+  // transformation labels
+  const opStr=cptState.ops.length?cptState.ops.join('→'):'none';
+  label(ctx,`Applied: ${opStr}`,10,H-12,'rgba(255,255,255,0.3)',10);
+  label(ctx,`State: ${name}`,W-120,H-12,'rgba(0,255,176,0.4)',10);
+  // readout
+  document.getElementById('cpt-readout').innerHTML=
+    `State: ${name}<br>Particle: ${isPositron?'positron (e⁺)':'electron (e⁻)'}<br>Velocity: ${timeRev<0?'← reversed':'→ forward'}<br>Parity: ${parity<0?'mirrored':'normal'}<br>Spin: ${charge<0?'↑ up':'↓ down'}`;
+  cptState.raf=requestAnimationFrame(animCPT);
+}
+function resetCPT(){cptState.ops=[];restartCPT();}
+function applyC(){cptState.ops.push('C');restartCPT();}
+function applyP(){cptState.ops.push('P');restartCPT();}
+function applyT(){cptState.ops.push('T');restartCPT();}
+function applyCPT(){cptState.ops=['C','P','T'];restartCPT();}
+
+// ═══════════════════════════════════════════════════════
+// MOMENTUM CONSERVATION
+// ═══════════════════════════════════════════════════════
+let momState={particles:[],ext:0,N:6,raf:null,history:[],t:0};
+let momCtx,momW,momH,momGCtx,momGW,momGH;
+window.addEventListener('load',()=>{
+  let r=initCanvas('c-mom');momCtx=r.ctx;momW=r.W;momH=r.H;
+  r=initCanvas('c-mom-graph');momGCtx=r.ctx;momGW=r.W;momGH=r.H;
+  restartMom();
+});
+function makeMomParticles(N,W,H){
+  const ps=[];
+  for(let i=0;i<N;i++){
+    ps.push({
+      x:W*0.1+Math.random()*W*0.8,y:H*0.1+Math.random()*H*0.8,
+      vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3,
+      r:8+Math.random()*6,m:1,
+      col:`hsl(${Math.random()*240+120},80%,60%)`
+    });
+  }
+  return ps;
+}
+function restartMom(){
+  if(momState.raf)cancelAnimationFrame(momState.raf);
+  momState.N=+document.getElementById('mom-n').value;
+  document.getElementById('mom-n-val').textContent='N = '+momState.N;
+  momState.particles=makeMomParticles(momState.N,momW,momH);
+  momState.history=[];momState.t=0;
+  animMom();
+}
+function animMom(){
+  momState.t++;
+  const{particles,ext}=momState;
+  const ctx=momCtx,W=momW,H=momH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H,'rgba(0,170,255,0.05)');
+  // external potential well
+  if(ext>0){
+    const wellX=W*0.75;
+    const grad=ctx.createRadialGradient(wellX,H/2,0,wellX,H/2,100);
+    grad.addColorStop(0,'rgba(255,79,110,0.2)');grad.addColorStop(1,'rgba(255,79,110,0)');
+    ctx.fillStyle=grad;ctx.beginPath();ctx.arc(wellX,H/2,100,0,2*Math.PI);ctx.fill();
+    label(ctx,'External field (breaks symmetry)',wellX-80,30,'rgba(255,79,110,0.7)',10);
+  }
+  particles.forEach(p=>{
+    // external force
+    if(ext>0){const dx=W*0.75-p.x,dy=H/2-p.y,d=Math.sqrt(dx*dx+dy*dy)+1;p.vx+=ext*dx/d*0.03;p.vy+=ext*dy/d*0.03;}
+    p.x+=p.vx;p.y+=p.vy;
+    // walls
+    if(p.x-p.r<0){p.x=p.r;p.vx=Math.abs(p.vx);}
+    if(p.x+p.r>W){p.x=W-p.r;p.vx=-Math.abs(p.vx);}
+    if(p.y-p.r<0){p.y=p.r;p.vy=Math.abs(p.vy);}
+    if(p.y+p.r>H){p.y=H-p.r;p.vy=-Math.abs(p.vy);}
+    // collisions
+    particles.forEach((q,j)=>{
+      if(q===p)return;
+      const dx=q.x-p.x,dy=q.y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<p.r+q.r&&d>0){
+        const nx=dx/d,ny=dy/d;
+        const dvx=p.vx-q.vx,dvy=p.vy-q.vy;
+        const dot=dvx*nx+dvy*ny;
+        if(dot>0){p.vx-=dot*nx;p.vy-=dot*ny;q.vx+=dot*nx;q.vy+=dot*ny;}
+        const overlap=(p.r+q.r-d)/2;p.x-=nx*overlap;p.y-=ny*overlap;q.x+=nx*overlap;q.y+=ny*overlap;
+      }
+    });
+    // velocity arrow
+    arrow(ctx,p.x,p.y,p.x+p.vx*8,p.y+p.vy*8,p.col,1.2);
+    circle(ctx,p.x,p.y,p.r,p.col+'55',p.col,1.5);
+  });
+  let Px=0,Py=0;
+  particles.forEach(p=>{Px+=p.m*p.vx;Py+=p.m*p.vy;});
+  const Pmag=Math.sqrt(Px*Px+Py*Py);
+  momState.history.push(Pmag);if(momState.history.length>momGW)momState.history.shift();
+  document.getElementById('mom-readout').innerHTML=`Px_total = ${Px.toFixed(2)} kg·m/s<br>Py_total = ${Py.toFixed(2)} kg·m/s<br>|P| = ${Pmag.toFixed(2)} kg·m/s`;
+  const conserved=ext===0;
+  document.getElementById('mom-pill').className='pill '+(conserved?'pill-g':'pill-r');
+  document.getElementById('mom-pill').textContent=conserved?'Momentum Conserved':'Momentum Not Conserved';
+  // graph
+  drawGraph(momGCtx,momGW,momGH,momState.history,'|P| total momentum','rgba(0,170,255,0.8)',conserved?'rgba(0,255,176,0.3)':'rgba(255,79,110,0.3)');
+  momState.raf=requestAnimationFrame(animMom);
+}
+function updateMomExt(){
+  momState.ext=+document.getElementById('mom-ext').value;
+  document.getElementById('mom-ext-val').textContent=momState.ext===0?'F_ext = 0 (symmetric)':`F_ext = ${momState.ext.toFixed(1)} (breaking symmetry!)`;
+}
+function setMomExt(v){document.getElementById('mom-ext').value=v;updateMomExt();}
+
+// ═══════════════════════════════════════════════════════
+// ENERGY CONSERVATION — PENDULUM
+// ═══════════════════════════════════════════════════════
+let pendState={theta:Math.PI/3,omega:0,damp:0,L:100,g:9.8,raf:null,history:[],t:0};
+let pCtx,pW,pH,pgCtx,pgW,pgH;
+window.addEventListener('load',()=>{
+  let r=initCanvas('c-pend');pCtx=r.ctx;pW=r.W;pH=r.H;
+  r=initCanvas('c-pend-graph');pgCtx=r.ctx;pgW=r.W;pgH=r.H;
+  restartPend();
+});
+function restartPend(){
+  if(pendState.raf)cancelAnimationFrame(pendState.raf);
+  const th0=+document.getElementById('pend-theta').value*Math.PI/180;
+  document.getElementById('pend-theta-val').textContent='θ₀ = '+document.getElementById('pend-theta').value+'°';
+  pendState.theta=th0;pendState.omega=0;pendState.history=[];pendState.t=0;
+  animPend();
+}
+function animPend(){
+  pendState.t++;
+  const dt=0.05;
+  pendState.omega+=(-pendState.g/pendState.L*Math.sin(pendState.theta)-pendState.damp*pendState.omega)*dt;
+  pendState.theta+=pendState.omega*dt;
+  const ctx=pCtx,W=pW,H=pH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  const px=W/2+Math.sin(pendState.theta)*pendState.L*1.8;
+  const py=H*0.2+Math.cos(pendState.theta)*pendState.L*1.8;
+  const pivot={x:W/2,y:H*0.2};
+  // pivot
+  circle(ctx,pivot.x,pivot.y,5,'#888','#aaa',1);
+  // rod
+  ctx.beginPath();ctx.moveTo(pivot.x,pivot.y);ctx.lineTo(px,py);
+  ctx.strokeStyle='rgba(200,200,255,0.6)';ctx.lineWidth=2;ctx.stroke();
+  // bob
+  const KE=0.5*pendState.L*pendState.L*pendState.omega*pendState.omega;
+  const PE=pendState.g*pendState.L*(1-Math.cos(pendState.theta));
+  const E=KE+PE;
+  const hue=120-KE*40;
+  circle(ctx,px,py,18,`hsla(${hue},80%,55%,0.7)`,`hsl(${hue},80%,65%)`,2);
+  // energy bars
+  const barX=W*0.75,barW=20,barMaxH=H*0.55,barY=H*0.1;
+  const E0=pendState.g*pendState.L*(1-Math.cos(+document.getElementById('pend-theta').value*Math.PI/180))+0.001;
+  const keH=Math.min(KE/E0,1)*barMaxH,peH=Math.min(PE/E0,1)*barMaxH,eH=Math.min(E/E0,1)*barMaxH;
+  // KE bar
+  ctx.fillStyle='rgba(255,79,110,0.7)';ctx.fillRect(barX,barY+barMaxH-keH,barW,keH);
+  ctx.strokeStyle='#ff4f6e';ctx.lineWidth=1;ctx.strokeRect(barX,barY,barW,barMaxH);
+  label(ctx,'KE',barX+2,barY+barMaxH+12,'#ff4f6e',10);
+  // PE bar
+  ctx.fillStyle='rgba(0,170,255,0.7)';ctx.fillRect(barX+30,barY+barMaxH-peH,barW,peH);
+  ctx.strokeStyle='#0af';ctx.strokeRect(barX+30,barY,barW,barMaxH);
+  label(ctx,'PE',barX+32,barY+barMaxH+12,'#0af',10);
+  // E total bar
+  ctx.fillStyle='rgba(245,197,24,0.7)';ctx.fillRect(barX+60,barY+barMaxH-eH,barW,eH);
+  ctx.strokeStyle='#f5c518';ctx.strokeRect(barX+60,barY,barW,barMaxH);
+  label(ctx,'E',barX+62,barY+barMaxH+12,'#f5c518',10);
+  // damp label
+  if(pendState.damp>0)label(ctx,'Friction (T-sym broken)',10,20,'rgba(255,79,110,0.7)',10);
+  pendState.history.push(E);if(pendState.history.length>pgW)pendState.history.shift();
+  document.getElementById('pend-readout').innerHTML=`KE = ${KE.toFixed(2)} J<br>PE = ${PE.toFixed(2)} J<br>E_total = ${E.toFixed(2)} J<br>θ = ${(pendState.theta*180/Math.PI).toFixed(1)}°`;
+  const conserved=pendState.damp<0.01;
+  document.getElementById('pend-pill').className='pill '+(conserved?'pill-g':'pill-r');
+  document.getElementById('pend-pill').textContent=conserved?'Energy Conserved':'Energy Dissipating';
+  drawGraph(pgCtx,pgW,pgH,pendState.history,'Total Energy E = KE + PE','rgba(245,197,24,0.8)',conserved?'rgba(0,255,176,0.3)':'rgba(255,79,110,0.3)');
+  pendState.raf=requestAnimationFrame(animPend);
+}
+function updatePendDamp(){
+  pendState.damp=+document.getElementById('pend-damp').value;
+  document.getElementById('pend-damp-val').textContent=pendState.damp<0.01?'γ = 0.00 (symmetric)':`γ = ${pendState.damp.toFixed(2)} (breaking time symmetry)`;
+}
+function setPendDamp(v){document.getElementById('pend-damp').value=v;updatePendDamp();}
+
+// ═══════════════════════════════════════════════════════
+// ANGULAR MOMENTUM CONSERVATION
+// ═══════════════════════════════════════════════════════
+let angState={ecc:0.3,pert:0,planet:{x:0,y:0,vx:0,vy:0},raf:null,history:[],t:0};
+let angCtx,angW,angH,angGCtx,angGW,angGH;
+window.addEventListener('load',()=>{
+  let r=initCanvas('c-ang');angCtx=r.ctx;angW=r.W;angH=r.H;
+  r=initCanvas('c-ang-graph');angGCtx=r.ctx;angGW=r.W;angGH=r.H;
+  restartAng();
+});
+function restartAng(){
+  if(angState.raf)cancelAnimationFrame(angState.raf);
+  angState.ecc=+document.getElementById('ang-ecc').value;
+  document.getElementById('ang-ecc-val').textContent='e = '+angState.ecc.toFixed(2);
+  // initialize planet on orbit
+  const e=angState.ecc;
+  const a=1,b=Math.sqrt(1-e*e);
+  angState.planet={x:a*(1-e),y:0,vx:0,vy:Math.sqrt((1+e)/(1-e)),trail:[]};
+  angState.history=[];angState.t=0;
+  animAng();
+}
+function animAng(){
+  angState.t++;
+  const dt=0.015;
+  const{planet,pert}=angState;
+  const r=Math.sqrt(planet.x**2+planet.y**2);
+  // Gravity (central force)
+  const ax=-planet.x/r**3,ay=-planet.y/r**3;
+  // Perturbation (breaks rotational symmetry — constant direction force)
+  const pax=pert*0.05,pay=0;
+  planet.vx+=(ax+pax)*dt;planet.vy+=(ay+pay)*dt;
+  planet.x+=planet.vx*dt;planet.y+=planet.vy*dt;
+  planet.trail=planet.trail||[];
+  planet.trail.push({x:planet.x,y:planet.y});
+  if(planet.trail.length>400)planet.trail.shift();
+  const ctx=angCtx,W=angW,H=angH;
+  ctx.clearRect(0,0,W,H);
+  drawGrid(ctx,W,H);
+  const cx=W/2,cy=H/2,scale=Math.min(W,H)*0.35;
+  // trail
+  if(planet.trail.length>2){
+    ctx.beginPath();planet.trail.forEach((p,i)=>{
+      const x=cx+p.x*scale,y=cy-p.y*scale;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle='rgba(176,111,255,0.5)';ctx.lineWidth=1.5;ctx.stroke();
+  }
+  // star
+  const sx=cx,sy=cy;
+  circle(ctx,sx,sy,12,'#f5c518aa','#f5c518',2);
+  // planet
+  const px=cx+planet.x*scale,py=cy-planet.y*scale;
+  circle(ctx,px,py,9,'#0afaa','#0af',2);
+  // L vector (angular momentum)
+  const L=planet.x*planet.vy-planet.y*planet.vx;
+  // Radius line
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(px,py);
+  ctx.strokeStyle='rgba(0,255,176,0.15)';ctx.lineWidth=1;ctx.stroke();
+  // perturbation arrow
+  if(pert>0){
+    arrow(ctx,px,py,px+pert*25,py,'#ff4f6e',2);
+    label(ctx,'F_pert (breaks sym)',px+pert*20,py-12,'rgba(255,79,110,0.7)',10);
+  }
+  angState.history.push(Math.abs(L));if(angState.history.length>angGW)angState.history.shift();
+  document.getElementById('ang-readout').innerHTML=`L = ${L.toFixed(3)} units<br>r = ${r.toFixed(2)} AU<br>|v| = ${Math.sqrt(planet.vx**2+planet.vy**2).toFixed(2)} AU/yr`;
+  const conserved=pert<0.05;
+  document.getElementById('ang-pill').className='pill '+(conserved?'pill-g':'pill-r');
+  document.getElementById('ang-pill').textContent=conserved?'Angular Momentum Conserved':'L Not Conserved';
+  drawGraph(angGCtx,angGW,angGH,angState.history,'|L| angular momentum','rgba(176,111,255,0.8)',conserved?'rgba(0,255,176,0.3)':'rgba(255,79,110,0.3)');
+  angState.raf=requestAnimationFrame(animAng);
+}
+function updateAngPert(){
+  angState.pert=+document.getElementById('ang-pert').value;
+  document.getElementById('ang-pert-val').textContent=angState.pert<0.05?'F_pert = 0 (symmetric)':`F_pert = ${angState.pert.toFixed(2)} (breaking symmetry!)`;
+}
+function setAngPert(v){document.getElementById('ang-pert').value=v;updateAngPert();}
+
+// ═══════════════════════════════════════════════════════
+// GRAPH DRAWING UTILITY
+// ═══════════════════════════════════════════════════════
+function drawGraph(ctx,W,H,data,ylabel,lineCol,bgCol){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#02070f';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=bgCol||'rgba(0,255,176,0.05)';ctx.fillRect(0,0,W,H);
+  if(data.length<2)return;
+  const pad=30,gW=W-pad-10,gH=H-pad-10;
+  const mn=Math.min(...data),mx=Math.max(...data)||1;
+  const range=mx-mn||1;
+  // axes
+  ctx.strokeStyle='rgba(0,170,255,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad,5);ctx.lineTo(pad,H-pad);ctx.lineTo(W-5,H-pad);ctx.stroke();
+  label(ctx,ylabel,pad+5,15,'rgba(255,255,255,0.4)',9);
+  label(ctx,'Max: '+mx.toFixed(2),W-70,12,'rgba(255,255,255,0.4)',9);
+  label(ctx,'Min: '+mn.toFixed(2),W-70,H-pad+12,'rgba(255,255,255,0.4)',9);
+  label(ctx,'Time →',W-55,H-5,'rgba(0,170,255,0.4)',9);
+  // line
+  ctx.beginPath();
+  data.forEach((v,i)=>{
+    const x=pad+i/data.length*gW;
+    const y=H-pad-(v-mn)/range*gH;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle=lineCol||'#0af';ctx.lineWidth=2;ctx.stroke();
+  // fill under
+  const lastX=pad+gW,firstX=pad;
+  ctx.lineTo(lastX,H-pad);ctx.lineTo(firstX,H-pad);ctx.closePath();
+  ctx.fillStyle=lineCol.replace('0.8','0.08');ctx.fill();
+}
+</script>
+</body>
+</html>

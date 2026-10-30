@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projectile Motion — Physics Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;700;900&family=Inconsolata:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:      #080b0f;
+  --panel:   #0e1318;
+  --border:  #1d2d20;
+  --aT:      #86efac; /* trajectory — sage green */
+  --aD:      #fb923c; /* drag — orange */
+  --aA:      #67e8f9; /* analytical — cyan */
+  --aV:      #fde047; /* velocity — yellow */
+  --aG:      #f87171; /* gravity — red */
+  --aN:      #c084fc; /* numerical — violet */
+  --text:    #c4cfc0;
+  --muted:   #3d5240;
+  --terrain: #141f17;
+  --glowT:   0 0 18px rgba(134,239,172,.4);
+  --glowD:   0 0 18px rgba(251,146,60,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Inconsolata',monospace;
+  font-size:13px;min-height:100vh;overflow-x:hidden;
+}
+/* radar grid */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(134,239,172,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(134,239,172,0.025) 1px,transparent 1px);
+  background-size:36px 36px;
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;bottom:0;left:0;right:0;height:30%;
+  background:linear-gradient(0deg,rgba(20,31,23,0.15),transparent);
+  pointer-events:none;z-index:0;
+}
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:20px;}
+
+/* ── Header ── */
+header{text-align:center;padding:30px 0 18px;position:relative;}
+header::before{
+  content:'TARGET ACQUISITION SYSTEM';
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  font-family:'Orbitron',monospace;font-size:9px;color:var(--muted);
+  letter-spacing:6px;
+}
+header h1{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(16px,3vw,34px);font-weight:700;letter-spacing:3px;
+  background:linear-gradient(135deg,var(--aT),var(--aA));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-top:16px;
+}
+header p{color:var(--muted);margin-top:7px;font-size:10px;letter-spacing:4px;text-transform:uppercase;font-family:'Rajdhani',sans-serif;}
+
+/* ── Theory toggle ── */
+.theory-toggle{
+  background:var(--panel);border:1px solid var(--border);border-radius:4px;
+  padding:10px 17px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  font-family:'Orbitron',monospace;font-size:10px;color:var(--text);letter-spacing:1px;
+  transition:border-color .2s;user-select:none;
+}
+.theory-toggle:hover{border-color:var(--aT);}
+.theory-toggle .arr{color:var(--aT);transition:transform .3s;}
+.theory-toggle.open .arr{transform:rotate(180deg);}
+.tcoll{display:none;margin-top:13px;}
+.tcoll.vis{display:block;}
+
+/* ── Theory cards ── */
+.trow{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:13px;margin-bottom:13px;}
+.tcard{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.thead{
+  font-family:'Orbitron',monospace;font-size:9px;font-weight:500;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.thead .num{font-size:20px;font-weight:900;font-family:'Orbitron',monospace;opacity:.18;line-height:1;color:var(--aT);}
+.tbody{padding:14px;font-size:12px;line-height:1.85;color:var(--text);font-family:'Rajdhani',sans-serif;font-weight:400;}
+.tbody p{margin-bottom:8px;}.tbody p:last-child{margin:0;}
+
+.eq-block{
+  background:rgba(0,0,0,.55);border-left:3px solid var(--aT);
+  padding:8px 12px;margin:8px 0;border-radius:0 3px 3px 0;
+  font-size:12px;color:var(--aT);font-family:'Inconsolata',monospace;
+}
+.eq-block.ora{border-color:var(--aD);color:var(--aD);}
+.eq-block.cya{border-color:var(--aA);color:var(--aA);}
+.eq-block.yel{border-color:var(--aV);color:var(--aV);}
+.eq-block.red{border-color:var(--aG);color:var(--aG);}
+.eq-block.vio{border-color:var(--aN);color:var(--aN);}
+
+.hT{color:var(--aT);}  .hD{color:var(--aD);}
+.hA{color:var(--aA);}  .hV{color:var(--aV);}
+.hG{color:var(--aG);}  .hN{color:var(--aN);}
+
+.step-list{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.step-list li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;}
+.step-list li .sn{
+  width:22px;height:22px;border-radius:2px;background:rgba(134,239,172,.07);
+  border:1px solid var(--aT);color:var(--aT);font-size:10px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;
+  font-family:'Inconsolata',monospace;
+}
+.comp-table{width:100%;border-collapse:collapse;font-size:11px;margin:7px 0;}
+.comp-table th,.comp-table td{padding:5px 9px;border:1px solid var(--border);text-align:left;font-family:'Inconsolata',monospace;}
+.comp-table th{color:var(--muted);background:rgba(0,0,0,.3);}
+.comp-table tr:nth-child(even) td{background:rgba(0,0,0,.18);}
+
+.rk4-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px;}
+.rk4-box{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.rk4-box .rk-lbl{font-size:9px;color:var(--muted);margin-bottom:3px;font-family:'Orbitron',monospace;letter-spacing:1px;}
+.rk4-box .rk-eq{font-size:11px;color:var(--aN);font-family:'Inconsolata',monospace;}
+
+/* ── Live banner ── */
+.eq-banner{
+  background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--aT);
+  padding:12px 17px;margin:14px 0;border-radius:4px;
+  display:flex;flex-wrap:wrap;gap:9px;align-items:center;
+}
+.eq-banner .eq-main{font-size:clamp(12px,2vw,18px);color:var(--aT);flex:1;text-align:center;letter-spacing:.5px;font-family:'Inconsolata',monospace;}
+.eq-banner .eq-parts{display:flex;gap:13px;flex-wrap:wrap;justify-content:center;}
+.eq-badge{background:rgba(134,239,172,.05);border:1px solid var(--border);padding:4px 9px;border-radius:3px;font-size:11px;color:var(--muted);}
+.eq-badge span{color:var(--text);}
+
+/* ── Main layout ── */
+.main-grid{display:grid;grid-template-columns:260px 1fr;gap:14px;}
+@media(max-width:920px){.main-grid{grid-template-columns:1fr;}}
+
+/* ── Panel ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.panel-title{
+  font-family:'Orbitron',monospace;font-size:9px;font-weight:500;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--aT);box-shadow:var(--glowT);}
+
+/* ── Controls ── */
+.ctrl-inner{padding:12px 14px;display:flex;flex-direction:column;gap:12px;}
+.pg label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:11px;}
+.pg label .pname{color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:500;}
+.pg label .pval{color:var(--aT);font-weight:600;}
+.pg label .psym{margin-right:4px;}
+.psT{color:var(--aT);} .psD{color:var(--aD);} .psA{color:var(--aA);} .psV{color:var(--aV);} .psG{color:var(--aG);}
+
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:2px;background:var(--aT);box-shadow:0 0 7px var(--aT);cursor:pointer;border:2px solid var(--bg);}
+input[type=range].sD::-webkit-slider-thumb{background:var(--aD);box-shadow:0 0 7px var(--aD);}
+input[type=range].sA::-webkit-slider-thumb{background:var(--aA);box-shadow:0 0 7px var(--aA);}
+input[type=range].sV::-webkit-slider-thumb{background:var(--aV);box-shadow:0 0 7px var(--aV);}
+input[type=range].sG::-webkit-slider-thumb{background:var(--aG);box-shadow:0 0 7px var(--aG);}
+
+.divider{border:none;border-top:1px solid var(--border);}
+.btn{
+  width:100%;padding:9px;background:transparent;border:1px solid var(--aT);
+  color:var(--aT);font-family:'Inconsolata',monospace;font-size:11px;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s;
+}
+.btn:hover{background:rgba(134,239,172,.07);box-shadow:var(--glowT);}
+.btn.fire{border-color:var(--aD);color:var(--aD);}
+.btn.fire:hover{background:rgba(251,146,60,.07);box-shadow:var(--glowD);}
+.btn-row{display:flex;gap:7px;}
+
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.metric-box{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.metric-box .mk{font-size:9px;color:var(--muted);margin-bottom:2px;font-family:'Orbitron',monospace;letter-spacing:1px;}
+.metric-box .mv{font-size:13px;font-weight:600;color:var(--aT);font-family:'Inconsolata',monospace;}
+
+.planet-btn-row{display:flex;gap:5px;flex-wrap:wrap;}
+.planet-btn{
+  flex:1;padding:5px 4px;background:transparent;border:1px solid var(--border);
+  color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;
+  cursor:pointer;border-radius:2px;transition:all .2s;text-align:center;
+}
+.planet-btn:hover,.planet-btn.active{border-color:var(--aV);color:var(--aV);background:rgba(253,224,71,.05);}
+
+/* ── Right ── */
+.right-pane{display:flex;flex-direction:column;gap:13px;}
+canvas{display:block;width:100%;background:#070c09;}
+.canvas-label{font-size:9px;color:var(--muted);letter-spacing:4px;text-transform:uppercase;padding:5px 11px;border-bottom:1px solid var(--border);font-family:'Orbitron',monospace;}
+.canvas-wrap{display:flex;flex-direction:column;}
+.cwrap-r{border-left:1px solid var(--border);}
+
+.traj-area{border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+@media(max-width:900px){.bottom-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.bottom-grid{grid-template-columns:1fr;}}
+
+.legend{display:flex;gap:13px;flex-wrap:wrap;padding:7px 12px;border-top:1px solid var(--border);}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.leg-line{width:16px;height:2px;border-radius:1px;}
+
+.sol-box{
+  background:rgba(0,0,0,.42);border:1px solid var(--border);border-left:3px solid var(--aA);
+  padding:9px 12px;font-size:11px;line-height:1.9;margin:0 12px 12px;
+  border-radius:0 3px 3px 0;font-family:'Inconsolata',monospace;
+}
+.sol-box .sol-title{color:var(--aA);font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:5px;font-family:'Orbitron',monospace;}
+.sol-box .sol-eq span{color:var(--aV);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header>
+  <h1>Projectile Motion</h1>
+  <p>Equation Derivation · Drag Force · Analytical &amp; Numerical (RK4) · Trajectory Optimization</p>
+</header>
+
+<!-- ══ THEORY ══════════════════════════════════════════════════════════════ -->
+<div style="margin-bottom:14px;">
+  <div class="theory-toggle open" id="theoryToggle" onclick="toggleTheory()">
+    <span>📐 &nbsp; Theory — Deriving and solving the equations of motion</span>
+    <span class="arr">▲</span>
+  </div>
+
+  <div class="tcoll vis" id="theoryBody">
+    <div style="margin-top:12px;">
+
+      <div class="trow">
+
+        <!-- 01: FBD & Newton -->
+        <div class="tcard">
+          <div class="thead"><span class="num">01</span>Free-Body Diagram &amp; Newton's 2nd Law</div>
+          <div class="tbody">
+            <p>A projectile of mass <span class="hT">m</span> moves in 2D. Two forces act on it: gravity and (optionally) aerodynamic drag. Separating into x and y components via <strong>F = ma</strong>:</p>
+            <ul class="step-list">
+              <li><div class="sn">x</div><div><span class="hD">Horizontal</span>: only drag acts (no gravity component) → mẍ = F_drag,x</div></li>
+              <li><div class="sn">y</div><div><span class="hG">Vertical</span>: gravity pulls down, drag opposes upward motion → mÿ = −mg + F_drag,y</div></li>
+            </ul>
+            <p style="margin-top:8px;"><strong>Without drag</strong> (vacuum): the axes decouple completely:</p>
+            <div class="eq-block">ẍ = 0 &nbsp;&nbsp; ÿ = −g</div>
+            <p>Initial conditions: x(0)=0, y(0)=0, ẋ(0)=v₀cosθ, ẏ(0)=v₀sinθ.</p>
+            <p style="color:var(--muted);font-size:11px;">The two ODEs are independent — horizontal motion is uniform (constant velocity), vertical motion is uniformly accelerated (constant deceleration).</p>
+          </div>
+        </div>
+
+        <!-- 02: Analytical (no drag) -->
+        <div class="tcard">
+          <div class="thead"><span class="num">02</span>Analytical Solution (No Drag)</div>
+          <div class="tbody">
+            <p>Integrating the decoupled ODEs twice with initial conditions gives closed-form expressions:</p>
+            <div class="eq-block cya">x(t) = v₀·cosθ · t</div>
+            <div class="eq-block cya">y(t) = v₀·sinθ · t − ½·g·t²</div>
+            <div class="eq-block cya">vx(t) = v₀·cosθ &nbsp;(constant!)</div>
+            <div class="eq-block cya">vy(t) = v₀·sinθ − g·t</div>
+            <p>Key derived quantities:</p>
+            <table class="comp-table">
+              <tr><th>Quantity</th><th>Formula</th></tr>
+              <tr><td class="hV">Time of flight</td><td>T = 2·v₀·sinθ / g</td></tr>
+              <tr><td class="hT">Max height</td><td>H = (v₀·sinθ)² / (2g)</td></tr>
+              <tr><td class="hD">Range</td><td>R = v₀²·sin(2θ) / g</td></tr>
+              <tr><td class="hA">Optimal angle</td><td>θ_opt = 45° (maximises R)</td></tr>
+            </table>
+            <p style="color:var(--muted);font-size:11px;margin-top:7px;">The parabolic trajectory y = x·tanθ − gx²/(2v₀²cos²θ) follows directly from eliminating t.</p>
+          </div>
+        </div>
+
+        <!-- 03: Drag force -->
+        <div class="tcard">
+          <div class="thead"><span class="num">03</span>Aerodynamic Drag — Why the ODE becomes Nonlinear</div>
+          <div class="tbody">
+            <p>At typical speeds, drag force is <strong>quadratic in speed</strong> and always opposes the velocity vector:</p>
+            <div class="eq-block ora">F_drag = −½·ρ·Cd·A·|v|² · v̂</div>
+            <p>where: <span class="hD">ρ</span> = air density, <span class="hD">Cd</span> = drag coefficient, <span class="hD">A</span> = cross-sectional area, <span class="hD">v̂</span> = unit velocity vector.</p>
+            <p>Let <span class="hD">k = ½·ρ·Cd·A/m</span>. The component equations become:</p>
+            <div class="eq-block ora">ẍ = −k·|v|·vx</div>
+            <div class="eq-block ora">ÿ = −g − k·|v|·vy</div>
+            <p>where |v| = √(vx² + vy²). These are now <strong>coupled and nonlinear</strong> — no closed-form solution exists. Numerical integration (RK4) is required.</p>
+            <p style="color:var(--muted);font-size:11px;margin-top:6px;">Consequence: range is reduced, optimal angle drops below 45° (typically 30–40°), and the trajectory becomes asymmetric — steeper on the descending side.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="trow">
+
+        <!-- 04: RK4 -->
+        <div class="tcard">
+          <div class="thead"><span class="num">04</span>Numerical Integration — RK4 on the State Vector</div>
+          <div class="tbody">
+            <p>The two 2nd-order ODEs are rewritten as four coupled 1st-order equations using the <strong>state vector [x, y, vx, vy]</strong>:</p>
+            <div class="eq-block vio">ẋ = vx &nbsp;&nbsp; ẏ = vy<br>v̇x = −k·|v|·vx<br>v̇y = −g − k·|v|·vy</div>
+            <p>RK4 evaluates four weighted slope estimates per time step h:</p>
+            <div class="rk4-grid">
+              <div class="rk4-box"><div class="rk-lbl">k₁ — start</div><div class="rk-eq">f(tₙ, yₙ)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₂ — mid est. 1</div><div class="rk-eq">f(t+h/2, y+h·k₁/2)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₃ — mid est. 2</div><div class="rk-eq">f(t+h/2, y+h·k₂/2)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₄ — end</div><div class="rk-eq">f(t+h, y+h·k₃)</div></div>
+            </div>
+            <div class="eq-block vio" style="margin-top:8px;">yₙ₊₁ = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)</div>
+            <p style="color:var(--muted);font-size:11px;margin-top:6px;">With Cd = 0, RK4 reproduces the analytical solution to machine precision. As Cd increases, trajectories diverge — compare the cyan (analytical vacuum) vs orange (numerical with drag) curves in the simulation.</p>
+          </div>
+        </div>
+
+        <!-- 05: Trajectory analysis -->
+        <div class="tcard">
+          <div class="thead"><span class="num">05</span>Trajectory Characteristics &amp; Energy</div>
+          <div class="tbody">
+            <p>Without drag, the total mechanical energy is conserved at every point:</p>
+            <div class="eq-block yel">E = ½m|v|² + mgy = ½mv₀² (constant)</div>
+            <p>This means speed at any height h can be found purely from energy: |v| = √(v₀² − 2gh).</p>
+            <p>The <strong>velocity vector</strong> rotates continuously — at peak it points horizontally, on landing it is symmetric with the launch angle (no drag).</p>
+            <div class="eq-block">Speed at impact = v₀ (no drag, flat ground)</div>
+            <p>With drag, energy is dissipated and the impact speed is <strong>always less than v₀</strong>. The drag force does negative work W = ∫F_drag · ds along the path.</p>
+            <ul class="step-list" style="margin-top:7px;">
+              <li><div class="sn">▸</div><div><span class="hT">Phase portrait</span> (vx, vy): ellipse (no drag) → inward spiral (drag)</div></li>
+              <li><div class="sn">▸</div><div><span class="hA">Apex</span>: vy = 0, maximum height, minimum speed</div></li>
+              <li><div class="sn">▸</div><div><span class="hD">Terminal velocity</span>: when drag = gravity → vy_term = √(mg/k)</div></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 06: Range optimisation -->
+        <div class="tcard">
+          <div class="thead"><span class="num">06</span>Range Optimisation &amp; the Effect of Drag</div>
+          <div class="tbody">
+            <p>Without drag the range formula <span class="hA">R = v₀²·sin(2θ)/g</span> is maximised at exactly <span class="hT">θ = 45°</span> (since sin(2θ) peaks at 90°).</p>
+            <p>With quadratic drag this simple result breaks down. Numerically sweeping angles shows the optimal angle <strong>shifts below 45°</strong> — typically 30–42° depending on the drag parameter k:</p>
+            <table class="comp-table">
+              <tr><th>Drag (k)</th><th>Optimal θ</th><th>Range loss</th></tr>
+              <tr><td class="hT">0 (vacuum)</td><td class="hT">45.0°</td><td>—</td></tr>
+              <tr><td class="hD">low</td><td>≈ 40–43°</td><td>&lt;20%</td></tr>
+              <tr><td class="hD">medium</td><td>≈ 35–38°</td><td>20–50%</td></tr>
+              <tr><td class="hD">high</td><td>≈ 30–35°</td><td>&gt;50%</td></tr>
+            </table>
+            <p style="margin-top:7px;color:var(--muted);font-size:11px;">The range vs angle chart in the simulation sweeps all angles numerically and shows both vacuum and drag curves simultaneously — drag not only reduces range but flattens and shifts the peak.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LIVE BANNER ══════════════════════════════════════════════════════════ -->
+<div class="eq-banner">
+  <div class="eq-main">mẍ = −k|v|vx &nbsp;&nbsp; mÿ = −mg − k|v|vy</div>
+  <div class="eq-parts">
+    <div class="eq-badge">R = <span id="b-R">—</span> m</div>
+    <div class="eq-badge">H = <span id="b-H">—</span> m</div>
+    <div class="eq-badge">T = <span id="b-T">—</span> s</div>
+    <div class="eq-badge">θ_opt = <span id="b-thopt">—</span>°</div>
+    <div class="eq-badge">|v| = <span id="b-v">—</span> m/s</div>
+  </div>
+</div>
+
+<!-- ══ SIMULATION ═══════════════════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- Controls -->
+  <div>
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div>Launch Parameters</div>
+      <div class="ctrl-inner">
+
+        <div class="pg">
+          <label><span><span class="psym psT">v₀</span><span class="pname"> — Launch Speed</span></span><span class="pval" id="v-v0">30.0 m/s</span></label>
+          <input type="range" id="s-v0" min="5" max="80" step="0.5" value="30">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym psT">θ</span><span class="pname"> — Launch Angle</span></span><span class="pval" id="v-th">45.0°</span></label>
+          <input type="range" id="s-th" min="1" max="89" step="0.5" value="45">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym psV">h₀</span><span class="pname"> — Launch Height</span></span><span class="pval" id="v-h0">0.0 m</span></label>
+          <input type="range" id="s-h0" class="sV" min="0" max="50" step="0.5" value="0">
+        </div>
+
+        <hr class="divider">
+        <div class="pg">
+          <label><span><span class="psym psD">Cd</span><span class="pname"> — Drag Coefficient</span></span><span class="pval" id="v-Cd">0.00</span></label>
+          <input type="range" id="s-Cd" class="sD" min="0" max="1" step="0.01" value="0">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym psD">m</span><span class="pname"> — Mass</span></span><span class="pval" id="v-m">1.0 kg</span></label>
+          <input type="range" id="s-m" class="sD" min="0.1" max="10" step="0.1" value="1">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym psD">A</span><span class="pname"> — Cross-Section</span></span><span class="pval" id="v-A">0.010 m²</span></label>
+          <input type="range" id="s-A" class="sD" min="0.001" max="0.2" step="0.001" value="0.01">
+        </div>
+
+        <hr class="divider">
+        <div class="pg">
+          <label><span><span class="psym psG">g</span><span class="pname"> — Gravity</span></span><span class="pval" id="v-g">9.81 m/s²</span></label>
+          <input type="range" id="s-g" class="sG" min="0.5" max="25" step="0.1" value="9.81">
+        </div>
+
+        <!-- Planet presets -->
+        <div class="planet-btn-row">
+          <button class="planet-btn active" id="pb-earth" onclick="setPlanet(9.81,'earth')">Earth</button>
+          <button class="planet-btn" id="pb-moon"  onclick="setPlanet(1.62,'moon')">Moon</button>
+          <button class="planet-btn" id="pb-mars"  onclick="setPlanet(3.72,'mars')">Mars</button>
+          <button class="planet-btn" id="pb-jup"   onclick="setPlanet(24.8,'jup')">Jupiter</button>
+        </div>
+
+        <hr class="divider">
+        <div class="metrics">
+          <div class="metric-box"><div class="mk">Range (m)</div><div class="mv" id="m-R">—</div></div>
+          <div class="metric-box"><div class="mk">Max Height (m)</div><div class="mv" id="m-H">—</div></div>
+          <div class="metric-box"><div class="mk">Flight Time (s)</div><div class="mv" id="m-T">—</div></div>
+          <div class="metric-box"><div class="mk">Impact Speed (m/s)</div><div class="mv" id="m-Vi">—</div></div>
+        </div>
+
+        <hr class="divider">
+        <div class="btn-row">
+          <button class="btn fire" onclick="launchNew()">🚀 Launch</button>
+          <button class="btn" onclick="resetAll()">⟳ Clear</button>
+        </div>
+        <button class="btn" onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Right pane -->
+  <div class="right-pane">
+
+    <!-- Trajectory canvas (main, tall) -->
+    <div class="panel traj-area">
+      <div class="canvas-label">🎯 Trajectory — Numerical (orange) vs. Analytical Vacuum (cyan)</div>
+      <canvas id="trajCanvas" height="320"></canvas>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="leg-line" style="background:var(--aD)"></div>Numerical RK4 (with drag)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aA)"></div>Analytical (vacuum)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aT)"></div>Live projectile</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aV)"></div>Velocity vector</div>
+    </div>
+
+    <!-- Analytical solution readout -->
+    <div class="panel">
+      <div class="panel-title"><div class="dot" style="background:var(--aA);box-shadow:0 0 18px rgba(103,232,249,.4)"></div>Analytical Solution (Vacuum)</div>
+      <div class="sol-box">
+        <div class="sol-title">Closed-Form Equations of Motion</div>
+        <div class="sol-eq" id="sol-eq-text">Awaiting launch…</div>
+      </div>
+    </div>
+
+    <!-- Three sub-panels -->
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aV);box-shadow:0 0 18px rgba(253,224,71,.4)"></div>y(t) &amp; |v|(t)</div>
+        <canvas id="timeCanvas" height="200"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aN);box-shadow:0 0 18px rgba(192,132,252,.4)"></div>Phase Portrait (vx, vy)</div>
+        <canvas id="phaseCanvas" height="200"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aD);box-shadow:var(--glowD)"></div>Range vs. Angle θ</div>
+        <canvas id="rangeCanvas" height="200"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SCRIPT ═══════════════════════════════════════════════════════════════ -->
+<script>
+// ── Theory toggle ────────────────────────────────────────────────────────────
+function toggleTheory(){
+  const b=document.getElementById('theoryBody'),t=document.getElementById('theoryToggle');
+  t.classList.toggle('open',b.classList.toggle('vis'));
+}
+
+// ── Physics parameters ───────────────────────────────────────────────────────
+let v0=30, theta=45, h0=0, Cd=0, mass=1, A=0.01, grav=9.81;
+const rho=1.225; // air density kg/m³
+
+// Drag factor k = ½ρCd·A / m  (per-unit-mass)
+const kDrag=()=>0.5*rho*Cd*A/mass;
+
+// ── Simulation state ─────────────────────────────────────────────────────────
+let simX=0, simY=0, simVx=0, simVy=0, simT=0;
+let running=false, paused=false, animId=null, lastTs=null;
+let trailNum=[], trailAna=[]; // {x,y,vx,vy,t}
+let completed=false;
+let physDt=1/300, physAcc=0;
+let impactSpeed=0;
+
+// ── Canvas refs ──────────────────────────────────────────────────────────────
+const trajC =document.getElementById('trajCanvas');
+const timeC =document.getElementById('timeCanvas');
+const phaseC=document.getElementById('phaseCanvas');
+const rangeC=document.getElementById('rangeCanvas');
+[trajC,timeC,phaseC,rangeC].forEach(c=>{
+  c._ctx=c.getContext('2d');
+});
+const ctxT=trajC._ctx, ctxTm=timeC._ctx, ctxPh=phaseC._ctx, ctxRg=rangeC._ctx;
+
+function resizeAll(){
+  [trajC,timeC,phaseC,rangeC].forEach(c=>{
+    c.width=c.offsetWidth*devicePixelRatio;
+    c.height=c.offsetHeight*devicePixelRatio;
+  });
+}
+window.addEventListener('resize',()=>{resizeAll();drawAll();});
+resizeAll();
+
+// ── RK4 ─────────────────────────────────────────────────────────────────────
+function derivP(t,x,y,vx,vy){
+  const spd=Math.sqrt(vx*vx+vy*vy)||1e-9;
+  const k=kDrag();
+  return{dx:vx, dy:vy, dvx:-k*spd*vx, dvy:-grav-k*spd*vy};
+}
+function rk4Step(t,x,y,vx,vy,dt){
+  const k1=derivP(t,x,y,vx,vy);
+  const k2=derivP(t+dt/2, x+dt/2*k1.dx, y+dt/2*k1.dy, vx+dt/2*k1.dvx, vy+dt/2*k1.dvy);
+  const k3=derivP(t+dt/2, x+dt/2*k2.dx, y+dt/2*k2.dy, vx+dt/2*k2.dvx, vy+dt/2*k2.dvy);
+  const k4=derivP(t+dt,   x+dt*k3.dx,   y+dt*k3.dy,   vx+dt*k3.dvx,   vy+dt*k3.dvy);
+  return{
+    x :x +dt/6*(k1.dx +2*k2.dx +2*k3.dx +k4.dx),
+    y :y +dt/6*(k1.dy +2*k2.dy +2*k3.dy +k4.dy),
+    vx:vx+dt/6*(k1.dvx+2*k2.dvx+2*k3.dvx+k4.dvx),
+    vy:vy+dt/6*(k1.dvy+2*k2.dvy+2*k3.dvy+k4.dvy)
+  };
+}
+
+// ── Analytical solution (vacuum) ─────────────────────────────────────────────
+function anaPos(t){
+  const th=theta*Math.PI/180;
+  const vx0=v0*Math.cos(th), vy0=v0*Math.sin(th);
+  return{x:vx0*t, y:h0+vy0*t-0.5*grav*t*t, vx:vx0, vy:vy0-grav*t};
+}
+function anaLand(){
+  const th=theta*Math.PI/180, vy0=v0*Math.sin(th), vx0=v0*Math.cos(th);
+  // y = h0 + vy0*t - 0.5*g*t² = 0 → quadratic
+  const disc=vy0*vy0+2*grav*h0;
+  if(disc<0)return{T:0,R:0,H:0};
+  const T=(vy0+Math.sqrt(disc))/grav;
+  const R=vx0*T;
+  const tApex=vy0/grav;
+  const H=h0+vy0*tApex-0.5*grav*tApex*tApex;
+  return{T,R,H};
+}
+
+// Pre-compute full numerical trajectory for display
+function computeNumTraj(){
+  const th=theta*Math.PI/180;
+  const pts=[];
+  let x=0, y=h0, vx=v0*Math.cos(th), vy=v0*Math.sin(th), t=0;
+  const dt=0.01;
+  while(y>=-0.01 && t<300){
+    pts.push({x,y:Math.max(0,y),vx,vy,t});
+    const s=rk4Step(t,x,y,vx,vy,dt);
+    x=s.x;y=s.y;vx=s.vx;vy=s.vy;t+=dt;
+    if(y<0&&pts.length>1)break;
+  }
+  return pts;
+}
+
+// Find optimal angle numerically
+function findOptAngle(){
+  let bestR=0, bestTh=45;
+  for(let th=1;th<=89;th+=0.5){
+    const thr=th*Math.PI/180;
+    let x=0,y=h0,vx=v0*Math.cos(thr),vy=v0*Math.sin(thr),t=0;
+    const dt=0.05;
+    while(y>=-0.1&&t<300){
+      const s=rk4Step(t,x,y,vx,vy,dt);x=s.x;y=s.y;vx=s.vx;vy=s.vy;t+=dt;
+      if(y<0)break;
+    }
+    if(x>bestR){bestR=x;bestTh=th;}
+  }
+  return{bestTh,bestR};
+}
+
+// ── Bounding box for all trajectories ────────────────────────────────────────
+function getBounds(){
+  const numFull=computeNumTraj();
+  const al=anaLand();
+  const tEnd=Math.max(al.T,numFull.length>0?numFull[numFull.length-1].t:al.T,0.1);
+  const anaPts=[]; for(let ti=0;ti<=tEnd;ti+=tEnd/200) anaPts.push(anaPos(ti));
+  const allX=[...numFull.map(p=>p.x),...anaPts.map(p=>p.x),0];
+  const allY=[...numFull.map(p=>p.y),...anaPts.map(p=>p.y),0,h0];
+  return{
+    xMin:0, xMax:Math.max(...allX)*1.1+1,
+    yMin:0, yMax:Math.max(...allY)*1.15+1,
+    numFull, anaPts, tEnd, al
+  };
+}
+
+// ── Update UI metrics ────────────────────────────────────────────────────────
+function updateUI(){
+  document.getElementById('v-v0').textContent=v0.toFixed(1)+' m/s';
+  document.getElementById('v-th').textContent=theta.toFixed(1)+'°';
+  document.getElementById('v-h0').textContent=h0.toFixed(1)+' m';
+  document.getElementById('v-Cd').textContent=Cd.toFixed(2);
+  document.getElementById('v-m').textContent=mass.toFixed(1)+' kg';
+  document.getElementById('v-A').textContent=A.toFixed(3)+' m²';
+  document.getElementById('v-g').textContent=grav.toFixed(2)+' m/s²';
+
+  const al=anaLand();
+  const {bestTh}=findOptAngle();
+
+  const vNow=Math.sqrt(simVx*simVx+simVy*simVy);
+  document.getElementById('b-v').textContent=vNow.toFixed(1);
+  document.getElementById('b-R').textContent=al.R.toFixed(1);
+  document.getElementById('b-H').textContent=al.H.toFixed(1);
+  document.getElementById('b-T').textContent=al.T.toFixed(2);
+  document.getElementById('b-thopt').textContent=bestTh.toFixed(1);
+
+  // Metrics from numerical trajectory
+  const numFull=computeNumTraj();
+  const numR=numFull.length>0?numFull[numFull.length-1].x:0;
+  const numH=Math.max(...numFull.map(p=>p.y),0);
+  const numT=numFull.length>0?numFull[numFull.length-1].t:0;
+  const last=numFull[numFull.length-1]||{vx:0,vy:0};
+  const numVi=Math.sqrt(last.vx*last.vx+last.vy*last.vy);
+  document.getElementById('m-R').textContent=numR.toFixed(1);
+  document.getElementById('m-H').textContent=numH.toFixed(1);
+  document.getElementById('m-T').textContent=numT.toFixed(2);
+  document.getElementById('m-Vi').textContent=numVi.toFixed(1);
+
+  updateSolText();
+}
+
+function updateSolText(){
+  const al=anaLand();
+  const th=theta*Math.PI/180;
+  const vx0=(v0*Math.cos(th)).toFixed(2), vy0=(v0*Math.sin(th)).toFixed(2);
+  const el=document.getElementById('sol-eq-text');
+  el.innerHTML=
+    `x(t) = <span>${vx0}</span>·t<br>`+
+    `y(t) = <span>${h0.toFixed(1)}</span> + <span>${vy0}</span>·t − <span>${(grav/2).toFixed(3)}</span>·t²<br>`+
+    `vx(t) = <span>${vx0}</span> m/s &nbsp;(constant)<br>`+
+    `vy(t) = <span>${vy0}</span> − <span>${grav.toFixed(2)}</span>·t<br>`+
+    `<br>T_flight = <span>${al.T.toFixed(3)}</span> s &nbsp; R = <span>${al.R.toFixed(2)}</span> m &nbsp; H_max = <span>${al.H.toFixed(2)}</span> m`;
+}
+
+// ── Draw helpers ─────────────────────────────────────────────────────────────
+function clr(ctx){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);}
+function grid(ctx,W,H,col='rgba(29,45,32,0.7)'){
+  ctx.strokeStyle=col;ctx.lineWidth=1;
+  for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=H/8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+function arrow(ctx,x1,y1,x2,y2,col,lw){
+  ctx.strokeStyle=col;ctx.lineWidth=lw;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const ang=Math.atan2(y2-y1,x2-x1),as=7;
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-as*Math.cos(ang-.4),y2-as*Math.sin(ang-.4));
+  ctx.lineTo(x2-as*Math.cos(ang+.4),y2-as*Math.sin(ang+.4));
+  ctx.closePath();ctx.fill();
+}
+
+// ── Trajectory canvas ────────────────────────────────────────────────────────
+function drawTraj(){
+  const W=trajC.width, H=trajC.height, ctx=ctxT, dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:10*dpr,r:10*dpr,t:12*dpr,b:28*dpr};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  const bnds=getBounds();
+  const {xMax,yMax,numFull,anaPts}=bnds;
+  const mX=x=>pad.l+(x/xMax)*pw;
+  const mY=y=>H-pad.b-(y/yMax)*ph;
+
+  // Terrain / ground
+  const gGrad=ctx.createLinearGradient(0,mY(0),0,H);
+  gGrad.addColorStop(0,'rgba(20,31,23,0.8)');gGrad.addColorStop(1,'rgba(8,11,9,0.9)');
+  ctx.fillStyle=gGrad;
+  ctx.fillRect(0,mY(0),W,H-mY(0));
+  ctx.strokeStyle='rgba(134,239,172,0.3)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();ctx.moveTo(0,mY(0));ctx.lineTo(W,mY(0));ctx.stroke();
+
+  // Analytical full trajectory (cyan)
+  if(anaPts.length>1){
+    ctx.strokeStyle='rgba(103,232,249,0.5)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([5*dpr,3*dpr]);
+    ctx.beginPath();
+    anaPts.forEach((p,i)=>{
+      const cx=mX(p.x),cy=mY(Math.max(0,p.y));
+      if(i===0)ctx.moveTo(cx,cy);else ctx.lineTo(cx,cy);
+    });
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // Numerical full trajectory (orange dimmed)
+  if(numFull.length>1){
+    ctx.strokeStyle='rgba(251,146,60,0.3)';ctx.lineWidth=1.5*dpr;
+    ctx.beginPath();
+    numFull.forEach((p,i)=>{
+      const cx=mX(p.x),cy=mY(p.y);
+      if(i===0)ctx.moveTo(cx,cy);else ctx.lineTo(cx,cy);
+    });
+    ctx.stroke();
+  }
+
+  // Live trail (numerical, bright)
+  if(trailNum.length>1){
+    for(let i=1;i<trailNum.length;i++){
+      const t_=(i-1)/(trailNum.length-1);
+      ctx.strokeStyle=`rgba(251,146,60,${0.2+t_*0.8})`;
+      ctx.lineWidth=(0.5+t_*2)*dpr;
+      ctx.beginPath();
+      ctx.moveTo(mX(trailNum[i-1].x),mY(Math.max(0,trailNum[i-1].y)));
+      ctx.lineTo(mX(trailNum[i].x),mY(Math.max(0,trailNum[i].y)));
+      ctx.stroke();
+    }
+  }
+
+  // Projectile dot
+  if(running||trailNum.length>0){
+    const px=mX(simX), py=mY(Math.max(0,simY));
+    // Glow
+    const grad2=ctx.createRadialGradient(px,py,0,px,py,12*dpr);
+    grad2.addColorStop(0,'rgba(134,239,172,0.6)');grad2.addColorStop(1,'rgba(134,239,172,0)');
+    ctx.fillStyle=grad2;ctx.beginPath();ctx.arc(px,py,12*dpr,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(134,239,172,0.95)';
+    ctx.beginPath();ctx.arc(px,py,5*dpr,0,Math.PI*2);ctx.fill();
+
+    // Velocity arrow
+    const spd=Math.sqrt(simVx*simVx+simVy*simVy);
+    if(spd>0.5){
+      const vScale=Math.min(W,H)*0.12/v0;
+      const ex=px+simVx*vScale, ey=py-simVy*vScale;
+      arrow(ctx,px,py,ex,ey,'rgba(253,224,71,0.85)',1.5*dpr);
+    }
+
+    // Gravity vector
+    const gLen=20*dpr;
+    arrow(ctx,px,py,px,py+gLen,'rgba(248,113,113,0.6)',1.5*dpr);
+  }
+
+  // Angle arc at origin
+  if(!running || simT<0.2){
+    const th=theta*Math.PI/180;
+    const arcR=30*dpr, ox=mX(0)+pad.l/2, oy=mY(h0);
+    ctx.strokeStyle='rgba(134,239,172,0.4)';ctx.lineWidth=dpr;
+    ctx.beginPath();ctx.arc(ox,oy,arcR,-th,0,true);ctx.stroke();
+    ctx.fillStyle='rgba(134,239,172,0.7)';
+    ctx.font=`${8*dpr}px Inconsolata`;ctx.textAlign='left';
+    ctx.fillText(`${theta.toFixed(0)}°`,ox+arcR+4*dpr,oy-arcR/2);
+  }
+
+  // Axis labels
+  ctx.fillStyle='rgba(61,82,64,0.9)';ctx.font=`${8*dpr}px Inconsolata`;ctx.textAlign='center';
+  ctx.fillText('x (m) →',W/2,H-6*dpr);
+  ctx.save();ctx.translate(6*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('y (m)',0,0);ctx.restore();
+  ctx.fillText(xMax.toFixed(0),W-pad.r,H-pad.b+10*dpr);
+  ctx.textAlign='right';ctx.fillText(yMax.toFixed(0),pad.l+28*dpr,pad.t+10*dpr);
+
+  // Stats overlay
+  if(trailNum.length>0){
+    const spd=Math.sqrt(simVx*simVx+simVy*simVy).toFixed(1);
+    ctx.fillStyle='rgba(61,82,64,0.9)';ctx.font=`${9*dpr}px Inconsolata`;ctx.textAlign='right';
+    ctx.fillText(`t=${simT.toFixed(1)}s  |v|=${spd}m/s  x=${simX.toFixed(0)}m  y=${Math.max(0,simY).toFixed(0)}m`,W-8*dpr,14*dpr);
+  }
+}
+
+// ── y(t) and |v|(t) ──────────────────────────────────────────────────────────
+function drawTime(){
+  const W=timeC.width, H=timeC.height, ctx=ctxTm, dpr=devicePixelRatio;
+  clr(ctx);grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1d2d20';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  const numFull=computeNumTraj();
+  if(numFull.length<2)return;
+  const tEnd=numFull[numFull.length-1].t;
+  const yMax2=Math.max(...numFull.map(p=>p.y),h0,0.1)*1.2;
+  const vMax=Math.max(...numFull.map(p=>Math.sqrt(p.vx*p.vx+p.vy*p.vy)),0.1)*1.2;
+  const scale=Math.max(yMax2,vMax);
+  const mX=t=>t/tEnd*pw+pad.l;
+  const mY=v=>ph-(v/scale)*ph+pad.t;
+
+  // zero
+  ctx.strokeStyle='rgba(61,82,64,0.3)';ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mY(0));ctx.lineTo(W-pad.r,mY(0));ctx.stroke();ctx.setLineDash([]);
+
+  // Analytical y(t) (cyan)
+  ctx.strokeStyle='rgba(103,232,249,0.6)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([5*dpr,3*dpr]);
+  ctx.beginPath();let fa=true;
+  for(let ti=0;ti<=tEnd;ti+=tEnd/200){
+    const p=anaPos(ti); const cy=mY(Math.max(0,p.y));
+    if(fa){ctx.moveTo(mX(ti),cy);fa=false;}else ctx.lineTo(mX(ti),cy);
+  }
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Numerical y(t)
+  ctx.strokeStyle='rgba(134,239,172,0.85)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();numFull.forEach((p,i)=>{if(i===0)ctx.moveTo(mX(p.t),mY(Math.max(0,p.y)));else ctx.lineTo(mX(p.t),mY(Math.max(0,p.y)));});ctx.stroke();
+
+  // |v|(t) (yellow)
+  ctx.strokeStyle='rgba(253,224,71,0.7)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();numFull.forEach((p,i)=>{const v2=Math.sqrt(p.vx*p.vx+p.vy*p.vy);if(i===0)ctx.moveTo(mX(p.t),mY(v2));else ctx.lineTo(mX(p.t),mY(v2));});ctx.stroke();
+
+  // Live position marker
+  if(simT>0&&simT<=tEnd){
+    ctx.fillStyle='rgba(134,239,172,0.9)';ctx.beginPath();ctx.arc(mX(simT),mY(Math.max(0,simY)),4*dpr,0,Math.PI*2);ctx.fill();
+    const spd=Math.sqrt(simVx*simVx+simVy*simVy);
+    ctx.fillStyle='rgba(253,224,71,0.9)';ctx.beginPath();ctx.arc(mX(simT),mY(spd),4*dpr,0,Math.PI*2);ctx.fill();
+  }
+
+  ctx.fillStyle='rgba(61,82,64,0.8)';ctx.font=`${8*dpr}px Inconsolata`;ctx.textAlign='center';
+  ctx.fillText('t (s) →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('m / m/s',0,0);ctx.restore();
+  // legend
+  ctx.textAlign='left';ctx.fillStyle='rgba(134,239,172,0.7)';ctx.fillText('y(t)',pad.l+4*dpr,pad.t+10*dpr);
+  ctx.fillStyle='rgba(253,224,71,0.7)';ctx.fillText('|v|(t)',pad.l+40*dpr,pad.t+10*dpr);
+  ctx.fillStyle='rgba(103,232,249,0.6)';ctx.fillText('y_ana',pad.l+80*dpr,pad.t+10*dpr);
+}
+
+// ── Phase portrait (vx, vy) ──────────────────────────────────────────────────
+function drawPhase(){
+  const W=phaseC.width, H=phaseC.height, ctx=ctxPh, dpr=devicePixelRatio;
+  clr(ctx);grid(ctx,W,H,'rgba(29,45,32,0.5)');
+  const pad=18*dpr, pw=W-2*pad, ph=H-2*pad;
+
+  const numFull=computeNumTraj();
+  if(numFull.length<2)return;
+  const vxs=numFull.map(p=>p.vx), vys=numFull.map(p=>p.vy);
+  const vxMax=Math.max(...vxs.map(Math.abs),0.1)*1.2;
+  const vyMax=Math.max(...vys.map(Math.abs),v0*0.5)*1.2;
+  const mX=vx=>(vx/vxMax*0.8+0.5)*pw+pad;
+  const mY=vy=>(1-vy/vyMax*0.8-0.2)*ph+pad;  // flipped
+
+  ctx.strokeStyle='#1d2d20';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad,H/2);ctx.lineTo(W-pad,H/2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W/2,pad);ctx.lineTo(W/2,H-pad);ctx.stroke();
+
+  // Analytical ellipse (no drag)
+  ctx.strokeStyle='rgba(103,232,249,0.35)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([4*dpr,3*dpr]);
+  ctx.beginPath();let fa=true;
+  const anaTEnd=anaLand().T;
+  for(let ti=0;ti<=anaTEnd;ti+=anaTEnd/150){
+    const p=anaPos(ti);
+    const cx=mX(p.vx),cy=mY(p.vy);
+    if(fa){ctx.moveTo(cx,cy);fa=false;}else ctx.lineTo(cx,cy);
+  }
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Numerical trail (violet gradient)
+  for(let i=1;i<numFull.length;i++){
+    const t_=(i-1)/(numFull.length-1);
+    ctx.strokeStyle=`hsla(270,70%,${50+t_*30}%,${0.2+t_*0.7})`;
+    ctx.lineWidth=(0.5+t_*1.5)*dpr;
+    ctx.beginPath();
+    ctx.moveTo(mX(numFull[i-1].vx),mY(numFull[i-1].vy));
+    ctx.lineTo(mX(numFull[i].vx),mY(numFull[i].vy));
+    ctx.stroke();
+  }
+
+  // Live dot
+  ctx.fillStyle='rgba(253,224,71,0.9)';
+  ctx.beginPath();ctx.arc(mX(simVx),mY(simVy),4*dpr,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle='rgba(61,82,64,0.8)';ctx.font=`${8*dpr}px Inconsolata`;ctx.textAlign='center';
+  ctx.fillText('vx (m/s)',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('vy (m/s)',0,0);ctx.restore();
+}
+
+// ── Range vs angle ──────────────────────────────────────────────────────────
+function drawRange(){
+  const W=rangeC.width, H=rangeC.height, ctx=ctxRg, dpr=devicePixelRatio;
+  clr(ctx);grid(ctx,W,H);
+  const pad={l:38*dpr,r:10*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1d2d20';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  const N=89;
+  const anaRanges=[], numRanges=[];
+  let numBestR=0, numBestTh=45, anaBestR=0;
+
+  for(let thi=1;thi<=N;thi++){
+    const thr=thi*Math.PI/180;
+    const vx0=v0*Math.cos(thr), vy0=v0*Math.sin(thr);
+    // Analytical
+    const disc=vy0*vy0+2*grav*h0;
+    const T=disc>=0?(vy0+Math.sqrt(disc))/grav:0;
+    const R=vx0*T;
+    anaRanges.push(R);
+    if(R>anaBestR)anaBestR=R;
+    // Numerical (coarse)
+    let x=0,y=h0,nvx=vx0,nvy=vy0,t=0;
+    const dt2=0.05;
+    while(y>=-0.5&&t<300){const s=rk4Step(t,x,y,nvx,nvy,dt2);x=s.x;y=s.y;nvx=s.vx;nvy=s.vy;t+=dt2;if(y<0)break;}
+    numRanges.push(x);
+    if(x>numBestR){numBestR=x;numBestTh=thi;}
+  }
+
+  const rMax=Math.max(anaBestR,numBestR)*1.1;
+  const mX=thi=>(thi-1)/88*pw+pad.l;
+  const mY=r=>ph-(r/rMax)*ph+pad.t;
+
+  // 45° marker
+  ctx.strokeStyle='rgba(61,82,64,0.3)';ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(mX(45),pad.t);ctx.lineTo(mX(45),H-pad.b);ctx.stroke();ctx.setLineDash([]);
+
+  // Analytical (cyan)
+  ctx.strokeStyle='rgba(103,232,249,0.7)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();anaRanges.forEach((r,i)=>{if(i===0)ctx.moveTo(mX(i+1),mY(r));else ctx.lineTo(mX(i+1),mY(r));});ctx.stroke();
+
+  // Numerical (orange)
+  ctx.strokeStyle='rgba(251,146,60,0.8)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();numRanges.forEach((r,i)=>{if(i===0)ctx.moveTo(mX(i+1),mY(r));else ctx.lineTo(mX(i+1),mY(r));});ctx.stroke();
+
+  // Current angle marker
+  const thi=Math.round(theta);
+  if(thi>=1&&thi<=89){
+    ctx.fillStyle='rgba(134,239,172,0.9)';
+    ctx.beginPath();ctx.arc(mX(thi),mY(numRanges[thi-1]),5*dpr,0,Math.PI*2);ctx.fill();
+  }
+  // Optimal angle marker
+  ctx.fillStyle='rgba(251,146,60,0.9)';
+  ctx.beginPath();ctx.arc(mX(numBestTh),mY(numBestR),5*dpr,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle='rgba(61,82,64,0.8)';ctx.font=`${8*dpr}px Inconsolata`;ctx.textAlign='center';
+  ctx.fillText('θ (°) →',W/2,H-4*dpr);
+  ctx.fillText('45',mX(45),H-pad.b+10*dpr);
+  ctx.fillText(numBestTh+'°★',mX(numBestTh),H-pad.b+10*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('Range (m)',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText(rMax.toFixed(0),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.textAlign='left';ctx.fillStyle='rgba(103,232,249,0.7)';ctx.fillText('Vacuum',pad.l+4*dpr,pad.t+10*dpr);
+  ctx.fillStyle='rgba(251,146,60,0.8)';ctx.fillText('Drag',pad.l+4*dpr,pad.t+21*dpr);
+}
+
+function drawAll(){drawTraj();drawTime();drawPhase();drawRange();}
+
+// ── Simulation loop ──────────────────────────────────────────────────────────
+function loop(ts){
+  if(!running||paused){lastTs=null;return;}
+  if(lastTs===null){lastTs=ts;animId=requestAnimationFrame(loop);return;}
+  let dt=(ts-lastTs)/1000;lastTs=ts;dt=Math.min(dt,0.04);
+  physAcc+=dt;
+  while(physAcc>=physDt){
+    const s=rk4Step(simT,simX,simY,simVx,simVy,physDt);
+    simX=s.x;simY=s.y;simVx=s.vx;simVy=s.vy;simT+=physDt;physAcc-=physDt;
+    trailNum.push({x:simX,y:Math.max(0,simY),vx:simVx,vy:simVy,t:simT});
+    if(trailNum.length>800)trailNum.shift();
+    // Landing check
+    if(simY<-0.1&&simT>0.1){
+      simY=0;running=false;completed=true;
+      document.getElementById('pauseBtn').textContent='⏸ Pause';
+      break;
+    }
+  }
+  updateUI();drawAll();
+  if(running) animId=requestAnimationFrame(loop);
+}
+
+function launchNew(){
+  if(animId)cancelAnimationFrame(animId);
+  const th=theta*Math.PI/180;
+  simX=0;simY=h0;simVx=v0*Math.cos(th);simVy=v0*Math.sin(th);simT=0;
+  trailNum=[];trailAna=[];completed=false;physAcc=0;
+  running=true;paused=false;lastTs=null;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  animId=requestAnimationFrame(loop);
+}
+function resetAll(){
+  if(animId)cancelAnimationFrame(animId);
+  simX=0;simY=h0;simVx=v0*Math.cos(theta*Math.PI/180);simVy=v0*Math.sin(theta*Math.PI/180);
+  simT=0;trailNum=[];trailAna=[];running=false;paused=false;physAcc=0;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  updateUI();drawAll();
+}
+function togglePause(){
+  if(!running)return;
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(!paused){lastTs=null;animId=requestAnimationFrame(loop);}
+}
+
+// ── Planet presets ───────────────────────────────────────────────────────────
+function setPlanet(g,id){
+  grav=g;
+  document.getElementById('s-g').value=g;
+  document.querySelectorAll('.planet-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pb-'+id).classList.add('active');
+  updateUI();drawAll();
+}
+
+// ── Sliders ──────────────────────────────────────────────────────────────────
+function bind(id,fn){
+  document.getElementById(id).addEventListener('input',function(){
+    fn(parseFloat(this.value));updateUI();drawAll();
+  });
+}
+bind('s-v0',v=>{v0=v;});
+bind('s-th',v=>{theta=v;});
+bind('s-h0',v=>{h0=v;simY=v;});
+bind('s-Cd',v=>{Cd=v;});
+bind('s-m', v=>{mass=v;});
+bind('s-A', v=>{A=v;});
+bind('s-g', v=>{grav=v;document.querySelectorAll('.planet-btn').forEach(b=>b.classList.remove('active'));});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+updateUI();drawAll();
+</script>
+</body>
+</html>

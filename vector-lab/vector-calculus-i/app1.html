@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>∇ Vector Calculus Laboratory</title>
+<script>
+try { var _t = localStorage.getItem('calclab-theme'); if (_t === 'day' || _t === 'night') document.documentElement.setAttribute('data-theme', _t); } catch (_) {}
+</script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], processEscapes: true },
+  svg: { fontCache: 'global' },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] },
+  startup: { pageReady: () => MathJax.startup.defaultPageReady().then(() => { window.__mjReady = true; flushTypeset(); }) }
+};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --mono:'JetBrains Mono','Consolas','Menlo',monospace;
+  --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+  --bg:#0b0f15;--panel:#141a23;--panel2:#1b2330;--border:#2a3546;--border2:#3d4b60;
+  --text:#e8eef5;--text2:#b9c5d4;--text3:#8f9eb2;
+  --c1:#56c8f5;--c2:#ff9060;--c3:#7ee787;--c4:#d6a8ff;--red:#ff7b72;
+  --code:#0d1219;--hover:rgba(255,255,255,.06);--sel:rgba(86,200,245,.35);--shadow:rgba(0,0,0,.4);
+}
+:root[data-theme="day"]{
+  color-scheme:light;
+  --bg:#e6ebf2;--panel:#ffffff;--panel2:#f2f5f9;--border:#d3dbe6;--border2:#aebccd;
+  --text:#18222f;--text2:#3c4b5e;--text3:#586a80;
+  --c1:#0a62b8;--c2:#b8420a;--c3:#17702f;--c4:#7a22c9;--red:#c5202c;
+  --code:#eaf0f7;--hover:rgba(10,98,184,.07);--sel:rgba(10,98,184,.25);--shadow:rgba(30,50,80,.15);
+}
+::selection{background:var(--sel);color:var(--text);}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:15px;height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .2s,color .2s;}
+:focus-visible{outline:2px solid var(--c1);outline-offset:1px;}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:16px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;position:relative;flex-wrap:wrap;}
+header::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--c1) 0%,transparent 60%);}
+.logo{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--c1);letter-spacing:2px;}
+.logo .op{color:var(--c2);}
+.subtitle{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:2.5px;text-transform:uppercase;}
+.hstatus{margin-left:auto;display:flex;gap:8px;font-family:var(--mono);font-size:12px;align-items:center;}
+.hpill{background:var(--panel2);border:1px solid var(--border2);border-radius:4px;padding:4px 9px;color:var(--text2);max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hpill.ok{color:var(--c3);border-color:var(--c3);}
+.themebtns{display:flex;gap:0;border:1px solid var(--border2);border-radius:5px;overflow:hidden;}
+.thbtn{padding:6px 13px;background:var(--panel2);border:none;color:var(--text2);cursor:pointer;font-family:var(--ui);font-size:13px;font-weight:600;transition:all .15s;}
+.thbtn+.thbtn{border-left:1px solid var(--border2);}
+.thbtn:hover{background:var(--hover);color:var(--text);}
+.thbtn.active{background:var(--c1);color:var(--panel);}
+
+/* LAYOUT */
+.main{flex:1;display:flex;overflow:hidden;min-height:0;}
+.lpanel{width:390px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.canvas-area{flex:1;position:relative;overflow:hidden;background:var(--bg);}
+#cv{width:100%;height:100%;display:block;}
+
+/* TABS */
+.tabbar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel2);}
+.tbtn{flex:1;padding:11px 4px;background:none;border:none;border-bottom:3px solid transparent;color:var(--text2);cursor:pointer;font-family:var(--ui);font-size:12.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;transition:all .2s;}
+.tbtn:hover{color:var(--text);background:var(--hover);}
+.tbtn.active{color:var(--c1);border-bottom-color:var(--c1);background:var(--panel);}
+.tcontent{flex:1;overflow-y:auto;overflow-x:hidden;}
+.tcontent::-webkit-scrollbar{width:8px;}
+.tcontent::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+.tpane{display:none;padding:16px;}
+.tpane.active{display:block;}
+
+/* SECTIONS */
+.sec{margin-bottom:20px;}
+.seclabel{font-size:12px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--text2);border-bottom:1px solid var(--border);padding-bottom:5px;margin-bottom:10px;}
+
+/* MODE BUTTONS */
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+.mbtn{padding:9px 6px;background:var(--panel2);border:1px solid var(--border2);border-radius:5px;color:var(--text);cursor:pointer;font-family:var(--mono);font-size:13px;font-weight:500;text-align:center;transition:all .15s;}
+.mbtn:hover{background:var(--hover);border-color:var(--c1);}
+.mbtn.active{background:color-mix(in srgb,var(--c1) 18%,var(--panel));border-color:var(--c1);color:var(--c1);font-weight:700;}
+
+/* FUNCTION INPUTS */
+.fg{margin-bottom:10px;}
+.flabel{font-family:var(--mono);font-size:13px;color:var(--text);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
+.fbadge{width:22px;height:22px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--mono);flex-shrink:0;}
+.bf{background:color-mix(in srgb,var(--c1) 20%,transparent);color:var(--c1);}
+.bx{background:color-mix(in srgb,var(--c2) 20%,transparent);color:var(--c2);}
+.by{background:color-mix(in srgb,var(--c3) 20%,transparent);color:var(--c3);}
+.bz{background:color-mix(in srgb,var(--c4) 20%,transparent);color:var(--c4);}
+.fi{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:14px;padding:8px 10px;outline:none;transition:border-color .2s;}
+.fi:focus{border-color:var(--c1);box-shadow:0 0 0 2px color-mix(in srgb,var(--c1) 25%,transparent);}
+.fi.ferr{border-color:var(--red);}
+.fi.fok{border-color:color-mix(in srgb,var(--c3) 60%,var(--border2));}
+
+/* PRESET SELECT */
+.psel{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:5px;color:var(--text);font-family:var(--ui);font-size:14px;padding:8px 10px;outline:none;cursor:pointer;}
+.psel option,.psel optgroup{background:var(--panel);color:var(--text);}
+
+/* PARAM SLIDERS */
+.prow{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.pname{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--c1);width:20px;flex-shrink:0;}
+.pslider{flex:1;-webkit-appearance:none;appearance:none;height:5px;background:var(--border2);border-radius:3px;outline:none;cursor:pointer;}
+.pslider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c1);cursor:pointer;border:2px solid var(--panel);box-shadow:0 0 0 1px var(--c1);}
+.pslider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--c1);cursor:pointer;border:2px solid var(--panel);}
+.pval{font-family:var(--mono);font-size:13px;color:var(--text);width:44px;text-align:right;flex-shrink:0;}
+
+/* DISPLAY TOGGLES */
+.drow{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.dlabel{font-size:14px;color:var(--text);flex:1;}
+.tog{width:40px;height:22px;background:var(--border2);border-radius:11px;cursor:pointer;position:relative;border:none;transition:background .2s;flex-shrink:0;}
+.tog.on{background:var(--c1);}
+.tog::after{content:'';position:absolute;width:16px;height:16px;background:var(--panel);border-radius:50%;top:3px;left:3px;transition:all .2s;}
+.tog.on::after{left:21px;}
+
+/* VIEW MODE */
+.vgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.vbtn{padding:8px 2px;background:var(--panel2);border:1px solid var(--border2);border-radius:5px;color:var(--text);cursor:pointer;font-family:var(--mono);font-size:13px;text-align:center;transition:all .15s;}
+.vbtn:hover{background:var(--hover);border-color:var(--c1);}
+.vbtn.active{background:color-mix(in srgb,var(--c1) 18%,var(--panel));border-color:var(--c1);color:var(--c1);font-weight:700;}
+
+/* ANALYSIS */
+.acard{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;}
+.actitle{font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;margin-bottom:9px;display:flex;align-items:center;gap:7px;}
+.actitle::before{content:'';width:7px;height:7px;border-radius:2px;background:var(--c1);flex-shrink:0;}
+.vrow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);}
+.vrow:last-child{border-bottom:none;}
+.vname{font-size:14px;color:var(--text2);}
+.vnum{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--c1);}
+.vnum.neg{color:var(--c2);}
+.vecval{font-family:var(--mono);font-size:13px;color:var(--text);margin-top:6px;padding:8px 10px;background:var(--code);border-radius:4px;line-height:2;border-left:3px solid var(--c1);overflow-x:auto;}
+.ptrow{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.ptlbl{font-size:15px;font-weight:600;color:var(--c2);width:24px;flex-shrink:0;}
+.dnote{font-size:13px;color:var(--text2);margin-top:6px;}
+
+/* PHYSICS TAB */
+.psec{margin-bottom:26px;}
+.ptitle{font-size:17px;font-weight:700;color:var(--c1);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.psym{font-size:26px;color:var(--c2);line-height:1;}
+.pformula{background:var(--code);border-left:3px solid var(--c1);padding:8px 12px;margin:10px 0;color:var(--text);border-radius:0 5px 5px 0;overflow-x:auto;font-size:15px;}
+.ptext{font-size:15px;color:var(--text);line-height:1.75;margin:8px 0;}
+.pexample{font-size:14.5px;color:var(--text);padding:8px 12px;background:color-mix(in srgb,var(--c1) 8%,var(--panel));border:1px solid var(--border);border-radius:5px;margin:8px 0;line-height:1.9;overflow-x:auto;}
+.tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:11px;font-weight:700;font-family:var(--mono);letter-spacing:.8px;margin-right:5px;vertical-align:middle;}
+.tphys{background:color-mix(in srgb,var(--c1) 18%,transparent);color:var(--c1);}
+.tmath{background:color-mix(in srgb,var(--c2) 18%,transparent);color:var(--c2);}
+.tthm{background:color-mix(in srgb,var(--c3) 18%,transparent);color:var(--c3);}
+.tsub{background:color-mix(in srgb,var(--c4) 18%,transparent);color:var(--c4);}
+
+/* HELP TAB */
+.hsec{margin-bottom:22px;}
+.htitle{font-size:14px;font-weight:700;color:var(--c2);margin-bottom:8px;letter-spacing:1px;}
+.htext{font-size:14.5px;color:var(--text);line-height:1.8;margin-bottom:6px;}
+.htext b,.ptext b{color:var(--c1);font-weight:700;}
+.cblock{font-family:var(--mono);font-size:13px;color:var(--text);background:var(--code);padding:10px 12px;border-radius:5px;margin:8px 0;line-height:1.85;border:1px solid var(--border);white-space:pre-wrap;}
+.cblock span{color:var(--text3);}
+
+/* MathJax */
+mjx-container{color:var(--text);}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;margin:.5em 0 !important;}
+.vecval mjx-container,.acard mjx-container{margin:0 !important;}
+
+/* CANVAS OVERLAYS */
+.cov{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;}
+.ctitle{position:absolute;top:14px;left:18px;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);letter-spacing:1.5px;background:color-mix(in srgb,var(--panel) 80%,transparent);padding:4px 9px;border-radius:4px;}
+.cmodebadge{position:absolute;top:14px;right:18px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--c1);background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--c1);padding:4px 10px;border-radius:4px;letter-spacing:1px;}
+.cbar{position:absolute;bottom:50px;right:18px;width:16px;height:130px;border-radius:3px;border:1px solid var(--border2);}
+.cbar-lbls{position:absolute;bottom:50px;right:40px;height:130px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;}
+.cbar-lbl{font-family:var(--mono);font-size:12px;color:var(--text);background:color-mix(in srgb,var(--panel) 75%,transparent);padding:0 4px;border-radius:2px;}
+.cbar-title{position:absolute;bottom:26px;right:18px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);}
+.cinfo{position:absolute;bottom:12px;left:18px;font-family:var(--mono);font-size:11.5px;color:var(--text2);letter-spacing:1px;background:color-mix(in srgb,var(--panel) 75%,transparent);padding:2px 7px;border-radius:3px;}
+.cerr{position:absolute;bottom:42px;left:14px;font-family:var(--mono);font-size:12px;color:var(--red);padding:3px 7px;border-radius:3px;border:1px solid var(--red);display:none;}
+.divider{height:1px;background:var(--border);margin:10px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">∇ <span class="op">CALC</span>LAB</div>
+  <div class="subtitle">Vector Calculus · 3D Field Visualizer</div>
+  <div class="hstatus">
+    <div class="hpill" id="hpMode">MODE: GRADIENT</div>
+    <div class="hpill ok" id="hpStatus">READY</div>
+    <div class="hpill" id="hpGrid">GRID: 8×8</div>
+  </div>
+  <div class="themebtns" role="group" aria-label="Theme">
+    <button class="thbtn" id="btn-night" onclick="setTheme('night')">☾ Night</button>
+    <button class="thbtn" id="btn-day" onclick="setTheme('day')">★ Day</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT PANEL -->
+  <div class="lpanel">
+    <div class="tabbar">
+      <button class="tbtn active" onclick="switchTab('controls')">CTRL</button>
+      <button class="tbtn" onclick="switchTab('analysis')">ANALYSIS</button>
+      <button class="tbtn" onclick="switchTab('physics')">THEORY</button>
+      <button class="tbtn" onclick="switchTab('help')">HELP</button>
+    </div>
+    <div class="tcontent">
+
+      <!-- CONTROLS TAB -->
+      <div class="tpane active" id="tab-controls">
+
+        <div class="sec">
+          <div class="seclabel">Operation</div>
+          <div class="modegrid">
+            <button class="mbtn active" id="m-gradient" onclick="setMode('gradient')">∇f  Gradient</button>
+            <button class="mbtn" id="m-divergence" onclick="setMode('divergence')">∇·F  Diverge</button>
+            <button class="mbtn" id="m-curl" onclick="setMode('curl')">∇×F  Curl</button>
+            <button class="mbtn" id="m-all" onclick="setMode('all')">⊕  All Ops</button>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">Presets</div>
+          <select class="psel" id="presetSel" onchange="loadPreset(this.value)">
+            <option value="">— Select preset —</option>
+            <optgroup label="Gradient (Scalar Fields)">
+              <option value="coulomb">Coulomb Potential</option>
+              <option value="harmonic">Anisotropic Harmonic</option>
+              <option value="wave2d">2D Damped Wave</option>
+              <option value="saddle">Saddle Point</option>
+              <option value="gaussian">Gaussian Hill</option>
+            </optgroup>
+            <optgroup label="Divergence / Curl (Vector Fields)">
+              <option value="rotation">Uniform Rotation</option>
+              <option value="source">Point Source / Sink</option>
+              <option value="vortex">Irrotational Vortex</option>
+              <option value="helmholtz">Helmholtz-type</option>
+              <option value="shear">Shear Flow</option>
+              <option value="dipole">Magnetic Dipole-like</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="sec" id="sec-scalar">
+          <div class="seclabel">Scalar Field f(x,y,z)</div>
+          <div class="fg">
+            <div class="flabel"><span class="fbadge bf">f</span> f(x,y,z) =</div>
+            <input class="fi" id="inp-f" value="sin(a*x)*cos(b*y)*exp(-c*(x*x+y*y))"
+                   oninput="debouncedUpdate()" placeholder="e.g. sin(a*x)*cos(b*y)">
+          </div>
+        </div>
+
+        <div class="sec" id="sec-vector" style="display:none">
+          <div class="seclabel">Vector Field F = (Fx, Fy, Fz)</div>
+          <div class="fg">
+            <div class="flabel"><span class="fbadge bx">x</span> Fx(x,y,z) =</div>
+            <input class="fi" id="inp-Fx" value="-a*y" oninput="debouncedUpdate()">
+          </div>
+          <div class="fg">
+            <div class="flabel"><span class="fbadge by">y</span> Fy(x,y,z) =</div>
+            <input class="fi" id="inp-Fy" value="a*x" oninput="debouncedUpdate()">
+          </div>
+          <div class="fg">
+            <div class="flabel"><span class="fbadge bz">z</span> Fz(x,y,z) =</div>
+            <input class="fi" id="inp-Fz" value="0" oninput="debouncedUpdate()">
+          </div>
+        </div>
+
+        <div class="sec" id="sec-scalar-all" style="display:none">
+          <div class="seclabel">Scalar Field (for Gradient)</div>
+          <div class="fg">
+            <div class="flabel"><span class="fbadge bf">f</span> f(x,y,z) =</div>
+            <input class="fi" id="inp-f2" value="x*x+y*y+z*z" oninput="debouncedUpdate()">
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">Parameters</div>
+          <div class="prow">
+            <div class="pname">a</div>
+            <input type="range" class="pslider" id="sl-a" min="-5" max="5" step="0.1" value="1" oninput="updateParam('a',this.value)">
+            <div class="pval" id="pv-a">1.0</div>
+          </div>
+          <div class="prow">
+            <div class="pname">b</div>
+            <input type="range" class="pslider" id="sl-b" min="-5" max="5" step="0.1" value="1" oninput="updateParam('b',this.value)">
+            <div class="pval" id="pv-b">1.0</div>
+          </div>
+          <div class="prow">
+            <div class="pname">c</div>
+            <input type="range" class="pslider" id="sl-c" min="0.01" max="5" step="0.05" value="0.5" oninput="updateParam('c',this.value)">
+            <div class="pval" id="pv-c">0.5</div>
+          </div>
+          <div class="prow">
+            <div class="pname">k</div>
+            <input type="range" class="pslider" id="sl-k" min="0.1" max="10" step="0.1" value="2" oninput="updateParam('k',this.value)">
+            <div class="pval" id="pv-k">2.0</div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">Grid &amp; Domain</div>
+          <div class="prow">
+            <div class="pname">N</div>
+            <input type="range" class="pslider" id="sl-N" min="3" max="12" step="1" value="8" oninput="updateGridParam('N',this.value)">
+            <div class="pval" id="pv-N">8</div>
+          </div>
+          <div class="prow">
+            <div class="pname">R</div>
+            <input type="range" class="pslider" id="sl-R" min="1" max="6" step="0.5" value="3" oninput="updateGridParam('R',this.value)">
+            <div class="pval" id="pv-R">3.0</div>
+          </div>
+          <div class="prow">
+            <div class="pname">sc</div>
+            <input type="range" class="pslider" id="sl-sc" min="0.1" max="3" step="0.05" value="1" oninput="updateGridParam('sc',this.value)">
+            <div class="pval" id="pv-sc">1.0</div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">View Mode</div>
+          <div class="vgrid">
+            <button class="vbtn active" id="vb-xy" onclick="setViewMode('xy')">XY</button>
+            <button class="vbtn" id="vb-xz" onclick="setViewMode('xz')">XZ</button>
+            <button class="vbtn" id="vb-yz" onclick="setViewMode('yz')">YZ</button>
+            <button class="vbtn" id="vb-3d" onclick="setViewMode('3d')">3D</button>
+          </div>
+          <div class="prow" style="margin-top:10px">
+            <div class="pname" style="width:34px;font-size:13px;color:var(--text2);">Zsl</div>
+            <input type="range" class="pslider" id="sl-slice" min="-3" max="3" step="0.25" value="0" oninput="updateGridParam('slice',this.value)">
+            <div class="pval" id="pv-slice">0.0</div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">Display Options</div>
+          <div class="drow"><div class="dlabel">Auto-Rotate</div><button class="tog" id="tog-rot" onclick="toggleOpt('autoRotate')"></button></div>
+          <div class="drow"><div class="dlabel">Show Axes</div><button class="tog on" id="tog-axes" onclick="toggleOpt('showAxes')"></button></div>
+          <div class="drow"><div class="dlabel">Show Grid</div><button class="tog on" id="tog-grid" onclick="toggleOpt('showGrid')"></button></div>
+          <div class="drow" id="drow-curl-overlay" style="display:none"><div class="dlabel">Overlay \(\nabla\times\mathbf F\) Arrows</div><button class="tog" id="tog-curlOverlay" onclick="toggleOpt('curlOverlay')"></button></div>
+        </div>
+
+        <div class="sec">
+          <div class="seclabel">Colormap</div>
+          <div class="modegrid" style="grid-template-columns:1fr 1fr 1fr;">
+            <button class="mbtn active" id="cm-plasma" onclick="setColormap('plasma')">Plasma</button>
+            <button class="mbtn" id="cm-rdbu" onclick="setColormap('rdbu')">RdBu</button>
+            <button class="mbtn" id="cm-viridis" onclick="setColormap('viridis')">Viridis</button>
+          </div>
+        </div>
+
+      </div><!-- /controls -->
+
+      <!-- ANALYSIS TAB -->
+      <div class="tpane" id="tab-analysis">
+        <div class="sec">
+          <div class="seclabel">Evaluation Point</div>
+          <div class="ptrow">
+            <div class="ptlbl">\(x_0\)</div>
+            <input type="range" class="pslider" id="sl-px" min="-4" max="4" step="0.1" value="1" oninput="updateAnalysis()">
+            <div class="pval" id="pv-px">1.0</div>
+          </div>
+          <div class="ptrow">
+            <div class="ptlbl">\(y_0\)</div>
+            <input type="range" class="pslider" id="sl-py" min="-4" max="4" step="0.1" value="1" oninput="updateAnalysis()">
+            <div class="pval" id="pv-py">1.0</div>
+          </div>
+          <div class="ptrow">
+            <div class="ptlbl">\(z_0\)</div>
+            <input type="range" class="pslider" id="sl-pz" min="-4" max="4" step="0.1" value="0" oninput="updateAnalysis()">
+            <div class="pval" id="pv-pz">0.0</div>
+          </div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Scalar Field Values</div>
+          <div class="vrow"><div class="vname">\(f(x_0,y_0,z_0)\)</div><div class="vnum" id="av-f">—</div></div>
+          <div class="vrow"><div class="vname">\(|\nabla f|\)</div><div class="vnum" id="av-gradf-mag">—</div></div>
+          <div class="vrow"><div class="vname">\(\nabla^2 f\) (Laplacian)</div><div class="vnum" id="av-lapf">—</div></div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Gradient \(\nabla f\)</div>
+          <div class="vecval" id="av-grad">—</div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Vector Field \(\mathbf F\)</div>
+          <div class="vrow"><div class="vname">\(|\mathbf F|\)</div><div class="vnum" id="av-Fmag">—</div></div>
+          <div class="vecval" id="av-F">—</div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Divergence \(\nabla\cdot\mathbf F\)</div>
+          <div class="vrow"><div class="vname">\(\nabla\cdot\mathbf F\)</div><div class="vnum" id="av-div">—</div></div>
+          <div class="dnote" id="av-div-note">—</div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Curl \(\nabla\times\mathbf F\)</div>
+          <div class="vrow"><div class="vname">\(|\nabla\times\mathbf F|\)</div><div class="vnum" id="av-curl-mag">—</div></div>
+          <div class="vecval" id="av-curl">—</div>
+        </div>
+
+        <div class="acard">
+          <div class="actitle">Jacobian Matrix \(\partial F_i/\partial x_j\)</div>
+          <div class="vecval" id="av-jac">—</div>
+        </div>
+      </div><!-- /analysis -->
+
+      <!-- THEORY TAB -->
+      <div class="tpane" id="tab-physics">
+
+        <div class="psec">
+          <div class="ptitle"><span class="psym">\(\nabla f\)</span> Gradient</div>
+          <div class="ptext">The <b>gradient</b> of a scalar field \(f(x,y,z)\) is a vector field pointing in the direction of steepest ascent, with magnitude equal to the rate of change.</div>
+          <div class="pformula">\[\nabla f=\left(\frac{\partial f}{\partial x},\frac{\partial f}{\partial y},\frac{\partial f}{\partial z}\right)=\frac{\partial f}{\partial x}\,\hat{\imath}+\frac{\partial f}{\partial y}\,\hat{\jmath}+\frac{\partial f}{\partial z}\,\hat{k}\]</div>
+          <div class="ptext"><span class="tag tphys">PHYSICS</span> In electrostatics, <b>\(\mathbf E=-\nabla\varphi\)</b> relates the electric field to the electric potential. In mechanics, <b>\(\mathbf F=-\nabla U\)</b> gives the conservative force from a potential energy surface.</div>
+          <div class="ptext"><span class="tag tmath">MATH</span> The gradient transforms as a covariant vector under coordinate changes. It is orthogonal to all level surfaces \(f=\text{const}\).</div>
+          <div class="pexample">Electric field: \(\mathbf E=-\nabla\varphi,\ \ \varphi=\dfrac{q}{4\pi\varepsilon_0 r}\)<br>
+Gravitational: \(\mathbf g=-\nabla\Phi,\ \ \Phi=-\dfrac{GM}{r}\)<br>
+Pressure force: \(\mathbf F=-\nabla P\) (fluid statics)</div>
+          <div class="ptext"><span class="tag tthm">THEOREM</span> The directional derivative in direction \(\hat u\) is \(D_{\hat u}f=\nabla f\cdot\hat u\), maximized when \(\hat u\parallel\nabla f\).</div>
+        </div>
+
+        <div class="psec">
+          <div class="ptitle"><span class="psym">\(\nabla\!\cdot\!\mathbf F\)</span> Divergence</div>
+          <div class="ptext">The <b>divergence</b> of a vector field \(\mathbf F\) measures the net flux out of an infinitesimal volume element — the “outflowing-ness” at a point.</div>
+          <div class="pformula">\[\nabla\cdot\mathbf F=\frac{\partial F_x}{\partial x}+\frac{\partial F_y}{\partial y}+\frac{\partial F_z}{\partial z}\]</div>
+          <div class="ptext"><span class="tag tphys">PHYSICS</span> Maxwell's first law: <b>\(\nabla\cdot\mathbf E=\rho/\varepsilon_0\)</b>. Continuity equation: <b>\(\partial\rho/\partial t+\nabla\cdot\mathbf J=0\)</b>. In fluid dynamics: <b>\(\nabla\cdot\mathbf v=0\)</b> for incompressible flow.</div>
+          <div class="ptext"><span class="tag tthm">GAUSS' THEOREM</span> \(\displaystyle\oint_S \mathbf F\cdot d\mathbf A=\iiint_V(\nabla\cdot\mathbf F)\,dV\) — the total flux through a closed surface equals the volume integral of divergence.</div>
+          <div class="pexample">Source field: \(\mathbf F=\hat r/r^2\ \Rightarrow\ \nabla\cdot\mathbf F=4\pi\,\delta^3(\mathbf r)\)<br>
+Uniform: \(\mathbf F=(x,y,z)\ \Rightarrow\ \nabla\cdot\mathbf F=3\)<br>
+Incompressible: \(\mathbf F=(-y,x,0)\ \Rightarrow\ \nabla\cdot\mathbf F=0\)</div>
+          <div class="ptext"><span class="tag tsub">IRROTATIONAL</span> \(\nabla\cdot\mathbf F&gt;0\): source (field lines diverge). \(\nabla\cdot\mathbf F&lt;0\): sink (field lines converge). \(\nabla\cdot\mathbf F=0\): solenoidal/incompressible.</div>
+        </div>
+
+        <div class="psec">
+          <div class="ptitle"><span class="psym">\(\nabla\!\times\!\mathbf F\)</span> Curl (Rotation)</div>
+          <div class="ptext">The <b>curl</b> of a vector field measures the local rotation (vorticity) — how much the field “circulates” around a point, and about which axis.</div>
+          <div class="pformula">\[\nabla\times\mathbf F=\begin{vmatrix}\hat{\imath}&amp;\hat{\jmath}&amp;\hat{k}\\ \partial_x&amp;\partial_y&amp;\partial_z\\ F_x&amp;F_y&amp;F_z\end{vmatrix}\]
+\[\begin{aligned}=&amp;\left(\frac{\partial F_z}{\partial y}-\frac{\partial F_y}{\partial z}\right)\hat{\imath}\\ +&amp;\left(\frac{\partial F_x}{\partial z}-\frac{\partial F_z}{\partial x}\right)\hat{\jmath}\\ +&amp;\left(\frac{\partial F_y}{\partial x}-\frac{\partial F_x}{\partial y}\right)\hat{k}\end{aligned}\]</div>
+          <div class="ptext"><span class="tag tphys">PHYSICS</span> Faraday's law: <b>\(\nabla\times\mathbf E=-\partial\mathbf B/\partial t\)</b>. Ampère–Maxwell: <b>\(\nabla\times\mathbf B=\mu_0\mathbf J+\mu_0\varepsilon_0\,\partial\mathbf E/\partial t\)</b>. Fluid vorticity: <b>\(\boldsymbol\omega=\nabla\times\mathbf v\)</b>.</div>
+          <div class="ptext"><span class="tag tthm">STOKES' THEOREM</span> \(\displaystyle\oint_C\mathbf F\cdot d\mathbf l=\iint_S(\nabla\times\mathbf F)\cdot d\mathbf A\) — line integral around a closed curve equals surface integral of curl.</div>
+          <div class="pexample">Rigid rotation: \(\mathbf F=(-y,x,0)\ \Rightarrow\ \nabla\times\mathbf F=(0,0,2)\)<br>
+Conservative: \(\mathbf F=\nabla\varphi\ \Rightarrow\ \nabla\times\mathbf F=0\)<br>
+Vortex tube: vorticity along the \(z\)-axis</div>
+          <div class="ptext"><span class="tag tsub">IRROTATIONAL</span> If \(\nabla\times\mathbf F=0\) and the domain is simply connected, then \(\mathbf F=\nabla\varphi\) for some potential \(\varphi\) (conservative field).</div>
+        </div>
+
+        <div class="psec">
+          <div class="ptitle"><span class="psym">\(\nabla^2\)</span> Laplacian &amp; Identities</div>
+          <div class="ptext">The <b>Laplacian</b> \(\nabla^2 f=\nabla\cdot(\nabla f)=\dfrac{\partial^2 f}{\partial x^2}+\dfrac{\partial^2 f}{\partial y^2}+\dfrac{\partial^2 f}{\partial z^2}\) appears in the wave equation, Poisson equation, and heat equation.</div>
+          <div class="pformula">Key identities:
+\[\begin{aligned}\nabla\cdot(\nabla\times\mathbf F)&amp;=0 &amp;&amp;\text{(curl is solenoidal)}\\ \nabla\times(\nabla f)&amp;=0 &amp;&amp;\text{(gradient is irrotational)}\\ \nabla\times(\nabla\times\mathbf F)&amp;=\nabla(\nabla\cdot\mathbf F)-\nabla^2\mathbf F\\ \nabla\cdot(f\mathbf F)&amp;=f(\nabla\cdot\mathbf F)+\mathbf F\cdot(\nabla f)\end{aligned}\]</div>
+          <div class="ptext"><span class="tag tphys">PHYSICS</span> Poisson equation: <b>\(\nabla^2\varphi=-\rho/\varepsilon_0\)</b>. Laplace equation: <b>\(\nabla^2\varphi=0\)</b> (charge-free). Schrödinger: <b>\(-\dfrac{\hbar^2}{2m}\nabla^2\psi+V\psi=E\psi\)</b>.</div>
+        </div>
+
+        <div class="psec">
+          <div class="ptitle">Numerical Methods Used</div>
+          <div class="ptext">Central differences (2nd order, \(h=10^{-4}\)):</div>
+          <div class="pformula">\[\frac{\partial f}{\partial x}\approx\frac{f(x+h)-f(x-h)}{2h},\qquad \frac{\partial^2 f}{\partial x^2}\approx\frac{f(x+h)-2f(x)+f(x-h)}{h^2}\]</div>
+          <div class="ptext">Laplacian (6-point stencil):</div>
+          <div class="pformula">\[\nabla^2 f\approx\frac{f(x\pm h)+f(y\pm h)+f(z\pm h)-6f(x,y,z)}{h^2}\]</div>
+          <div class="ptext">Truncation error: \(O(h^2)\). For functions with large second derivatives, reduce \(h\) or increase evaluation precision.</div>
+        </div>
+      </div><!-- /physics -->
+
+      <!-- HELP TAB -->
+      <div class="tpane" id="tab-help">
+        <div class="hsec">
+          <div class="htitle">▸ GETTING STARTED</div>
+          <div class="htext">Select an <b>Operation</b> (Gradient, Divergence, Curl, or All), then enter your field expression. Use parameter sliders a, b, c, k for interactive exploration. Try a <b>Preset</b> to see physically meaningful examples.</div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ FUNCTION SYNTAX</div>
+          <div class="htext">Standard JavaScript math. Variables: <b>x, y, z</b> (spatial), <b>a, b, c, k</b> (parameters), <b>r</b> = \(\sqrt{x^2+y^2+z^2}\), <b>rxy</b> = \(\sqrt{x^2+y^2}\), <b>pi</b>, <b>e</b>.</div>
+          <div class="cblock"><span>// Scalar examples:</span>
+sin(a*x) * cos(b*y)
+a / (r + 0.1)
+exp(-c*(x*x+y*y+z*z))
+x*x - y*y + k*z</div>
+          <div class="cblock"><span>// Available functions:</span>
+sin  cos  tan  asin  acos  atan  atan2
+sinh cosh tanh  exp  log  log2  log10
+sqrt pow  abs  sign  floor  ceil  round
+min  max</div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ CONTROLS</div>
+          <div class="htext">
+            <b>Mouse drag</b> — rotate 3D view<br>
+            <b>Scroll wheel</b> — zoom in/out<br>
+            <b>N slider</b> — grid resolution (arrows per axis)<br>
+            <b>R slider</b> — domain range \(\pm R\)<br>
+            <b>sc slider</b> — arrow length scale<br>
+            <b>Zsl slider</b> — slice plane position<br>
+            <b>View Mode</b> — XY/XZ/YZ plane or full 3D<br>
+            <b>☾ Night / ★ Day</b> — colour theme (remembered between visits)
+          </div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ COLORMAP GUIDE</div>
+          <div class="htext">
+            <b>Gradient mode:</b> Color = \(|\nabla f|\) magnitude<br>
+            <b>Divergence mode:</b> Color = \(\nabla\cdot\mathbf F\) value (use RdBu for clearest sign interpretation)<br>
+            <b>Curl mode:</b> Color = \(|\nabla\times\mathbf F|\) magnitude<br>
+            <b>All mode:</b> Cyan = gradient, Orange = \(\mathbf F\) field, Purple = curl
+          </div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ ANALYSIS TAB</div>
+          <div class="htext">Set evaluation point \((x_0,y_0,z_0)\) with sliders. All operators are computed numerically at that point using central finite differences. The Jacobian matrix shows all 9 partial derivatives \(\partial F_i/\partial x_j\).</div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ TIPS</div>
+          <div class="htext">
+            • Start with <b>N=6–8</b> for fast rendering<br>
+            • For 3D view, reduce N to ≤ 6 to avoid clutter<br>
+            • Use <b>Divergence mode + RdBu colormap</b> to see sources/sinks clearly<br>
+            • Conservative fields (\(\nabla\times\mathbf F=0\)) look “orderly”; rotational fields show circular arrows<br>
+            • The <b>Coulomb preset</b> + Gradient mode shows the Coulomb electric field
+          </div>
+        </div>
+        <div class="hsec">
+          <div class="htitle">▸ PHYSICAL CONSTANTS (SI natural units)</div>
+          <div class="htext">
+            \(k_e=8.988\times10^{9}\) — Coulomb constant (N·m²/C²)<br>
+            \(\varepsilon_0=8.854\times10^{-12}\) — vacuum permittivity<br>
+            \(\mu_0=1.257\times10^{-6}\) — vacuum permeability<br>
+            \(G=6.674\times10^{-11}\) — gravitational constant
+          </div>
+        </div>
+      </div><!-- /help -->
+
+    </div><!-- /tcontent -->
+  </div><!-- /lpanel -->
+
+  <!-- CANVAS -->
+  <div class="canvas-area">
+    <canvas id="cv"></canvas>
+    <div class="cov">
+      <div class="ctitle" id="ctTitle">VECTOR FIELD · XY PLANE</div>
+      <div class="cmodebadge" id="ctBadge">GRADIENT</div>
+      <canvas class="cbar" id="colorbarCanvas" width="16" height="130"></canvas>
+      <div class="cbar-lbls" id="cbarLabels">
+        <div class="cbar-lbl" id="cbarMax">—</div>
+        <div class="cbar-lbl" id="cbarMid">—</div>
+        <div class="cbar-lbl" id="cbarMin">—</div>
+      </div>
+      <div class="cbar-title" id="cbarTitle">|∇f|</div>
+      <div class="cinfo">DRAG TO ROTATE · SCROLL TO ZOOM · Three.js r128</div>
+      <div class="cerr" id="errDisplay">Expression error</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let params = { a:1, b:1, c:0.5, k:2 };
+let gridParams = { N:8, R:3, sc:1, slice:0 };
+let viewMode = 'xy';
+let currentMode = 'gradient';
+let colormap = 'plasma';
+let opts = { autoRotate:false, showAxes:true, showGrid:true, curlOverlay:false };
+let theme = document.documentElement.getAttribute('data-theme') === 'day' ? 'day' : 'night';
+
+let cMin = 0, cMax = 1;
+let debounceTimer = null;
+
+// Theme-dependent scene constants
+const SCENE = {
+  night: { bg:0x0b0f15, gridC:0x2a3a52, gridG:0x151f2e, curl:0xd6a8ff, F:0xff9060 },
+  day:   { bg:0xe6ebf2, gridC:0x8a9bb2, gridG:0xc3cedb, curl:0x8a2be2, F:0xc2410c }
+};
+
+// ============================================================
+//  MATHJAX HELPERS (for dynamically generated content)
+// ============================================================
+const pendingTypeset = new Set();
+let typesetScheduled = false, mjQueue = Promise.resolve();
+function flushTypeset() {
+  typesetScheduled = false;
+  if (!window.__mjReady || !window.MathJax || !MathJax.typesetPromise) return;
+  const els = Array.from(pendingTypeset); pendingTypeset.clear();
+  if (!els.length) return;
+  mjQueue = mjQueue.then(() => MathJax.typesetPromise(els)).catch(() => {});
+}
+function setTex(id, html) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  try { if (window.MathJax && MathJax.typesetClear) MathJax.typesetClear([el]); } catch (_) {}
+  el.innerHTML = html;
+  pendingTypeset.add(el);
+  if (!typesetScheduled) { typesetScheduled = true; requestAnimationFrame(flushTypeset); }
+}
+function tx(v, d) { d = d === undefined ? 4 : d; return isFinite(v) ? v.toFixed(d) : '\\text{—}'; }
+
+// ============================================================
+//  FUNCTION EVALUATION
+// ============================================================
+function compileFn(expr) {
+  try {
+    return new Function('x','y','z','a','b','c','k','r','rxy','pi','e',
+      'sin','cos','tan','asin','acos','atan','atan2',
+      'sinh','cosh','tanh','exp','log','log2','log10',
+      'sqrt','pow','abs','sign','floor','ceil','round','min','max',
+      `"use strict"; try { return +(${expr}); } catch(_){return NaN;}`);
+  } catch(_) { return null; }
+}
+
+function ev(fn, x, y, z) {
+  if (!fn) return 0;
+  const r = Math.sqrt(x*x+y*y+z*z);
+  const rxy = Math.sqrt(x*x+y*y);
+  try {
+    const v = fn(x,y,z,params.a,params.b,params.c,params.k,r,rxy,
+      Math.PI,Math.E,
+      Math.sin,Math.cos,Math.tan,Math.asin,Math.acos,Math.atan,Math.atan2,
+      Math.sinh,Math.cosh,Math.tanh,Math.exp,Math.log,Math.log2,Math.log10,
+      Math.sqrt,Math.pow,Math.abs,Math.sign,Math.floor,Math.ceil,Math.round,
+      Math.min,Math.max);
+    return isFinite(v) ? v : 0;
+  } catch(_) { return 0; }
+}
+
+// ============================================================
+//  CALCULUS OPERATORS  (central differences, h = 1e-4)
+// ============================================================
+const H = 1e-4;
+
+function gradient(fn, x, y, z) {
+  return {
+    x: (ev(fn,x+H,y,z) - ev(fn,x-H,y,z)) / (2*H),
+    y: (ev(fn,x,y+H,z) - ev(fn,x,y-H,z)) / (2*H),
+    z: (ev(fn,x,y,z+H) - ev(fn,x,y,z-H)) / (2*H)
+  };
+}
+
+function divergence(Fx, Fy, Fz, x, y, z) {
+  return (ev(Fx,x+H,y,z) - ev(Fx,x-H,y,z)) / (2*H)
+       + (ev(Fy,x,y+H,z) - ev(Fy,x,y-H,z)) / (2*H)
+       + (ev(Fz,x,y,z+H) - ev(Fz,x,y,z-H)) / (2*H);
+}
+
+function curl(Fx, Fy, Fz, x, y, z) {
+  const dFzdy = (ev(Fz,x,y+H,z) - ev(Fz,x,y-H,z)) / (2*H);
+  const dFydz = (ev(Fy,x,y,z+H) - ev(Fy,x,y,z-H)) / (2*H);
+  const dFxdz = (ev(Fx,x,y,z+H) - ev(Fx,x,y,z-H)) / (2*H);
+  const dFzdx = (ev(Fz,x+H,y,z) - ev(Fz,x-H,y,z)) / (2*H);
+  const dFydx = (ev(Fy,x+H,y,z) - ev(Fy,x-H,y,z)) / (2*H);
+  const dFxdy = (ev(Fx,x,y+H,z) - ev(Fx,x,y-H,z)) / (2*H);
+  return { x: dFzdy - dFydz, y: dFxdz - dFzdx, z: dFydx - dFxdy };
+}
+
+function laplacian(fn, x, y, z) {
+  const f0 = ev(fn,x,y,z);
+  return (ev(fn,x+H,y,z) + ev(fn,x-H,y,z)
+        + ev(fn,x,y+H,z) + ev(fn,x,y-H,z)
+        + ev(fn,x,y,z+H) + ev(fn,x,y,z-H) - 6*f0) / (H*H);
+}
+
+// ============================================================
+//  COLORMAPS (theme-aware so arrows stay visible on both backgrounds)
+// ============================================================
+const CM = {
+  plasma: [[13,8,135],[84,2,163],[139,10,165],[185,50,137],[219,92,104],[244,136,73],[254,188,43],[240,249,33]],
+  rdbu:   [[33,102,172],[103,169,207],[178,208,221],[239,239,239],[253,219,199],[239,138,98],[178,24,43]],
+  viridis:[[68,1,84],[72,40,120],[62,83,158],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]]
+};
+const CM_DAY_RDBU = [[33,102,172],[85,145,195],[130,165,190],[120,120,120],[225,150,120],[205,95,65],[150,20,40]];
+
+function sampleCM(t, name) {
+  t = Math.max(0, Math.min(1, t || 0));
+  if (!isFinite(t)) t = 0;
+  let lut = CM[name] || CM.plasma;
+  if (name === 'rdbu') {
+    if (theme === 'day') lut = CM_DAY_RDBU;
+  } else {
+    t = theme === 'day' ? t * 0.82 : 0.14 + 0.86 * t;   // avoid washed-out / too-dark ends
+  }
+  const i0 = Math.min(lut.length - 1, Math.floor(t * (lut.length - 1)));
+  const i1 = Math.min(lut.length - 1, i0 + 1);
+  const f = t * (lut.length - 1) - i0;
+  const r = Math.round(lut[i0][0] * (1-f) + lut[i1][0] * f);
+  const g = Math.round(lut[i0][1] * (1-f) + lut[i1][1] * f);
+  const b = Math.round(lut[i0][2] * (1-f) + lut[i1][2] * f);
+  return (r << 16) | (g << 8) | b;
+}
+
+function cmHex(t, name) {
+  const c = sampleCM(t, name);
+  return '#' + c.toString(16).padStart(6,'0');
+}
+
+// ============================================================
+//  THREE.JS SETUP
+// ============================================================
+const canvas = document.getElementById('cv');
+const canvasArea = canvas.parentElement;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SCENE[theme].bg);
+
+let W = canvasArea.clientWidth, H2 = canvasArea.clientHeight;
+const camera = new THREE.PerspectiveCamera(55, W/H2, 0.01, 1000);
+let sph = { theta: 0.8, phi: 1.1, r: 16 };
+
+function updateCamera() {
+  camera.position.set(
+    sph.r * Math.sin(sph.phi) * Math.sin(sph.theta),
+    sph.r * Math.cos(sph.phi),
+    sph.r * Math.sin(sph.phi) * Math.cos(sph.theta)
+  );
+  camera.lookAt(0, 0, 0);
+}
+updateCamera();
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(W, H2);
+
+// Lights
+scene.add(new THREE.AmbientLight(0x203050, 1.0));
+const dLight = new THREE.DirectionalLight(0x6090cc, 0.4);
+dLight.position.set(5,10,5); scene.add(dLight);
+
+// Axes & Grid
+const axesHelper = new THREE.AxesHelper(5);
+scene.add(axesHelper);
+let gridHelper = null;
+function makeGrid() {
+  if (gridHelper) { scene.remove(gridHelper); gridHelper.geometry.dispose(); gridHelper.material.dispose(); }
+  gridHelper = new THREE.GridHelper(12, 24, SCENE[theme].gridC, SCENE[theme].gridG);
+  gridHelper.position.y = 0;
+  gridHelper.visible = opts.showGrid;
+  scene.add(gridHelper);
+}
+makeGrid();
+
+// Arrow container
+const arrowGroup = new THREE.Group();
+scene.add(arrowGroup);
+
+// Extra group for curl overlay
+const curlGroup = new THREE.Group();
+scene.add(curlGroup);
+
+// Point indicator
+const ptGeo = new THREE.SphereGeometry(0.08, 8, 8);
+const ptMat = new THREE.MeshBasicMaterial({ color: 0xff5722 });
+const ptMesh = new THREE.Mesh(ptGeo, ptMat);
+scene.add(ptMesh);
+
+// Orbit
+let isDrag = false, lastMouse = {x:0,y:0};
+canvas.addEventListener('mousedown', e => { isDrag = true; lastMouse = {x:e.clientX,y:e.clientY}; });
+document.addEventListener('mouseup', () => isDrag = false);
+canvas.addEventListener('mousemove', e => {
+  if (!isDrag) return;
+  const dx = e.clientX - lastMouse.x, dy = e.clientY - lastMouse.y;
+  sph.theta -= dx * 0.008;
+  sph.phi = Math.max(0.05, Math.min(Math.PI - 0.05, sph.phi - dy * 0.008));
+  lastMouse = {x:e.clientX,y:e.clientY};
+  updateCamera();
+});
+canvas.addEventListener('wheel', e => {
+  sph.r = Math.max(3, Math.min(45, sph.r + e.deltaY * 0.025));
+  updateCamera(); e.preventDefault();
+}, {passive:false});
+
+// Touch support
+let lastTouch = null;
+canvas.addEventListener('touchstart', e => { if(e.touches.length===1) lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY}; });
+canvas.addEventListener('touchmove', e => {
+  if(e.touches.length===1 && lastTouch) {
+    const dx=e.touches[0].clientX-lastTouch.x, dy=e.touches[0].clientY-lastTouch.y;
+    sph.theta-=dx*0.008; sph.phi=Math.max(0.05,Math.min(Math.PI-0.05,sph.phi-dy*0.008));
+    lastTouch={x:e.touches[0].clientX,y:e.touches[0].clientY}; updateCamera();
+  } e.preventDefault();
+},{passive:false});
+
+// Resize
+new ResizeObserver(() => {
+  W = canvasArea.clientWidth; H2 = canvasArea.clientHeight;
+  renderer.setSize(W, H2);
+  camera.aspect = W / H2; camera.updateProjectionMatrix();
+}).observe(canvasArea);
+
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  if (opts.autoRotate) { sph.theta += 0.006; updateCamera(); }
+  renderer.render(scene, camera);
+}
+animate();
+
+// ============================================================
+//  THEME
+// ============================================================
+function setTheme(t) {
+  theme = (t === 'day') ? 'day' : 'night';
+  document.documentElement.setAttribute('data-theme', theme);
+  try { localStorage.setItem('calclab-theme', theme); } catch (_) {}
+  document.getElementById('btn-night').classList.toggle('active', theme === 'night');
+  document.getElementById('btn-day').classList.toggle('active', theme === 'day');
+  scene.background = new THREE.Color(SCENE[theme].bg);
+  makeGrid();
+  rebuildArrows();
+}
+
+// ============================================================
+//  COMPILED FUNCTIONS CACHE
+// ============================================================
+let fnF = null, fnFx = null, fnFy = null, fnFz = null, fnF2 = null;
+
+function recompile() {
+  const ef = document.getElementById('inp-f').value;
+  const eFx = document.getElementById('inp-Fx').value;
+  const eFy = document.getElementById('inp-Fy').value;
+  const eFz = document.getElementById('inp-Fz').value;
+  const ef2 = document.getElementById('inp-f2').value;
+
+  fnF  = compileFn(ef);
+  fnFx = compileFn(eFx);
+  fnFy = compileFn(eFy);
+  fnFz = compileFn(eFz);
+  fnF2 = compileFn(ef2);
+
+  setInputStatus('inp-f',  fnF  !== null);
+  setInputStatus('inp-Fx', fnFx !== null);
+  setInputStatus('inp-Fy', fnFy !== null);
+  setInputStatus('inp-Fz', fnFz !== null);
+  setInputStatus('inp-f2', fnF2 !== null);
+}
+
+function setInputStatus(id, ok) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('fok', ok);
+  el.classList.toggle('ferr', !ok);
+}
+
+// ============================================================
+//  VISUALIZATION
+// ============================================================
+function buildPoints() {
+  const {N, R, slice} = gridParams;
+  const Neff = viewMode === '3d' ? Math.min(N, 6) : N;
+  const step = 2 * R / (Neff - 1 || 1);
+  const pts = [];
+  if (viewMode === '3d') {
+    for (let i=0;i<Neff;i++) for (let j=0;j<Neff;j++) for (let k=0;k<Neff;k++) {
+      pts.push({x: -R+i*step, y: -R+j*step, z: -R+k*step});
+    }
+  } else {
+    for (let i=0;i<Neff;i++) for (let j=0;j<Neff;j++) {
+      const u=-R+i*step, v=-R+j*step;
+      if (viewMode==='xy') pts.push({x:u,y:v,z:slice});
+      else if (viewMode==='xz') pts.push({x:u,y:slice,z:v});
+      else pts.push({x:slice,y:u,z:v});
+    }
+  }
+  return pts;
+}
+
+function fmt4(v) { return (isFinite(v)?v.toFixed(4):'—'); }
+function norm3(v) { return Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z); }
+
+function disposeGroup(g) {
+  g.children.forEach(ch => {
+    ch.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  });
+  g.clear();
+}
+
+function rebuildArrows() {
+  disposeGroup(arrowGroup);
+  disposeGroup(curlGroup);
+  recompile();
+
+  const pts = buildPoints();
+  const {N, R, sc} = gridParams;
+  const Neff = viewMode==='3d' ? Math.min(N,6) : N;
+  const step = 2*R/(Neff-1||1);
+  const maxLen = step * 0.68 * sc;
+
+  // Collect vectors and scalar values
+  const vecs = [], scalars = [], curlVecs = [];
+  for (const p of pts) {
+    const {x,y,z} = p;
+    if (currentMode === 'gradient') {
+      const g = gradient(fnF, x, y, z);
+      vecs.push(g);
+      scalars.push(norm3(g));
+    } else if (currentMode === 'divergence') {
+      const F = {x:ev(fnFx,x,y,z), y:ev(fnFy,x,y,z), z:ev(fnFz,x,y,z)};
+      const d = divergence(fnFx, fnFy, fnFz, x, y, z);
+      vecs.push(F);
+      scalars.push(d);
+    } else if (currentMode === 'curl') {
+      const F = {x:ev(fnFx,x,y,z), y:ev(fnFy,x,y,z), z:ev(fnFz,x,y,z)};
+      const cu = curl(fnFx, fnFy, fnFz, x, y, z);
+      vecs.push(F);
+      scalars.push(norm3(cu));
+      curlVecs.push(cu);
+    } else { // all
+      const g  = gradient(fnF2, x, y, z);
+      const F  = {x:ev(fnFx,x,y,z), y:ev(fnFy,x,y,z), z:ev(fnFz,x,y,z)};
+      const cu = curl(fnFx, fnFy, fnFz, x, y, z);
+      vecs.push(g);
+      scalars.push(norm3(g));
+      curlVecs.push({F, cu});
+    }
+  }
+
+  // Find range for colormap normalization
+  let sMin = Infinity, sMax = -Infinity;
+  scalars.forEach(s => { if(isFinite(s)){sMin=Math.min(sMin,s);sMax=Math.max(sMax,s);} });
+  if (!isFinite(sMin)) sMin = 0;
+  if (!isFinite(sMax)) sMax = 1;
+  if (sMax === sMin) sMax = sMin + 1e-10;
+  cMin = sMin; cMax = sMax;
+
+  // Max magnitude for length normalization
+  const mags = vecs.map(v => norm3(v));
+  let maxMag = 1e-12;
+  for (const m of mags) if (m > maxMag) maxMag = m;
+
+  for (let i=0;i<pts.length;i++) {
+    const {x,y,z} = pts[i];
+    const vec = vecs[i];
+    const mag = mags[i];
+    if (mag < 1e-14) continue;
+
+    const dir = new THREE.Vector3(vec.x/mag, vec.y/mag, vec.z/mag);
+    const len = Math.max(0.02, maxLen * Math.min(1, mag / maxMag));
+    const t = (scalars[i] - sMin) / (sMax - sMin);
+    const col = sampleCM(t, colormap);
+
+    const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(x,y,z), len, col, len*0.28, len*0.18);
+    arrowGroup.add(arrow);
+
+    // Curl overlay arrows
+    if ((currentMode==='curl' && opts.curlOverlay) || currentMode==='all') {
+      let cu;
+      if (currentMode==='curl') cu = curlVecs[i];
+      else cu = curlVecs[i] ? curlVecs[i].cu : null;
+
+      if (cu) {
+        const cuMag = norm3(cu);
+        if (cuMag > 1e-14) {
+          const cuDir = new THREE.Vector3(cu.x/cuMag, cu.y/cuMag, cu.z/cuMag);
+          const cuLen = Math.max(0.02, maxLen * Math.min(1, cuMag / maxMag));
+          const cuArrow = new THREE.ArrowHelper(cuDir, new THREE.Vector3(x,y,z), cuLen, SCENE[theme].curl, cuLen*0.28, cuLen*0.18);
+          curlGroup.add(cuArrow);
+        }
+      }
+
+      if (currentMode==='all') {
+        const Fv = curlVecs[i] ? curlVecs[i].F : null;
+        if (Fv) {
+          const Fmag = norm3(Fv);
+          if (Fmag > 1e-14) {
+            const Fdir = new THREE.Vector3(Fv.x/Fmag, Fv.y/Fmag, Fv.z/Fmag);
+            const Flen = Math.max(0.02, maxLen * Math.min(1, Fmag/maxMag));
+            const Farrow = new THREE.ArrowHelper(Fdir, new THREE.Vector3(x,y,z), Flen, SCENE[theme].F, Flen*0.28, Flen*0.18);
+            curlGroup.add(Farrow);
+          }
+        }
+      }
+    }
+  }
+
+  updateColorbar(sMin, sMax);
+  updateStatusBar();
+}
+
+// ============================================================
+//  COLORBAR
+// ============================================================
+function updateColorbar(mn, mx) {
+  const cb = document.getElementById('colorbarCanvas');
+  const ctx = cb.getContext('2d');
+  const hh = cb.height;
+  for (let y=0;y<hh;y++) {
+    const t = 1 - y/hh;
+    ctx.fillStyle = cmHex(t, colormap);
+    ctx.fillRect(0, y, cb.width, 1);
+  }
+  const nf = v => {
+    if (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0)) return v.toExponential(1);
+    return v.toFixed(3);
+  };
+  document.getElementById('cbarMax').textContent = nf(mx);
+  document.getElementById('cbarMid').textContent = nf((mx+mn)/2);
+  document.getElementById('cbarMin').textContent = nf(mn);
+  const titles = {gradient:'|∇f|', divergence:'∇·F', curl:'|∇×F|', all:'|∇f|'};
+  document.getElementById('cbarTitle').textContent = titles[currentMode] || '|V|';
+}
+
+// ============================================================
+//  ANALYSIS PANEL
+// ============================================================
+function updateAnalysis() {
+  const x0 = +document.getElementById('sl-px').value;
+  const y0 = +document.getElementById('sl-py').value;
+  const z0 = +document.getElementById('sl-pz').value;
+  document.getElementById('pv-px').textContent = x0.toFixed(1);
+  document.getElementById('pv-py').textContent = y0.toFixed(1);
+  document.getElementById('pv-pz').textContent = z0.toFixed(1);
+  ptMesh.position.set(x0, y0, z0);
+
+  recompile();
+
+  // Scalar field
+  const fval = ev(fnF, x0, y0, z0);
+  const g = gradient(fnF, x0, y0, z0);
+  const gMag = norm3(g);
+  const lap = laplacian(fnF, x0, y0, z0);
+  document.getElementById('av-f').textContent = fmt4(fval);
+  document.getElementById('av-gradf-mag').textContent = fmt4(gMag);
+  document.getElementById('av-lapf').textContent = fmt4(lap);
+  setTex('av-grad',
+    `\\(\\dfrac{\\partial f}{\\partial x}=${tx(g.x)}\\)<br>\\(\\dfrac{\\partial f}{\\partial y}=${tx(g.y)}\\)<br>\\(\\dfrac{\\partial f}{\\partial z}=${tx(g.z)}\\)`);
+
+  // Vector field
+  const Fx0 = ev(fnFx,x0,y0,z0), Fy0 = ev(fnFy,x0,y0,z0), Fz0 = ev(fnFz,x0,y0,z0);
+  const Fmag = Math.sqrt(Fx0*Fx0+Fy0*Fy0+Fz0*Fz0);
+  document.getElementById('av-Fmag').textContent = fmt4(Fmag);
+  setTex('av-F',
+    `\\(F_x=${tx(Fx0)}\\)<br>\\(F_y=${tx(Fy0)}\\)<br>\\(F_z=${tx(Fz0)}\\)`);
+
+  // Divergence
+  const div0 = divergence(fnFx, fnFy, fnFz, x0, y0, z0);
+  const dEl = document.getElementById('av-div');
+  dEl.textContent = fmt4(div0);
+  dEl.className = 'vnum' + (div0 < -1e-6 ? ' neg' : '');
+  const dnote = document.getElementById('av-div-note');
+  if (Math.abs(div0) < 1e-3) dnote.textContent = '→ Solenoidal (incompressible) at this point';
+  else if (div0 > 0) dnote.textContent = '→ Source: field lines diverging';
+  else dnote.textContent = '→ Sink: field lines converging';
+
+  // Curl
+  const cu = curl(fnFx, fnFy, fnFz, x0, y0, z0);
+  const cuMag = norm3(cu);
+  document.getElementById('av-curl-mag').textContent = fmt4(cuMag);
+  setTex('av-curl',
+    `\\((\\nabla\\times\\mathbf F)_x=${tx(cu.x)}\\)<br>\\((\\nabla\\times\\mathbf F)_y=${tx(cu.y)}\\)<br>\\((\\nabla\\times\\mathbf F)_z=${tx(cu.z)}\\)`);
+
+  // Jacobian
+  const d = (fn, dx, dy, dz) => (ev(fn,x0+dx,y0+dy,z0+dz)-ev(fn,x0-dx,y0-dy,z0-dz))/(2*H);
+  const J = [fnFx, fnFy, fnFz].map(fn => [d(fn,H,0,0), d(fn,0,H,0), d(fn,0,0,H)]);
+  const rows = J.map(r => r.map(v => tx(v, 3)).join(' & ')).join(' \\\\ ');
+  setTex('av-jac', `\\[\\begin{bmatrix}${rows}\\end{bmatrix}\\]`);
+}
+
+// ============================================================
+//  STATUS BAR
+// ============================================================
+function updateStatusBar() {
+  const labels = {gradient:'GRADIENT ∇f', divergence:'DIVERGENCE ∇·F', curl:'CURL ∇×F', all:'ALL OPERATORS'};
+  document.getElementById('hpMode').textContent = 'MODE: ' + (labels[currentMode]||currentMode).toUpperCase();
+  document.getElementById('ctBadge').textContent = (labels[currentMode]||currentMode).toUpperCase();
+  const Neff = viewMode==='3d'?Math.min(gridParams.N,6):gridParams.N;
+  const count = viewMode==='3d' ? Neff**3 : Neff**2;
+  document.getElementById('hpGrid').textContent = `ARROWS: ${count}`;
+  const viewLabels = {xy:'FIELD · XY PLANE',xz:'FIELD · XZ PLANE',yz:'FIELD · YZ PLANE','3d':'FIELD · 3D VOLUME'};
+  document.getElementById('ctTitle').textContent = (labels[currentMode]||'VECTOR FIELD') + ' · ' + (viewLabels[viewMode]||viewMode).split('·')[1].trim();
+}
+
+// ============================================================
+//  UI HANDLERS
+// ============================================================
+function switchTab(name) {
+  document.querySelectorAll('.tbtn').forEach((b,i)=>{
+    b.classList.toggle('active', ['controls','analysis','physics','help'][i]===name);
+  });
+  document.querySelectorAll('.tpane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'analysis') updateAnalysis();
+}
+
+function setMode(m) {
+  currentMode = m;
+  ['gradient','divergence','curl','all'].forEach(id => {
+    document.getElementById('m-'+id).classList.toggle('active', id===m);
+  });
+  document.getElementById('sec-scalar').style.display  = (m==='gradient')?'':'none';
+  document.getElementById('sec-vector').style.display  = (m==='divergence'||m==='curl'||m==='all')?'':'none';
+  document.getElementById('sec-scalar-all').style.display = (m==='all')?'':'none';
+  document.getElementById('drow-curl-overlay').style.display = (m==='curl'||m==='all')?'':'none';
+  rebuildArrows();
+}
+
+function updateParam(name, val) {
+  params[name] = parseFloat(val);
+  document.getElementById('pv-'+name).textContent = parseFloat(val).toFixed(1);
+  debouncedUpdate();
+}
+
+function updateGridParam(name, val) {
+  gridParams[name] = parseFloat(val);
+  const el = document.getElementById('pv-'+name);
+  if (el) {
+    if (name==='N') el.textContent = Math.round(val);
+    else el.textContent = parseFloat(val).toFixed(1);
+  }
+  rebuildArrows();
+}
+
+function setViewMode(vm) {
+  viewMode = vm;
+  ['xy','xz','yz','3d'].forEach(id => {
+    document.getElementById('vb-'+id).classList.toggle('active', id===vm);
+  });
+  rebuildArrows();
+}
+
+function toggleOpt(key) {
+  opts[key] = !opts[key];
+  const idMap = {autoRotate:'tog-rot', showAxes:'tog-axes', showGrid:'tog-grid', curlOverlay:'tog-curlOverlay'};
+  const btn = document.getElementById(idMap[key]);
+  if (btn) btn.classList.toggle('on', opts[key]);
+  if (key==='showAxes') axesHelper.visible = opts.showAxes;
+  if (key==='showGrid') gridHelper.visible = opts.showGrid;
+  if (key==='curlOverlay') rebuildArrows();
+}
+
+function setColormap(cm) {
+  colormap = cm;
+  ['plasma','rdbu','viridis'].forEach(id => {
+    document.getElementById('cm-'+id).classList.toggle('active', id===cm);
+  });
+  rebuildArrows();
+}
+
+function debouncedUpdate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(rebuildArrows, 220);
+}
+
+// ============================================================
+//  PRESETS
+// ============================================================
+const PRESETS = {
+  coulomb: {
+    mode:'gradient',
+    f:'a/(r+0.05)',
+    label:'Coulomb Potential  φ = a/r'
+  },
+  harmonic: {
+    mode:'gradient',
+    f:'0.5*(a*x*x + b*y*y + c*z*z)',
+    label:'Anisotropic Harmonic  ½(ax²+by²+cz²)'
+  },
+  wave2d: {
+    mode:'gradient',
+    f:'sin(a*x)*cos(b*y)*exp(-c*(x*x+y*y))',
+    label:'Damped 2D Wave'
+  },
+  saddle: {
+    mode:'gradient',
+    f:'a*x*x - b*y*y + k*x*y',
+    label:'Saddle Point  ax²−by²+kxy'
+  },
+  gaussian: {
+    mode:'gradient',
+    f:'a*exp(-c*(x*x+y*y+z*z))',
+    label:'Gaussian Hill'
+  },
+  rotation: {
+    mode:'curl',
+    Fx:'-a*y', Fy:'a*x', Fz:'0',
+    label:'Uniform Rotation  F=(-ay, ax, 0)  → ∇×F=(0,0,2a)'
+  },
+  source: {
+    mode:'divergence',
+    Fx:'a*x', Fy:'a*y', Fz:'a*z',
+    label:'Point Source/Sink  F=(ax,ay,az)  → ∇·F=3a'
+  },
+  vortex: {
+    mode:'curl',
+    Fx:'-a*y/(x*x+y*y+0.04)', Fy:'a*x/(x*x+y*y+0.04)', Fz:'0',
+    label:'Irrotational Vortex  → ∇×F≈0 except origin'
+  },
+  helmholtz: {
+    mode:'all',
+    f:'a*exp(-c*r)',
+    Fx:'sin(a*y)', Fy:'sin(a*z)', Fz:'sin(a*x)',
+    label:'Helmholtz-type'
+  },
+  shear: {
+    mode:'divergence',
+    Fx:'a*y', Fy:'0', Fz:'0',
+    label:'Simple Shear  F=(ay,0,0)  → ∇·F=0, ∇×F=(0,0,-a)'
+  },
+  dipole: {
+    mode:'all',
+    f:'a*z/(r*r*r+0.01)',
+    Fx:'3*a*x*z/pow(r*r+0.01,2.5)', Fy:'3*a*y*z/pow(r*r+0.01,2.5)', Fz:'a*(3*z*z-(r*r))/pow(r*r+0.01,2.5)',
+    label:'Dipole-like field'
+  }
+};
+
+function loadPreset(key) {
+  if (!key) return;
+  const p = PRESETS[key];
+  if (!p) return;
+
+  if (p.f)  document.getElementById('inp-f').value  = p.f;
+  if (p.f)  document.getElementById('inp-f2').value = p.f;
+  if (p.Fx) document.getElementById('inp-Fx').value = p.Fx;
+  if (p.Fy) document.getElementById('inp-Fy').value = p.Fy;
+  if (p.Fz) document.getElementById('inp-Fz').value = p.Fz;
+
+  setMode(p.mode);
+  document.getElementById('presetSel').value = key;
+
+  document.getElementById('hpStatus').textContent = p.label || 'PRESET LOADED';
+  setTimeout(()=>document.getElementById('hpStatus').textContent='READY', 3000);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load', () => {
+  document.getElementById('btn-night').classList.toggle('active', theme === 'night');
+  document.getElementById('btn-day').classList.toggle('active', theme === 'day');
+  setMode('gradient');
+  rebuildArrows();
+  updateColorbar(0, 1);
+});
+</script>
+</body>
+</html>

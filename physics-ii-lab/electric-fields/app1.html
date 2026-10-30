@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Quadric Field Explorer — Electric Potential &amp; Field of Charged Quadric Surfaces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+window.MathJax = {
+  tex: { inlineMath:[['$','$'],['\\(','\\)']], displayMath:[['$$','$$'],['\\[','\\]']] },
+  chtml: { scale: 0.86 },
+  options: { renderActions: { addMenu: [] } }
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.js" id="MathJax-script" async></script>
+<style>
+:root{
+  --bg:#05070d; --bg2:#0a0e18; --panel:#0d1220e6; --panel-solid:#0d1220;
+  --border:#1b263f; --border-soft:#141d33; --text:#e4ecf7; --muted:#8593ab; --muted2:#57657f;
+  --accent:#00e5ff; --accent-dim:#00b8cc; --accent2:#ffb020; --pos:#ff5470; --neg:#3fb8ff;
+  --ok:#2ee6a8; --warn:#ffcf5c; --danger:#ff5470;
+  --card-grad:linear-gradient(165deg,#101a2e 0%,#0a0f1c 100%);
+  --font-ui:'JetBrains Mono', 'Consolas', monospace;
+  --font-head:'Orbitron','JetBrains Mono',sans-serif;
+  --radius:12px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;margin:0;}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -5%, #0f2038 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 10%, #1a1030 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 0%, #0d1526 0%, var(--bg) 55%, #05070c 100%);
+  color:var(--text); font-family:var(--font-ui); overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+#app{position:fixed; inset:0; display:grid; grid-template-columns:266px 1fr 296px; grid-template-rows:56px 1fr; grid-template-areas:"top top top" "left canvas right";}
+#topbar{grid-area:top; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid var(--border); background:var(--panel); backdrop-filter:blur(10px); z-index:20; box-shadow:0 2px 20px -8px #000c;}
+#topbar .brand{display:flex; align-items:center; gap:11px;}
+#topbar .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px 2px var(--accent);animation:pulse 2.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(1.4);}}
+#topbar h1{font-family:var(--font-head); font-size:14.5px; letter-spacing:2.5px; margin:0; font-weight:700; color:var(--text); text-transform:uppercase;}
+#topbar h1 span{color:var(--accent); text-shadow:0 0 16px rgba(0,229,255,.5);}
+#topbar .tools{display:flex; gap:8px; align-items:center;}
+.chip{font-size:10px; padding:5px 10px; border:1px solid var(--border); border-radius:20px; color:var(--muted); letter-spacing:1px; background:#0b1120;}
+#left,#right{overflow-y:auto; overflow-x:hidden; background:var(--panel); backdrop-filter:blur(6px); border-right:1px solid var(--border); z-index:15; padding:12px 14px 40px;}
+#right{border-right:none; border-left:1px solid var(--border); grid-area:right;}
+#left{grid-area:left;}
+#canvas-wrap{grid-area:canvas; position:relative; overflow:hidden;}
+#canvas-wrap canvas{display:block;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#1e2a44;border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+.section{margin-bottom:14px; border:1px solid var(--border); border-radius:var(--radius); background:var(--card-grad); overflow:hidden; box-shadow:0 6px 18px -10px #000a, inset 0 1px 0 #ffffff08; transition:box-shadow .2s, border-color .2s;}
+.section:hover{border-color:#26365a;}
+.section > .head{padding:10px 13px; font-size:10.5px; font-weight:600; letter-spacing:1.8px; text-transform:uppercase; color:var(--accent); display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#101a30,#0c1424);}
+.section > .head:after{content:'▾'; color:var(--muted2); transition:transform .2s;}
+.section.collapsed > .head:after{transform:rotate(-90deg);}
+.section > .body{padding:11px 13px 13px; display:block;}
+.section.collapsed > .body{display:none;}
+
+.surf-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:4px;}
+.surf-btn{font-family:var(--font-ui); font-size:9.5px; padding:9px 6px; background:#101a2e; border:1px solid var(--border); color:var(--muted); border-radius:8px; cursor:pointer; text-align:center; transition:all .15s; line-height:1.35; word-break:break-word;}
+.surf-btn:hover{border-color:var(--accent); color:var(--text); transform:translateY(-1px); box-shadow:0 4px 12px -6px var(--accent);}
+.surf-btn.active{background:linear-gradient(160deg,#123047,#0d2233); border-color:var(--accent); color:var(--accent); box-shadow:0 0 16px -3px var(--accent), inset 0 0 12px -6px var(--accent);}
+
+.dist-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px;}
+.dist-grid .surf-btn{grid-column:span 1;}
+.dist-grid .surf-btn.full{grid-column:1 / -1;}
+
+label.row{display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--muted); margin:9px 0 4px;}
+label.row .val{color:var(--accent2); font-variant-numeric:tabular-nums; background:#1a140a; padding:1px 7px; border-radius:5px; font-size:10.5px;}
+input[type=range]{-webkit-appearance:none; width:100%; height:5px; border-radius:3px; background:linear-gradient(90deg,#132038,#182644); outline:none; margin:2px 0 8px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#7cf3ff,var(--accent)); box-shadow:0 0 10px var(--accent); cursor:pointer; border:2px solid #04121a; margin-top:-1px;}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #04121a;cursor:pointer;box-shadow:0 0 10px var(--accent);}
+
+.check-row{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--text); padding:6px 6px; cursor:pointer; border-radius:7px; transition:background .15s;}
+.check-row:hover{background:#101a2e;}
+.check-row input{accent-color:var(--accent); width:14px;height:14px;cursor:pointer;}
+
+.btn{font-family:var(--font-ui); font-size:10.5px; padding:9px 10px; background:linear-gradient(180deg,#131e34,#0d1526); border:1px solid var(--border); color:var(--text); border-radius:8px; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:6px; justify-content:center;}
+.btn:hover{border-color:var(--accent); color:var(--accent); box-shadow:0 4px 14px -6px var(--accent); transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn.primary{background:linear-gradient(135deg,#0d3247,#0a1f33); border-color:var(--accent); color:var(--accent); box-shadow:0 0 14px -6px var(--accent);}
+.btn.warn{border-color:var(--danger); color:var(--danger);}
+.btn-row{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:6px;}
+.btn-row.three{grid-template-columns:1fr 1fr 1fr;}
+
+.seg{display:flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; margin:6px 0;}
+.seg > div{flex:1; text-align:center; padding:8px 4px; font-size:10.5px; color:var(--muted); cursor:pointer; background:#0b1120; transition:.15s;}
+.seg > div:hover{color:var(--text);}
+.seg > div.active{background:linear-gradient(180deg,#163350,#0e2334); color:var(--accent); box-shadow:inset 0 0 10px -4px var(--accent);}
+
+textarea,input[type=text]{width:100%; background:#0a0f1a; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:6px 8px; font-family:var(--font-ui); font-size:11px; resize:vertical;}
+
+.eq-box{background:linear-gradient(160deg,#0c1322,#080c16); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:9px; padding:11px 13px; margin-bottom:10px; box-shadow:0 4px 14px -10px #000;}
+.eq-box:last-child{margin-bottom:0;}
+.eq-title{font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--accent2); margin-bottom:6px; display:flex; align-items:center; gap:6px;}
+.eq-title:before{content:''; width:5px;height:5px;border-radius:50%;background:var(--accent2); box-shadow:0 0 6px var(--accent2);}
+.eq-math{color:var(--text); overflow-x:auto; font-size:12px;}
+.eq-math mjx-container{color:var(--text) !important;}
+.eq-note{font-size:9.5px; color:var(--muted2); margin-top:8px; line-height:1.5;}
+.stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:2px;}
+.stat{background:linear-gradient(160deg,#0d1422,#090d17); border:1px solid var(--border); border-radius:8px; padding:8px 10px; transition:.15s;}
+.stat:hover{border-color:var(--accent-dim);}
+.stat .k{font-size:8.7px; color:var(--muted2); text-transform:uppercase; letter-spacing:1px;}
+.stat .v{font-size:13.5px; color:var(--ok); margin-top:3px; font-variant-numeric:tabular-nums; font-weight:600;}
+
+details{border:1px solid var(--border); border-radius:8px; margin-bottom:7px; background:#0a0f1a; overflow:hidden;}
+details summary{padding:8px 10px; font-size:11px; cursor:pointer; color:var(--accent); list-style:none; display:flex; align-items:center; gap:6px;}
+details summary::-webkit-details-marker{display:none;}
+details summary:before{content:'▸'; transition:transform .15s;}
+details[open] summary:before{transform:rotate(90deg);}
+details .content{padding:0 10px 10px; font-size:11px; line-height:1.6; color:var(--muted);}
+details .content b{color:var(--text);}
+
+#legend{position:absolute; left:14px; bottom:14px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:10px; color:var(--muted); z-index:10; backdrop-filter:blur(6px);}
+#legend .bar{width:150px; height:8px; border-radius:4px; margin:5px 0; background:linear-gradient(90deg,#2255ff,#22ff77,#ff3b3b);}
+#legend .row{display:flex; justify-content:space-between;}
+
+#hud{position:absolute; top:14px; left:14px; z-index:10; display:flex; gap:8px; flex-wrap:wrap; max-width:60%;}
+#hud .tag{background:var(--panel); border:1px solid var(--border); padding:5px 10px; border-radius:20px; font-size:10px; color:var(--muted); backdrop-filter:blur(6px);}
+#hud .tag b{color:var(--accent);}
+
+#measure-box{position:absolute; z-index:12; background:var(--panel-solid); border:1px solid var(--accent); border-radius:8px; padding:8px 10px; font-size:10.5px; color:var(--text); pointer-events:none; display:none; min-width:190px; box-shadow:0 0 20px -6px var(--accent);}
+#measure-box .t{color:var(--accent2); font-size:9px; letter-spacing:1px; text-transform:uppercase; margin-bottom:3px;}
+#measure-box .l{display:flex;justify-content:space-between;gap:10px;}
+
+#loading{position:absolute; inset:0; background:#05070cdd; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; z-index:30; transition:opacity .3s;}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid #1a2438;border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading span{font-size:11px; color:var(--muted); letter-spacing:1px;}
+
+#compute-pill{position:absolute; top:14px; right:14px; z-index:11; background:var(--panel); border:1px solid var(--accent2); border-radius:20px; padding:5px 12px; font-size:10px; color:var(--accent2); display:none; align-items:center; gap:6px;}
+#compute-pill.show{display:flex; animation:fadein .15s;}
+@keyframes fadein{from{opacity:0;}to{opacity:1;}}
+#compute-pill .s{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 1s infinite;}
+
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+#axis-label{font-family:var(--font-ui);}
+a{color:var(--accent);}
+.small{font-size:9.5px; color:var(--muted2); margin-top:2px;}
+
+@media (max-width:980px){
+  #app{grid-template-columns:0 1fr 0;}
+  #left,#right{position:fixed; top:52px; bottom:0; width:82vw; max-width:290px; transform:translateX(-110%); transition:transform .25s; box-shadow:20px 0 40px #000a;}
+  #right{transform:translateX(110%); left:auto; right:0;}
+  #left.open{transform:translateX(0);}
+  #right.open{transform:translateX(0);}
+  #topbar .tools .desktop-only{display:none;}
+}
+#theory-overlay{position:fixed; inset:0; background:#02040aee; backdrop-filter:blur(4px); z-index:100; display:none; align-items:center; justify-content:center; padding:26px;}
+#theory-overlay.show{display:flex;}
+#theory-modal{width:min(880px,100%); max-height:88vh; background:var(--panel-solid); border:1px solid var(--border); border-radius:16px; box-shadow:0 20px 60px -12px #000c, 0 0 0 1px #ffffff08 inset; display:flex; flex-direction:column; overflow:hidden;}
+#theory-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#101a30,#0c1424);}
+#theory-head h2{margin:0; font-family:var(--font-head); font-size:14px; letter-spacing:2px; color:var(--text); text-transform:uppercase;}
+#theory-head h2 span{color:var(--accent);}
+#theory-close{width:30px; height:30px; border-radius:50%; border:1px solid var(--border); background:#0b1120; color:var(--muted); font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:.15s;}
+#theory-close:hover{border-color:var(--danger); color:var(--danger);}
+#theory-tabs{display:flex; gap:4px; padding:10px 16px 0; overflow-x:auto; border-bottom:1px solid var(--border); background:#0a0f1c;}
+#theory-tabs .ttab{font-family:var(--font-ui); font-size:10.5px; letter-spacing:.6px; white-space:nowrap; padding:9px 13px; color:var(--muted); cursor:pointer; border-radius:8px 8px 0 0; border:1px solid transparent; border-bottom:none; transition:.15s;}
+#theory-tabs .ttab:hover{color:var(--text);}
+#theory-tabs .ttab.active{color:var(--accent); background:var(--panel-solid); border-color:var(--border); box-shadow:0 -3px 12px -6px var(--accent);}
+#theory-body{overflow-y:auto; padding:18px 22px 28px;}
+#theory-body .tpanel{display:none;}
+#theory-body .tpanel.active{display:block; animation:fadein .18s;}
+#theory-body h3{font-family:var(--font-head); font-size:12px; letter-spacing:1.2px; color:var(--accent2); text-transform:uppercase; margin:18px 0 8px;}
+#theory-body h3:first-child{margin-top:0;}
+#theory-body p{font-size:12px; line-height:1.7; color:var(--muted); margin:0 0 10px;}
+#theory-body p b, #theory-body li b{color:var(--text);}
+#theory-body ul{margin:0 0 12px; padding-left:18px; font-size:12px; line-height:1.7; color:var(--muted);}
+#theory-body .eq-math{font-size:13.5px; margin:4px 0;}
+#theory-body .callout{background:linear-gradient(160deg,#0d1a2c,#0a121f); border:1px solid var(--border); border-left:3px solid var(--ok); border-radius:9px; padding:10px 13px; margin:12px 0; font-size:11.5px; color:var(--muted); line-height:1.6;}
+#theory-body .callout b{color:var(--ok);}
+#theory-body table{width:100%; border-collapse:collapse; margin:10px 0; font-size:11.5px;}
+#theory-body table th,#theory-body table td{border:1px solid var(--border); padding:6px 9px; text-align:left; color:var(--muted);}
+#theory-body table th{color:var(--accent); background:#0d1526;}
+@media (max-width:640px){ #theory-body{padding:14px;} #theory-head h2{font-size:12px;} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <h1>Quadric <span>Field</span> Explorer</h1>
+    </div>
+    <div class="tools">
+      <span class="chip desktop-only">SI units · k = 8.99×10⁹ N·m²/C²</span>
+      <button class="btn" id="btn-theory">📖 Theory</button>
+      <button class="btn" id="btn-toggle-left" style="display:none">☰ Controls</button>
+      <button class="btn" id="btn-toggle-right" style="display:none">ℹ Info</button>
+    </div>
+  </div>
+
+  <div id="left">
+    <div class="section" data-sec>
+      <div class="head">Quadric Surface</div>
+      <div class="body">
+        <div class="surf-grid" id="surf-grid"></div>
+        <div class="small">Select a surface. Params a,b,c reused across all types for consistency.</div>
+      </div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Geometry Parameters</div>
+      <div class="body" id="geo-params"></div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Distribution</div>
+      <div class="body">
+        <div class="dist-grid" id="dist-grid">
+          <div class="surf-btn" data-v="uniform">Uniform</div>
+          <div class="surf-btn" data-v="cosTheta">σ ∝ cos θ</div>
+          <div class="surf-btn" data-v="zProp">σ ∝ z</div>
+          <div class="surf-btn" data-v="conductor">Conductor</div>
+          <div class="surf-btn full" data-v="custom">Custom σ(x,y,z)</div>
+        </div>
+        <input type="text" id="in-custom-formula" value="Math.sin(theta)" style="display:none; margin-top:2px; margin-bottom:8px;">
+        <div class="small" id="custom-hint" style="display:none">Vars: x,y,z,theta,phi,a,b,c — JS expression, multiplies base σ.</div>
+        <div class="small" id="conductor-hint" style="display:none">Isolated conductor: σ solved numerically (BEM) so V is constant over the surface, then scaled to match the net charge Q below.</div>
+
+        <div class="seg" id="polarity-seg">
+          <div data-v="1" class="active">+ Positive</div>
+          <div data-v="-1">− Negative</div>
+        </div>
+        <div class="seg" id="charge-mode-seg">
+          <div data-v="density" class="active">σ density</div>
+          <div data-v="total">Total Q</div>
+        </div>
+        <label class="row" id="row-sigma">Surface charge σ₀ (µC/m²) <span class="val" id="v-sigma0">1.00</span></label>
+        <input type="range" id="in-sigma0" min="0.05" max="5" step="0.05" value="1">
+        <label class="row" id="row-qtotal" style="display:none">Total / net charge Q (µC) <span class="val" id="v-qtot">10.0</span></label>
+        <input type="range" id="in-qtot" min="-50" max="50" step="0.5" value="10" style="display:none">
+      </div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Rendering</div>
+      <div class="body">
+        <label class="row" style="margin-top:0">View mode</label>
+        <div class="seg" id="viewmode-seg">
+          <div data-v="solid" class="active">Solid</div>
+          <div data-v="wireframe">Wire</div>
+          <div data-v="solidwire">Solid+Wire</div>
+          <div data-v="points">Points</div>
+        </div>
+        <label class="row">Colormap</label>
+        <div class="surf-grid" id="cmap-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;"></div>
+        <div id="cmap-preview" style="height:8px;border-radius:4px;margin:2px 0 10px;"></div>
+        <label class="row">Arrow scale <span class="val" id="v-arrowscale">0.20</span></label>
+        <input type="range" id="in-arrowscale" min="0.1" max="3" step="0.05" value="0.2">
+        <label class="row">Arrow density <span class="val" id="v-arrowdensity">6</span></label>
+        <input type="range" id="in-arrowdensity" min="3" max="12" step="1" value="6">
+        <label class="row">Surface opacity <span class="val" id="v-opacity">0.55</span></label>
+        <input type="range" id="in-opacity" min="0.05" max="1" step="0.01" value="0.55">
+        <label class="row">Mesh / charge grid size <span class="val" id="v-gridsize">36</span></label>
+        <input type="range" id="in-gridsize" min="16" max="60" step="2" value="36">
+      </div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Show</div>
+      <div class="body" id="show-checks"></div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Animate</div>
+      <div class="body">
+        <label class="row">Animation speed <span class="val" id="v-animspeed">1.0</span></label>
+        <input type="range" id="in-animspeed" min="0.1" max="3" step="0.1" value="1">
+        <div id="anim-checks"></div>
+      </div>
+    </div>
+
+    <div class="section" data-sec>
+      <div class="head">Camera &amp; Actions</div>
+      <div class="body">
+        <div class="btn-row three">
+          <button class="btn" id="btn-reset-cam">⟲ Reset Cam</button>
+          <button class="btn" id="btn-autorotate">↻ Auto</button>
+          <button class="btn" id="btn-measure">⌖ Measure</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btn-random">🎲 Random</button>
+          <button class="btn" id="btn-reset-all">↺ Reset All</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-export-png">⬇ Export PNG</button>
+          <button class="btn" id="btn-save">💾 Save JSON</button>
+        </div>
+        <div class="btn-row">
+          <label class="btn" style="width:100%; justify-content:center;">📂 Load JSON<input type="file" id="in-load" accept="application/json" style="display:none;"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="canvas-wrap">
+    <div id="hud">
+      <div class="tag" id="tag-surface">Sphere</div>
+      <div class="tag">σ ∝ <b id="tag-polarity">+</b></div>
+      <div class="tag" id="tag-panels">panels: —</div>
+    </div>
+    <div id="compute-pill"><div class="s"></div>Recomputing field…</div>
+    <div id="legend">
+      <div class="row"><span>Weak</span><span>Strong</span></div>
+      <div class="bar" id="legend-bar"></div>
+      <div class="row"><span id="legend-name" style="color:var(--muted)">spectrum</span></div>
+    </div>
+    <div id="measure-box"></div>
+    <div id="loading"><div class="spinner"></div><span>INITIALIZING FIELD SOLVER…</span></div>
+  </div>
+
+  <div id="right">
+    <div class="section" data-sec>
+      <div class="head">Equations</div>
+      <div class="body" id="info-eq"></div>
+    </div>
+    <div class="section" data-sec>
+      <div class="head">Computed Quantities</div>
+      <div class="body">
+        <div class="stat-grid" id="stat-grid"></div>
+      </div>
+    </div>
+    <div class="section" data-sec>
+      <div class="head">Physics Reference</div>
+      <div class="body">
+        <details open><summary>Gradient &amp; Electric Field</summary><div class="content">
+          The electric field is the negative gradient of the scalar potential: <b>E = −∇V</b>. It points in the
+          direction of steepest decrease of V. Field lines are always perpendicular to equipotential surfaces,
+          since moving along an equipotential does no work against the field (∇V is normal to level sets of V).
+        </div></details>
+        <details><summary>Superposition &amp; Surface Integral</summary><div class="content">
+          Each element of charged surface dA′ with density σ(r′) acts as a point charge dq = σ dA′. The total
+          potential is the superposition (integral) of all these contributions:
+          <b>V(r) = (1/4πε₀) ∫ σ(r′)/|r−r′| dA′</b>. This tool discretizes the surface into flat panels and
+          numerically sums the contribution of every panel — a boundary-element / Riemann-sum approximation to
+          the exact surface integral.
+        </div></details>
+        <details><summary>Gauss's Law &amp; Flux</summary><div class="content">
+          Gauss's law states <b>∮ E·dA = Q_enclosed/ε₀</b> — the net electric flux through any closed surface is
+          proportional to the enclosed charge. For highly symmetric shapes (sphere, infinite cylinder) it gives
+          the field directly; for general quadrics like the ones here, symmetry is broken by finite size or shape
+          eccentricity, so the field must instead be found by direct integration as done in this simulator.
+        </div></details>
+        <details><summary>Surface Charge Density &amp; Boundary Conditions</summary><div class="content">
+          At a conductor/charged sheet, the field is discontinuous across the surface:
+          <b>E_outside,⊥ − E_inside,⊥ = σ/ε₀</b>, while the tangential component of E is continuous. σ can be
+          uniform (as on an isolated charged conductor of simple shape) or position-dependent (as it would be on
+          a conductor sitting in an external field, or on a surface with prescribed non-uniform charging).
+        </div></details>
+        <details><summary>Equipotentials &amp; Streamlines</summary><div class="content">
+          Equipotential contours trace curves of constant V; stacking them across parallel slicing planes gives a
+          visual impression of the 3-D equipotential surfaces. Field lines (streamlines of E) are generated here by
+          numerically integrating dr/ds = E/|E| (RK4) starting from seed points near the charged surface.
+        </div></details>
+        <details><summary>Numerical Method</summary><div class="content">
+          Each quadric is meshed into quadrilateral panels with position, area (from the cross product of edge
+          vectors) and outward normal. σᵢ is assigned per panel (uniform, or evaluated from a custom formula and
+          renormalized to match a requested total charge). V and E at any field point are then a direct sum over
+          panels: <b>E(r) ≈ k Σᵢ σᵢ Aᵢ (r−rᵢ)/|r−rᵢ|³</b>, clamped near the surface to avoid the 1/r² singularity.
+        </div></details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="theory-overlay">
+  <div id="theory-modal">
+    <div id="theory-head">
+      <h2>📖 <span>Theory</span> — Computing V and E</h2>
+      <button id="theory-close" title="Close">✕</button>
+    </div>
+    <div id="theory-tabs">
+      <div class="ttab active" data-t="t-found">1. Foundations</div>
+      <div class="ttab" data-t="t-potential">2. Potential V</div>
+      <div class="ttab" data-t="t-field">3. Field E</div>
+      <div class="ttab" data-t="t-conductors">4. Conductors &amp; B.C.</div>
+      <div class="ttab" data-t="t-numeric">5. Numerical Method</div>
+      <div class="ttab" data-t="t-multipole">6. Multipole / Far-Field</div>
+      <div class="ttab" data-t="t-example">7. Units &amp; Worked Examples</div>
+    </div>
+    <div id="theory-body">
+
+      <div class="tpanel active" id="t-found">
+        <h3>Starting point — Coulomb's law</h3>
+        <p>Every calculation in this tool ultimately comes from Coulomb's law: the force between two point
+        charges q₁ and q₂ separated by r is</p>
+        <div class="eq-math">$$\mathbf{F}_{12}=\frac{1}{4\pi\varepsilon_0}\frac{q_1q_2}{|\mathbf{r}_1-\mathbf{r}_2|^2}\hat{\mathbf{u}}_{12}$$</div>
+        <p>The constant 1/4πε₀ = k ≈ 8.99×10⁹ N·m²/C² comes from the permittivity of free space,
+        ε₀ ≈ 8.854×10⁻¹² F/m. The electric field is defined as force per unit test charge,
+        <b>E ≡ F/q₀</b>, so the field of a single point charge q at the origin, measured at position r, is:</p>
+        <div class="eq-math">$$\mathbf{E}(\mathbf{r})=\frac{1}{4\pi\varepsilon_0}\frac{q}{|\mathbf{r}-\mathbf{r}'|^2}\,\hat{\mathbf{u}},\qquad
+        \hat{\mathbf{u}}=\frac{\mathbf{r}-\mathbf{r}'}{|\mathbf{r}-\mathbf{r}'|}$$</div>
+        <p>where r′ is the source (charge) location and r is the field (observation) point. Writing the
+        unit vector out explicitly, $\hat{\mathbf u}/|\mathbf r-\mathbf r'|^2 = (\mathbf r-\mathbf r')/|\mathbf r-\mathbf r'|^3$,
+        which is the form used everywhere else in this tool since it avoids computing a square root twice.</p>
+        <h3>The scalar potential</h3>
+        <p>Because a point-charge field is <b>conservative</b> (curl-free — see Tab 3), it can always be
+        written as the gradient of a scalar function V, with a minus sign by convention:</p>
+        <div class="eq-math">$$\mathbf{E}=-\nabla V \quad\Longleftrightarrow\quad V(\mathbf{r})=\frac{1}{4\pi\varepsilon_0}\frac{q}{|\mathbf{r}-\mathbf{r}'|}+\text{const.}$$</div>
+        <p>The additive constant is fixed by choosing V → 0 as r → ∞, which is the convention used
+        throughout this explorer (and is why isolated finite charge distributions have a well-defined V at
+        every point in space).</p>
+        <h3>Superposition principle</h3>
+        <p>Maxwell's equations are <b>linear</b> in the charge and field, so if charge distribution 1
+        alone produces E₁ and charge distribution 2 alone produces E₂, the two together produce E₁ + E₂
+        (vector sum), and likewise V₁ + V₂ for potentials (ordinary scalar sum). This is not obvious from
+        Coulomb's law alone — it is an experimentally verified property of electromagnetism at the classical
+        level — but it is what makes the entire "sum over lots of point charges" strategy valid.</p>
+        <h3>From points to continuous distributions</h3>
+        <p>A continuous charge distribution is treated as an uncountably large collection of infinitesimal
+        point charges. Depending on how the charge is smeared out, dq is written using a different density:</p>
+        <ul>
+          <li><b>Line charge:</b> dq = λ(r′) dl′, λ in C/m — used for the Line Charge, Ring Charge shapes.</li>
+          <li><b>Surface charge:</b> dq = σ(r′) dA′, σ in C/m² — used for every quadric surface in this tool.</li>
+          <li><b>Volume charge:</b> dq = ρ(r′) dV′, ρ in C/m³ — not used here, but the same idea one dimension up.</li>
+        </ul>
+        <p>Substituting dq = σ(r′) dA′ into the point-charge V and E formulas and integrating (summing) over
+        the whole surface S gives the <b>exact</b> field and potential of any charged surface — a sphere, a
+        torus, a bipolar cylinder, all follow the identical recipe, just with a different S.</p>
+        <div class="callout"><b>Key idea:</b> a charged quadric surface is nothing more than a very large
+        number of point charges glued together. Once you can integrate a point charge correctly, every
+        surface in this explorer is "just" bookkeeping over that same integral with a different domain of
+        integration and a different σ(r′).</div>
+      </div>
+
+      <div class="tpanel" id="t-potential">
+        <h3>Surface integral for V</h3>
+        <p>Replacing dq = σ(r′) dA′ in the point-charge potential and integrating over the entire surface S
+        gives the exact electric potential at any field point r:</p>
+        <div class="eq-math">$$V(\mathbf{r})=\frac{1}{4\pi\varepsilon_0}\int_S \frac{\sigma(\mathbf{r}')}{|\mathbf{r}-\mathbf{r}'|}\,dA'$$</div>
+        <p>V is a <b>scalar</b> field — a single number at every point in space, with no direction to track —
+        which is usually the easier quantity to compute first, and why equipotential surfaces / contour
+        lines (toggle "Equipotential lines" in the left panel) are a convenient way to visualize it: they are
+        literally the level sets of this integral.</p>
+        <h3>Path independence and work</h3>
+        <p>Because E = −∇V, the work done by the field moving a test charge q₀ from point a to point b along
+        <b>any</b> path C is a pure difference of the scalar V at the endpoints:</p>
+        <div class="eq-math">$$W_{a\to b}=q_0\int_a^b \mathbf{E}\cdot d\boldsymbol{\ell}=-q_0\int_a^b \nabla V\cdot d\boldsymbol{\ell}=q_0\big(V(a)-V(b)\big)$$</div>
+        <p>This is exactly the Fundamental Theorem of Calculus for line integrals applied to a gradient field —
+        the reason electrostatic forces are called <b>conservative</b>. If you carry a test charge around any
+        closed loop, the net work is zero: $\oint \mathbf E\cdot d\boldsymbol\ell = 0$, which (by Stokes' theorem)
+        is equivalent to $\nabla\times\mathbf E=\mathbf 0$ everywhere in electrostatics.</p>
+        <h3>Properties used elsewhere in this tool</h3>
+        <ul>
+          <li>Equipotential surfaces are always perpendicular to field lines, since moving along one does no work (E·dℓ = 0 requires E ⊥ dℓ).</li>
+          <li>For any distribution with a nonzero net charge Q, V(r) → kQ/r as r → ∞, regardless of the exact shape — a monopole approximation valid far from the object (see Tab 6).</li>
+          <li>The potential energy stored in an assembled charge distribution is $U=\tfrac12\int_S \sigma(\mathbf r')V(\mathbf r')\,dA'$ — half the "self-energy" double integral, used conceptually for the capacitance discussion in Tab 4.</li>
+        </ul>
+      </div>
+
+      <div class="tpanel" id="t-field">
+        <h3>Deriving E = −∇V for a point charge</h3>
+        <p>Starting from $V(\mathbf r)=\frac{k q}{|\mathbf r-\mathbf r'|}$, differentiate component-wise.
+        With $R=|\mathbf r-\mathbf r'|=\sqrt{(x-x')^2+(y-y')^2+(z-z')^2}$, the x-derivative is
+        $\partial R/\partial x = (x-x')/R$, so:</p>
+        <div class="eq-math">$$\frac{\partial V}{\partial x}=kq\cdot\left(-\frac{1}{R^2}\right)\frac{\partial R}{\partial x}=-\frac{kq(x-x')}{R^3}
+        \;\Longrightarrow\; \nabla V = -kq\,\frac{\mathbf r-\mathbf r'}{R^3}$$</div>
+        <p>and therefore $\mathbf E=-\nabla V = kq\,(\mathbf r-\mathbf r')/R^3$, matching the direct
+        Coulomb's-law expression from Tab 1 — a useful consistency check that the sign convention (E points
+        away from positive charge) is correct.</p>
+        <h3>Surface integral for E</h3>
+        <p>Differentiating the potential integral under the integral sign (valid wherever σ is bounded and
+        r is off the surface) carries the same derivative through the sum over source points, giving the
+        field directly as a vector surface integral:</p>
+        <div class="eq-math">$$\mathbf{E}(\mathbf{r})=-\nabla V=\frac{1}{4\pi\varepsilon_0}\int_S \sigma(\mathbf{r}')\,\frac{\mathbf{r}-\mathbf{r}'}{|\mathbf{r}-\mathbf{r}'|^3}\,dA'$$</div>
+        <p>Unlike V, E is a <b>vector</b> field — each infinitesimal patch of charge contributes a vector
+        pointing away from (positive σ) or toward (negative σ) that patch, scaled by 1/|r−r′|². All those
+        vectors are summed component-by-component. This is exactly what the field arrows in the 3-D view
+        represent, sampled on a grid around the surface, colored by |E| on a log scale.</p>
+        <h3>Gauss's law from the divergence theorem</h3>
+        <p>Taking the divergence of the point-charge field and using the identity
+        $\nabla\!\cdot\!\big(\hat{\mathbf u}/R^2\big)=4\pi\delta^3(\mathbf r-\mathbf r')$ (the 3-D Dirac delta)
+        gives the local, differential form of Gauss's law:</p>
+        <div class="eq-math">$$\nabla\cdot\mathbf{E}=\frac{\rho}{\varepsilon_0}$$</div>
+        <p>Integrating both sides over a volume V bounded by a closed surface ∂V and applying the
+        divergence theorem $\int_V \nabla\!\cdot\!\mathbf E\,dV=\oint_{\partial V}\mathbf E\cdot d\mathbf A$
+        recovers the familiar integral form:</p>
+        <div class="eq-math">$$\oint_{\partial V} \mathbf{E}\cdot d\mathbf{A}=\frac{Q_{\text{enclosed}}}{\varepsilon_0}$$</div>
+        <p>For highly symmetric shapes (sphere, infinite cylinder) this gives E directly without
+        integrating — a useful independent check on the numerical result. Most quadrics in this tool
+        (ellipsoids, paraboloids, hyperboloids, tori, spheroids...) don't have enough symmetry for Gauss's
+        law alone to pin down E's direction and magnitude everywhere, which is why direct integration
+        (Tab 5) is needed in general.</p>
+      </div>
+
+      <div class="tpanel" id="t-conductors">
+        <h3>Boundary condition at a charged surface</h3>
+        <p>Consider a thin "pillbox" straddling a surface carrying density σ, with faces of area δA just
+        above and below the surface. Gauss's law applied to the pillbox (the thin side walls contribute
+        negligible flux as their height → 0) gives:</p>
+        <div class="eq-math">$$E_{\text{above},\perp}\,\delta A - E_{\text{below},\perp}\,\delta A=\frac{\sigma\,\delta A}{\varepsilon_0}
+        \;\Longrightarrow\; E_{\text{above},\perp}-E_{\text{below},\perp}=\frac{\sigma}{\varepsilon_0}$$</div>
+        <p>So the <b>normal</b> component of E jumps discontinuously by σ/ε₀ across any charged surface,
+        while the <b>tangential</b> component is continuous (it follows from $\nabla\times\mathbf E=0$
+        applied to a thin rectangular loop straddling the surface). This is exactly why the field arrows in
+        this tool visibly change direction/magnitude as they cross a charged shell.</p>
+        <h3>Conductors in electrostatic equilibrium</h3>
+        <p>Inside a perfect conductor in equilibrium, free charges rearrange until E = 0 everywhere inside
+        (otherwise charges would keep accelerating). Since E = −∇V, this forces V to be <b>constant</b>
+        throughout the conductor's interior and on its surface — an isolated conductor is always an
+        equipotential body. Combined with the boundary condition above (and E = 0 just inside), the field
+        just outside a conductor's surface is purely normal:</p>
+        <div class="eq-math">$$\mathbf{E}_{\text{just outside}}=\frac{\sigma}{\varepsilon_0}\hat{\mathbf n}$$</div>
+        <p>This is precisely the physics the "Conductor" charging mode implements numerically: it solves for
+        the σ(r′) that makes V constant over the whole discretized surface (Tab 5's linear system), rather
+        than letting you prescribe σ directly.</p>
+        <h3>Capacitance and stored energy</h3>
+        <p>For any isolated conductor carrying charge Q at potential V (relative to V=0 at infinity), the
+        capacitance is defined as C = Q/V, and the energy stored in the resulting field is:</p>
+        <div class="eq-math">$$C=\frac{Q}{V},\qquad U=\frac{1}{2}CV^2=\frac{1}{2}QV=\frac{\varepsilon_0}{2}\int_{\text{all space}}|\mathbf E|^2\,dV$$</div>
+        <p>The two-conductor shapes in this tool — <b>Parallel Plates</b>, <b>Dipole</b>, <b>Quadrupole</b>
+        pairs — behave as simple capacitors when set to "Conductor" mode: each conductor sits at an equal
+        and opposite potential, and Q/ΔV for the pair is the system's capacitance.</p>
+      </div>
+
+      <div class="tpanel" id="t-numeric">
+        <h3>From integral to sum — Boundary Element Method</h3>
+        <p>The integrals in Tabs 2–3 have no closed form for most of these shapes, so this tool evaluates
+        them numerically using a first-order <b>Boundary Element Method (BEM)</b> / panel method. The
+        surface is meshed into N small quadrilateral <b>panels</b>. For panel i, built from four corner
+        points p₀₀, p₁₀, p₀₁, p₁₁ of the parametric grid, we compute:</p>
+        <ul>
+          <li><b>Centroid r<sub>i</sub></b> = ¼(p₀₀+p₁₀+p₀₁+p₁₁) — the average of the four corners.</li>
+          <li><b>Area A<sub>i</sub></b> — the quadrilateral is split into two triangles along each diagonal
+          pairing, each triangle's area from ½|e₁×e₂| of its edge vectors, and the two triangle areas are
+          averaged for a more accurate estimate on non-planar (curved) panels.</li>
+          <li><b>Outward normal n̂<sub>i</sub></b> — from the (normalized) sum of the two triangles' cross
+          products, so it stays well-defined even for slightly warped panels.</li>
+          <li><b>Charge q<sub>i</sub> = σ<sub>i</sub> A<sub>i</sub></b> — each panel is treated as an
+          effective point charge located at its centroid.</li>
+        </ul>
+        <p>Substituting this into the surface integrals turns them into discrete Riemann sums — exactly a
+        direct point-charge superposition over all panels:</p>
+        <div class="eq-math">$$V(\mathbf{r})\approx k\sum_{i=1}^{N}\frac{\sigma_i A_i}{|\mathbf{r}-\mathbf{r}_i|},
+        \qquad
+        \mathbf{E}(\mathbf{r})\approx k\sum_{i=1}^{N}\sigma_i A_i\,\frac{\mathbf{r}-\mathbf{r}_i}{|\mathbf{r}-\mathbf{r}_i|^3}$$</div>
+        <p>with k = 1/4πε₀ ≈ 8.99×10⁹ N·m²/C². As N grows and each panel shrinks, this converges to the
+        exact surface integral (it is literally a Riemann sum in the surface's parametric u,v coordinates).
+        The rendering mesh uses a finer grid (for a smooth-looking surface); a coarser, independent
+        "calculation mesh" (controlled by "Mesh / charge grid size") is used for the O(N) or O(N²) physics
+        sums so the app stays responsive while you drag sliders.</p>
+        <h3>Regularizing the near-field singularity</h3>
+        <p>As r → r<sub>i</sub> the 1/R and 1/R² factors blow up — a real artifact of collapsing a finite
+        panel to a single point charge at its centroid. This tool clamps the minimum separation distance to
+        1 mm before evaluating any 1/R term, which keeps arrows and probes well-behaved right up to the
+        surface without materially affecting the field anywhere the mesh is reasonably fine relative to the
+        probe distance.</p>
+        <h3>Isolated / dual conductors — solving for σ</h3>
+        <p>When "Conductor" charging is selected, σ isn't prescribed — it's <b>solved for</b> so that V is
+        constant everywhere on the discretized surface (Tab 4's equilibrium condition). Demanding
+        $V(\mathbf r_i)=1$ (an arbitrary reference unit — the physical scale is fixed afterward) at every
+        panel centroid turns the continuous equilibrium condition into an N×N linear system:</p>
+        <div class="eq-math">$$\sum_{j=1}^N A_{ij}\,\sigma_j = 1,\qquad
+        A_{ij}=\begin{cases} k\cdot 2\pi r_i & i=j\\[4pt]
+        \dfrac{k A_j}{|\mathbf{r}_i-\mathbf{r}_j|} & i\ne j\end{cases}$$</div>
+        <p>The diagonal (self-interaction) term can't use the point-charge formula since r → 0 there;
+        instead each panel is approximated as a flat disk of the same area, radius
+        $r_i=\sqrt{A_i/\pi}$, whose exact potential at its own center is the standard result
+        $V_{\text{disk center}}=k\cdot 2\pi\sigma r_i = k\cdot 2\pi r_i$ (per unit σ), giving a
+        consistent, non-singular diagonal entry.</p>
+        <p>This dense linear system is solved once per recompute using <b>Gaussian elimination with
+        partial pivoting</b> (O(N³) — practical for the coarse calculation mesh sizes used here), and the
+        resulting relative σ pattern is then uniformly rescaled so the surface's total (or, for two-body
+        shapes like Parallel Plates / Dipole, each group's) charge matches the requested Q.</p>
+        <h3>Performance notes</h3>
+        <ul>
+          <li>Field-arrow and equipotential-contour sampling use the coarse calculation mesh, since each sample point requires an O(N) sum over every panel.</li>
+          <li>Geometry/parameter changes are debounced (~160 ms) before the full BEM recompute fires, so dragging sliders stays smooth.</li>
+          <li>Increasing "Mesh / charge grid size" trades recompute speed for numerical accuracy — useful when checking a shape against an exact formula (Tab 7).</li>
+        </ul>
+      </div>
+
+      <div class="tpanel" id="t-multipole">
+        <h3>Far-field expansion of 1/|r−r′|</h3>
+        <p>For an observation point far from a bounded charge distribution (r ≫ r′, i.e. r much larger than
+        the size of the object), 1/|r−r′| can be Taylor-expanded in powers of r′/r — the standard
+        <b>multipole expansion</b>. In terms of the angle γ between r and r′ (using Legendre polynomials
+        P<sub>ℓ</sub>):</p>
+        <div class="eq-math">$$\frac{1}{|\mathbf r-\mathbf r'|}=\frac{1}{r}\sum_{\ell=0}^{\infty}\left(\frac{r'}{r}\right)^{\!\ell} P_\ell(\cos\gamma)$$</div>
+        <p>Substituting into $V=k\int_S \sigma(\mathbf r')/|\mathbf r-\mathbf r'|\,dA'$ and integrating
+        term by term gives the multipole series for V:</p>
+        <div class="eq-math">$$V(\mathbf r)\approx \frac{k}{r}\underbrace{\int_S\sigma\,dA'}_{Q\ (\text{monopole})}
+        +\frac{k}{r^2}\underbrace{\int_S\sigma\,r'\cos\gamma\,dA'}_{\text{dipole term}}
+        +\frac{k}{r^3}\big(\text{quadrupole term}\big)+\cdots$$</div>
+        <h3>Monopole term</h3>
+        <p>The leading 1/r term depends only on the <b>total charge</b> Q = ∫σ dA′ — every detail of the
+        shape washes out. This is why, viewed from far enough away, the Sphere, Ellipsoid, Torus, or any
+        other shape with the same net charge all look identical: $V\to kQ/r$, $E\to kQ/r^2\,\hat{\mathbf r}$.
+        This is the check used in the worked example in Tab 7.</p>
+        <h3>Dipole term</h3>
+        <p>When Q = 0 (equal and opposite charges, as in the <b>Dipole</b>, <b>Quadrupole (Linear/Square)</b>,
+        and <b>Parallel Plates</b> shapes here), the monopole term vanishes and the leading behavior is set
+        by the <b>dipole moment</b> vector:</p>
+        <div class="eq-math">$$\mathbf p=\int_S \sigma(\mathbf r')\,\mathbf r'\,dA' \;\;(\text{for two point charges } \pm q \text{ separated by } d:\ p=qd)$$</div>
+        <div class="eq-math">$$V_{\text{dipole}}(\mathbf r)=\frac{k\,\mathbf p\cdot\hat{\mathbf r}}{r^2},
+        \qquad
+        \mathbf E_{\text{dipole}}(\mathbf r)=\frac{k}{r^3}\Big(3(\mathbf p\cdot\hat{\mathbf r})\hat{\mathbf r}-\mathbf p\Big)$$</div>
+        <p>Notice the dipole field falls off as 1/r³ — one power of r faster than a monopole's 1/r² — and is
+        no longer spherically symmetric: it's strongest along the dipole axis and weakest broadside. Try the
+        <b>Dipole</b> shape with equal ± charges and compare the far-field arrow pattern to this formula.</p>
+        <h3>Quadrupole and beyond</h3>
+        <p>If both Q and p vanish (as for the <b>Quadrupole (Linear)</b> shape's +q,−2q,+q arrangement, or
+        the alternating <b>Charge Lattice</b>), the leading term is the quadrupole moment (a rank-2 tensor),
+        and V falls off as 1/r³, E as 1/r⁴ — falling off faster still. Each successive multipole order is
+        more sensitive to fine structure and less important far away, which is the general pattern: <b>far
+        from any bounded charge distribution, only its lowest surviving multipole moment matters.</b></p>
+      </div>
+
+      <div class="tpanel" id="t-example">
+        <h3>Units used in this explorer</h3>
+        <table>
+          <tr><th>Quantity</th><th>Slider / input units</th><th>Used internally as</th></tr>
+          <tr><td>Geometry (a, b, c, R)</td><td>centimeters (cm)</td><td>meters (× 0.01)</td></tr>
+          <tr><td>Surface charge density σ₀</td><td>µC/m²</td><td>C/m² (× 10⁻⁶)</td></tr>
+          <tr><td>Total / net charge Q</td><td>µC</td><td>C (× 10⁻⁶)</td></tr>
+          <tr><td>Potential V (output)</td><td colspan="2">volts (V)</td></tr>
+          <tr><td>Field |E| (output)</td><td colspan="2">volts/meter = N/C</td></tr>
+        </table>
+        <p>Real geometric sizes (a few cm) combined with real µC-scale charges naturally produce field
+        strengths from a few V/m up to MV/m near sharp or highly charged regions — the same orders of
+        magnitude you'd see in a benchtop electrostatics demo (a Van de Graaff generator, for scale, can
+        hold tens of µC and reach hundreds of kV).</p>
+        <h3>Worked check 1 — uniformly charged spherical shell (monopole, exact)</h3>
+        <p>Pick the Sphere surface with uniform density. Every closed shape in this tool — Sphere,
+        Ellipsoid, Torus, Prolate/Oblate Spheroid, and so on — is a <b>hollow shell</b>: charge only ever
+        lives on the 2-D surface (σ, in C/m²), never spread through a 3-D volume (there is no ρ, in
+        C/m³, anywhere in this tool). For radius R and total charge Q, the exact textbook results
+        (Gauss's law, Tab 3) are:</p>
+        <div class="eq-math">$$V_{\text{surface}}=\frac{kQ}{R},\qquad
+        E_{\text{just outside}}=\frac{kQ}{R^2},\qquad V(r>R)=\frac{kQ}{r},\qquad E(r>R)=\frac{kQ}{r^2},
+        \qquad E_{\text{inside}}=0$$</div>
+        <p>Set "Total Q" mode, hover the "Measure" probe just outside the sphere, and compare the readout
+        to kQ/r and kQ/r² computed by hand — they should agree closely (small differences come from the
+        panel mesh resolution and the 1 mm minimum-distance clamp near the surface). Probe well inside the
+        sphere and you should read V ≈ constant (equal to the surface value) and E ≈ 0 — all the field
+        lines terminate on the shell itself, none reach the interior.</p>
+        <div class="callout"><b>Shell vs. solid:</b> outside a closed shape, it makes no difference whether
+        the same total charge Q sits on a thin shell or is spread uniformly through a solid volume — both
+        give the identical external field kQ/r² by Gauss's law. <b>Inside</b> is where they differ: a shell
+        gives E = 0 throughout the interior, while a uniformly charged <i>solid</i> ball would instead give
+        E = kQr/R³, rising linearly from the center. Since this tool only ever models surface charge, it
+        always reproduces the shell (E = 0 inside) behavior, not the solid-ball one.</div>
+        <h3>Worked check 2 — charged ring on axis (exact, non-trivial shape)</h3>
+        <p>For a ring of radius a carrying total charge Q, uniformly distributed, the field and potential
+        on the symmetry axis (distance z from the ring's plane) have a simple closed form even though the
+        ring isn't spherically symmetric:</p>
+        <div class="eq-math">$$V(z)=\frac{kQ}{\sqrt{z^2+a^2}},\qquad
+        E(z)=\frac{kQz}{(z^2+a^2)^{3/2}}$$</div>
+        <p>Select the <b>Ring Charge</b> shape, probe along the z-axis at a few different heights, and
+        compare — this is a good test of the discretization accuracy away from the high-symmetry sphere
+        case, since the ring's field varies non-monotonically along its axis (E peaks near z ≈ a/√2, not at
+        z = 0).</p>
+        <h3>Worked check 3 — ideal parallel-plate capacitor</h3>
+        <p>For two oppositely charged infinite plates separated by distance d, each with surface density
+        ±σ, the field between the plates is uniform:</p>
+        <div class="eq-math">$$E_{\text{between}}=\frac{\sigma}{\varepsilon_0}=\frac{4\pi k\sigma}{1},\qquad
+        V_{\text{between}}(y)=E\cdot y \ (\text{linear ramp}),\qquad C=\frac{\varepsilon_0 A_{\text{plate}}}{d}$$</div>
+        <p>Select <b>Parallel Plates</b> with finite (but large) plate half-size a ≫ separation d — the
+        finite-size version approximates the infinite-plate idealization near the center, where fringing
+        fields are smallest. Away from the center, you'll see the field lines curve outward — the
+        "fringing field" effect the infinite-plate formula ignores.</p>
+        <div class="callout"><b>Tip:</b> increasing "Mesh / charge grid size" in the Rendering panel
+        refines the panel mesh and pushes every numerical result closer to its exact analytic answer, at the
+        cost of slower recomputation. For the sharpest comparisons, also increase "Arrow density" so you
+        have more sample points to check against.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* =========================================================================
+   QUADRIC FIELD EXPLORER
+   Self-contained electrostatics visualizer for charged quadric surfaces.
+   ========================================================================= */
+(function(){
+"use strict";
+
+/* ---------------------------- Global state ---------------------------- */
+const K = 8.9875517923e9; // Coulomb's constant k = 1/4*pi*eps0, real N*m^2/C^2
+// Unit system: geometry sliders are in centimeters, surface charge density sigma0 is in
+// microcoulombs per square meter (uC/m^2), and total/net charge Q is in microcoulombs (uC).
+// These scale factors convert the on-screen (world) numbers into real SI quantities
+// (meters, C/m^2, C) used only inside the physics integrals, so V comes out in volts and
+// E comes out in volts/meter (= N/C), while geometry keeps friendly cm-scale slider values.
+const LEN_SCALE = 0.01;     // 1 world unit = 1 cm = 0.01 m
+const AREA_SCALE = LEN_SCALE*LEN_SCALE; // cm^2 -> m^2
+const SIGMA_SCALE = 1e-6;   // uC/m^2 -> C/m^2
+const QTOT_SCALE = 1e-6;    // uC -> C
+const FIELD_DIST_MIN = 0.001; // 1 mm minimum separation (meters) to avoid 1/r^2 singularities
+function formatSI(value, unit){
+  const v = value||0, abs = Math.abs(v);
+  if(abs===0) return '0 '+unit;
+  const prefixes=[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
+  for(const [scale,sym] of prefixes){
+    if(abs>=scale){
+      const scaled = v/scale;
+      const dec = Math.abs(scaled)>=100?0:(Math.abs(scaled)>=10?1:2);
+      return scaled.toFixed(dec)+' '+sym+unit;
+    }
+  }
+  return v.toExponential(2)+' '+unit;
+}
+
+/* ---------------------------- Colormaps -------------------------------- */
+const COLORMAPS = {
+  spectrum:[[0,'#2255ff'],[0.5,'#22ff77'],[1,'#ff3b3b']],
+  viridis:[[0,'#440154'],[0.13,'#482878'],[0.25,'#3e4989'],[0.38,'#31688e'],[0.5,'#26828e'],[0.63,'#1f9e89'],[0.75,'#35b779'],[0.88,'#6ece58'],[1,'#fde725']],
+  plasma:[[0,'#0d0887'],[0.13,'#47039f'],[0.25,'#7301a8'],[0.38,'#9c179e'],[0.5,'#bd3786'],[0.63,'#d8576b'],[0.75,'#ed7953'],[0.88,'#fbb32f'],[1,'#f0f921']],
+  inferno:[[0,'#000004'],[0.13,'#1b0c41'],[0.25,'#4a0c6b'],[0.38,'#781c6d'],[0.5,'#a52c60'],[0.63,'#cf4446'],[0.75,'#ed6925'],[0.88,'#fb9b06'],[1,'#fcffa4']],
+  magma:[[0,'#000004'],[0.13,'#180f3e'],[0.25,'#451077'],[0.38,'#721f81'],[0.5,'#9f2f7f'],[0.63,'#cd4071'],[0.75,'#f1605d'],[0.88,'#fd9567'],[1,'#fcfdbf']],
+  turbo:[[0,'#30123b'],[0.13,'#4669e1'],[0.25,'#28bceb'],[0.38,'#30f19e'],[0.5,'#a4fc3c'],[0.63,'#f5c93d'],[0.75,'#f66d19'],[0.88,'#c22a06'],[1,'#7a0403']],
+  coolwarm:[[0,'#3b4cc0'],[0.5,'#f7f7f7'],[1,'#b40426']],
+  jet:[[0,'#000080'],[0.13,'#0000ff'],[0.38,'#00ffff'],[0.5,'#7fff7f'],[0.63,'#ffff00'],[0.88,'#ff0000'],[1,'#800000']]
+};
+const COLORMAP_ORDER = ['spectrum','viridis','plasma','inferno','magma','turbo','coolwarm','jet'];
+const _cmapColorCache = {};
+function sampleColormap(name, t){
+  t = THREE.MathUtils.clamp(t,0,1);
+  const stops = COLORMAPS[name] || COLORMAPS.spectrum;
+  for(let i=0;i<stops.length-1;i++){
+    const t0=stops[i][0], t1=stops[i+1][0];
+    if(t>=t0 && t<=t1){
+      const f = (t1>t0)? (t-t0)/(t1-t0) : 0;
+      const key0='c'+i+name, key1='c'+(i+1)+name;
+      const c0 = _cmapColorCache[key0] || (_cmapColorCache[key0]=new THREE.Color(stops[i][1]));
+      const c1 = _cmapColorCache[key1] || (_cmapColorCache[key1]=new THREE.Color(stops[i+1][1]));
+      return c0.clone().lerp(c1, f);
+    }
+  }
+  return new THREE.Color(stops[stops.length-1][1]);
+}
+function colormapCssGradient(name){
+  const stops = COLORMAPS[name] || COLORMAPS.spectrum;
+  return 'linear-gradient(90deg,' + stops.map(s=> s[1]+' '+(s[0]*100)+'%').join(',') + ')';
+}
+
+const DEFAULTS = {
+  surface:'sphere',
+  a:2, b:1.5, c:1.2, R:2,
+  distribution:'uniform', chargeMode:'density', polarity:1, sigma0:1, qtotal:10,
+  customFormula:'Math.sin(theta)',
+  opacity:0.55, arrowScale:0.2, arrowDensity:6, gridSize:36, animSpeed:1,
+  colormap:'spectrum', viewMode:'solid',
+  show:{surface:true,mesh:false,field:true,potential:false,equipotential:false,fieldlines:false,axes:true,labels:true,points:false},
+  anim:{fieldlines:false,testcharge:false,equipotential:false,gradient:false},
+  autoRotate:false
+};
+let state = JSON.parse(JSON.stringify(DEFAULTS));
+
+const SURF_META = {
+  pointCharge:{label:'Point Charge', eq:'q  (idealized point)', tex:'q\\ \\text{(idealized point charge)}', params:[]},
+  lineCharge:{label:'Line Charge', eq:'−L ≤ y ≤ L, x=z≈0', tex:'\\text{finite rod, }-L\\le y\\le L', params:['c'], paramLabels:{c:'Half-length L (cm)'}},
+  ringCharge:{label:'Ring Charge', eq:'x² + z² = a², y = 0', tex:'x^2+z^2=a^2,\\ y=0', params:['a'], paramLabels:{a:'Ring radius a (cm)'}},
+  diskCharge:{label:'Charged Disk', eq:'x² + z² ≤ a², y = 0', tex:'x^2+z^2\\le a^2,\\ y=0', params:['a'], paramLabels:{a:'Disk radius a (cm)'}},
+  chargedPlane:{label:'Charged Plane', eq:'y = 0, |x|,|z| ≤ a', tex:'y=0,\\ |x|,|z|\\le a', params:['a'], paramLabels:{a:'Plane half-size a (cm)'}},
+  parallelPlate:{label:'Parallel Plates', eq:'y = ±d/2, |x|,|z| ≤ a', tex:'y=\\pm d/2,\\ |x|,|z|\\le a', params:['a','c'], paramLabels:{a:'Plate half-size a (cm)', c:'Plate separation d (cm)'}, dualPolarity:true},
+  dipole:{label:'Dipole', eq:'±q at y = ±d/2', tex:'\\pm q\\ \\text{at}\\ y=\\pm d/2', params:['a','c'], paramLabels:{a:'Charge size scale (cm)', c:'Separation d (cm)'}, dualPolarity:true},
+  quadrupoleLinear:{label:'Quadrupole (Linear)', eq:'+q, −2q, +q along y', tex:'+q,\\,-2q,\\,+q\\ \\text{along }y', params:['c'], paramLabels:{c:'Charge spacing (cm)'}, dualPolarity:true},
+  quadrupoleSquare:{label:'Quadrupole (Square)', eq:'±q alternating at square corners', tex:'\\pm q\\ \\text{alternating, square corners}', params:['a'], paramLabels:{a:'Half-diagonal a (cm)'}, dualPolarity:true},
+  chargeLattice:{label:'Charge Lattice 4×4', eq:'checkerboard array, y = 0', tex:'\\text{4×4 alternating point-charge array}', params:['a'], paramLabels:{a:'Lattice half-size a (cm)'}, dualPolarity:true},
+  sphere:{label:'Sphere', eq:'x² + y² + z² = R²', tex:'x^2+y^2+z^2=R^2', usesR:true, params:['R']},
+  ellipsoid:{label:'Ellipsoid', eq:'x²/a² + y²/b² + z²/c² = 1', tex:'\\frac{x^2}{a^2}+\\frac{y^2}{b^2}+\\frac{z^2}{c^2}=1', params:['a','b','c']},
+  cylinder:{label:'Cylinder', eq:'x² + z² = a²', tex:'x^2+z^2=a^2', params:['a','c'], paramLabels:{a:'Radius a (cm)', c:'Half-height (cm)'}},
+  cone:{label:'Cone', eq:'x² + z² = (a·y/c)²', tex:'x^2+z^2=\\left(\\frac{a\\,y}{c}\\right)^2', params:['a','c'], paramLabels:{a:'Base radius a (cm)', c:'Half-height (cm)'}},
+  paraboloid:{label:'Paraboloid', eq:'y = (x² + z²)/a²', tex:'y=\\frac{x^2+z^2}{a^2}', params:['a'], paramLabels:{a:'Curvature scale a (cm)'}},
+  bipolar:{label:'Bipolar Cylinder', eq:'x = a sinh τ /(cosh τ−cos σ), z = a sin σ /(cosh τ−cos σ)', tex:'x=\\frac{a\\sinh\\tau}{\\cosh\\tau-\\cos\\sigma},\\ \\ z=\\frac{a\\sin\\sigma}{\\cosh\\tau-\\cos\\sigma}', params:['a','b','c'], paramLabels:{a:'Focal distance a (cm)', b:'Offset τ (0.1–3)', c:'Half-height (cm)'}},
+  prolate:{label:'Prolate Spheroid', eq:'(x²+z²)/a² + y²/c² = 1, c > a', tex:'\\frac{x^2+z^2}{a^2}+\\frac{y^2}{c^2}=1,\\ \\ c&gt;a', params:['a','c'], paramLabels:{a:'Equatorial radius a (cm)', c:'Polar radius c (cm), c&gt;a'}},
+  oblate:{label:'Oblate Spheroid', eq:'(x²+z²)/a² + y²/c² = 1, c < a', tex:'\\frac{x^2+z^2}{a^2}+\\frac{y^2}{c^2}=1,\\ \\ c&lt;a', params:['a','c'], paramLabels:{a:'Equatorial radius a (cm)', c:'Polar radius c (cm), c&lt;a'}},
+  ellipticCylinder:{label:'Elliptic Cylinder', eq:'x²/a² + y²/b² = 1', tex:'\\frac{x^2}{a^2}+\\frac{y^2}{b^2}=1', params:['a','b','c']},
+  hyperbolicCylinder:{label:'Hyperbolic Cylinder', eq:'x²/a² − y²/b² = 1', tex:'\\frac{x^2}{a^2}-\\frac{y^2}{b^2}=1', params:['a','b','c']},
+  ellipticCone:{label:'Elliptic Cone', eq:'x²/a² + y²/b² − z²/c² = 0', tex:'\\frac{x^2}{a^2}+\\frac{y^2}{b^2}-\\frac{z^2}{c^2}=0', params:['a','b','c']},
+  ellipticParaboloid:{label:'Elliptic Paraboloid', eq:'z = x²/a² + y²/b²', tex:'z=\\frac{x^2}{a^2}+\\frac{y^2}{b^2}', params:['a','b']},
+  hyperbolicParaboloid:{label:'Hyperbolic Paraboloid (saddle)', eq:'z = x²/a² − y²/b²', tex:'z=\\frac{x^2}{a^2}-\\frac{y^2}{b^2}', params:['a','b']},
+  hyperboloid1:{label:'Hyperboloid, 1 Sheet', eq:'x²/a² + y²/b² − z²/c² = 1', tex:'\\frac{x^2}{a^2}+\\frac{y^2}{b^2}-\\frac{z^2}{c^2}=1', params:['a','b','c']},
+  hyperboloid2:{label:'Hyperboloid, 2 Sheets', eq:'z²/c² − x²/a² − y²/b² = 1', tex:'\\frac{z^2}{c^2}-\\frac{x^2}{a^2}-\\frac{y^2}{b^2}=1', params:['a','b','c']},
+  torus:{label:'Torus', eq:'(√(x²+z²) − a)² + y² = b²', tex:'(\\sqrt{x^2+z^2}-a)^2+y^2=b^2', params:['a','b'], paramLabels:{a:'Major radius a (cm)', b:'Tube radius b (cm)'}},
+  catenoid:{label:'Catenoid', eq:'√(x²+z²) = a·cosh(y/a)', tex:'\\sqrt{x^2+z^2}=a\\cosh(y/a)', params:['a','c'], paramLabels:{a:'Waist radius a (cm)', c:'Half-height (cm)'}},
+  pseudosphere:{label:'Pseudosphere (Tractricoid)', eq:'x=a·sech(v)cos(u), z=a·sech(v)sin(u), y=a(v−tanh v)', tex:'x=a\\,\\mathrm{sech}(v)\\cos u,\\ \\ y=a(v-\\tanh v),\\ \\ z=a\\,\\mathrm{sech}(v)\\sin u', params:['a','c'], paramLabels:{a:'Scale a (cm)', c:'Height range (cm)'}},
+};
+
+/* ---------------------------- Three.js setup --------------------------- */
+const wrap = document.getElementById('canvas-wrap');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x05070c, 0.018);
+const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth/wrap.clientHeight, 0.1, 500);
+camera.position.set(7,5.5,8);
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+wrap.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 1.5; controls.maxDistance = 60;
+
+scene.add(new THREE.AmbientLight(0x8ab4ff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 1.05);
+key.position.set(8,10,6); key.castShadow = true;
+key.shadow.mapSize.set(1024,1024);
+key.shadow.camera.left=-10; key.shadow.camera.right=10; key.shadow.camera.top=10; key.shadow.camera.bottom=-10;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x00e5ff, 0.4); rim.position.set(-8,-4,-6); scene.add(rim);
+const fill = new THREE.PointLight(0xffb020, 0.35, 40); fill.position.set(-5,6,-5); scene.add(fill);
+
+// ground grid (subtle)
+const groundGrid = new THREE.GridHelper(30, 30, 0x1c2740, 0x11182a);
+groundGrid.position.y = -6; groundGrid.material.transparent = true; groundGrid.material.opacity = 0.25;
+scene.add(groundGrid);
+
+// Axes helper + labels
+const axesGroup = new THREE.Group(); scene.add(axesGroup);
+const axesHelper = new THREE.AxesHelper(5); axesGroup.add(axesHelper);
+function makeTextSprite(text, color){
+  const cvs = document.createElement('canvas'); cvs.width=128; cvs.height=64;
+  const ctx = cvs.getContext('2d');
+  ctx.font='bold 40px monospace'; ctx.fillStyle=color; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,64,32);
+  const tex = new THREE.CanvasTexture(cvs);
+  const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+  const spr = new THREE.Sprite(mat); spr.scale.set(0.8,0.4,1);
+  return spr;
+}
+const labelX = makeTextSprite('X','#ff5470'); labelX.position.set(5.5,0,0); axesGroup.add(labelX);
+const labelY = makeTextSprite('Y','#2ee6a8'); labelY.position.set(0,5.5,0); axesGroup.add(labelY);
+const labelZ = makeTextSprite('Z','#00e5ff'); labelZ.position.set(0,0,5.5); axesGroup.add(labelZ);
+const paramLabels = new THREE.Group(); scene.add(paramLabels);
+
+/* ============================ Surface geometry ========================= */
+// Each generator returns {grid: Vector3[][], closedU:boolean} where grid[i][j], i over U (0..uSeg), j over V (0..vSeg)
+function genSphere(p,uSeg,vSeg){
+  const R=p.R, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const theta = i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const phi = j/vSeg*Math.PI;
+      row.push(new THREE.Vector3(R*Math.sin(phi)*Math.cos(theta), R*Math.cos(phi), R*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'sphere'};
+}
+function genEllipsoid(p,uSeg,vSeg){
+  const {a,b,c}=p, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const theta=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const phi=j/vSeg*Math.PI;
+      row.push(new THREE.Vector3(a*Math.sin(phi)*Math.cos(theta), c*Math.cos(phi), b*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'ellipsoid'};
+}
+function genEllipticCylinder(p,uSeg,vSeg){
+  const {a,b,c}=p, h=c*1.6, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const th=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const z=-h+2*h*j/vSeg;
+      row.push(new THREE.Vector3(a*Math.cos(th), z, b*Math.sin(th)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'cyl'};
+}
+function genHyperbolicCylinder(p,uSeg,vSeg){
+  const {a,b,c}=p, h=c*1.6, tmax=1.4, grids=[];
+  for(const sgn of [1,-1]){
+    const grid=[];
+    for(let i=0;i<=uSeg;i++){
+      const t=-tmax+2*tmax*i/uSeg, row=[];
+      for(let j=0;j<=vSeg;j++){
+        const z=-h+2*h*j/vSeg;
+        row.push(new THREE.Vector3(sgn*a*Math.cosh(t), z, b*Math.sinh(t)));
+      }
+      grid.push(row);
+    }
+    grids.push({grid,closedU:false});
+  }
+  return {grids, closed:false, kind:'hypcyl'};
+}
+function genEllipticCone(p,uSeg,vSeg){
+  const {a,b,c}=p, zmax=c*1.4, eps=0.03*c, grids=[];
+  for(const sgn of [1,-1]){
+    const grid=[];
+    for(let i=0;i<=uSeg;i++){
+      const th=i/uSeg*Math.PI*2, row=[];
+      for(let j=0;j<=vSeg;j++){
+        const z=sgn*(eps+(zmax-eps)*j/vSeg);
+        row.push(new THREE.Vector3(a*(z/c)*Math.cos(th), z, b*(z/c)*Math.sin(th)));
+      }
+      grid.push(row);
+    }
+    grids.push({grid,closedU:true});
+  }
+  return {grids, closed:false, kind:'cone'};
+}
+function genEllipticParaboloid(p,uSeg,vSeg){
+  const {a,b}=p, rmax=1.7, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const th=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const r=rmax*j/vSeg;
+      const x=a*r*Math.cos(th), y=b*r*Math.sin(th);
+      row.push(new THREE.Vector3(x, r*r, y));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'parab'};
+}
+function genHyperbolicParaboloid(p,uSeg,vSeg){
+  const {a,b}=p, L=2.0, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const x=-L+2*L*i/uSeg, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const y=-L+2*L*j/vSeg;
+      row.push(new THREE.Vector3(x, x*x/(a*a)-y*y/(b*b), y));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:false}], closed:false, kind:'saddle'};
+}
+function genHyperboloid1(p,uSeg,vSeg){
+  const {a,b,c}=p, zmax=c*1.6, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const th=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const z=-zmax+2*zmax*j/vSeg;
+      const s=Math.sqrt(1+(z/c)*(z/c));
+      row.push(new THREE.Vector3(a*s*Math.cos(th), z, b*s*Math.sin(th)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'hyp1'};
+}
+function genHyperboloid2(p,uSeg,vSeg){
+  const {a,b,c}=p, vmax=Math.acosh(2.2), grids=[];
+  for(const sgn of [1,-1]){
+    const grid=[];
+    for(let i=0;i<=uSeg;i++){
+      const th=i/uSeg*Math.PI*2, row=[];
+      for(let j=0;j<=vSeg;j++){
+        const v=vmax*j/vSeg;
+        const z=sgn*c*Math.cosh(v);
+        row.push(new THREE.Vector3(a*Math.sinh(v)*Math.cos(th), z, b*Math.sinh(v)*Math.sin(th)));
+      }
+      grid.push(row);
+    }
+    grids.push({grid,closedU:true});
+  }
+  return {grids, closed:false, kind:'hyp2'};
+}
+function genTorus(p,uSeg,vSeg){
+  const {a,b}=p, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const u=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const v=j/vSeg*Math.PI*2;
+      const rr = a+b*Math.cos(v);
+      row.push(new THREE.Vector3(rr*Math.cos(u), b*Math.sin(v), rr*Math.sin(u)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'torus'};
+}
+function genCatenoid(p,uSeg,vSeg){
+  const a=Math.max(0.3,p.a), h=Math.max(0.3,p.c), grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const u=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const y=-h+2*h*j/vSeg;
+      const rr = a*Math.cosh(y/a);
+      row.push(new THREE.Vector3(rr*Math.cos(u), y, rr*Math.sin(u)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'catenoid'};
+}
+function genPseudosphere(p,uSeg,vSeg){
+  const a=Math.max(0.3,p.a), vmax=Math.max(0.5,Math.min(3,p.c)), eps=0.08, grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const u=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const v=eps+(vmax-eps)*j/vSeg;
+      const sech = 1/Math.cosh(v);
+      row.push(new THREE.Vector3(a*sech*Math.cos(u), a*(v-Math.tanh(v)), a*sech*Math.sin(u)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'pseudosphere'};
+}
+function genPointCharge(p,uSeg,vSeg){
+  const R=0.22, grid=[];
+  const segs=Math.max(8,Math.min(uSeg,14));
+  for(let i=0;i<=segs;i++){
+    const theta=i/segs*Math.PI*2, row=[];
+    for(let j=0;j<=segs;j++){
+      const phi=j/segs*Math.PI;
+      row.push(new THREE.Vector3(R*Math.sin(phi)*Math.cos(theta), R*Math.cos(phi), R*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'point'};
+}
+function genLineCharge(p,uSeg,vSeg){
+  const L=Math.max(0.3,p.c), eps=Math.max(0.05, L*0.02), grid=[];
+  const segs=Math.max(6,Math.min(uSeg,10));
+  for(let i=0;i<=segs;i++){
+    const th=i/segs*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const y=-L+2*L*j/vSeg;
+      row.push(new THREE.Vector3(eps*Math.cos(th), y, eps*Math.sin(th)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'line'};
+}
+function genRingCharge(p,uSeg,vSeg){
+  const R=Math.max(0.3,p.a), w=Math.max(0.06,R*0.06), grid=[];
+  const segs=Math.max(10,uSeg);
+  for(let i=0;i<=segs;i++){
+    const th=i/segs*Math.PI*2, row=[];
+    for(let j=0;j<=4;j++){
+      const rr=R-w+2*w*j/4;
+      row.push(new THREE.Vector3(rr*Math.cos(th), 0, rr*Math.sin(th)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'ring'};
+}
+function genDiskCharge(p,uSeg,vSeg){
+  const R=Math.max(0.3,p.a), grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const th=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const r=R*j/vSeg;
+      row.push(new THREE.Vector3(r*Math.cos(th), 0, r*Math.sin(th)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:false, kind:'disk'};
+}
+function genParallelPlate(p,uSeg,vSeg){
+  const L=Math.max(0.3,p.a), d=Math.max(0.1,p.c)/2, grids=[];
+  const segs=Math.max(6,Math.min(uSeg,20));
+  for(const sgn of [1,-1]){
+    const grid=[];
+    for(let i=0;i<=segs;i++){
+      const x=-L+2*L*i/segs, row=[];
+      for(let j=0;j<=segs;j++){
+        const z=-L+2*L*j/segs;
+        row.push(new THREE.Vector3(x, sgn*d, z));
+      }
+      grid.push(row);
+    }
+    grids.push({grid, closedU:false, group:sgn});
+  }
+  return {grids, closed:false, kind:'plate'};
+}
+function genDipole(p,uSeg,vSeg){
+  const r=THREE.MathUtils.clamp(p.a*0.25,0.15,0.5), d=Math.max(0.1,p.c)/2, grids=[];
+  for(const sgn of [1,-1]){
+    const grid=[];
+    for(let i=0;i<=uSeg;i++){
+      const theta=i/uSeg*Math.PI*2, row=[];
+      for(let j=0;j<=vSeg;j++){
+        const phi=j/vSeg*Math.PI;
+        row.push(new THREE.Vector3(r*Math.sin(phi)*Math.cos(theta), sgn*d+r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta)));
+      }
+      grid.push(row);
+    }
+    grids.push({grid, closedU:true, group:sgn});
+  }
+  return {grids, closed:true, kind:'dipole'};
+}
+function genChargedPlane(p,uSeg,vSeg){
+  const L=Math.max(0.5,p.a), grid=[];
+  const segs=Math.max(6,Math.min(uSeg,24));
+  for(let i=0;i<=segs;i++){
+    const x=-L+2*L*i/segs, row=[];
+    for(let j=0;j<=segs;j++){
+      const z=-L+2*L*j/segs;
+      row.push(new THREE.Vector3(x, 0, z));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:false}], closed:false, kind:'plane'};
+}
+function _tinyChargeGrid(cx,cy,cz,r,segs){
+  const grid=[];
+  for(let i=0;i<=segs;i++){
+    const theta=i/segs*Math.PI*2, row=[];
+    for(let j=0;j<=segs;j++){
+      const phi=j/segs*Math.PI;
+      row.push(new THREE.Vector3(cx+r*Math.sin(phi)*Math.cos(theta), cy+r*Math.cos(phi), cz+r*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+function genQuadrupoleLinear(p,uSeg,vSeg){
+  const d=Math.max(0.3,p.c), r=0.2, segs=Math.max(8,Math.min(uSeg,12));
+  const pts=[{y:-d,g:1},{y:0,g:-2},{y:d,g:1}];
+  const grids = pts.map(pt=>({grid:_tinyChargeGrid(0,pt.y,0,r,segs), closedU:true, group:pt.g}));
+  return {grids, closed:true, kind:'quadlinear'};
+}
+function genQuadrupoleSquare(p,uSeg,vSeg){
+  const L=Math.max(0.3,p.a), r=0.2, segs=Math.max(8,Math.min(uSeg,12));
+  const pts=[{x:L,z:L,g:1},{x:L,z:-L,g:-1},{x:-L,z:-L,g:1},{x:-L,z:L,g:-1}];
+  const grids = pts.map(pt=>({grid:_tinyChargeGrid(pt.x,0,pt.z,r,segs), closedU:true, group:pt.g}));
+  return {grids, closed:true, kind:'quadsquare'};
+}
+function genChargeLattice(p,uSeg,vSeg){
+  const N=4, L=Math.max(0.5,p.a), r=0.16, segs=Math.max(6,Math.min(uSeg,8));
+  const grids=[];
+  for(let i=0;i<N;i++){
+    for(let j=0;j<N;j++){
+      const x=-L+2*L*i/(N-1), z=-L+2*L*j/(N-1);
+      const g = ((i+j)%2===0)? 1 : -1;
+      grids.push({grid:_tinyChargeGrid(x,0,z,r,segs), closedU:true, group:g});
+    }
+  }
+  return {grids, closed:true, kind:'lattice'};
+}
+function genCircularCylinder(p,uSeg,vSeg){
+  return genEllipticCylinder(Object.assign({},p,{b:p.a}), uSeg, vSeg);
+}
+function genCircularCone(p,uSeg,vSeg){
+  return genEllipticCone(Object.assign({},p,{b:p.a}), uSeg, vSeg);
+}
+function genCircularParaboloid(p,uSeg,vSeg){
+  return genEllipticParaboloid(Object.assign({},p,{b:p.a}), uSeg, vSeg);
+}
+function genBipolarCylinder(p,uSeg,vSeg){
+  const aFoc = Math.max(0.2,p.a);
+  const tau = THREE.MathUtils.clamp(p.b||1, 0.1, 3);
+  const h = Math.max(0.3,p.c);
+  const grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const sigma = i/uSeg*Math.PI*2;
+    const denom = Math.cosh(tau)-Math.cos(sigma);
+    const X = aFoc*Math.sinh(tau)/denom;
+    const Z = aFoc*Math.sin(sigma)/denom;
+    const row=[];
+    for(let j=0;j<=vSeg;j++){
+      const Y=-h+2*h*j/vSeg;
+      row.push(new THREE.Vector3(X,Y,Z));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'bipolar'};
+}
+function genProlateSpheroid(p,uSeg,vSeg){
+  const a = Math.max(0.3,p.a);
+  const c = Math.max(a*1.05, p.c);
+  const grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const theta=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const phi=j/vSeg*Math.PI;
+      row.push(new THREE.Vector3(a*Math.sin(phi)*Math.cos(theta), c*Math.cos(phi), a*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'prolate'};
+}
+function genOblateSpheroid(p,uSeg,vSeg){
+  const a = Math.max(0.5,p.a);
+  const c = Math.min(a*0.9, Math.max(0.15,p.c));
+  const grid=[];
+  for(let i=0;i<=uSeg;i++){
+    const theta=i/uSeg*Math.PI*2, row=[];
+    for(let j=0;j<=vSeg;j++){
+      const phi=j/vSeg*Math.PI;
+      row.push(new THREE.Vector3(a*Math.sin(phi)*Math.cos(theta), c*Math.cos(phi), a*Math.sin(phi)*Math.sin(theta)));
+    }
+    grid.push(row);
+  }
+  return {grids:[{grid,closedU:true}], closed:true, kind:'oblate'};
+}
+const GEN = {
+  pointCharge:genPointCharge, lineCharge:genLineCharge, ringCharge:genRingCharge,
+  diskCharge:genDiskCharge, chargedPlane:genChargedPlane, parallelPlate:genParallelPlate, dipole:genDipole,
+  quadrupoleLinear:genQuadrupoleLinear, quadrupoleSquare:genQuadrupoleSquare, chargeLattice:genChargeLattice,
+  sphere:genSphere, ellipsoid:genEllipsoid, ellipticCylinder:genEllipticCylinder,
+  hyperbolicCylinder:genHyperbolicCylinder, ellipticCone:genEllipticCone,
+  ellipticParaboloid:genEllipticParaboloid, hyperbolicParaboloid:genHyperbolicParaboloid,
+  hyperboloid1:genHyperboloid1, hyperboloid2:genHyperboloid2,
+  torus:genTorus, catenoid:genCatenoid, pseudosphere:genPseudosphere,
+  cylinder:genCircularCylinder, cone:genCircularCone, paraboloid:genCircularParaboloid,
+  bipolar:genBipolarCylinder, prolate:genProlateSpheroid, oblate:genOblateSpheroid
+};
+
+// Build BufferGeometry (with vertex colors placeholder) from a list of {grid, closedU}
+function buildGeometry(grids){
+  const positions=[], normalsTmp=[], indices=[]; let vOff=0;
+  const geoParts = [];
+  for(const {grid,closedU} of grids){
+    const rows=grid.length, cols=grid[0].length;
+    const start = positions.length/3;
+    for(let i=0;i<rows;i++) for(let j=0;j<cols;j++){
+      const v=grid[i][j]; positions.push(v.x,v.y,v.z);
+    }
+    const uCount = closedU? rows : rows-1;
+    for(let i=0;i<uCount;i++){
+      for(let j=0;j<cols-1;j++){
+        const i2=(i+1)%rows;
+        const a=start+i*cols+j, b=start+i*cols+j+1, c=start+i2*cols+j+1, d=start+i2*cols+j;
+        indices.push(a,b,c, a,c,d);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  const colorArr = new Float32Array(positions.length);
+  geo.setAttribute('color', new THREE.BufferAttribute(colorArr,3));
+  return geo;
+}
+
+// Build panel list (for numerical integration): position(center), area, normal
+function buildPanels(grids){
+  const panels=[];
+  for(const {grid,closedU,group} of grids){
+    const rows=grid.length, cols=grid[0].length;
+    const uCount = closedU? rows : rows-1;
+    for(let i=0;i<uCount;i++){
+      const i2=(i+1)%rows;
+      for(let j=0;j<cols-1;j++){
+        const p00=grid[i][j], p10=grid[i2][j], p01=grid[i][j+1], p11=grid[i2][j+1];
+        const center = new THREE.Vector3().add(p00).add(p10).add(p01).add(p11).multiplyScalar(0.25);
+        const e1 = new THREE.Vector3().subVectors(p10,p00);
+        const e2 = new THREE.Vector3().subVectors(p01,p00);
+        const cross1 = new THREE.Vector3().crossVectors(e1,e2);
+        const e3 = new THREE.Vector3().subVectors(p11,p10);
+        const e4 = new THREE.Vector3().subVectors(p01,p11);
+        const cross2 = new THREE.Vector3().crossVectors(e3,e4);
+        const area = (cross1.length()+cross2.length())*0.5;
+        const normal = cross1.clone().add(cross2).normalize();
+        if(area>1e-9) panels.push({pos:center, area, normal, group: group||1});
+      }
+    }
+  }
+  return panels;
+}
+
+/* ============================ Charge model ============================= */
+function evalCustom(formula, x,y,z,a,b,c){
+  const theta = Math.atan2(z,x), r=Math.sqrt(x*x+y*y+z*z), phi = r>1e-9? Math.acos(THREE.MathUtils.clamp(y/r,-1,1)) : 0;
+  try{
+    // eslint-disable-next-line no-new-func
+    const f = new Function('x','y','z','theta','phi','a','b','c','Math','return ('+formula+')');
+    const v = f(x,y,z,theta,phi,a,b,c,Math);
+    return (isFinite(v)? v : 0);
+  }catch(e){ return 1; }
+}
+
+function rawSigmaOf(pn, p){
+  switch(state.distribution){
+    case 'cosTheta': { const theta = Math.atan2(pn.pos.z, pn.pos.x); return Math.cos(theta); }
+    case 'zProp': return pn.pos.y / Math.max(p.c || p.R || 1, 0.3);
+    case 'custom': return evalCustom(state.customFormula, pn.pos.x,pn.pos.y,pn.pos.z,p.a,p.b,p.c);
+    case 'uniform': default: return 1;
+  }
+}
+
+function assignCharge(panels, p){
+  const raw = panels.map(pn=>rawSigmaOf(pn,p));
+  const dual = !!(SURF_META[state.surface] && SURF_META[state.surface].dualPolarity);
+  let sigmas; // real surface charge density, C/m^2
+  if(state.chargeMode==='density'){
+    const sigma0Real = state.sigma0*SIGMA_SCALE;
+    sigmas = raw.map((r,i)=> state.polarity*sigma0Real*r*(dual? panels[i].group : 1));
+  } else if(dual){
+    // scale so the positive-group region carries |Qtotal|, negative group carries -|Qtotal|
+    const qtotalReal = state.qtotal*QTOT_SCALE;
+    let sumPos=0;
+    for(let i=0;i<panels.length;i++){ if(panels[i].group>0) sumPos += raw[i]*panels[i].area*AREA_SCALE; }
+    const scale = Math.abs(sumPos)>1e-9 ? Math.abs(qtotalReal)/sumPos : 0;
+    const signMul = qtotalReal<0? -1:1;
+    sigmas = raw.map((r,i)=> state.polarity*signMul*r*scale*panels[i].group);
+  } else {
+    const qtotalReal = state.qtotal*QTOT_SCALE;
+    let sumRaw=0; for(let i=0;i<panels.length;i++) sumRaw += raw[i]*panels[i].area*AREA_SCALE;
+    const scale = Math.abs(sumRaw)>1e-9 ? qtotalReal/sumRaw : 0;
+    sigmas = raw.map(r=> r*scale);
+  }
+  for(let i=0;i<panels.length;i++) panels[i].sigma = sigmas[i];
+  return panels;
+}
+
+// ---- Conductor (isolated, equipotential) charge distribution via BEM ----
+// Solve A*sigma = 1 (unit potential) where A_ij = K*area_j/dist(i,j), self term via
+// the exact potential at the center of a uniformly charged disk of matching area.
+function gaussSolve(M, b, n){
+  const x = b.slice();
+  for(let k=0;k<n;k++){
+    let piv=k, mx=Math.abs(M[k][k]);
+    for(let i=k+1;i<n;i++){ const v=Math.abs(M[i][k]); if(v>mx){mx=v;piv=i;} }
+    if(piv!==k){ const t=M[k];M[k]=M[piv];M[piv]=t; const tb=x[k];x[k]=x[piv];x[piv]=tb; }
+    const pv = M[k][k] || 1e-9;
+    for(let i=k+1;i<n;i++){
+      const f = M[i][k]/pv; if(!f) continue;
+      for(let j=k;j<n;j++) M[i][j] -= f*M[k][j];
+      x[i] -= f*x[k];
+    }
+  }
+  const sol = new Array(n).fill(0);
+  for(let i=n-1;i>=0;i--){
+    let s=x[i];
+    for(let j=i+1;j<n;j++) s -= M[i][j]*sol[j];
+    sol[i] = s/(M[i][i] || 1e-9);
+  }
+  return sol;
+}
+function solveConductorRaw(panels, targets){
+  const n = panels.length;
+  const A = new Array(n);
+  for(let i=0;i<n;i++){
+    A[i] = new Float64Array(n);
+    for(let j=0;j<n;j++){
+      const areaReal_j = panels[j].area*AREA_SCALE;
+      if(i===j){
+        const r = Math.sqrt(areaReal_j/Math.PI);
+        A[i][j] = K*2*Math.PI*r; // self potential of a uniform disk at its own center
+      } else {
+        const d = panels[i].pos.distanceTo(panels[j].pos)*LEN_SCALE;
+        A[i][j] = K*areaReal_j/Math.max(d,1e-6);
+      }
+    }
+  }
+  const b = targets ? targets.slice() : new Array(n).fill(1);
+  return gaussSolve(A,b,n);
+}
+function assignChargeMain(){
+  const p = currentParams();
+  const dual = !!(SURF_META[state.surface] && SURF_META[state.surface].dualPolarity);
+  if(state.distribution==='conductor'){
+    const targets = dual ? calcPanels.map(pn=>pn.group) : undefined;
+    const raw = solveConductorRaw(calcPanels, targets);
+    const qtotalReal = state.qtotal*QTOT_SCALE;
+    let sumRaw=0;
+    if(dual){ for(let i=0;i<calcPanels.length;i++){ if(calcPanels[i].group>0) sumRaw += raw[i]*calcPanels[i].area*AREA_SCALE; } }
+    else { for(let i=0;i<calcPanels.length;i++) sumRaw += raw[i]*calcPanels[i].area*AREA_SCALE; }
+    const scale = Math.abs(sumRaw)>1e-9 ? Math.abs(qtotalReal)/sumRaw : 0;
+    const signMul = dual ? (qtotalReal<0? -1:1) : 1;
+    const finalScale = dual ? signMul*scale : (Math.abs(sumRaw)>1e-9 ? qtotalReal/sumRaw : 0);
+    for(let i=0;i<calcPanels.length;i++) calcPanels[i].sigma = state.polarity*raw[i]*finalScale;
+    for(const fp of currentPanels){
+      let bestI=0, bestD=Infinity;
+      for(let i=0;i<calcPanels.length;i++){
+        const d = fp.pos.distanceToSquared(calcPanels[i].pos);
+        if(d<bestD){bestD=d;bestI=i;}
+      }
+      fp.sigma = state.polarity*raw[bestI]*finalScale;
+    }
+  } else {
+    assignCharge(calcPanels, p);
+    assignCharge(currentPanels, p);
+  }
+}
+
+function potentialAt(pt, panels){
+  // Returns V in volts. pt and panel positions are in world units (cm); converted to
+  // meters internally, and panel.sigma is already a real surface charge density (C/m^2).
+  let V=0;
+  for(let i=0;i<panels.length;i++){
+    const pn=panels[i];
+    const dx=(pt.x-pn.pos.x)*LEN_SCALE, dy=(pt.y-pn.pos.y)*LEN_SCALE, dz=(pt.z-pn.pos.z)*LEN_SCALE;
+    let d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(d<FIELD_DIST_MIN) d=FIELD_DIST_MIN;
+    V += K*pn.sigma*(pn.area*AREA_SCALE)/d;
+  }
+  return V;
+}
+function fieldAt(pt, panels){
+  // Returns E in volts/meter (= N/C).
+  let ex=0,ey=0,ez=0;
+  for(let i=0;i<panels.length;i++){
+    const pn=panels[i];
+    const dx=(pt.x-pn.pos.x)*LEN_SCALE, dy=(pt.y-pn.pos.y)*LEN_SCALE, dz=(pt.z-pn.pos.z)*LEN_SCALE;
+    let d2=dx*dx+dy*dy+dz*dz, d=Math.sqrt(d2);
+    if(d<FIELD_DIST_MIN){ d=FIELD_DIST_MIN; d2=d*d; }
+    const c = K*pn.sigma*(pn.area*AREA_SCALE)/(d2*d);
+    ex+=c*dx; ey+=c*dy; ez+=c*dz;
+  }
+  return new THREE.Vector3(ex,ey,ez);
+}
+
+/* =============================== App state objects ====================== */
+let currentGeo=null, currentPanels=[], calcPanels=[];
+let surfaceMesh=null, wireMesh=null, pointsMesh=null;
+let fieldArrowsGroup = new THREE.Group(); scene.add(fieldArrowsGroup);
+let fieldLinesGroup = new THREE.Group(); scene.add(fieldLinesGroup);
+let equipotGroup = new THREE.Group(); scene.add(equipotGroup);
+let testChargeMesh = null;
+let measureMarker = null;
+let boundingRadius = 4;
+let fieldMinMax = {min:Infinity,max:0};
+let fieldSamplePoints = []; // cached for arrows {pos, E}
+
+const RENDER_USEG=44, RENDER_VSEG=30, CALC_USEG=20, CALC_VSEG=14;
+
+function currentParams(){
+  return {a:state.a,b:state.b,c:state.c,R:state.R};
+}
+
+function buildSurface(){
+  paramLabels.clear();
+  const gen = GEN[state.surface];
+  const rp = currentParams();
+  const rGeoRaw = gen(rp, RENDER_USEG, RENDER_VSEG);
+  const cGeoRaw = gen(rp, CALC_USEG, CALC_VSEG);
+
+  currentGeo = buildGeometry(rGeoRaw.grids);
+  currentPanels = buildPanels(rGeoRaw.grids); // fine panels (also used for on-surface visuals)
+  calcPanels = buildPanels(cGeoRaw.grids);    // coarse panels for fast field integration
+  // sigma is assigned inside scheduleFullRecompute (debounced) so geometry/param
+  // dragging stays responsive even when the Conductor (BEM) solve is selected.
+  for(const pn of calcPanels) pn.sigma = 0;
+  for(const pn of currentPanels) pn.sigma = 0;
+
+  // bounding radius estimate
+  let maxR=0;
+  for(const pn of calcPanels){ maxR=Math.max(maxR, pn.pos.length()); }
+  boundingRadius = Math.max(2.5, maxR*1.9);
+
+  // (Re)build meshes
+  if(surfaceMesh){ scene.remove(surfaceMesh); surfaceMesh.geometry.dispose(); surfaceMesh.material.dispose(); }
+  const mat = new THREE.MeshPhysicalMaterial({
+    color:0x2299ff, metalness:0.15, roughness:0.35, transparent:true, opacity:state.opacity,
+    side:THREE.DoubleSide, clearcoat:0.4, clearcoatRoughness:0.3, vertexColors:false, envMapIntensity:0.6
+  });
+  surfaceMesh = new THREE.Mesh(currentGeo, mat);
+  surfaceMesh.castShadow=true; surfaceMesh.receiveShadow=true;
+  surfaceMesh.visible = state.show.surface;
+  scene.add(surfaceMesh);
+
+  if(wireMesh){ scene.remove(wireMesh); wireMesh.geometry.dispose(); wireMesh.material.dispose(); }
+  wireMesh = new THREE.Mesh(currentGeo, new THREE.MeshBasicMaterial({color:0x00e5ff, wireframe:true, transparent:true, opacity:0.35}));
+  wireMesh.visible = state.show.mesh;
+  scene.add(wireMesh);
+
+  if(pointsMesh){ scene.remove(pointsMesh); pointsMesh.geometry.dispose(); pointsMesh.material.dispose(); }
+  pointsMesh = new THREE.Points(currentGeo, new THREE.PointsMaterial({color:0x00e5ff, size:0.045, sizeAttenuation:true, transparent:true, opacity:0.9}));
+  pointsMesh.visible = state.show.points;
+  scene.add(pointsMesh);
+
+  document.getElementById('tag-surface').textContent = SURF_META[state.surface].label;
+  document.getElementById('tag-polarity').textContent = state.polarity>0?'+':'−';
+  document.getElementById('tag-polarity').style.color = state.polarity>0? '#ff5470':'#3fb8ff';
+  document.getElementById('tag-panels').textContent = 'panels: '+calcPanels.length;
+
+  scheduleFullRecompute();
+  updateInfoPanel();
+}
+
+/* ============================ Field arrows ============================= */
+function colorForMagnitude(mag, lo, hi){
+  let t = hi>lo ? (Math.log(1+mag)-Math.log(1+lo))/(Math.log(1+hi)-Math.log(1+lo)) : 0.5;
+  t = THREE.MathUtils.clamp(t,0,1);
+  return sampleColormap(state.colormap, t);
+}
+
+function isInsideRoughly(pt){
+  // crude inside-test: if distance to nearest panel center along normal is small & point is "behind" normal for many panels -> treat close points as inside/near-surface, skip
+  return false;
+}
+
+function rebuildFieldArrows(){
+  fieldArrowsGroup.clear();
+  fieldSamplePoints = [];
+  if(!state.show.field) return;
+  const n = state.arrowDensity;
+  const R = boundingRadius;
+  const pts=[];
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) for(let k=0;k<n;k++){
+    const x=-R+2*R*(i+0.5)/n, y=-R+2*R*(j+0.5)/n, z=-R+2*R*(k+0.5)/n;
+    pts.push(new THREE.Vector3(x,y,z));
+  }
+  // limit for perf
+  const maxArrows = 900;
+  let sampled = pts;
+  if(pts.length>maxArrows){
+    sampled=[];
+    const step = pts.length/maxArrows;
+    for(let i=0;i<maxArrows;i++) sampled.push(pts[Math.floor(i*step)]);
+  }
+  const results=[];
+  let minM=Infinity, maxM=0;
+  for(const pt of sampled){
+    // skip points too near any panel (avoid singular arrows piercing surface)
+    let tooClose=false;
+    for(let idx=0; idx<calcPanels.length; idx+=Math.max(1,Math.floor(calcPanels.length/40))){
+      if(pt.distanceTo(calcPanels[idx].pos) < boundingRadius*0.09){ tooClose=true; break; }
+    }
+    if(tooClose) continue;
+    const E = fieldAt(pt, calcPanels);
+    const mag = E.length();
+    if(mag<1e-6) continue;
+    results.push({pos:pt, E, mag});
+    minM=Math.min(minM,mag); maxM=Math.max(maxM,mag);
+  }
+  fieldMinMax = {min:minM===Infinity?0:minM, max:maxM};
+  const arrowScale = (2*boundingRadius/n) * 0.85 * state.arrowScale;
+  for(const r of results){
+    const dir = r.E.clone().normalize();
+    const len = THREE.MathUtils.clamp(0.3+0.7*(Math.log(1+r.mag)-Math.log(1+fieldMinMax.min))/(Math.log(1+fieldMinMax.max)-Math.log(1+fieldMinMax.min)||1), 0.25,1) * arrowScale;
+    const color = colorForMagnitude(r.mag, fieldMinMax.min, fieldMinMax.max);
+    const arrow = new THREE.ArrowHelper(dir, r.pos, len, color.getHex(), len*0.35, len*0.2);
+    arrow.userData.baseLen = len; arrow.userData.dir=dir; arrow.userData.mag=r.mag;
+    fieldArrowsGroup.add(arrow);
+  }
+  fieldSamplePoints = results;
+  updateStatsFromField();
+}
+
+/* ============================ Field lines / streamlines ================= */
+function rebuildFieldLines(){
+  fieldLinesGroup.clear();
+  if(!state.show.fieldlines) return;
+  const seeds = [];
+  const nSeed = 26;
+  const step = Math.max(1, Math.floor(currentPanels.length/nSeed));
+  for(let i=0;i<currentPanels.length; i+=step){
+    const pn = currentPanels[i];
+    const dir = pn.normal.clone().multiplyScalar(state.polarity>=0?1:1); // start moving outward along +E direction naturally
+    const start = pn.pos.clone().add(pn.normal.clone().multiplyScalar(0.15));
+    seeds.push(start);
+  }
+  const goingOut = (state.polarity>=0); // positive sigma -> field points away from surface typically
+  const dsBase = boundingRadius*0.045;
+  for(const seed of seeds){
+    const linePts=[seed.clone()];
+    let pt = seed.clone();
+    for(let s=0;s<140;s++){
+      const E = fieldAt(pt, calcPanels);
+      const mag = E.length();
+      if(mag<1e-8) break;
+      let dir = E.clone().normalize();
+      if(!goingOut) dir.multiplyScalar(-1);
+      const ds = dsBase;
+      // RK4-ish (single Euler + midpoint correction)
+      const mid = pt.clone().addScaledVector(dir, ds*0.5);
+      const Emid = fieldAt(mid, calcPanels);
+      let dirMid = Emid.length()>1e-8? Emid.clone().normalize() : dir;
+      if(!goingOut) dirMid.multiplyScalar(-1);
+      pt = pt.clone().addScaledVector(dirMid, ds);
+      linePts.push(pt.clone());
+      if(pt.length()>boundingRadius*1.6) break;
+    }
+    if(linePts.length<2) continue;
+    const geo = new THREE.BufferGeometry().setFromPoints(linePts);
+    const col = state.polarity>=0? 0xff5470 : 0x3fb8ff;
+    const mat = new THREE.LineBasicMaterial({color:col, transparent:true, opacity:0.65});
+    const line = new THREE.Line(geo, mat);
+    line.userData.pts = linePts;
+    fieldLinesGroup.add(line);
+  }
+  // animated particles along lines
+  if(state.anim.fieldlines){
+    fieldLinesGroup.children.forEach((line,idx)=>{
+      const g = new THREE.SphereGeometry(0.045,8,8);
+      const m = new THREE.MeshBasicMaterial({color:0xffe08a});
+      const s = new THREE.Mesh(g,m);
+      s.userData.t = Math.random(); s.userData.speed = 0.15+Math.random()*0.2; s.userData.pts = line.userData.pts;
+      s.userData.isFieldParticle = true;
+      fieldLinesGroup.add(s);
+    });
+  }
+}
+
+/* ============================ Equipotential contours (stacked) ========== */
+function marchSquaresCell(v00,v10,v01,v11, th){
+  // corners: bl=v00, br=v10, tl=v01, tr=v11 ; positions parametrized 0..1 in local cell
+  const edges=[]; // list of {t, edge}
+  function interp(vA,vB){ return (th-vA)/(vB-vA); }
+  const segs=[];
+  const cross = (vA,vB)=> (vA-th)*(vB-th) < 0;
+  const pB = cross(v00,v10)? [interp(v00,v10),0] : null; // bottom edge point (x varies,y=0)
+  const pR = cross(v10,v11)? [1,interp(v10,v11)] : null; // right edge (x=1,y varies)
+  const pT = cross(v01,v11)? [interp(v01,v11),1] : null; // top edge (x varies,y=1)
+  const pL = cross(v00,v01)? [0,interp(v00,v01)] : null; // left edge (x=0,y varies)
+  const pts = [pB,pR,pT,pL].filter(Boolean);
+  if(pts.length===2){ segs.push([pts[0],pts[1]]); }
+  else if(pts.length===4){
+    const avg=(v00+v10+v01+v11)/4;
+    if(avg>=th){ segs.push([pB,pL]); segs.push([pR,pT]); }
+    else { segs.push([pB,pR]); segs.push([pL,pT]); }
+  }
+  return segs;
+}
+
+function computePotentialGridOnPlane(zVal, res, extent){
+  const vals = [];
+  for(let i=0;i<=res;i++){
+    const row=[];
+    const x=-extent+2*extent*i/res;
+    for(let j=0;j<=res;j++){
+      const y=-extent+2*extent*j/res;
+      row.push(potentialAt(new THREE.Vector3(x,zVal,y), calcPanels));
+    }
+    vals.push(row);
+  }
+  return vals;
+}
+
+function rebuildEquipotential(){
+  equipotGroup.clear();
+  if(!state.show.equipotential) return;
+  const res = Math.max(16, Math.min(48, state.gridSize));
+  const extent = boundingRadius*0.95;
+  const nSlices = 5;
+  const nLevels = 5;
+  // find global V range roughly by sampling middle slice
+  const mid = computePotentialGridOnPlane(0, res, extent);
+  let vmin=Infinity,vmax=-Infinity;
+  for(const row of mid) for(const v of row){ vmin=Math.min(vmin,v); vmax=Math.max(vmax,v); }
+  if(!isFinite(vmin)){ vmin=-1; vmax=1; }
+  const levels=[];
+  for(let l=1;l<=nLevels;l++) levels.push(vmin + (vmax-vmin)*l/(nLevels+1));
+
+  for(let s=0;s<nSlices;s++){
+    const zVal = -boundingRadius*0.7 + boundingRadius*1.4*s/(nSlices-1);
+    const grid = computePotentialGridOnPlane(zVal, res, extent);
+    for(const th of levels){
+      const linePts=[];
+      for(let i=0;i<res;i++){
+        for(let j=0;j<res;j++){
+          const x0=-extent+2*extent*i/res, x1=-extent+2*extent*(i+1)/res;
+          const y0=-extent+2*extent*j/res, y1=-extent+2*extent*(j+1)/res;
+          const segs = marchSquaresCell(grid[i][j], grid[i+1][j], grid[i][j+1], grid[i+1][j+1], th);
+          for(const seg of segs){
+            const A=seg[0], B=seg[1];
+            const ax=x0+A[0]*(x1-x0), ay=y0+A[1]*(y1-y0);
+            const bx=x0+B[0]*(x1-x0), by=y0+B[1]*(y1-y0);
+            linePts.push(new THREE.Vector3(ax,zVal,ay), new THREE.Vector3(bx,zVal,by));
+          }
+        }
+      }
+      if(linePts.length<2) continue;
+      const geo = new THREE.BufferGeometry().setFromPoints(linePts);
+      const t = (th-vmin)/((vmax-vmin)||1);
+      const col = sampleColormap(state.colormap, t);
+      const mat = new THREE.LineBasicMaterial({color:col, transparent:true, opacity:0.55});
+      const seg = new THREE.LineSegments(geo, mat);
+      equipotGroup.add(seg);
+    }
+  }
+}
+
+/* ============================ Potential-colored surface ================ */
+function applyPotentialColoring(){
+  if(!currentGeo) return;
+  const posAttr = currentGeo.getAttribute('position');
+  const colAttr = currentGeo.getAttribute('color');
+  if(!state.show.potential){
+    surfaceMesh.material.vertexColors = false;
+    surfaceMesh.material.color.set(0x2299ff);
+    surfaceMesh.material.needsUpdate = true;
+    return;
+  }
+  let vals=[]; const N = posAttr.count;
+  for(let i=0;i<N;i++){
+    const p = new THREE.Vector3(posAttr.getX(i),posAttr.getY(i),posAttr.getZ(i));
+    const outward = p.clone().normalize().multiplyScalar(0.04);
+    const v = potentialAt(p.clone().add(outward), calcPanels);
+    vals.push(v);
+  }
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  for(let i=0;i<N;i++){
+    const t = hi>lo ? (vals[i]-lo)/(hi-lo) : 0.5;
+    const col = sampleColormap(state.colormap, t);
+    colAttr.setXYZ(i, col.r, col.g, col.b);
+  }
+  colAttr.needsUpdate = true;
+  surfaceMesh.material.vertexColors = true;
+  surfaceMesh.material.needsUpdate = true;
+}
+
+/* ============================ Stats / Info panel ========================= */
+function updateStatsFromField(){
+  const area = calcPanels.reduce((s,p)=>s+p.area,0); // cm^2
+  let volumeStr='—';
+  if(state.surface==='sphere') volumeStr=(4/3*Math.PI*Math.pow(state.R,3)).toFixed(2)+' cm³';
+  else if(state.surface==='ellipsoid') volumeStr=(4/3*Math.PI*state.a*state.b*state.c).toFixed(2)+' cm³';
+  const maxE = fieldMinMax.max, minE = fieldMinMax.min;
+  const netQ = calcPanels.reduce((s,p)=>s+p.sigma*p.area*AREA_SCALE,0); // Coulombs
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat"><div class="k">Surface area (num.)</div><div class="v">${area.toFixed(2)} cm²</div></div>
+    <div class="stat"><div class="k">Approx. volume</div><div class="v">${volumeStr}</div></div>
+    <div class="stat"><div class="k">Max |E| (sampled)</div><div class="v">${maxE?formatSI(maxE,'V/m'):'—'}</div></div>
+    <div class="stat"><div class="k">Min |E| (sampled)</div><div class="v">${minE?formatSI(minE,'V/m'):'—'}</div></div>
+    <div class="stat"><div class="k">Panels (calc)</div><div class="v">${calcPanels.length}</div></div>
+    <div class="stat"><div class="k">Net charge Q</div><div class="v">${formatSI(netQ,'C')}</div></div>
+  `;
+}
+
+function typesetMath(el){
+  if(window.MathJax && window.MathJax.typesetPromise){
+    MathJax.typesetPromise([el]).catch(()=>{});
+  }
+}
+function updateInfoPanel(){
+  const meta = SURF_META[state.surface];
+  const el = document.getElementById('info-eq');
+  el.innerHTML = `
+    <div class="eq-box">
+      <div class="eq-title">Surface — ${meta.label}</div>
+      <div class="eq-math">$$${meta.tex}$$</div>
+    </div>
+    <div class="eq-box">
+      <div class="eq-title">Electric Potential</div>
+      <div class="eq-math">$$V(\\mathbf{r})=\\frac{1}{4\\pi\\varepsilon_0}\\int \\frac{\\sigma(\\mathbf{r}')}{|\\mathbf{r}-\\mathbf{r}'|}\\,dA'$$</div>
+    </div>
+    <div class="eq-box">
+      <div class="eq-title">Electric Field</div>
+      <div class="eq-math">$$\\mathbf{E}(\\mathbf{r})=-\\nabla V=\\frac{1}{4\\pi\\varepsilon_0}\\int \\sigma(\\mathbf{r}')\\,\\frac{\\mathbf{r}-\\mathbf{r}'}{|\\mathbf{r}-\\mathbf{r}'|^3}\\,dA'$$</div>
+      <div class="eq-note">Realistic SI units: lengths in cm, $\\sigma_0$ in µC/m², $Q$ in µC, and $k=1/4\\pi\\varepsilon_0\\approx8.99\\times10^{9}\\ \\text{N·m}^2/\\text{C}^2$. $V$ and $|\\mathbf{E}|$ are reported in volts and V/m (=N/C).</div>
+    </div>
+  `;
+  typesetMath(el);
+}
+
+/* ============================ Recompute scheduling ======================= */
+let computeTimer=null;
+function scheduleFullRecompute(){
+  document.getElementById('compute-pill').classList.add('show');
+  clearTimeout(computeTimer);
+  computeTimer = setTimeout(()=>{
+    assignChargeMain();
+    rebuildFieldArrows();
+    rebuildFieldLines();
+    rebuildEquipotential();
+    applyPotentialColoring();
+    document.getElementById('compute-pill').classList.remove('show');
+  }, 160);
+}
+
+/* ================================ UI wiring =============================== */
+const surfGrid = document.getElementById('surf-grid');
+Object.keys(SURF_META).forEach(key=>{
+  const b=document.createElement('div');
+  b.className='surf-btn'+(key===state.surface?' active':'');
+  b.textContent=SURF_META[key].label;
+  b.dataset.key=key;
+  b.onclick=()=>{
+    state.surface=key;
+    document.querySelectorAll('.surf-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    renderGeoParams();
+    applyDistributionUI();
+    buildSurface();
+  };
+  surfGrid.appendChild(b);
+});
+
+function sliderRow(id,label,min,max,step,val,onchange, fmt){
+  return `<label class="row">${label} <span class="val" id="v-${id}">${fmt?fmt(val):val}</span></label>
+  <input type="range" id="in-${id}" min="${min}" max="${max}" step="${step}" value="${val}">`;
+}
+
+function renderGeoParams(){
+  const meta = SURF_META[state.surface];
+  const pl = meta.paramLabels || {};
+  let html='';
+  if(meta.usesR){
+    html += sliderRow('R', pl.R||'Radius R (cm)',0.5,4,0.05,state.R);
+  }
+  if(meta.params.includes('a')) html += sliderRow('a', pl.a||'Semi-axis a (cm)',0.3,4,0.05,state.a);
+  if(meta.params.includes('b')) html += sliderRow('b', pl.b||'Semi-axis b (cm)',0.3,4,0.05,state.b);
+  if(meta.params.includes('c')) html += sliderRow('c', pl.c||'Semi-axis / scale c (cm)',0.3,4,0.05,state.c);
+  if(!meta.usesR && !meta.params.length){
+    html += '<div class="small">Fixed idealized geometry — adjust charge magnitude and polarity in Distribution below.</div>';
+  }
+  document.getElementById('geo-params').innerHTML = html;
+  ['R','a','b','c'].forEach(k=>{
+    const el = document.getElementById('in-'+k);
+    if(!el) return;
+    el.addEventListener('input', e=>{
+      state[k] = parseFloat(e.target.value);
+      document.getElementById('v-'+k).textContent = state[k].toFixed(2);
+      buildSurface();
+    });
+  });
+}
+renderGeoParams();
+
+// distribution preset grid
+document.getElementById('dist-grid').addEventListener('click', e=>{
+  const d = e.target.closest('div[data-v]'); if(!d) return;
+  state.distribution = d.dataset.v;
+  document.querySelectorAll('#dist-grid > div').forEach(x=>x.classList.remove('active'));
+  d.classList.add('active');
+  applyDistributionUI();
+  buildSurface();
+});
+function applyDistributionUI(){
+  const isCustom = state.distribution==='custom';
+  const isConductor = state.distribution==='conductor';
+  const isDual = !!(SURF_META[state.surface] && SURF_META[state.surface].dualPolarity);
+  document.getElementById('in-custom-formula').style.display = isCustom?'block':'none';
+  document.getElementById('custom-hint').style.display = isCustom?'block':'none';
+  document.getElementById('conductor-hint').style.display = isConductor?'block':'none';
+  document.getElementById('conductor-hint').textContent = isDual
+    ? 'Two-conductor system: σ is solved (BEM) so each plate/pole sits at an equal-and-opposite potential — a simple capacitor — then scaled to the requested charge magnitude.'
+    : 'Isolated conductor: σ solved numerically (BEM) so V is constant over the surface, then scaled to match the net charge Q below.';
+  document.getElementById('charge-mode-seg').style.display = isConductor?'none':'flex';
+  if(isConductor){
+    state.chargeMode = 'total';
+    document.getElementById('row-sigma').style.display='none';
+    document.getElementById('in-sigma0').style.display='none';
+    document.getElementById('row-qtotal').style.display='flex';
+    document.getElementById('in-qtot').style.display='block';
+  } else {
+    document.getElementById('row-sigma').style.display = state.chargeMode==='density'?'flex':'none';
+    document.getElementById('in-sigma0').style.display = state.chargeMode==='density'?'block':'none';
+    document.getElementById('row-qtotal').style.display = state.chargeMode==='total'?'flex':'none';
+    document.getElementById('in-qtot').style.display = state.chargeMode==='total'?'block':'none';
+  }
+}
+// charge mode / polarity segmented controls
+document.getElementById('charge-mode-seg').addEventListener('click', e=>{
+  const d = e.target.closest('div[data-v]'); if(!d) return;
+  state.chargeMode = d.dataset.v;
+  document.querySelectorAll('#charge-mode-seg > div').forEach(x=>x.classList.remove('active'));
+  d.classList.add('active');
+  applyDistributionUI();
+  buildSurface();
+});
+document.getElementById('polarity-seg').addEventListener('click', e=>{
+  const d = e.target.closest('div[data-v]'); if(!d) return;
+  state.polarity = parseFloat(d.dataset.v);
+  document.querySelectorAll('#polarity-seg > div').forEach(x=>x.classList.remove('active'));
+  d.classList.add('active');
+  buildSurface();
+});
+document.getElementById('in-sigma0').addEventListener('input', e=>{
+  state.sigma0 = parseFloat(e.target.value); document.getElementById('v-sigma0').textContent=state.sigma0.toFixed(2); buildSurface();
+});
+document.getElementById('in-qtot').addEventListener('input', e=>{
+  state.qtotal = parseFloat(e.target.value); document.getElementById('v-qtot').textContent=state.qtotal.toFixed(1); buildSurface();
+});
+document.getElementById('in-custom-formula').addEventListener('change', e=>{
+  state.customFormula = e.target.value; buildSurface();
+});
+
+// display sliders
+function bindSimpleSlider(id, key, decimals, cb){
+  document.getElementById('in-'+id).addEventListener('input', e=>{
+    state[key] = parseFloat(e.target.value);
+    document.getElementById('v-'+id).textContent = state[key].toFixed(decimals);
+    if(cb) cb();
+  });
+}
+bindSimpleSlider('opacity','opacity',2, ()=>{ if(surfaceMesh) surfaceMesh.material.opacity=state.opacity; });
+bindSimpleSlider('arrowscale','arrowScale',2, rebuildFieldArrows);
+bindSimpleSlider('arrowdensity','arrowDensity',0, rebuildFieldArrows);
+bindSimpleSlider('gridsize','gridSize',0, rebuildEquipotential);
+bindSimpleSlider('animspeed','animSpeed',1, null);
+
+// View mode segmented control: sets the Surface/Mesh/Points show-flags together
+document.getElementById('viewmode-seg').addEventListener('click', e=>{
+  const d = e.target.closest('div[data-v]'); if(!d) return;
+  state.viewMode = d.dataset.v;
+  document.querySelectorAll('#viewmode-seg > div').forEach(x=>x.classList.remove('active'));
+  d.classList.add('active');
+  const vm = state.viewMode;
+  state.show.surface = (vm==='solid' || vm==='solidwire');
+  state.show.mesh = (vm==='wireframe' || vm==='solidwire');
+  state.show.points = (vm==='points');
+  ['surface','mesh','points'].forEach(k=>{ const el=document.getElementById('show-'+k); if(el) el.checked=state.show[k]; });
+  applyShowState();
+});
+
+// Colormap picker
+const cmapGrid = document.getElementById('cmap-grid');
+COLORMAP_ORDER.forEach(name=>{
+  const b=document.createElement('div');
+  b.className='surf-btn'+(name===state.colormap?' active':'');
+  b.textContent = name.charAt(0).toUpperCase()+name.slice(1);
+  b.dataset.v = name;
+  b.onclick=()=>{
+    state.colormap = name;
+    document.querySelectorAll('#cmap-grid > div').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    updateCmapPreview();
+    rebuildFieldArrows();
+    applyPotentialColoring();
+    rebuildEquipotential();
+  };
+  cmapGrid.appendChild(b);
+});
+function updateCmapPreview(){
+  const grad = colormapCssGradient(state.colormap);
+  document.getElementById('cmap-preview').style.background = grad;
+  const bar = document.getElementById('legend-bar'); if(bar) bar.style.background = grad;
+  const nm = document.getElementById('legend-name'); if(nm) nm.textContent = state.colormap;
+}
+updateCmapPreview();
+
+// Show checkboxes
+const showDefs = [
+  ['surface','Surface (solid)'], ['mesh','Mesh (wireframe)'], ['points','Vertex points'],
+  ['field','Electric field arrows'],
+  ['potential','Potential (color map)'], ['equipotential','Equipotential lines'],
+  ['fieldlines','Field lines / streamlines'], ['axes','Coordinate axes'], ['labels','Labels']
+];
+const showChecksEl = document.getElementById('show-checks');
+showDefs.forEach(([key,label])=>{
+  const id='show-'+key;
+  const div=document.createElement('label'); div.className='check-row';
+  div.innerHTML=`<input type="checkbox" id="${id}" ${state.show[key]?'checked':''}> ${label}`;
+  showChecksEl.appendChild(div);
+  div.querySelector('input').addEventListener('change', e=>{
+    state.show[key]=e.target.checked;
+    applyShowState();
+  });
+});
+function applyShowState(){
+  if(surfaceMesh) surfaceMesh.visible = state.show.surface;
+  if(wireMesh) wireMesh.visible = state.show.mesh;
+  if(pointsMesh) pointsMesh.visible = state.show.points;
+  fieldArrowsGroup.visible = state.show.field;
+  equipotGroup.visible = state.show.equipotential;
+  fieldLinesGroup.visible = state.show.fieldlines;
+  axesGroup.visible = state.show.axes;
+  paramLabels.visible = state.show.labels;
+  if(!fieldArrowsGroup.children.length && state.show.field) rebuildFieldArrows();
+  if(!equipotGroup.children.length && state.show.equipotential) rebuildEquipotential();
+  if(!fieldLinesGroup.children.length && state.show.fieldlines) rebuildFieldLines();
+  applyPotentialColoring();
+}
+
+// Animate checkboxes
+const animDefs = [
+  ['fieldlines','Electric field lines (flow particles)'],
+  ['testcharge','Moving test charge'],
+  ['equipotential','Equipotential evolution (sweep)'],
+  ['gradient','Gradient vector pulse']
+];
+const animChecksEl = document.getElementById('anim-checks');
+animDefs.forEach(([key,label])=>{
+  const id='anim-'+key;
+  const div=document.createElement('label'); div.className='check-row';
+  div.innerHTML=`<input type="checkbox" id="${id}"> ${label}`;
+  animChecksEl.appendChild(div);
+  div.querySelector('input').addEventListener('change', e=>{
+    state.anim[key]=e.target.checked;
+    if(key==='fieldlines') rebuildFieldLines();
+    if(key==='testcharge') toggleTestCharge(e.target.checked);
+  });
+});
+
+function toggleTestCharge(on){
+  if(testChargeMesh){ scene.remove(testChargeMesh); testChargeMesh=null; }
+  if(!on) return;
+  const g=new THREE.SphereGeometry(0.12,16,16);
+  const m=new THREE.MeshStandardMaterial({color:0xffe08a, emissive:0xffb020, emissiveIntensity:0.6});
+  testChargeMesh = new THREE.Mesh(g,m);
+  const startPanel = currentPanels[Math.floor(Math.random()*currentPanels.length)];
+  testChargeMesh.position.copy(startPanel.pos).add(startPanel.normal.clone().multiplyScalar(0.3));
+  testChargeMesh.userData.trail=[];
+  scene.add(testChargeMesh);
+}
+
+// buttons
+document.getElementById('btn-reset-cam').onclick = ()=>{
+  camera.position.set(7,5.5,8); controls.target.set(0,0,0); controls.update();
+};
+document.getElementById('btn-autorotate').onclick = (e)=>{
+  state.autoRotate=!state.autoRotate; controls.autoRotate=state.autoRotate;
+  e.target.classList.toggle('primary', state.autoRotate);
+};
+document.getElementById('btn-random').onclick = ()=>{
+  state.a = +(0.6+Math.random()*3).toFixed(2);
+  state.b = +(0.6+Math.random()*3).toFixed(2);
+  state.c = +(0.6+Math.random()*3).toFixed(2);
+  state.R = +(0.8+Math.random()*3).toFixed(2);
+  state.sigma0 = +(0.2+Math.random()*3).toFixed(2);
+  state.qtotal = +((Math.random()*2-1)*40).toFixed(1);
+  state.polarity = Math.random()>0.5?1:-1;
+  document.querySelectorAll('#polarity-seg > div').forEach(x=>x.classList.toggle('active', parseFloat(x.dataset.v)===state.polarity));
+  renderGeoParams();
+  syncUIFromState();
+  buildSurface();
+};
+document.getElementById('btn-reset-all').onclick = ()=>{
+  state = JSON.parse(JSON.stringify(DEFAULTS));
+  document.querySelectorAll('.surf-btn').forEach(x=>x.classList.toggle('active', x.dataset.key===state.surface));
+  renderGeoParams();
+  syncUIFromState();
+  buildSurface();
+};
+document.getElementById('btn-export-png').onclick = ()=>{
+  renderer.render(scene,camera);
+  const link=document.createElement('a');
+  link.download='quadric-field-'+state.surface+'.png';
+  link.href = renderer.domElement.toDataURL('image/png');
+  link.click();
+};
+document.getElementById('btn-save').onclick = ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='quadric-field-settings.json'; a.click();
+  URL.revokeObjectURL(url);
+};
+document.getElementById('in-load').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload = ()=>{
+    try{
+      const loaded = JSON.parse(reader.result);
+      state = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), loaded);
+      document.querySelectorAll('.surf-btn').forEach(x=>x.classList.toggle('active', x.dataset.key===state.surface));
+      renderGeoParams();
+      syncUIFromState();
+      buildSurface();
+    }catch(err){ alert('Invalid settings file.'); }
+  };
+  reader.readAsText(file);
+});
+
+function syncUIFromState(){
+  document.getElementById('in-sigma0').value=state.sigma0; document.getElementById('v-sigma0').textContent=state.sigma0.toFixed(2);
+  document.getElementById('in-qtot').value=state.qtotal; document.getElementById('v-qtot').textContent=state.qtotal.toFixed(1);
+  document.getElementById('in-opacity').value=state.opacity; document.getElementById('v-opacity').textContent=state.opacity.toFixed(2);
+  document.getElementById('in-arrowscale').value=state.arrowScale; document.getElementById('v-arrowscale').textContent=state.arrowScale.toFixed(2);
+  document.getElementById('in-arrowdensity').value=state.arrowDensity; document.getElementById('v-arrowdensity').textContent=state.arrowDensity;
+  document.getElementById('in-gridsize').value=state.gridSize; document.getElementById('v-gridsize').textContent=state.gridSize;
+  document.getElementById('in-animspeed').value=state.animSpeed; document.getElementById('v-animspeed').textContent=state.animSpeed.toFixed(1);
+  document.getElementById('in-custom-formula').value = state.customFormula;
+  document.querySelectorAll('#dist-grid > div').forEach(x=>x.classList.toggle('active', x.dataset.v===state.distribution));
+  document.querySelectorAll('#charge-mode-seg > div').forEach(x=>x.classList.toggle('active', x.dataset.v===state.chargeMode));
+  document.querySelectorAll('#polarity-seg > div').forEach(x=>x.classList.toggle('active', parseFloat(x.dataset.v)===state.polarity));
+  document.querySelectorAll('#viewmode-seg > div').forEach(x=>x.classList.toggle('active', x.dataset.v===state.viewMode));
+  document.querySelectorAll('#cmap-grid > div').forEach(x=>x.classList.toggle('active', x.dataset.v===state.colormap));
+  updateCmapPreview();
+  applyDistributionUI();
+  Object.keys(state.show).forEach(k=>{ const el=document.getElementById('show-'+k); if(el) el.checked=state.show[k]; });
+  Object.keys(state.anim).forEach(k=>{ const el=document.getElementById('anim-'+k); if(el) el.checked=state.anim[k]; });
+  applyShowState();
+}
+
+// collapsible sections
+document.querySelectorAll('.section > .head').forEach(h=>{
+  h.addEventListener('click', ()=> h.parentElement.classList.toggle('collapsed'));
+});
+
+// Theory modal
+const theoryOverlay = document.getElementById('theory-overlay');
+function openTheory(){
+  theoryOverlay.classList.add('show');
+  typesetMath(document.getElementById('theory-body'));
+}
+function closeTheory(){ theoryOverlay.classList.remove('show'); }
+document.getElementById('btn-theory').onclick = openTheory;
+document.getElementById('theory-close').onclick = closeTheory;
+theoryOverlay.addEventListener('click', e=>{ if(e.target===theoryOverlay) closeTheory(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && theoryOverlay.classList.contains('show')) closeTheory(); });
+document.querySelectorAll('#theory-tabs .ttab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('#theory-tabs .ttab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('#theory-body .tpanel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.t).classList.add('active');
+    typesetMath(document.getElementById(tab.dataset.t));
+  });
+});
+
+// mobile toggles
+const leftPanel=document.getElementById('left'), rightPanel=document.getElementById('right');
+function checkMobile(){
+  const mobile = window.innerWidth<=980;
+  document.getElementById('btn-toggle-left').style.display = mobile?'inline-flex':'none';
+  document.getElementById('btn-toggle-right').style.display = mobile?'inline-flex':'none';
+}
+window.addEventListener('resize', checkMobile); checkMobile();
+document.getElementById('btn-toggle-left').onclick=()=>leftPanel.classList.toggle('open');
+document.getElementById('btn-toggle-right').onclick=()=>rightPanel.classList.toggle('open');
+
+/* ============================ Measurement (raycast) ====================== */
+let measureMode=true;
+function setMeasureMode(on){
+  measureMode = on;
+  document.getElementById('btn-measure').classList.toggle('primary', on);
+  if(!on) document.getElementById('measure-box').style.display='none';
+}
+document.getElementById('btn-measure').onclick = ()=> setMeasureMode(!measureMode);
+const raycaster = new THREE.Raycaster();
+const mouseNDC = new THREE.Vector2();
+const probePlane = new THREE.Plane(new THREE.Vector3(0,0,1),0);
+renderer.domElement.addEventListener('mousemove', (ev)=>{
+  if(!measureMode) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouseNDC.x = ((ev.clientX-rect.left)/rect.width)*2-1;
+  mouseNDC.y = -((ev.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouseNDC, camera);
+  let point=null;
+  const hits = surfaceMesh && surfaceMesh.visible ? raycaster.intersectObject(surfaceMesh) : [];
+  if(hits.length){
+    point = hits[0].point.clone().add(hits[0].face.normal.clone().transformDirection(surfaceMesh.matrixWorld).multiplyScalar(0.15));
+  } else {
+    probePlane.constant = 0; probePlane.normal.copy(camera.getWorldDirection(new THREE.Vector3()).negate());
+    const target=new THREE.Vector3();
+    raycaster.ray.intersectPlane(probePlane, target);
+    point = target;
+  }
+  if(!point) return;
+  const V = potentialAt(point, calcPanels);
+  const E = fieldAt(point, calcPanels);
+  const box = document.getElementById('measure-box');
+  box.style.display='block';
+  box.style.left = (ev.clientX - rect.left + 16)+'px';
+  box.style.top = (ev.clientY - rect.top + 10)+'px';
+  box.innerHTML = `<div class="t">Field Probe</div>
+    <div class="l"><span>x,y,z (cm)</span><span>${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)}</span></div>
+    <div class="l"><span>V</span><span>${formatSI(V,'V')}</span></div>
+    <div class="l"><span>|E|</span><span>${formatSI(E.length(),'V/m')}</span></div>
+    <div class="l"><span>E dir</span><span>${E.clone().normalize().toArray().map(v=>v.toFixed(2)).join(', ')}</span></div>`;
+});
+
+/* ================================ Animation loop =========================== */
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.elapsedTime * state.animSpeed;
+  controls.update();
+
+  // gradient vector pulse
+  if(state.anim.gradient && fieldArrowsGroup.visible){
+    fieldArrowsGroup.children.forEach((arrow,i)=>{
+      const base = arrow.userData.baseLen || 1;
+      const pulse = 0.85+0.25*Math.sin(t*2 + i*0.15);
+      arrow.setLength(base*pulse, base*pulse*0.35, base*pulse*0.2);
+    });
+  }
+
+  // field line particles
+  if(state.anim.fieldlines){
+    fieldLinesGroup.children.forEach(obj=>{
+      if(obj.userData && obj.userData.isFieldParticle){
+        const pts = obj.userData.pts;
+        obj.userData.t += dt*obj.userData.speed*state.animSpeed;
+        if(obj.userData.t>1) obj.userData.t-=1;
+        const idx = obj.userData.t*(pts.length-1);
+        const i0=Math.floor(idx), i1=Math.min(pts.length-1,i0+1), f=idx-i0;
+        if(pts[i0] && pts[i1]) obj.position.lerpVectors(pts[i0],pts[i1],f);
+      }
+    });
+  }
+
+  // moving test charge: follow local field direction
+  if(state.anim.testcharge && testChargeMesh){
+    const E = fieldAt(testChargeMesh.position, calcPanels);
+    if(E.length()>1e-6){
+      const dir = E.clone().normalize().multiplyScalar(state.polarity>=0?1:1);
+      testChargeMesh.position.addScaledVector(dir, dt*1.6*state.animSpeed);
+      if(testChargeMesh.position.length()>boundingRadius*1.6){
+        const startPanel = currentPanels[Math.floor(Math.random()*currentPanels.length)];
+        testChargeMesh.position.copy(startPanel.pos).add(startPanel.normal.clone().multiplyScalar(0.3));
+      }
+    }
+  }
+
+  // equipotential sweep
+  if(state.anim.equipotential && equipotGroup.visible){
+    equipotGroup.children.forEach((seg,i)=>{
+      const mat = seg.material;
+      mat.opacity = 0.25+0.45*(0.5+0.5*Math.sin(t*1.3 + i*0.4));
+    });
+  }
+
+  // gentle idle rotation of param labels facing camera (sprites auto face camera)
+  renderer.render(scene,camera);
+}
+
+/* ================================ Resize ==================================== */
+window.addEventListener('resize', ()=>{
+  camera.aspect = wrap.clientWidth/wrap.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+});
+
+/* ================================ Boot ======================================= */
+function boot(){
+  syncUIFromState();
+  buildSurface();
+  setMeasureMode(measureMode);
+  animate();
+  setTimeout(()=>{
+    const l=document.getElementById('loading');
+    l.style.opacity='0';
+    setTimeout(()=>l.style.display='none',300);
+  }, 500);
+}
+boot();
+
+})();
+</script>
+</body>
+</html>

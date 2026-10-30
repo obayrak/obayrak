@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Optics Simulator</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #f78166;
+    --text: #c9d1d9;
+    --text2: #8b949e;
+    --ray1: #ff9f43;
+    --ray2: #48dbfb;
+    --ray3: #ff6b81;
+    --obj: #54a0ff;
+    --img: #ff6b6b;
+    --virtual: rgba(255,255,255,0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    color: var(--text2);
+  }
+  .glow { text-shadow: 0 0 10px rgba(88,166,255,0.5); }
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    gap: 4px;
+  }
+  .tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-content { display: none; flex: 1; overflow: hidden; }
+  .tab-content.active { display: flex; }
+
+  /* ─── SIMULATION TAB ─── */
+  #sim-tab { flex-direction: row; }
+  .sidebar {
+    width: 290px;
+    min-width: 290px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  select, input[type=range] { width: 100%; }
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .slider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .slider-label { font-size: 0.82rem; color: var(--text2); }
+  .slider-val {
+    font-size: 0.82rem;
+    color: var(--accent);
+    font-weight: bold;
+    min-width: 40px;
+    text-align: right;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    margin-bottom: 10px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .result-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .result-item .r-label { font-size: 0.7rem; color: var(--text2); }
+  .result-item .r-val { font-size: 1rem; font-weight: bold; color: var(--accent2); margin-top: 2px; }
+  .result-item.full { grid-column: 1 / -1; }
+  .legend { display: flex; flex-direction: column; gap: 5px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+  .legend-dot { width: 20px; height: 3px; border-radius: 2px; }
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    overflow: hidden;
+    position: relative;
+  }
+  #mainCanvas {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: crosshair;
+  }
+  .canvas-label {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    font-size: 0.75rem;
+    color: var(--text2);
+  }
+
+  /* ─── PHYSICS / MANUAL TABS ─── */
+  #physics-tab, #manual-tab {
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 32px;
+    background: var(--bg);
+  }
+  .doc-body {
+    max-width: 860px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+  .doc-body h2 {
+    font-size: 1.6rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .doc-body h3 {
+    font-size: 1.15rem;
+    color: var(--accent2);
+    margin: 24px 0 8px;
+  }
+  .doc-body h4 {
+    font-size: 1rem;
+    color: var(--text);
+    margin: 16px 0 6px;
+  }
+  .doc-body p { color: var(--text); margin-bottom: 12px; }
+  .doc-body ul, .doc-body ol { padding-left: 24px; margin-bottom: 12px; }
+  .doc-body li { margin-bottom: 6px; color: var(--text); }
+  .formula-box {
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    color: var(--accent2);
+    margin: 12px 0;
+  }
+  .doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.88rem;
+  }
+  .doc-table th {
+    background: var(--surface2);
+    color: var(--accent);
+    padding: 10px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  .doc-table td {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .doc-table tr:nth-child(even) td { background: var(--surface); }
+  .note-box {
+    background: rgba(88,166,255,0.08);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 0.88rem;
+    color: var(--text2);
+  }
+  .warn-box {
+    background: rgba(247,129,102,0.08);
+    border: 1px solid rgba(247,129,102,0.3);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    font-size: 0.88rem;
+    color: var(--warn);
+  }
+  .step-box {
+    counter-reset: step;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 12px 0;
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .step-num {
+    min-width: 28px;
+    height: 28px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.85rem;
+  }
+  .step-text { font-size: 0.88rem; color: var(--text); line-height: 1.5; }
+  .key-chip {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--accent2);
+  }
+  .system-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .sys-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .sys-card h4 { color: var(--accent); margin-bottom: 6px; }
+  .sys-card p { font-size: 0.83rem; color: var(--text2); margin: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔭 Interactive Optics Simulator</h1>
+  <span class="badge">Physics Engine v2.0</span>
+  <span class="badge">6 Optical Systems</span>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('sim')">⚡ Simulation</button>
+  <button class="tab-btn" onclick="switchTab('physics')">📐 Physics</button>
+  <button class="tab-btn" onclick="switchTab('manual')">📖 Manual</button>
+</div>
+
+<!-- ═══════════════ SIMULATION TAB ═══════════════ -->
+<div id="sim-tab" class="tab-content active">
+  <div class="sidebar">
+
+    <div class="card">
+      <div class="section-title">Optical System</div>
+      <select id="sysType" onchange="onSysChange()">
+        <option value="concave_mirror">🪞 Concave Mirror</option>
+        <option value="convex_mirror">🪞 Convex Mirror</option>
+        <option value="convex_lens">🔵 Convex Lens (Converging)</option>
+        <option value="concave_lens">🔵 Concave Lens (Diverging)</option>
+        <option value="microscope">🔬 Compound Microscope</option>
+        <option value="telescope">🔭 Astronomical Telescope</option>
+      </select>
+    </div>
+
+    <!-- Single element controls -->
+    <div id="ctrl-single" class="card">
+      <div class="section-title">Parameters</div>
+      <div class="slider-row"><span class="slider-label">Focal Length f (px)</span><span class="slider-val" id="lbl-f">80</span></div>
+      <input type="range" id="sl-f" min="20" max="200" value="80" oninput="draw()">
+      <div class="slider-row"><span class="slider-label">Object Distance u (px)</span><span class="slider-val" id="lbl-u">160</span></div>
+      <input type="range" id="sl-u" min="15" max="380" value="160" oninput="draw()">
+      <div class="slider-row"><span class="slider-label">Object Height h (px)</span><span class="slider-val" id="lbl-h">50</span></div>
+      <input type="range" id="sl-h" min="10" max="120" value="50" oninput="draw()">
+    </div>
+
+    <!-- Multi element controls -->
+    <div id="ctrl-multi" class="card" style="display:none">
+      <div class="section-title">Optical System Parameters</div>
+      <div class="slider-row"><span class="slider-label">Objective f<sub>o</sub> (px)</span><span class="slider-val" id="lbl-fo">30</span></div>
+      <input type="range" id="sl-fo" min="10" max="100" value="30" oninput="draw()">
+      <div class="slider-row"><span class="slider-label">Eyepiece f<sub>e</sub> (px)</span><span class="slider-val" id="lbl-fe">50</span></div>
+      <input type="range" id="sl-fe" min="10" max="120" value="50" oninput="draw()">
+      <div class="slider-row"><span class="slider-label">Separation L (px)</span><span class="slider-val" id="lbl-L">200</span></div>
+      <input type="range" id="sl-L" min="80" max="450" value="200" oninput="draw()">
+      <div id="ctrl-uo">
+        <div class="slider-row"><span class="slider-label">Object Distance u<sub>o</sub> (px)</span><span class="slider-val" id="lbl-uo">35</span></div>
+        <input type="range" id="sl-uo" min="12" max="100" value="35" oninput="draw()">
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+      <div class="section-title">Calculated Results</div>
+      <div class="results-grid">
+        <div class="result-item"><div class="r-label">Image Dist. v</div><div class="r-val" id="res-v">—</div></div>
+        <div class="result-item"><div class="r-label">Magnification m</div><div class="r-val" id="res-m">—</div></div>
+        <div class="result-item full"><div class="r-label">Image Nature</div><div class="r-val" id="res-nature" style="font-size:0.85rem">—</div></div>
+        <div class="result-item full"><div class="r-label">Formula Used</div><div class="r-val" id="res-formula" style="font-size:0.72rem;color:var(--text2)">—</div></div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card">
+      <div class="section-title">Ray Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#ff9f43"></div> Ray 1 — Parallel to axis</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#48dbfb"></div> Ray 2 — Through center/pole</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6b81"></div> Ray 3 — Through focal point</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.3);border:1px dashed #aaa"></div> Dashed — Virtual ray</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#54a0ff"></div> Blue Arrow — Object</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div> Red Arrow — Final Image</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a29bfe"></div> Purple Arrow — Intermediate</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="canvas-area">
+    <div class="canvas-label" id="canvas-label">Concave Mirror — Ray Diagram</div>
+    <canvas id="mainCanvas"></canvas>
+  </div>
+</div>
+
+<!-- ═══════════════ PHYSICS TAB ═══════════════ -->
+<div id="physics-tab" class="tab-content">
+<div class="doc-body">
+  <h2>Physics of Optical Systems</h2>
+  <p>Optics is the branch of physics that studies the behaviour and properties of light and its interactions with matter. Geometric optics, which underlies all simulations here, treats light as rays that travel in straight lines and obey the laws of reflection and refraction.</p>
+
+  <h3>1. Fundamental Laws</h3>
+  <h4>Law of Reflection</h4>
+  <p>When a light ray strikes a smooth surface, the angle of incidence equals the angle of reflection, both measured from the normal to the surface at the point of incidence.</p>
+  <div class="formula-box">θ_i = θ_r</div>
+
+  <h4>Law of Refraction (Snell's Law)</h4>
+  <p>When light passes from one medium to another, it bends according to Snell's Law:</p>
+  <div class="formula-box">n₁ · sin(θ₁) = n₂ · sin(θ₂)</div>
+  <p>For thin lenses in air (n₁ = n₂ = 1), the Lensmaker's Equation governs the focal length.</p>
+
+  <h3>2. Sign Convention (New Cartesian)</h3>
+  <div class="note-box">
+    All distances are measured from the optical centre (pole for mirrors, optical centre for lenses). Distances in the direction of incident light (left → right) are <strong>positive</strong>. Distances against incident light are <strong>negative</strong>. Heights above the principal axis are <strong>positive</strong>; below are <strong>negative</strong>.
+  </div>
+
+  <h3>3. Concave Mirror</h3>
+  <p>A concave (converging) mirror has its reflecting surface on the inner side of a spherical shell. The centre of curvature C lies in front of the mirror, and the focal length f = R/2 is negative in the Cartesian convention.</p>
+  <div class="formula-box">Mirror Formula: 1/f = 1/v + 1/u &nbsp;&nbsp;|&nbsp;&nbsp; Magnification: m = −v/u</div>
+  <table class="doc-table">
+    <tr><th>Object Position</th><th>Image Position</th><th>Nature</th><th>Size</th></tr>
+    <tr><td>u &gt; 2f (beyond C)</td><td>Between F and C</td><td>Real, Inverted</td><td>Diminished</td></tr>
+    <tr><td>u = 2f (at C)</td><td>At C (v = 2f)</td><td>Real, Inverted</td><td>Same size</td></tr>
+    <tr><td>f &lt; u &lt; 2f</td><td>Beyond C</td><td>Real, Inverted</td><td>Magnified</td></tr>
+    <tr><td>u = f (at F)</td><td>At infinity</td><td>Real, Inverted</td><td>Highly magnified</td></tr>
+    <tr><td>u &lt; f (between F and P)</td><td>Behind mirror (virtual)</td><td>Virtual, Erect</td><td>Magnified</td></tr>
+  </table>
+  <p><strong>Applications:</strong> Shaving/makeup mirrors, headlights, solar concentrators, satellite dishes, reflecting telescopes.</p>
+
+  <h3>4. Convex Mirror</h3>
+  <p>A convex (diverging) mirror has its reflecting surface on the outer side of a spherical shell. The focal point F and centre of curvature C are behind the mirror (virtual), making f positive in the Cartesian convention.</p>
+  <div class="formula-box">Mirror Formula: 1/f = 1/v + 1/u &nbsp;&nbsp;|&nbsp;&nbsp; f &gt; 0 always</div>
+  <table class="doc-table">
+    <tr><th>Object Position</th><th>Image Position</th><th>Nature</th><th>Size</th></tr>
+    <tr><td>Any position in front</td><td>Between P and F (behind mirror)</td><td>Virtual, Erect</td><td>Diminished</td></tr>
+  </table>
+  <p><strong>Applications:</strong> Rear-view mirrors in vehicles, security mirrors in shops and road intersections.</p>
+
+  <h3>5. Convex Lens (Converging)</h3>
+  <p>A convex (biconvex) lens is thicker at the centre than at the edges. It converges parallel rays to a real focal point F on the far side. The focal length f is positive.</p>
+  <div class="formula-box">Lens Formula: 1/f = 1/v − 1/u &nbsp;&nbsp;|&nbsp;&nbsp; Magnification: m = v/u</div>
+  <table class="doc-table">
+    <tr><th>Object Position</th><th>Image Position</th><th>Nature</th><th>Size</th></tr>
+    <tr><td>u &gt; 2f</td><td>Between F and 2F (other side)</td><td>Real, Inverted</td><td>Diminished</td></tr>
+    <tr><td>u = 2f</td><td>At 2F (other side)</td><td>Real, Inverted</td><td>Same size</td></tr>
+    <tr><td>f &lt; u &lt; 2f</td><td>Beyond 2F (other side)</td><td>Real, Inverted</td><td>Magnified</td></tr>
+    <tr><td>u = f</td><td>At infinity</td><td>—</td><td>—</td></tr>
+    <tr><td>u &lt; f</td><td>Same side as object</td><td>Virtual, Erect</td><td>Magnified</td></tr>
+  </table>
+  <p><strong>Applications:</strong> Magnifying glasses, cameras, projectors, human eye, correcting hyperopia.</p>
+
+  <h3>6. Concave Lens (Diverging)</h3>
+  <p>A concave (biconcave) lens is thinner at the centre than at the edges. It diverges parallel rays as if they originated from a virtual focal point F on the same side as the incoming light. The focal length f is negative.</p>
+  <div class="formula-box">Lens Formula: 1/f = 1/v − 1/u &nbsp;&nbsp;|&nbsp;&nbsp; f &lt; 0 always</div>
+  <table class="doc-table">
+    <tr><th>Object Position</th><th>Image Position</th><th>Nature</th><th>Size</th></tr>
+    <tr><td>Any position</td><td>Same side as object, between F and lens</td><td>Virtual, Erect</td><td>Diminished</td></tr>
+  </table>
+  <p><strong>Applications:</strong> Correcting myopia (short-sightedness), wide-angle camera lenses, Galilean telescope eyepiece.</p>
+
+  <h3>7. Compound Microscope</h3>
+  <p>A compound microscope uses two convex lenses to achieve very high magnification of nearby small objects. The <strong>objective lens</strong> has a very short focal length (f<sub>o</sub>), and the <strong>eyepiece</strong> has a moderate focal length (f<sub>e</sub>).</p>
+  <div class="formula-box">
+    Objective magnification: m_o = v_o / u_o<br>
+    Eyepiece magnification: m_e = D / f_e &nbsp;(D = 25 cm, near-point distance)<br>
+    Total magnification: M = m_o × m_e ≈ (L / f_o) × (D / f_e)
+  </div>
+  <p>where L is the tube length (distance between the second focal point of the objective and the first focal point of the eyepiece).</p>
+  <table class="doc-table">
+    <tr><th>Component</th><th>Role</th><th>Focal Length</th></tr>
+    <tr><td>Objective</td><td>Forms real, inverted, magnified intermediate image</td><td>Very short (1–5 mm)</td></tr>
+    <tr><td>Eyepiece</td><td>Acts as magnifier for intermediate image</td><td>Short-moderate (10–25 mm)</td></tr>
+  </table>
+  <p><strong>Final image:</strong> Virtual, inverted (relative to original object), highly magnified, formed at near point or infinity.</p>
+
+  <h3>8. Astronomical Telescope</h3>
+  <p>An astronomical telescope is designed to view distant objects. The <strong>objective lens</strong> has a long focal length and large aperture to collect maximum light. The <strong>eyepiece</strong> has a short focal length to provide high angular magnification.</p>
+  <div class="formula-box">
+    Angular magnification (normal adjustment): M = f_o / f_e<br>
+    Tube length (normal adjustment): L = f_o + f_e
+  </div>
+  <table class="doc-table">
+    <tr><th>Component</th><th>Role</th><th>Focal Length</th></tr>
+    <tr><td>Objective</td><td>Forms real, inverted, diminished image at focal plane</td><td>Long (several cm to metres)</td></tr>
+    <tr><td>Eyepiece</td><td>Magnifies the intermediate image</td><td>Short</td></tr>
+  </table>
+  <p><strong>Final image:</strong> Virtual, inverted, highly magnified, formed at infinity (normal adjustment) or near point.</p>
+
+  <h3>9. Key Optical Quantities</h3>
+  <table class="doc-table">
+    <tr><th>Quantity</th><th>Symbol</th><th>Definition</th></tr>
+    <tr><td>Object distance</td><td>u</td><td>Distance from object to optical element</td></tr>
+    <tr><td>Image distance</td><td>v</td><td>Distance from optical element to image</td></tr>
+    <tr><td>Focal length</td><td>f</td><td>Distance from optical element to focal point</td></tr>
+    <tr><td>Radius of curvature</td><td>R</td><td>Radius of the spherical surface; R = 2f</td></tr>
+    <tr><td>Magnification</td><td>m</td><td>Ratio of image height to object height</td></tr>
+    <tr><td>Power</td><td>P</td><td>P = 1/f (in metres); unit: Dioptre (D)</td></tr>
+    <tr><td>Aperture</td><td>D</td><td>Effective diameter of the optical element</td></tr>
+  </table>
+
+  <h3>10. Ray Tracing Rules</h3>
+  <p>Three principal rays are used to locate images graphically:</p>
+  <table class="doc-table">
+    <tr><th>Ray</th><th>Incident</th><th>After Reflection/Refraction</th></tr>
+    <tr><td>Ray 1</td><td>Parallel to principal axis</td><td>Passes through (or appears to come from) focal point F</td></tr>
+    <tr><td>Ray 2</td><td>Through optical centre (lens) or pole (mirror)</td><td>Passes undeviated (lens) or reflects at equal angle (mirror)</td></tr>
+    <tr><td>Ray 3</td><td>Through (or directed toward) focal point F</td><td>Emerges parallel to principal axis</td></tr>
+  </table>
+</div>
+</div>
+
+<!-- ═══════════════ MANUAL TAB ═══════════════ -->
+<div id="manual-tab" class="tab-content">
+<div class="doc-body">
+  <h2>User Manual</h2>
+  <p>This manual provides a complete guide to using the Interactive Optics Simulator. The application consists of three tabs: <strong>Simulation</strong>, <strong>Physics</strong>, and <strong>Manual</strong> (this page).</p>
+
+  <h3>Overview of Optical Systems</h3>
+  <div class="system-cards">
+    <div class="sys-card"><h4>🪞 Concave Mirror</h4><p>Converging mirror. Reflects light inward. Used in headlights, telescopes, and makeup mirrors.</p></div>
+    <div class="sys-card"><h4>🪞 Convex Mirror</h4><p>Diverging mirror. Always produces virtual, erect, diminished images. Used in rear-view mirrors.</p></div>
+    <div class="sys-card"><h4>🔵 Convex Lens</h4><p>Converging lens. Can produce real or virtual images depending on object position. Used in cameras and eyes.</p></div>
+    <div class="sys-card"><h4>🔵 Concave Lens</h4><p>Diverging lens. Always produces virtual, erect, diminished images. Used to correct myopia.</p></div>
+    <div class="sys-card"><h4>🔬 Microscope</h4><p>Two-lens system for magnifying small nearby objects. Objective + Eyepiece arrangement.</p></div>
+    <div class="sys-card"><h4>🔭 Telescope</h4><p>Two-lens system for viewing distant objects. Large objective + short-focal eyepiece.</p></div>
+  </div>
+
+  <h3>How to Use the Simulation</h3>
+  <div class="step-box">
+    <div class="step"><div class="step-num">1</div><div class="step-text"><strong>Select an Optical System</strong> from the dropdown at the top of the left panel. The canvas and controls will update automatically.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Adjust the sliders</strong> to change the optical parameters. For single elements (mirrors/lenses), you can control Focal Length, Object Distance, and Object Height. For compound systems (Microscope/Telescope), you control the focal lengths of both lenses and the separation between them.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Observe the ray diagram</strong> on the canvas. Rays are colour-coded: orange (Ray 1), cyan (Ray 2), pink (Ray 3). Dashed lines indicate virtual extensions of rays. The blue arrow is the object, red arrow is the final image, and purple arrow is the intermediate image (for compound systems).</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Read the calculated results</strong> in the Results panel below the sliders. This shows the image distance (v), magnification (m), image nature (Real/Virtual, Erect/Inverted), and the formula applied.</div></div>
+    <div class="step"><div class="step-num">5</div><div class="step-text"><strong>Explore edge cases</strong> by placing the object at the focal point (u = f) to see rays become parallel, or between the focal point and the lens/mirror to produce a virtual image.</div></div>
+  </div>
+
+  <h3>Understanding the Controls</h3>
+  <table class="doc-table">
+    <tr><th>Control</th><th>Symbol</th><th>Effect</th></tr>
+    <tr><td>Focal Length</td><td>f</td><td>Changes the curvature/power of the mirror or lens. Larger f = weaker element.</td></tr>
+    <tr><td>Object Distance</td><td>u</td><td>Moves the object closer to or farther from the optical element. Crossing the focal point changes image nature.</td></tr>
+    <tr><td>Object Height</td><td>h</td><td>Changes the size of the object arrow. Does not affect image position, only image height.</td></tr>
+    <tr><td>Objective f<sub>o</sub></td><td>f<sub>o</sub></td><td>Focal length of the objective lens in compound systems.</td></tr>
+    <tr><td>Eyepiece f<sub>e</sub></td><td>f<sub>e</sub></td><td>Focal length of the eyepiece lens in compound systems.</td></tr>
+    <tr><td>Separation L</td><td>L</td><td>Distance between the two lenses in compound systems.</td></tr>
+    <tr><td>Object Distance u<sub>o</sub></td><td>u<sub>o</sub></td><td>Object distance from the objective in the microscope.</td></tr>
+  </table>
+
+  <h3>Reading the Ray Diagram</h3>
+  <table class="doc-table">
+    <tr><th>Element</th><th>Colour / Style</th><th>Meaning</th></tr>
+    <tr><td>Principal Axis</td><td>Grey horizontal line</td><td>The optical axis of symmetry</td></tr>
+    <tr><td>Object Arrow</td><td>Blue, solid</td><td>The source object being imaged</td></tr>
+    <tr><td>Image Arrow</td><td>Red, solid</td><td>The final image formed by the system</td></tr>
+    <tr><td>Intermediate Image</td><td>Purple, solid</td><td>Intermediate image in compound systems</td></tr>
+    <tr><td>Ray 1</td><td>Orange, solid/dashed</td><td>Ray parallel to axis → through focal point</td></tr>
+    <tr><td>Ray 2</td><td>Cyan, solid/dashed</td><td>Ray through centre/pole → undeviated</td></tr>
+    <tr><td>Ray 3</td><td>Pink, solid/dashed</td><td>Ray through focal point → parallel to axis</td></tr>
+    <tr><td>Focal Points</td><td>White dots labelled F, F'</td><td>Front and back focal points</td></tr>
+    <tr><td>Lens</td><td>Blue outline shape</td><td>Biconvex (converging) or biconcave (diverging)</td></tr>
+    <tr><td>Mirror</td><td>Grey arc with hatching</td><td>Concave or convex mirror surface</td></tr>
+  </table>
+
+  <h3>Interpreting the Results Panel</h3>
+  <table class="doc-table">
+    <tr><th>Result</th><th>Positive Value</th><th>Negative Value</th></tr>
+    <tr><td>Image Distance v (lens)</td><td>Real image, opposite side from object</td><td>Virtual image, same side as object</td></tr>
+    <tr><td>Image Distance v (mirror)</td><td>Virtual image, behind mirror</td><td>Real image, in front of mirror</td></tr>
+    <tr><td>Magnification m</td><td>Erect image (same orientation as object)</td><td>Inverted image</td></tr>
+    <tr><td>|m| &gt; 1</td><td colspan="2">Image is larger than object (magnified)</td></tr>
+    <tr><td>|m| &lt; 1</td><td colspan="2">Image is smaller than object (diminished)</td></tr>
+    <tr><td>|m| = 1</td><td colspan="2">Image is the same size as object</td></tr>
+  </table>
+
+  <h3>Tips and Tricks</h3>
+  <div class="note-box">
+    <strong>Tip 1:</strong> For a concave mirror, move the object distance slider slowly through the focal length value. You will see the image jump from real (in front) to virtual (behind the mirror) — this is the critical transition point.
+  </div>
+  <div class="note-box">
+    <strong>Tip 2:</strong> For the microscope, set a very short objective focal length and a larger eyepiece focal length to achieve maximum magnification. The intermediate image should form between the two lenses.
+  </div>
+  <div class="note-box">
+    <strong>Tip 3:</strong> For the telescope, increasing the objective focal length relative to the eyepiece focal length increases the angular magnification (M = f<sub>o</sub>/f<sub>e</sub>).
+  </div>
+  <div class="warn-box">
+    <strong>Note:</strong> All distances in the simulation are in arbitrary pixel units for visualisation purposes. The physics and ratios are accurate, but the absolute values do not correspond to real-world millimetres or centimetres.
+  </div>
+
+  <h3>Keyboard Shortcuts</h3>
+  <table class="doc-table">
+    <tr><th>Key</th><th>Action</th></tr>
+    <tr><td><span class="key-chip">1</span></td><td>Switch to Simulation tab</td></tr>
+    <tr><td><span class="key-chip">2</span></td><td>Switch to Physics tab</td></tr>
+    <tr><td><span class="key-chip">3</span></td><td>Switch to Manual tab</td></tr>
+  </table>
+</div>
+</div>
+
+<script>
+// ─── TAB SWITCHING ───────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(name + '-tab').classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'sim') { resizeCanvas(); draw(); }
+}
+document.addEventListener('keydown', e => {
+  const tabs = ['sim','physics','manual'];
+  if (e.key >= '1' && e.key <= '3') {
+    const idx = parseInt(e.key) - 1;
+    document.querySelectorAll('.tab-btn')[idx].click();
+  }
+});
+
+// ─── CANVAS SETUP ────────────────────────────────────────────────
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const area = document.querySelector('.canvas-area');
+  canvas.width = area.clientWidth - 32;
+  canvas.height = area.clientHeight - 32;
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+setTimeout(resizeCanvas, 100);
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+function getVal(id) { return parseFloat(document.getElementById(id).value); }
+function setLbl(id, val) { document.getElementById(id).innerText = Math.round(val); }
+
+function onSysChange() {
+  const t = document.getElementById('sysType').value;
+  const isMulti = t === 'microscope' || t === 'telescope';
+  document.getElementById('ctrl-single').style.display = isMulti ? 'none' : 'block';
+  document.getElementById('ctrl-multi').style.display = isMulti ? 'block' : 'none';
+  document.getElementById('ctrl-uo').style.display = t === 'telescope' ? 'none' : 'block';
+  const labels = {
+    concave_mirror: 'Concave Mirror — Ray Diagram',
+    convex_mirror: 'Convex Mirror — Ray Diagram',
+    convex_lens: 'Convex Lens (Converging) — Ray Diagram',
+    concave_lens: 'Concave Lens (Diverging) — Ray Diagram',
+    microscope: 'Compound Microscope — Ray Diagram',
+    telescope: 'Astronomical Telescope — Ray Diagram'
+  };
+  document.getElementById('canvas-label').innerText = labels[t];
+  draw();
+}
+
+// ─── DRAWING UTILITIES ───────────────────────────────────────────
+const W = () => canvas.width;
+const H = () => canvas.height;
+const CY = () => H() / 2;
+
+function drawAxis() {
+  ctx.beginPath();
+  ctx.moveTo(0, CY());
+  ctx.lineTo(W(), CY());
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  // Dashed grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  for (let y = CY() - 100; y > 0; y -= 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W(),y); ctx.stroke(); }
+  for (let y = CY() + 100; y < H(); y += 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W(),y); ctx.stroke(); }
+}
+
+function ray(x1, y1, x2, y2, color, dashed = false, alpha = 1) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash(dashed ? [6, 5] : []);
+  if (!dashed) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function arrow(x, baseY, h, color, label) {
+  if (Math.abs(h) < 1) return;
+  const tipY = baseY - h;
+  const dir = h > 0 ? 1 : -1;
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.moveTo(x, baseY);
+  ctx.lineTo(x, tipY);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  // Arrowhead
+  ctx.beginPath();
+  ctx.moveTo(x, tipY);
+  ctx.lineTo(x - 6, tipY + dir * 12);
+  ctx.lineTo(x + 6, tipY + dir * 12);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+  // Label
+  if (label) {
+    ctx.fillStyle = color;
+    ctx.font = 'bold 13px Segoe UI';
+    ctx.fillText(label, x + 8, tipY - dir * 4);
+  }
+}
+
+function focalDot(x, label) {
+  ctx.beginPath();
+  ctx.arc(x, CY(), 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(label, x - 5, CY() + 18);
+}
+
+function drawConvexLens(x, lh) {
+  ctx.save();
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2.5;
+  ctx.fillStyle = 'rgba(88,166,255,0.12)';
+  ctx.beginPath();
+  ctx.moveTo(x, CY() - lh / 2);
+  ctx.quadraticCurveTo(x + 22, CY(), x, CY() + lh / 2);
+  ctx.quadraticCurveTo(x - 22, CY(), x, CY() - lh / 2);
+  ctx.fill();
+  ctx.stroke();
+  // Arrows on lens
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, CY() - lh/2 - 8); ctx.lineTo(x, CY() - lh/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, CY() + lh/2); ctx.lineTo(x, CY() + lh/2 + 8); ctx.stroke();
+  // Arrowheads
+  [[x, CY() - lh/2 - 8, -1], [x, CY() + lh/2 + 8, 1]].forEach(([ax, ay, d]) => {
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax-4, ay+d*8); ctx.lineTo(ax+4, ay+d*8); ctx.closePath(); ctx.fillStyle='#58a6ff'; ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawConcaveLens(x, lh) {
+  ctx.save();
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2.5;
+  ctx.fillStyle = 'rgba(88,166,255,0.12)';
+  ctx.beginPath();
+  ctx.moveTo(x - 10, CY() - lh / 2);
+  ctx.lineTo(x + 10, CY() - lh / 2);
+  ctx.quadraticCurveTo(x, CY(), x + 10, CY() + lh / 2);
+  ctx.lineTo(x - 10, CY() + lh / 2);
+  ctx.quadraticCurveTo(x, CY(), x - 10, CY() - lh / 2);
+  ctx.fill();
+  ctx.stroke();
+  // Arrows pointing inward
+  ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, CY() - lh/2 + 8); ctx.lineTo(x, CY() - lh/2 - 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, CY() + lh/2 - 8); ctx.lineTo(x, CY() + lh/2 + 8); ctx.stroke();
+  [[x, CY() - lh/2 - 8, -1], [x, CY() + lh/2 + 8, 1]].forEach(([ax, ay, d]) => {
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax-4, ay+d*8); ctx.lineTo(ax+4, ay+d*8); ctx.closePath(); ctx.fillStyle='#58a6ff'; ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawConcaveMirror(x, lh) {
+  ctx.save();
+  const r = Math.sqrt(50*50 + (lh/2)*(lh/2));
+  const startAngle = Math.PI - Math.asin((lh/2)/r);
+  const endAngle = Math.PI + Math.asin((lh/2)/r);
+  ctx.beginPath();
+  ctx.arc(x + 50, CY(), r, startAngle, endAngle);
+  ctx.strokeStyle = '#adb5bd';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // Hatching
+  ctx.strokeStyle = 'rgba(173,181,189,0.4)';
+  ctx.lineWidth = 1.5;
+  for (let i = -lh/2; i <= lh/2; i += 14) {
+    const dx = 50 - Math.sqrt(Math.max(0, r*r - i*i));
+    ctx.beginPath(); ctx.moveTo(x + dx, CY() + i); ctx.lineTo(x + dx + 8, CY() + i + 8); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawConvexMirror(x, lh) {
+  ctx.save();
+  const r = Math.sqrt(50*50 + (lh/2)*(lh/2));
+  const startAngle = -Math.asin((lh/2)/r);
+  const endAngle = Math.asin((lh/2)/r);
+  ctx.beginPath();
+  ctx.arc(x - 50, CY(), r, startAngle, endAngle);
+  ctx.strokeStyle = '#adb5bd';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // Hatching
+  ctx.strokeStyle = 'rgba(173,181,189,0.4)';
+  ctx.lineWidth = 1.5;
+  for (let i = -lh/2; i <= lh/2; i += 14) {
+    const dx = -50 + Math.sqrt(Math.max(0, r*r - i*i));
+    ctx.beginPath(); ctx.moveTo(x + dx, CY() + i); ctx.lineTo(x + dx - 8, CY() + i + 8); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function setResult(v, m, nature, formula) {
+  document.getElementById('res-v').innerText = isFinite(v) ? v.toFixed(1) : '∞';
+  document.getElementById('res-m').innerText = isFinite(m) ? m.toFixed(2) : '∞';
+  document.getElementById('res-nature').innerText = nature;
+  document.getElementById('res-formula').innerText = formula;
+}
+
+// ─── MAIN DRAW ───────────────────────────────────────────────────
+function draw() {
+  if (!canvas.width) return;
+  ctx.clearRect(0, 0, W(), H());
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, W(), H());
+  grad.addColorStop(0, '#0d1117');
+  grad.addColorStop(1, '#161b22');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W(), H());
+  drawAxis();
+
+  const t = document.getElementById('sysType').value;
+  if (t === 'concave_mirror' || t === 'convex_mirror') drawMirrorSim(t);
+  else if (t === 'convex_lens' || t === 'concave_lens') drawLensSim(t);
+  else if (t === 'microscope') drawMicroscope();
+  else if (t === 'telescope') drawTelescope();
+}
+
+// ─── MIRROR SIMULATION ───────────────────────────────────────────
+function drawMirrorSim(type) {
+  const f_raw = getVal('sl-f');
+  const u_raw = getVal('sl-u');
+  const h = getVal('sl-h');
+  setLbl('lbl-f', f_raw); setLbl('lbl-u', u_raw); setLbl('lbl-h', h);
+
+  // Sign convention: u negative (object in front), f negative for concave
+  const f = type === 'concave_mirror' ? -f_raw : f_raw;
+  const u = -u_raw;
+  const v = 1 / ((1/f) - (1/u));
+  const m = -v / u;
+  const h_img = h * m;
+
+  const originX = W() * 0.65;
+  const cy = CY();
+
+  // Draw mirror
+  if (type === 'concave_mirror') drawConcaveMirror(originX, 220);
+  else drawConvexMirror(originX, 220);
+
+  // Focal points
+  focalDot(originX - f_raw, 'F');
+  focalDot(originX + f_raw, "F'");
+  focalDot(originX - 2*f_raw, 'C');
+
+  // Object
+  const objX = originX + u; // u is negative, so objX < originX
+  arrow(objX, cy, h, '#54a0ff', 'O');
+
+  // Image
+  const imgX = originX + v;
+  const isReal = v < 0;
+  const isErect = m > 0;
+  if (Math.abs(v) < W() * 3) {
+    arrow(imgX, cy, h_img, '#ff6b6b', 'I');
+  }
+
+  // Tip of object
+  const tipY = cy - h;
+
+  // ── Ray 1: Parallel to axis → reflects through F ──
+  ray(objX, tipY, originX, tipY, '#ff9f43');
+  if (type === 'concave_mirror') {
+    // Reflected ray passes through F (at originX - f_raw, cy)
+    const fX = originX - f_raw;
+    const reflSlope = (tipY - cy) / (originX - fX);
+    ray(originX, tipY, originX - 800, tipY + reflSlope * 800, '#ff9f43');
+    if (!isReal) ray(originX, tipY, originX + 400, tipY - reflSlope * 400, '#ff9f43', true, 0.4);
+  } else {
+    // Convex: reflected ray diverges as if from virtual F behind mirror
+    const fVirtX = originX + f_raw;
+    const reflSlope = (tipY - cy) / (originX - fVirtX);
+    ray(originX, tipY, originX - 800, tipY + reflSlope * 800, '#ff9f43');
+    ray(originX, tipY, originX + 400, tipY - reflSlope * 400, '#ff9f43', true, 0.4);
+  }
+
+  // ── Ray 2: To pole → reflects at equal angle ──
+  ray(objX, tipY, originX, cy, '#48dbfb');
+  const incSlope = (cy - tipY) / (originX - objX);
+  ray(originX, cy, originX - 800, cy - incSlope * 800, '#48dbfb');
+  if (!isReal) ray(originX, cy, originX + 400, cy + incSlope * 400, '#48dbfb', true, 0.4);
+
+  // ── Ray 3: Through C (centre of curvature) → reflects back ──
+  if (type === 'concave_mirror') {
+    const cX = originX - 2 * f_raw;
+    const s3 = (tipY - cy) / (objX - cX);
+    const yAtMirror = tipY + s3 * (originX - objX);
+    ray(objX, tipY, originX, yAtMirror, '#ff6b81');
+    ray(originX, yAtMirror, originX - 800, yAtMirror + s3 * 800, '#ff6b81');
+    if (!isReal) ray(originX, yAtMirror, originX + 400, yAtMirror - s3 * 400, '#ff6b81', true, 0.4);
+  } else {
+    // Convex Ray 3: aimed at virtual C behind mirror
+    const cVirtX = originX + 2 * f_raw;
+    const s3 = (tipY - cy) / (objX - cVirtX);
+    const yAtMirror = tipY + s3 * (originX - objX);
+    ray(objX, tipY, originX, yAtMirror, '#ff6b81');
+    ray(originX, yAtMirror, originX - 800, yAtMirror + s3 * 800, '#ff6b81');
+    ray(originX, yAtMirror, originX + 400, yAtMirror - s3 * 400, '#ff6b81', true, 0.4);
+  }
+
+  // Nature
+  const nature = (isReal ? 'Real' : 'Virtual') + ', ' + (isErect ? 'Erect' : 'Inverted') + ', ' + (Math.abs(m) > 1.01 ? 'Magnified' : Math.abs(m) < 0.99 ? 'Diminished' : 'Same size');
+  setResult(v, m, nature, '1/f = 1/v + 1/u  |  m = −v/u');
+}
+
+// ─── LENS SIMULATION ─────────────────────────────────────────────
+function drawLensSim(type) {
+  const f_raw = getVal('sl-f');
+  const u_raw = getVal('sl-u');
+  const h = getVal('sl-h');
+  setLbl('lbl-f', f_raw); setLbl('lbl-u', u_raw); setLbl('lbl-h', h);
+
+  const f = type === 'convex_lens' ? f_raw : -f_raw;
+  const u = -u_raw; // object on left
+  // Lens formula: 1/v - 1/u = 1/f => 1/v = 1/f + 1/u
+  const v = 1 / ((1/f) + (1/u));
+  const m = v / u;
+  const h_img = h * m;
+
+  const originX = W() / 2;
+  const cy = CY();
+
+  // Draw lens
+  if (type === 'convex_lens') drawConvexLens(originX, 220);
+  else drawConcaveLens(originX, 220);
+
+  // Focal points
+  focalDot(originX - f_raw, type === 'convex_lens' ? 'F' : "F'");
+  focalDot(originX + f_raw, type === 'convex_lens' ? "F'" : 'F');
+
+  // Object
+  const objX = originX + u; // u is negative
+  arrow(objX, cy, h, '#54a0ff', 'O');
+
+  // Image
+  const imgX = originX + v;
+  if (Math.abs(v) < W() * 3 && Math.abs(h_img) < H()) {
+    arrow(imgX, cy, h_img, '#ff6b6b', 'I');
+  }
+
+  const isReal = v > 0;
+  const isErect = m > 0;
+  const tipY = cy - h;
+
+  // ── Ray 1: Parallel to axis → refracts through F' ──
+  ray(objX, tipY, originX, tipY, '#ff9f43');
+  if (type === 'convex_lens') {
+    // Converges to F' on right
+    const fPrimeX = originX + f_raw;
+    const s1 = (tipY - cy) / (originX - fPrimeX);
+    ray(originX, tipY, originX + 800, tipY + s1 * 800, '#ff9f43');
+    if (!isReal) ray(originX, tipY, originX - 400, tipY - s1 * 400, '#ff9f43', true, 0.4);
+  } else {
+    // Diverges as if from virtual F on same side as object
+    const fVirtX = originX - f_raw; // f is negative, so this is to the right
+    const s1 = (tipY - cy) / (originX - fVirtX);
+    ray(originX, tipY, originX + 800, tipY + s1 * 800, '#ff9f43');
+    ray(originX, tipY, originX - 400, tipY - s1 * 400, '#ff9f43', true, 0.4);
+  }
+
+  // ── Ray 2: Through optical centre → undeviated ──
+  ray(objX, tipY, originX, cy, '#48dbfb');
+  const s2 = (cy - tipY) / (originX - objX);
+  ray(originX, cy, originX + 800, cy - s2 * 800, '#48dbfb');
+  if (!isReal) ray(originX, cy, originX - 400, cy + s2 * 400, '#48dbfb', true, 0.4);
+
+  // ── Ray 3: Through front focal point F → emerges parallel ──
+  if (type === 'convex_lens') {
+    const fX = originX - f_raw;
+    // Line from object tip through F to lens
+    const s3 = (tipY - cy) / (objX - fX);
+    const yAtLens = tipY + s3 * (originX - objX);
+    ray(objX, tipY, originX, yAtLens, '#ff6b81');
+    ray(originX, yAtLens, originX + 800, yAtLens, '#ff6b81');
+    if (!isReal) ray(originX, yAtLens, originX - 400, yAtLens, '#ff6b81', true, 0.4);
+  } else {
+    // Concave: ray directed toward virtual F' on right → emerges parallel
+    const fPrimeX = originX + f_raw; // f negative so this is to the left
+    const s3 = (tipY - cy) / (objX - fPrimeX);
+    const yAtLens = tipY + s3 * (originX - objX);
+    ray(objX, tipY, originX, yAtLens, '#ff6b81');
+    ray(originX, yAtLens, originX + 800, yAtLens, '#ff6b81');
+    ray(originX, yAtLens, originX - 400, yAtLens, '#ff6b81', true, 0.4);
+  }
+
+  const nature = (isReal ? 'Real' : 'Virtual') + ', ' + (isErect ? 'Erect' : 'Inverted') + ', ' + (Math.abs(m) > 1.01 ? 'Magnified' : Math.abs(m) < 0.99 ? 'Diminished' : 'Same size');
+  setResult(v, m, nature, '1/f = 1/v − 1/u  |  m = v/u');
+}
+
+// ─── MICROSCOPE ──────────────────────────────────────────────────
+function drawMicroscope() {
+  const fo = getVal('sl-fo');
+  const fe = getVal('sl-fe');
+  const L = getVal('sl-L');
+  const uo_raw = getVal('sl-uo');
+  setLbl('lbl-fo', fo); setLbl('lbl-fe', fe); setLbl('lbl-L', L); setLbl('lbl-uo', uo_raw);
+
+  const cy = CY();
+  const objLensX = W() / 2 - L / 2;
+  const eyeLensX = W() / 2 + L / 2;
+
+  // Draw lenses
+  drawConvexLens(objLensX, 160);
+  drawConvexLens(eyeLensX, 200);
+
+  // Labels
+  ctx.fillStyle = '#58a6ff'; ctx.font = 'bold 12px Segoe UI';
+  ctx.fillText('Objective', objLensX - 28, cy + 100);
+  ctx.fillText('Eyepiece', eyeLensX - 25, cy + 110);
+
+  // Focal points
+  focalDot(objLensX + fo, 'fo');
+  focalDot(objLensX - fo, '');
+  focalDot(eyeLensX + fe, 'fe');
+  focalDot(eyeLensX - fe, '');
+
+  // Object
+  const h = 20;
+  const uo = -uo_raw;
+  const objX = objLensX + uo;
+  arrow(objX, cy, h, '#54a0ff', 'O');
+
+  // Objective image
+  const vo = 1 / ((1/fo) + (1/uo));
+  const mo = vo / uo;
+  const h_int = h * mo;
+  const intImgX = objLensX + vo;
+
+  if (Math.abs(vo) < L + 200) {
+    arrow(intImgX, cy, h_int, '#a29bfe', 'I₁');
+  }
+
+  // Eyepiece: intermediate image acts as object
+  const ue = intImgX - eyeLensX; // relative to eyepiece
+  const ve = 1 / ((1/fe) + (1/ue));
+  const me = ve / ue;
+  const h_final = h_int * me;
+  const finalImgX = eyeLensX + ve;
+
+  if (Math.abs(ve) < W() * 2) {
+    arrow(finalImgX, cy, h_final, '#ff6b6b', 'I₂');
+  }
+
+  // Rays through objective
+  ray(objX, cy - h, objLensX, cy - h, '#ff9f43');
+  const slope_o1 = -(cy - h - cy) / (objLensX - (objLensX + fo));
+  ray(objLensX, cy - h, intImgX, cy - h_int, '#ff9f43');
+
+  ray(objX, cy - h, objLensX, cy, '#48dbfb');
+  ray(objLensX, cy, intImgX, cy - h_int, '#48dbfb');
+
+  // Rays through eyepiece
+  ray(intImgX, cy - h_int, eyeLensX, cy - h_int, '#ff9f43', false, 0.7);
+  ray(eyeLensX, cy - h_int, finalImgX, cy - h_final, '#ff9f43', ve < 0, 0.7);
+
+  ray(intImgX, cy - h_int, eyeLensX, cy, '#48dbfb', false, 0.7);
+  ray(eyeLensX, cy, finalImgX, cy - h_final, '#48dbfb', ve < 0, 0.7);
+
+  const M_total = mo * me;
+  setResult(ve, M_total, 'Virtual, Inverted, Highly Magnified', 'M = mo × me ≈ (L/fo)×(D/fe)');
+}
+
+// ─── TELESCOPE ───────────────────────────────────────────────────
+function drawTelescope() {
+  const fo = getVal('sl-fo');
+  const fe = getVal('sl-fe');
+  const L = getVal('sl-L');
+  setLbl('lbl-fo', fo); setLbl('lbl-fe', fe); setLbl('lbl-L', L);
+
+  const cy = CY();
+  const objLensX = W() / 2 - L / 2;
+  const eyeLensX = W() / 2 + L / 2;
+
+  drawConvexLens(objLensX, 200);
+  drawConvexLens(eyeLensX, 140);
+
+  ctx.fillStyle = '#58a6ff'; ctx.font = 'bold 12px Segoe UI';
+  ctx.fillText('Objective', objLensX - 28, cy + 110);
+  ctx.fillText('Eyepiece', eyeLensX - 25, cy + 80);
+
+  focalDot(objLensX + fo, 'fo');
+  focalDot(eyeLensX - fe, 'fe');
+  focalDot(eyeLensX + fe, "fe'");
+
+  // Intermediate image at focal plane of objective
+  const alpha = 0.06; // angle of incoming parallel rays
+  const h_int = fo * Math.tan(alpha);
+  const intImgX = objLensX + fo;
+
+  // Draw incoming parallel rays (from distant object at angle alpha)
+  const numRays = 3;
+  const rayOffsets = [-50, 0, 50];
+  rayOffsets.forEach((dy, i) => {
+    const colors = ['#ff9f43', '#48dbfb', '#ff6b81'];
+    ray(objLensX - 250, cy + dy - 250 * Math.tan(alpha), objLensX, cy + dy, colors[i]);
+    // After objective, converge to intermediate image
+    ray(objLensX, cy + dy, intImgX, cy - h_int, colors[i]);
+  });
+
+  // Intermediate image
+  arrow(intImgX, cy, -h_int, '#a29bfe', 'I₁');
+
+  // Eyepiece: intermediate image at or near focal point of eyepiece
+  const ue = intImgX - eyeLensX;
+  const ve = 1 / ((1/fe) + (1/ue));
+  const me = ve / ue;
+  const h_final = -h_int * me;
+  const finalImgX = eyeLensX + ve;
+
+  // Rays through eyepiece
+  rayOffsets.forEach((dy, i) => {
+    const colors = ['#ff9f43', '#48dbfb', '#ff6b81'];
+    ray(intImgX, cy - h_int, eyeLensX, cy - h_int + (i - 1) * 30, colors[i], false, 0.7);
+    ray(eyeLensX, cy - h_int + (i - 1) * 30, eyeLensX + 300, cy - h_int + (i - 1) * 30 - 300 * (h_int / fe), colors[i], ve < 0, 0.7);
+  });
+
+  if (Math.abs(ve) < W() * 2) {
+    arrow(finalImgX, cy, h_final, '#ff6b6b', 'I₂');
+  }
+
+  const M = fo / fe;
+  setResult(ve, M, 'Virtual, Inverted, Magnified (angular)', 'M = fo / fe  |  L = fo + fe');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+onSysChange();
+</script>
+</body>
+</html>

@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Car Motion Physics Simulator </title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root{
+    --bg:#0d0f14;
+    --surface:#161921;
+    --surface2:#1e2330;
+    --border:rgba(255,255,255,0.08);
+    --border2:rgba(255,255,255,0.15);
+    --text:#e8eaf0;
+    --muted:#8892a4;
+    --accent:#4f9cf9;
+    --accent2:#f97b4f;
+    --accent3:#4fc89b;
+    --accent4:#f9c74f;
+    --purple:#d08fef;
+    --red:#f05252;
+    --radius:10px;
+    --font-sans:'DM Sans',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+    --font-serif:'Crimson Pro',serif;
+  }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-sans);
+    font-size:15px;
+    line-height:1.6;
+    min-height:100vh;
+  }
+
+  .header{
+    background:var(--surface);
+    border-bottom:1px solid var(--border2);
+    padding:1.5rem 2rem;
+    display:flex;
+    align-items:center;
+    gap:1rem;
+  }
+
+  .header-icon{
+    width:42px;height:42px;
+    background:linear-gradient(135deg,var(--accent),#7cb8ff);
+    border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 24px rgba(79,156,249,.25);
+  }
+
+  .header-icon svg{ width:22px;height:22px;fill:white; }
+  h1{ font-size:1.25rem;font-weight:600; }
+  .header-sub{ font-size:.82rem;color:var(--muted);font-family:var(--font-mono); }
+
+  .main{ max-width:1320px;margin:0 auto;padding:2rem; }
+
+  .section{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:1.5rem;
+    margin-bottom:1.5rem;
+    box-shadow:0 8px 30px rgba(0,0,0,.15);
+  }
+
+  .section-title{
+    font-size:.7rem;
+    font-weight:600;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin-bottom:1rem;
+    font-family:var(--font-mono);
+  }
+
+  .prose{
+    font-family:var(--font-serif);
+    font-size:1rem;
+    color:#bfc8d8;
+    line-height:1.8;
+  }
+
+  .highlight{
+    color:var(--accent4);
+    font-family:var(--font-mono);
+    font-size:.9em;
+  }
+
+  .eq-block{
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:1rem 1.2rem;
+    margin:.75rem 0;
+    font-family:var(--font-mono);
+    overflow-x:auto;
+  }
+
+  .eq-label{ font-size:.72rem;color:var(--muted);margin-bottom:.4rem; }
+  .eq-main{ color:var(--accent4);font-size:.95rem;white-space:nowrap; }
+  .eq-sub{ color:var(--muted);font-size:.8rem;margin-top:.35rem; }
+
+  .force-row{
+    display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;
+    font-family:var(--font-mono);font-size:.82rem;margin:.4rem 0;
+  }
+
+  .force-badge{
+    padding:2px 10px;border-radius:4px;font-size:.75rem;
+  }
+
+  .fb-drive{ background:rgba(79,156,249,.18); color:var(--accent); border:1px solid rgba(79,156,249,.3); }
+  .fb-air{ background:rgba(249,123,79,.18); color:var(--accent2); border:1px solid rgba(249,123,79,.3); }
+  .fb-fric{ background:rgba(79,200,155,.18); color:var(--accent3); border:1px solid rgba(79,200,155,.3); }
+  .fb-grav{ background:rgba(249,199,79,.18); color:var(--accent4); border:1px solid rgba(249,199,79,.3); }
+
+  .controls-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:1rem;
+  }
+
+  .ctrl{ display:flex;flex-direction:column;gap:.35rem; }
+
+  .ctrl label{
+    font-size:.75rem;
+    color:var(--muted);
+    font-family:var(--font-mono);
+    display:flex;justify-content:space-between;
+  }
+
+  .ctrl label span{ color:var(--accent4);font-weight:500; }
+
+  .ctrl input[type=range]{
+    width:100%;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
+
+  .ctrl select{
+    background:var(--surface2);
+    border:1px solid var(--border2);
+    color:var(--text);
+    padding:7px 9px;
+    border-radius:6px;
+    font-size:.82rem;
+    cursor:pointer;
+  }
+
+  .btn-row{ display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem; }
+
+  .btn{
+    padding:8px 18px;
+    border-radius:8px;
+    border:1px solid var(--border2);
+    background:var(--surface2);
+    color:var(--text);
+    font-size:.85rem;
+    cursor:pointer;
+    transition:.15s;
+  }
+
+  .btn:hover{
+    background:var(--surface);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+
+  .btn.primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+
+  .btn.primary:hover{ background:#3a8af0; }
+
+  .btn.danger{
+    background:rgba(240,82,82,.15);
+    border-color:var(--red);
+    color:var(--red);
+  }
+
+  .stats-row{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+    gap:.75rem;
+    margin-bottom:1.5rem;
+  }
+
+  .stat-card{
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:.75rem 1rem;
+  }
+
+  .stat-label{
+    font-size:.68rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-family:var(--font-mono);
+  }
+
+  .stat-value{
+    font-size:1.25rem;
+    font-weight:600;
+    font-family:var(--font-mono);
+    margin-top:.2rem;
+  }
+
+  #simCanvas{
+    width:100%;
+    height:190px;
+    border-radius:10px;
+    background:linear-gradient(180deg,#1d2230 0%,#171b25 100%);
+    border:1px solid var(--border);
+    display:block;
+  }
+
+  .playback-row{
+    display:flex;
+    align-items:center;
+    gap:1rem;
+    margin-top:.8rem;
+    flex-wrap:wrap;
+  }
+
+  .scrub-wrap{
+    flex:1;
+    min-width:220px;
+    display:flex;
+    align-items:center;
+    gap:.75rem;
+  }
+
+  #scrub{
+    width:100%;
+    accent-color:var(--accent3);
+    cursor:pointer;
+  }
+
+  .phase-indicator{
+    display:inline-flex;
+    gap:.5rem;
+    padding:4px 12px;
+    border-radius:20px;
+    font-size:.75rem;
+    font-family:var(--font-mono);
+    background:rgba(79,156,249,.15);
+    border:1px solid rgba(79,156,249,.3);
+    color:var(--accent);
+  }
+
+  .tabs{ display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap; }
+
+  .tab{
+    padding:5px 14px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--muted);
+    font-size:.78rem;
+    font-family:var(--font-mono);
+    cursor:pointer;
+    transition:.15s;
+  }
+
+  .tab.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+
+  .road-type-row{
+    display:flex;gap:.75rem;align-items:center;margin-top:.75rem;flex-wrap:wrap;
+  }
+
+  .road-seg{
+    padding:5px 14px;
+    border-radius:6px;
+    border:1px solid var(--border2);
+    background:var(--surface2);
+    color:var(--muted);
+    font-size:.78rem;
+    cursor:pointer;
+    font-family:var(--font-mono);
+    transition:.15s;
+  }
+
+  .road-seg.active{
+    border-color:var(--accent3);
+    color:var(--accent3);
+    background:rgba(79,200,155,.1);
+  }
+
+  .method-legend{
+    display:flex;gap:1rem;flex-wrap:wrap;margin-top:.5rem;
+  }
+
+  .legend-item{
+    display:flex;align-items:center;gap:.4rem;
+    font-size:.75rem;color:var(--muted);font-family:var(--font-mono);
+  }
+
+  .legend-dot{ width:12px;height:3px;border-radius:2px; }
+
+  .charts-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1rem;
+  }
+
+  @media (max-width:900px){
+    .charts-grid{ grid-template-columns:1fr; }
+  }
+
+  .chart-wrap{
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:1rem;
+  }
+
+  .chart-title{
+    font-size:.72rem;
+    font-family:var(--font-mono);
+    color:var(--muted);
+    margin-bottom:.6rem;
+  }
+
+  .chart-canvas-wrap{
+    position:relative;
+    height:220px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 24 24"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v5a2 2 0 0 1-2 2h-2M7 17a3 3 0 1 0 6 0 3 3 0 0 0-6 0m10 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg>
+  </div>
+  <div>
+    <h1>Car Motion Physics Simulator</h1>
+    <div class="header-sub">Analytical · Numerical (RK4) · Dynamic Graph Tracking · Better Realism</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="section">
+    <div class="section-title">1 · Equation of Motion</div>
+    <p class="prose">
+      This simulator models 1-D car motion on a road with incline angle <span class="highlight">θ</span>.
+      The car is influenced by engine traction, aerodynamic drag, rolling resistance, and gravity.
+    </p>
+
+    <div style="margin:1rem 0;">
+      <div class="force-row"><span class="force-badge fb-drive">F_drive</span><span style="color:var(--muted)">Propulsive / braking force</span></div>
+      <div class="force-row"><span class="force-badge fb-air">F_air</span><span style="color:var(--muted)">Aerodynamic drag: ½ρC<sub>d</sub>Av²</span></div>
+      <div class="force-row"><span class="force-badge fb-fric">F_roll</span><span style="color:var(--muted)">Rolling resistance: μ<sub>r</sub>mg cosθ</span></div>
+      <div class="force-row"><span class="force-badge fb-grav">F_grav</span><span style="color:var(--muted)">Slope gravity: mg sinθ</span></div>
+    </div>
+
+    <div class="eq-block">
+      <div class="eq-label">Equation of motion</div>
+      <div class="eq-main">m a = F_drive − ½ρC_d A v|v| − μ_r m g cos(θ) sgn(v) − m g sin(θ)</div>
+    </div>
+
+    <div class="eq-block">
+      <div class="eq-label">Acceleration form</div>
+      <div class="eq-main">dv/dt = [F_drive − F_air − F_roll − F_grav] / m</div>
+      <div class="eq-sub">Integrated numerically using 4th-order Runge–Kutta.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2 · Parameters & Road Profile</div>
+    <div class="controls-grid">
+      <div class="ctrl">
+        <label>Mass m (kg) <span id="lbl_mass">1200</span></label>
+        <input type="range" id="sl_mass" min="500" max="3000" step="50" value="1200">
+      </div>
+      <div class="ctrl">
+        <label>Engine Force F_drive (N) <span id="lbl_fdrive">3000</span></label>
+        <input type="range" id="sl_fdrive" min="0" max="10000" step="100" value="3000">
+      </div>
+      <div class="ctrl">
+        <label>Initial speed v₀ (m/s) <span id="lbl_v0">0</span></label>
+        <input type="range" id="sl_v0" min="0" max="40" step="1" value="0">
+      </div>
+      <div class="ctrl">
+        <label>Drag coefficient C_d <span id="lbl_cd">0.30</span></label>
+        <input type="range" id="sl_cd" min="0.1" max="1.0" step="0.01" value="0.30">
+      </div>
+      <div class="ctrl">
+        <label>Frontal area A (m²) <span id="lbl_area">2.2</span></label>
+        <input type="range" id="sl_area" min="0.5" max="5" step="0.1" value="2.2">
+      </div>
+      <div class="ctrl">
+        <label>Rolling friction μ_r <span id="lbl_mu">0.012</span></label>
+        <input type="range" id="sl_mu" min="0.005" max="0.1" step="0.001" value="0.012">
+      </div>
+      <div class="ctrl">
+        <label>Incline angle θ (°) <span id="lbl_theta">0</span></label>
+        <input type="range" id="sl_theta" min="-15" max="15" step="0.5" value="0">
+      </div>
+      <div class="ctrl">
+        <label>Simulation time T (s) <span id="lbl_T">30</span></label>
+        <input type="range" id="sl_T" min="5" max="120" step="5" value="30">
+      </div>
+      <div class="ctrl">
+        <label>Air density ρ (kg/m³) <span id="lbl_rho">1.225</span></label>
+        <input type="range" id="sl_rho" min="0.8" max="1.6" step="0.005" value="1.225">
+      </div>
+      <div class="ctrl">
+        <label>Traction coefficient μ_t <span id="lbl_mut">0.95</span></label>
+        <input type="range" id="sl_mut" min="0.3" max="1.4" step="0.01" value="0.95">
+      </div>
+    </div>
+
+    <div class="road-type-row">
+      <span style="font-size:.75rem;color:var(--muted);font-family:var(--font-mono);">Road profile:</span>
+      <button class="road-seg active" id="road_flat" onclick="setRoad('flat')">Flat</button>
+      <button class="road-seg" id="road_uphill" onclick="setRoad('uphill')">Uphill</button>
+      <button class="road-seg" id="road_downhill" onclick="setRoad('downhill')">Downhill</button>
+      <button class="road-seg" id="road_mixed" onclick="setRoad('mixed')">Mixed</button>
+      <button class="road-seg" id="road_wave" onclick="setRoad('wave')">Wave</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" onclick="runSim()">Run Simulation</button>
+      <button class="btn" onclick="resetDefaults()">Reset Defaults</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-label">Max speed</div><div class="stat-value" id="st_vmax" style="color:var(--accent)">—</div></div>
+    <div class="stat-card"><div class="stat-label">Distance</div><div class="stat-value" id="st_dist" style="color:var(--accent3)">—</div></div>
+    <div class="stat-card"><div class="stat-label">Max accel</div><div class="stat-value" id="st_amax" style="color:var(--accent2)">—</div></div>
+    <div class="stat-card"><div class="stat-label">Terminal v</div><div class="stat-value" id="st_vt" style="color:var(--accent4)">—</div></div>
+    <div class="stat-card"><div class="stat-label">Work done</div><div class="stat-value" id="st_work" style="color:var(--purple)">—</div></div>
+  </div>
+
+  <div class="section" style="padding:1rem 1.5rem;">
+    <div class="section-title">3 · Visual Simulation</div>
+    <canvas id="simCanvas"></canvas>
+
+    <div class="playback-row">
+      <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ Play</button>
+      <button class="btn" onclick="resetAnim()">■ Reset</button>
+
+      <div class="scrub-wrap">
+        <span style="font-size:.75rem;color:var(--muted);font-family:var(--font-mono);">Scrub</span>
+        <input type="range" id="scrub" min="0" max="0" value="0">
+      </div>
+
+      <div class="phase-indicator" id="phaseLabel">Ready — press Run Simulation first</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">4 · Time-Series Graphs</div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="setChartMode(event,'all')">All Graphs</button>
+      <button class="tab" onclick="setChartMode(event,'xt')">x–t</button>
+      <button class="tab" onclick="setChartMode(event,'vt')">v–t</button>
+      <button class="tab" onclick="setChartMode(event,'at')">a–t</button>
+      <button class="tab" onclick="setChartMode(event,'forces')">Forces</button>
+    </div>
+
+    <div class="method-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#4f9cf9"></div>Numerical (RK4)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f97b4f; border-top:2px dashed #f97b4f; background:none; width:18px; height:0;"></div>Analytical (coast-down approx.)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ffffff"></div>Moving marker</div>
+    </div>
+
+    <div class="charts-grid" id="chartsGrid" style="margin-top:1rem;">
+      <div class="chart-wrap">
+        <div class="chart-title">x(t) — Position vs Time [m]</div>
+        <div class="chart-canvas-wrap"><canvas id="chartXT"></canvas></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">v(t) — Velocity vs Time [m/s]</div>
+        <div class="chart-canvas-wrap"><canvas id="chartVT"></canvas></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">a(t) — Acceleration vs Time [m/s²]</div>
+        <div class="chart-canvas-wrap"><canvas id="chartAT"></canvas></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Forces vs Time [N]</div>
+        <div class="chart-canvas-wrap"><canvas id="chartF"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">5 · Parameter Sensitivity</div>
+    <p class="prose" style="margin-bottom:1rem;">Vary a single parameter and observe how maximum speed and total distance change.</p>
+
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+      <div class="ctrl" style="min-width:180px;">
+        <label>Sweep parameter</label>
+        <select id="sweepParam">
+          <option value="mass">Mass (kg)</option>
+          <option value="fdrive">Engine Force (N)</option>
+          <option value="cd">Drag coeff C_d</option>
+          <option value="mu">Rolling friction μ_r</option>
+          <option value="theta">Incline angle (°)</option>
+        </select>
+      </div>
+      <button class="btn primary" onclick="runSweep()">Run Sweep</button>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-wrap">
+        <div class="chart-title">Max velocity vs parameter</div>
+        <div class="chart-canvas-wrap"><canvas id="chartSweepV"></canvas></div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Total distance vs parameter</div>
+        <div class="chart-canvas-wrap"><canvas id="chartSweepX"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================
+   CONSTANTS / GLOBALS
+============================= */
+const G = 9.81;
+let roadMode = 'flat';
+let simData = null;
+
+let chartXT, chartVT, chartAT, chartF, chartSweepV, chartSweepX;
+let animFrame = null;
+let animPlaying = false;
+let animIdx = 0;
+
+const sliders = ['mass','fdrive','v0','cd','area','mu','theta','T','rho','mut'];
+
+/* =============================
+   UI LABELS
+============================= */
+sliders.forEach(id => {
+  const el = document.getElementById('sl_' + id);
+  const lbl = document.getElementById('lbl_' + id);
+  el.addEventListener('input', () => {
+    lbl.textContent = parseFloat(el.value).toFixed(el.step < 0.01 ? 3 : el.step < 1 ? 2 : 0);
+  });
+});
+
+document.getElementById('scrub').addEventListener('input', (e) => {
+  if (!simData) return;
+  animIdx = parseInt(e.target.value);
+  animPlaying = false;
+  cancelAnimationFrame(animFrame);
+  document.getElementById('playBtn').textContent = '▶ Play';
+  updateAllDynamic(animIdx);
+});
+
+/* =============================
+   PARAMS
+============================= */
+function getParams(){
+  return {
+    m: parseFloat(document.getElementById('sl_mass').value),
+    Fd: parseFloat(document.getElementById('sl_fdrive').value),
+    v0: parseFloat(document.getElementById('sl_v0').value),
+    Cd: parseFloat(document.getElementById('sl_cd').value),
+    A: parseFloat(document.getElementById('sl_area').value),
+    mu: parseFloat(document.getElementById('sl_mu').value),
+    theta_deg: parseFloat(document.getElementById('sl_theta').value),
+    T: parseFloat(document.getElementById('sl_T').value),
+    rho: parseFloat(document.getElementById('sl_rho').value),
+    mu_t: parseFloat(document.getElementById('sl_mut').value)
+  };
+}
+
+function setRoad(mode){
+  roadMode = mode;
+  ['flat','uphill','downhill','mixed','wave'].forEach(r => {
+    document.getElementById('road_' + r).classList.toggle('active', r === mode);
+  });
+}
+
+function getThetaAtTime(t, T, mode){
+  const base = parseFloat(document.getElementById('sl_theta').value);
+
+  if (mode === 'flat') return 0;
+  if (mode === 'uphill') return base > 0 ? base : 8;
+  if (mode === 'downhill') return base < 0 ? base : -8;
+
+  if (mode === 'mixed'){
+    if (t < T * 0.25) return 0;
+    if (t < T * 0.55) return 7;
+    if (t < T * 0.8) return -4;
+    return 0;
+  }
+
+  if (mode === 'wave'){
+    return 6 * Math.sin((2 * Math.PI * t) / Math.max(T, 1));
+  }
+
+  return 0;
+}
+
+/* =============================
+   PHYSICS
+============================= */
+function engineForce(v, p){
+  // Better realism:
+  // - traction-limited launch
+  // - force tapers at higher speed
+  const tractionMax = p.mu_t * p.m * G * 0.65;
+  const speedFade = 1 / (1 + Math.pow(v / 28, 2)); // fades with speed
+  return Math.min(p.Fd * speedFade + p.Fd * 0.15, tractionMax);
+}
+
+function forces(v, t, p, mode){
+  const theta = getThetaAtTime(t, p.T, mode) * Math.PI / 180;
+  const kaero = 0.5 * p.rho * p.Cd * p.A;
+
+  const signV = v > 0.02 ? 1 : v < -0.02 ? -1 : 0;
+
+  const F_engine = engineForce(v, p);
+  const F_air = kaero * v * Math.abs(v);
+  const F_roll = p.mu * p.m * G * Math.cos(theta) * signV;
+  const F_grav = p.m * G * Math.sin(theta);
+
+  return {
+    theta,
+    F_engine,
+    F_air,
+    F_roll,
+    F_grav,
+    F_net: F_engine - F_air - F_roll - F_grav
+  };
+}
+
+function accel(v, t, p, mode){
+  const F = forces(v, t, p, mode);
+  return F.F_net / p.m;
+}
+
+function rk4(p, mode){
+  const h = 0.05;
+  const steps = Math.ceil(p.T / h);
+
+  const t_arr = [], x_arr = [], v_arr = [], a_arr = [];
+  const fd_arr = [], fa_arr = [], ff_arr = [], fg_arr = [], theta_arr = [];
+
+  let x = 0;
+  let v = p.v0;
+
+  for (let i = 0; i <= steps; i++){
+    const t = i * h;
+
+    const F = forces(v, t, p, mode);
+    const a = F.F_net / p.m;
+
+    t_arr.push(+t.toFixed(3));
+    x_arr.push(+x.toFixed(4));
+    v_arr.push(+v.toFixed(4));
+    a_arr.push(+a.toFixed(4));
+    fd_arr.push(+F.F_engine.toFixed(2));
+    fa_arr.push(+(-F.F_air).toFixed(2));
+    ff_arr.push(+(-F.F_roll).toFixed(2));
+    fg_arr.push(+(-F.F_grav).toFixed(2));
+    theta_arr.push(+(F.theta * 180 / Math.PI).toFixed(3));
+
+    const k1v = accel(v, t, p, mode);
+    const k1x = v;
+
+    const k2v = accel(v + 0.5 * h * k1v, t + 0.5 * h, p, mode);
+    const k2x = v + 0.5 * h * k1v;
+
+    const k3v = accel(v + 0.5 * h * k2v, t + 0.5 * h, p, mode);
+    const k3x = v + 0.5 * h * k2v;
+
+    const k4v = accel(v + h * k3v, t + h, p, mode);
+    const k4x = v + h * k3v;
+
+    v += (h / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+    x += (h / 6) * (k1x + 2 * k2x + 2 * k3x + k4x);
+
+    if (v < 0) v = 0;
+  }
+
+  return {
+    t: t_arr, x: x_arr, v: v_arr, a: a_arr,
+    fd: fd_arr, fa: fa_arr, ff: ff_arr, fg: fg_arr, theta: theta_arr
+  };
+}
+
+function analyticalCoastdown(p, tArr){
+  const kaero = 0.5 * p.rho * p.Cd * p.A;
+  return tArr.map(t => p.v0 / (1 + (kaero * p.v0 / p.m) * t + p.mu * G * t));
+}
+
+function terminalVel(p){
+  const kaero = 0.5 * p.rho * p.Cd * p.A;
+  const Fe = Math.min(p.Fd, p.mu_t * p.m * G * 0.65);
+  const num = Fe - p.mu * p.m * G;
+  if (num <= 0) return 0;
+  return Math.sqrt(num / kaero);
+}
+
+/* =============================
+   CHART MARKER PLUGIN
+============================= */
+const movingMarkerPlugin = {
+  id: 'movingMarkerPlugin',
+  afterDatasetsDraw(chart, args, pluginOptions){
+    const markerIndex = chart.options.plugins.movingMarker?.index;
+    const datasetIndex = chart.options.plugins.movingMarker?.datasetIndex ?? 0;
+
+    if (markerIndex == null) return;
+    const meta = chart.getDatasetMeta(datasetIndex);
+    const point = meta.data[markerIndex];
+    if (!point) return;
+
+    const ctx = chart.ctx;
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+};
+
+Chart.register(movingMarkerPlugin);
+
+/* =============================
+   CHART HELPERS
+============================= */
+function makeChart(id, datasets){
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: {
+          display: datasets.length > 1,
+          labels: {
+            color: '#8892a4',
+            font: { size: 11, family: "'JetBrains Mono'" },
+            boxWidth: 12,
+            boxHeight: 2
+          }
+        },
+        movingMarker: { index: 0, datasetIndex: 0 }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8892a4', font: { size: 10 }, maxTicksLimit: 8 },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          border: { color: 'rgba(255,255,255,0.1)' }
+        },
+        y: {
+          ticks: { color: '#8892a4', font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          border: { color: 'rgba(255,255,255,0.1)' }
+        }
+      }
+    }
+  });
+}
+
+function initCharts(){
+  [chartXT, chartVT, chartAT, chartF, chartSweepV, chartSweepX].forEach(c => c && c.destroy());
+
+  chartXT = makeChart('chartXT', [
+    { label:'x(t)', data:[], borderColor:'#4fc89b', borderWidth:2, pointRadius:0, tension:.25 }
+  ]);
+
+  chartVT = makeChart('chartVT', [
+    { label:'v(t) RK4', data:[], borderColor:'#4f9cf9', borderWidth:2, pointRadius:0, tension:.25 },
+    { label:'v(t) Analytical', data:[], borderColor:'#f97b4f', borderWidth:1.6, borderDash:[6,3], pointRadius:0, tension:.25 }
+  ]);
+
+  chartAT = makeChart('chartAT', [
+    { label:'a(t)', data:[], borderColor:'#f9c74f', borderWidth:2, pointRadius:0, tension:.25 }
+  ]);
+
+  chartF = makeChart('chartF', [
+    { label:'F_drive', data:[], borderColor:'#4f9cf9', borderWidth:1.7, pointRadius:0, tension:.2 },
+    { label:'F_air', data:[], borderColor:'#f97b4f', borderWidth:1.7, pointRadius:0, tension:.2 },
+    { label:'F_roll', data:[], borderColor:'#4fc89b', borderWidth:1.7, pointRadius:0, tension:.2 },
+    { label:'F_grav', data:[], borderColor:'#f9c74f', borderWidth:1.7, pointRadius:0, tension:.2 }
+  ]);
+
+  chartSweepV = makeChart('chartSweepV', [
+    { label:'v_max', data:[], borderColor:'#4f9cf9', borderWidth:2, pointRadius:2, tension:.25 }
+  ]);
+
+  chartSweepX = makeChart('chartSweepX', [
+    { label:'distance', data:[], borderColor:'#4fc89b', borderWidth:2, pointRadius:2, tension:.25 }
+  ]);
+}
+
+function setMarker(chart, idx, datasetIndex=0){
+  chart.options.plugins.movingMarker.index = idx;
+  chart.options.plugins.movingMarker.datasetIndex = datasetIndex;
+}
+
+function updateMarkers(idx){
+  if (!simData) return;
+  setMarker(chartXT, idx, 0);
+  setMarker(chartVT, idx, 0);
+  setMarker(chartAT, idx, 0);
+  setMarker(chartF, idx, 0);
+
+  chartXT.update('none');
+  chartVT.update('none');
+  chartAT.update('none');
+  chartF.update('none');
+}
+
+/* =============================
+   RUN SIM
+============================= */
+function runSim(){
+  const p = getParams();
+  const d = rk4(p, roadMode);
+  simData = { ...d, p, mode: roadMode };
+
+  const analV = analyticalCoastdown(p, d.t);
+
+  chartXT.data.labels = d.t;
+  chartXT.data.datasets[0].data = d.x;
+
+  chartVT.data.labels = d.t;
+  chartVT.data.datasets[0].data = d.v;
+  chartVT.data.datasets[1].data = analV;
+
+  chartAT.data.labels = d.t;
+  chartAT.data.datasets[0].data = d.a;
+
+  chartF.data.labels = d.t;
+  chartF.data.datasets[0].data = d.fd;
+  chartF.data.datasets[1].data = d.fa;
+  chartF.data.datasets[2].data = d.ff;
+  chartF.data.datasets[3].data = d.fg;
+
+  updateMarkers(0);
+
+  const vmax = Math.max(...d.v);
+  const dist = d.x[d.x.length - 1];
+  const amax = Math.max(...d.a.map(Math.abs));
+  const vt = terminalVel(p);
+  const work = d.x.reduce((sum, _, i) => {
+    if (i === 0) return 0;
+    const dx = d.x[i] - d.x[i-1];
+    return sum + d.fd[i] * dx;
+  }, 0);
+
+  document.getElementById('st_vmax').textContent = vmax.toFixed(1) + ' m/s';
+  document.getElementById('st_dist').textContent = dist.toFixed(0) + ' m';
+  document.getElementById('st_amax').textContent = amax.toFixed(2) + ' m/s²';
+  document.getElementById('st_vt').textContent = vt.toFixed(1) + ' m/s';
+  document.getElementById('st_work').textContent = (work / 1000).toFixed(1) + ' kJ';
+
+  document.getElementById('scrub').max = d.t.length - 1;
+  document.getElementById('scrub').value = 0;
+
+  resetAnim();
+  document.getElementById('phaseLabel').textContent = `Simulation ready — T = ${p.T}s, ${d.t.length} steps`;
+}
+
+/* =============================
+   ANIMATION
+============================= */
+function drawSim(idx){
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // sky glow
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#202738');
+  sky.addColorStop(1,'#171b25');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,W,H);
+
+  if (!simData){
+    ctx.fillStyle = '#8892a4';
+    ctx.font = '13px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('Run the simulation first', W/2, H/2);
+    return;
+  }
+
+  const { t, x, v, a, theta, p } = simData;
+  const curT = t[idx];
+  const curX = x[idx];
+  const curV = v[idx];
+  const curA = a[idx];
+  const curTheta = (theta[idx] || 0) * Math.PI / 180;
+
+  const maxX = Math.max(x[x.length - 1], 1);
+  const roadY = H * 0.72;
+  const slope = Math.sin(curTheta);
+
+  // road
+  const roadGrad = ctx.createLinearGradient(0, roadY - 8, 0, H);
+  roadGrad.addColorStop(0, '#2b3244');
+  roadGrad.addColorStop(1, '#171b25');
+
+  ctx.beginPath();
+  ctx.moveTo(0, roadY + slope * W * 0.45);
+  ctx.lineTo(W, roadY - slope * W * 0.45);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = roadGrad;
+  ctx.fill();
+
+  // lane marks
+  ctx.strokeStyle = '#3d475d';
+  ctx.lineWidth = 1.2;
+  for (let xi = -40; xi < W + 40; xi += 60){
+    const yy = roadY + slope * (W/2 - xi);
+    ctx.beginPath();
+    ctx.moveTo(xi, yy - 10);
+    ctx.lineTo(xi + 28, yy - 10 + slope * 28);
+    ctx.stroke();
+  }
+
+  // mountains
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.beginPath();
+  ctx.moveTo(0, H*0.55);
+  ctx.lineTo(W*0.2, H*0.35);
+  ctx.lineTo(W*0.45, H*0.58);
+  ctx.lineTo(W*0.7, H*0.28);
+  ctx.lineTo(W, H*0.5);
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+
+  const carPxX = 60 + (curX / maxX) * (W - 120);
+  const carPxY = roadY + slope * (W/2 - carPxX) - 24;
+
+  // trace
+  ctx.strokeStyle = 'rgba(79,156,249,0.28)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  const start = Math.max(0, idx - 250);
+  for (let i = start; i <= idx; i++){
+    const px = 60 + (x[i] / maxX) * (W - 120);
+    const py = roadY + slope * (W/2 - px) - 24;
+    if (i === start) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // car
+  const cw = 54, ch = 22;
+  ctx.save();
+  ctx.translate(carPxX, carPxY);
+  ctx.rotate(-curTheta);
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(0, ch + 4, cw * 0.62, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // body
+  const bodyGrad = ctx.createLinearGradient(-cw/2,0,cw/2,0);
+  bodyGrad.addColorStop(0,'#3b87e9');
+  bodyGrad.addColorStop(1,'#63adff');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.roundRect(-cw/2, -ch/2, cw, ch, 6);
+  ctx.fill();
+
+  // roof
+  ctx.fillStyle = '#2c63a8';
+  ctx.beginPath();
+  ctx.roundRect(-cw/2 + 8, -ch/2 - 12, cw - 16, 14, 4);
+  ctx.fill();
+
+  // windows
+  ctx.fillStyle = 'rgba(205,232,255,.68)';
+  ctx.fillRect(-cw/2 + 12, -ch/2 - 10, 12, 10);
+  ctx.fillRect(-cw/2 + 27, -ch/2 - 10, 12, 10);
+
+  // wheels
+  const spin = curX * 0.12;
+  [[-cw/2 + 10, ch/2 + 2], [cw/2 - 10, ch/2 + 2]].forEach(([wx, wy]) => {
+    ctx.fillStyle = '#1b1f29';
+    ctx.beginPath();
+    ctx.arc(wx, wy, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(wx, wy);
+    ctx.rotate(spin);
+    ctx.strokeStyle = '#69748b';
+    ctx.lineWidth = 1.5;
+    for(let k=0;k<4;k++){
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(0,6);
+      ctx.stroke();
+      ctx.rotate(Math.PI/2);
+    }
+    ctx.restore();
+
+    ctx.fillStyle = '#a5b3c9';
+    ctx.beginPath();
+    ctx.arc(wx, wy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+
+  // HUD
+  const hud = [
+    { label:'t', val:curT.toFixed(1)+' s', color:'#8892a4' },
+    { label:'x', val:curX.toFixed(1)+' m', color:'#4fc89b' },
+    { label:'v', val:(curV*3.6).toFixed(1)+' km/h', color:'#4f9cf9' },
+    { label:'a', val:curA.toFixed(2)+' m/s²', color:'#f9c74f' }
+  ];
+
+  ctx.font = '11px JetBrains Mono';
+  hud.forEach(({label,val,color}, i) => {
+    ctx.fillStyle = '#8892a4';
+    ctx.textAlign = 'left';
+    ctx.fillText(label + ':', 12 + i * 118, 18);
+    ctx.fillStyle = color;
+    ctx.fillText(val, 30 + i * 118, 18);
+  });
+
+  if (Math.abs(curTheta) > 0.01){
+    ctx.fillStyle = curTheta > 0 ? '#f97b4f' : '#4fc89b';
+    ctx.textAlign = 'right';
+    ctx.fillText('θ = ' + (curTheta * 180 / Math.PI).toFixed(1) + '°', W - 12, 18);
+  }
+}
+
+function getPhase(idx){
+  if (!simData) return '';
+  const a = simData.a[idx];
+  const v = simData.v[idx];
+
+  if (v < 0.1) return 'Phase: stationary';
+  if (a > 0.6) return 'Phase: accelerating → a = ' + a.toFixed(2) + ' m/s²';
+  if (Math.abs(a) < 0.08) return 'Phase: near terminal velocity → v ≈ ' + (v * 3.6).toFixed(1) + ' km/h';
+  return 'Phase: decelerating → a = ' + a.toFixed(2) + ' m/s²';
+}
+
+function updateAllDynamic(idx){
+  drawSim(idx);
+  updateMarkers(idx);
+  document.getElementById('phaseLabel').textContent = getPhase(idx);
+  document.getElementById('scrub').value = idx;
+}
+
+function togglePlay(){
+  if (!simData) return;
+  animPlaying = !animPlaying;
+  document.getElementById('playBtn').textContent = animPlaying ? '⏸ Pause' : '▶ Play';
+  if (animPlaying) stepAnim();
+}
+
+function stepAnim(){
+  if (!animPlaying || !simData) return;
+
+  animIdx = Math.min(animIdx + 1, simData.t.length - 1);
+  updateAllDynamic(animIdx);
+
+  if (animIdx < simData.t.length - 1){
+    animFrame = requestAnimationFrame(stepAnim);
+  } else {
+    animPlaying = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+  }
+}
+
+function resetAnim(){
+  animPlaying = false;
+  cancelAnimationFrame(animFrame);
+  animIdx = 0;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  updateAllDynamic(0);
+}
+
+/* =============================
+   PARAMETER SWEEP
+============================= */
+function runSweep(){
+  const p = getParams();
+  const paramId = document.getElementById('sweepParam').value;
+
+  const ranges = {
+    mass:   { vals:[400,600,800,1000,1200,1500,2000,2500,3000], unit:'kg' },
+    fdrive: { vals:[500,1000,2000,3000,5000,7000,9000], unit:'N' },
+    cd:     { vals:[0.1,0.2,0.3,0.4,0.5,0.7,1.0], unit:'' },
+    mu:     { vals:[0.005,0.008,0.012,0.02,0.04,0.07,0.1], unit:'' },
+    theta:  { vals:[-12,-8,-4,0,4,8,12], unit:'°' }
+  };
+
+  const range = ranges[paramId];
+  const labels = range.vals.map(v => v + range.unit);
+  const vmaxArr = [];
+  const distArr = [];
+
+  range.vals.forEach(val => {
+    const pp = { ...p };
+
+    if (paramId === 'mass') pp.m = val;
+    if (paramId === 'fdrive') pp.Fd = val;
+    if (paramId === 'cd') pp.Cd = val;
+    if (paramId === 'mu') pp.mu = val;
+    if (paramId === 'theta') pp.theta_deg = val;
+
+    const mode = paramId === 'theta'
+      ? (val > 0 ? 'uphill' : val < 0 ? 'downhill' : 'flat')
+      : roadMode;
+
+    const d = rk4(pp, mode);
+    vmaxArr.push(+(Math.max(...d.v) * 3.6).toFixed(1));
+    distArr.push(+(d.x[d.x.length - 1]).toFixed(0));
+  });
+
+  chartSweepV.data.labels = labels;
+  chartSweepV.data.datasets[0].data = vmaxArr;
+  chartSweepV.data.datasets[0].label = 'v_max (km/h)';
+  chartSweepV.update();
+
+  chartSweepX.data.labels = labels;
+  chartSweepX.data.datasets[0].data = distArr;
+  chartSweepX.data.datasets[0].label = 'distance (m)';
+  chartSweepX.update();
+}
+
+/* =============================
+   VIEW TABS
+============================= */
+function setChartMode(evt, mode){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  evt.target.classList.add('active');
+
+  const show = {
+    all:['chartXT','chartVT','chartAT','chartF'],
+    xt:['chartXT'],
+    vt:['chartVT'],
+    at:['chartAT'],
+    forces:['chartF']
+  };
+
+  const ids = ['chartXT','chartVT','chartAT','chartF'];
+  const toShow = show[mode];
+
+  document.querySelectorAll('#chartsGrid .chart-wrap').forEach((wrap, i) => {
+    wrap.style.display = toShow.includes(ids[i]) ? '' : 'none';
+  });
+
+  document.getElementById('chartsGrid').style.gridTemplateColumns =
+    mode === 'all' ? '1fr 1fr' : '1fr';
+}
+
+/* =============================
+   RESET
+============================= */
+function resetDefaults(){
+  document.getElementById('sl_mass').value = 1200;
+  document.getElementById('sl_fdrive').value = 3000;
+  document.getElementById('sl_v0').value = 0;
+  document.getElementById('sl_cd').value = 0.30;
+  document.getElementById('sl_area').value = 2.2;
+  document.getElementById('sl_mu').value = 0.012;
+  document.getElementById('sl_theta').value = 0;
+  document.getElementById('sl_T').value = 30;
+  document.getElementById('sl_rho').value = 1.225;
+  document.getElementById('sl_mut').value = 0.95;
+
+  sliders.forEach(id => {
+    const el = document.getElementById('sl_' + id);
+    const lbl = document.getElementById('lbl_' + id);
+    lbl.textContent = parseFloat(el.value).toFixed(el.step < 0.01 ? 3 : el.step < 1 ? 2 : 0);
+  });
+
+  setRoad('flat');
+  runSim();
+}
+
+/* =============================
+   INIT
+============================= */
+initCharts();
+drawSim(0);
+runSim();
+</script>
+</body>
+</html>

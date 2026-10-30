@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optics Lab — Interactive Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07090f;--surface:#0c1018;--surface2:#111726;--border:#1c2740;--border2:#253355;
+  --amber:#f5a623;--amber-dim:#7a5010;--cyan:#00c8f8;--green:#36e09a;--violet:#a78bfa;
+  --red:#ff7070;--text:#c0cfe8;--text-dim:#5a6a88;--bright:#e8f0ff;
+}
+body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;min-height:100vh}
+.app{max-width:1180px;margin:0 auto;padding:0 18px 40px}
+/* Header */
+.hdr{padding:20px 0 14px;display:flex;align-items:baseline;gap:14px;border-bottom:1px solid var(--border)}
+.hdr h1{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bright)}
+.hdr h1 span{color:var(--amber)}
+.hdr sub{font-size:11px;font-family:'Space Mono',monospace;color:var(--text-dim);letter-spacing:.1em}
+/* Tabs */
+.mtabs{display:flex;gap:1px;padding:14px 0 0;border-bottom:1px solid var(--border);overflow-x:auto}
+.mbt{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:none;border:none;color:var(--text-dim);padding:7px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap}
+.mbt:hover{color:var(--text)}
+.mbt.act{color:var(--amber);border-bottom-color:var(--amber)}
+/* Tab content */
+.tc{display:none;padding:18px 0}
+.tc.act{display:block}
+/* Sim layout */
+.sl{display:grid;grid-template-columns:1fr 278px;gap:14px}
+@media(max-width:900px){.sl,.physl{grid-template-columns:1fr}}
+/* Canvas area */
+.ca{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.ctb{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ctitle{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--amber)}
+.tbr{display:flex;gap:7px;align-items:center}
+.tg{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.tb{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;background:none;border:none;color:var(--text-dim);padding:5px 11px;cursor:pointer;transition:all .15s}
+.tb.act{background:var(--amber);color:#050810}
+.cw{position:relative}
+.cw canvas{display:block;width:100%;height:auto;transition:transform .45s ease}
+.cw.v3d canvas{transform:perspective(850px) rotateX(20deg) rotateY(-7deg) scale(0.96);transform-origin:center center}
+/* Controls */
+.cp{display:flex;flex-direction:column;gap:11px}
+.cs{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.csh{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);padding:7px 12px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.cb{padding:11px;display:flex;flex-direction:column;gap:13px}
+.sr{display:flex;flex-direction:column;gap:5px}
+.sr label{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-dim)}
+.sr label .pn{font-family:'Space Mono',monospace;font-size:10.5px}
+.sr label .pv{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--amber)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--amber);border-radius:50%;cursor:pointer;transition:transform .15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.35)}
+/* Results */
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
+.ri{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:7px 9px}
+.rl{font-family:'Barlow Condensed',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
+.rv{font-family:'Space Mono',monospace;font-size:12px;color:var(--bright)}
+.rv.pos{color:var(--green)}.rv.neg{color:var(--violet)}.rv.hl{color:var(--amber)}
+.ri.fw{grid-column:1/-1}
+.bdg{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-right:3px}
+.b-real{background:rgba(54,224,154,.13);color:var(--green);border:1px solid rgba(54,224,154,.28)}
+.b-virt{background:rgba(167,139,250,.13);color:var(--violet);border:1px solid rgba(167,139,250,.28)}
+.b-inv{background:rgba(255,112,112,.13);color:var(--red);border:1px solid rgba(255,112,112,.28)}
+.b-upr{background:rgba(0,200,248,.13);color:var(--cyan);border:1px solid rgba(0,200,248,.28)}
+.b-enl{background:rgba(245,166,35,.13);color:var(--amber);border:1px solid rgba(245,166,35,.28)}
+.b-dim{background:rgba(90,106,136,.12);color:var(--text-dim);border:1px solid var(--border)}
+/* Physics */
+.physl{display:grid;grid-template-columns:195px 1fr;gap:14px;min-height:600px}
+.pnav{display:flex;flex-direction:column;gap:2px}
+.pnb{text-align:left;background:none;border:none;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);padding:9px 13px;border-radius:4px;cursor:pointer;transition:all .15s;border-left:2px solid transparent}
+.pnb:hover{color:var(--text);background:var(--surface2)}
+.pnb.act{color:var(--amber);background:var(--surface2);border-left-color:var(--amber)}
+.pc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:22px;overflow-y:auto;max-height:680px}
+.pc h2{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--amber);margin-bottom:14px;padding-bottom:11px;border-bottom:1px solid var(--border)}
+.pc h3{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--cyan);margin:18px 0 7px}
+.pc p{font-size:13.5px;line-height:1.65;color:var(--text);margin-bottom:9px}
+.fb{background:var(--surface2);border:1px solid var(--border2);border-left:3px solid var(--amber);border-radius:4px;padding:13px 16px;margin:11px 0;font-family:'Space Mono',monospace;font-size:12.5px;color:var(--bright);line-height:1.9}
+.ft{font-family:'Barlow Condensed',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px}
+.ht{color:var(--amber)}.hc{color:var(--cyan)}.hg{color:var(--green)}.hv{color:var(--violet)}
+table.it{width:100%;border-collapse:collapse;font-size:12.5px;margin:11px 0}
+table.it th{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);text-align:left;padding:7px 11px;background:var(--surface2);border-bottom:1px solid var(--border)}
+table.it td{padding:7px 11px;border-bottom:1px solid var(--border);color:var(--text);font-size:12.5px}
+table.it tr:hover td{background:var(--surface2)}
+/* Manual */
+.ml{max-width:780px}
+.ms{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:11px;overflow:hidden}
+.mst{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--bright);padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px}
+.sn{background:var(--amber);color:#050810;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.mb{padding:14px 16px}
+.mb p{font-size:13px;line-height:1.65;color:var(--text);margin-bottom:7px}
+.mb ul{padding-left:16px;display:flex;flex-direction:column;gap:5px}
+.mb li{font-size:12.5px;line-height:1.5;color:var(--text)}
+.mb li strong{color:var(--amber)}
+.csw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="hdr">
+  <h1>Optics <span>Lab</span></h1>
+  <sub>// Interactive Simulator v2.0</sub>
+</header>
+<nav class="mtabs">
+  <button class="mbt act" onclick="switchTab('mirrors')">Mirrors</button>
+  <button class="mbt" onclick="switchTab('lenses')">Lenses</button>
+  <button class="mbt" onclick="switchTab('microscope')">Microscope</button>
+  <button class="mbt" onclick="switchTab('telescope')">Telescope</button>
+  <button class="mbt" onclick="switchTab('physics')">Physics</button>
+  <button class="mbt" onclick="switchTab('manual')">Manual</button>
+</nav>
+
+<!-- MIRRORS -->
+<div id="tab-mirrors" class="tc act">
+<div class="sl">
+  <div>
+    <div class="ca">
+      <div class="ctb">
+        <span class="ctitle" id="mirror-title">Concave Mirror</span>
+        <div class="tbr">
+          <div class="tg" id="mtype">
+            <button class="tb act" onclick="setMT('concave')">Concave</button>
+            <button class="tb" onclick="setMT('convex')">Convex</button>
+          </div>
+          <div class="tg" id="mview">
+            <button class="tb act" onclick="setMV('2d')">2D</button>
+            <button class="tb" onclick="setMV('3d')">3D</button>
+          </div>
+        </div>
+      </div>
+      <div class="cw" id="mirror-cw"><canvas id="mc" width="760" height="370"></canvas></div>
+    </div>
+  </div>
+  <div class="cp">
+    <div class="cs"><div class="csh">Parameters</div><div class="cb">
+      <div class="sr"><label><span class="pn">Focal Length (f)</span><span class="pv" id="mf-v">15 cm</span></label><input type="range" id="mf" min="4" max="30" value="15" step="1" oninput="uM()"></div>
+      <div class="sr"><label><span class="pn">Object Distance (dₒ)</span><span class="pv" id="mdo-v">30 cm</span></label><input type="range" id="mdo" min="2" max="80" value="30" step="1" oninput="uM()"></div>
+      <div class="sr"><label><span class="pn">Object Height (hₒ)</span><span class="pv" id="mh-v">4 cm</span></label><input type="range" id="mh" min="1" max="8" value="4" step="0.5" oninput="uM()"></div>
+    </div></div>
+    <div class="cs"><div class="csh">Results</div><div class="rg" id="mr"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- LENSES -->
+<div id="tab-lenses" class="tc">
+<div class="sl">
+  <div>
+    <div class="ca">
+      <div class="ctb">
+        <span class="ctitle" id="lens-title">Converging Lens (Convex)</span>
+        <div class="tbr">
+          <div class="tg" id="ltype">
+            <button class="tb act" onclick="setLT('conv')">Converging</button>
+            <button class="tb" onclick="setLT('div')">Diverging</button>
+          </div>
+          <div class="tg" id="lview">
+            <button class="tb act" onclick="setLV('2d')">2D</button>
+            <button class="tb" onclick="setLV('3d')">3D</button>
+          </div>
+        </div>
+      </div>
+      <div class="cw" id="lens-cw"><canvas id="lc" width="760" height="370"></canvas></div>
+    </div>
+  </div>
+  <div class="cp">
+    <div class="cs"><div class="csh">Parameters</div><div class="cb">
+      <div class="sr"><label><span class="pn">Focal Length (f)</span><span class="pv" id="lf-v">15 cm</span></label><input type="range" id="lf" min="4" max="30" value="15" step="1" oninput="uL()"></div>
+      <div class="sr"><label><span class="pn">Object Distance (dₒ)</span><span class="pv" id="ldo-v">30 cm</span></label><input type="range" id="ldo" min="2" max="80" value="30" step="1" oninput="uL()"></div>
+      <div class="sr"><label><span class="pn">Object Height (hₒ)</span><span class="pv" id="lh-v">4 cm</span></label><input type="range" id="lh" min="1" max="8" value="4" step="0.5" oninput="uL()"></div>
+    </div></div>
+    <div class="cs"><div class="csh">Results</div><div class="rg" id="lr"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- MICROSCOPE -->
+<div id="tab-microscope" class="tc">
+<div class="sl">
+  <div>
+    <div class="ca">
+      <div class="ctb">
+        <span class="ctitle">Compound Microscope</span>
+        <div class="tbr">
+          <div class="tg" id="microview">
+            <button class="tb act" onclick="setMiV('2d')">2D</button>
+            <button class="tb" onclick="setMiV('3d')">3D</button>
+          </div>
+        </div>
+      </div>
+      <div class="cw" id="micro-cw"><canvas id="mic" width="760" height="380"></canvas></div>
+    </div>
+  </div>
+  <div class="cp">
+    <div class="cs"><div class="csh">Objective Lens</div><div class="cb">
+      <div class="sr"><label><span class="pn">Focal Length (fₒ)</span><span class="pv" id="mifo-v">2 cm</span></label><input type="range" id="mifo" min="0.5" max="5" value="2" step="0.5" oninput="uMi()"></div>
+      <div class="sr"><label><span class="pn">Object Distance (uₒ)</span><span class="pv" id="miuo-v">2.5 cm</span></label><input type="range" id="miuo" min="0.6" max="8" value="2.5" step="0.25" oninput="uMi()"></div>
+    </div></div>
+    <div class="cs"><div class="csh">Eyepiece Lens</div><div class="cb">
+      <div class="sr"><label><span class="pn">Focal Length (fₑ)</span><span class="pv" id="mife-v">5 cm</span></label><input type="range" id="mife" min="2" max="12" value="5" step="1" oninput="uMi()"></div>
+    </div></div>
+    <div class="cs"><div class="csh">Results</div><div class="rg" id="mir"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- TELESCOPE -->
+<div id="tab-telescope" class="tc">
+<div class="sl">
+  <div>
+    <div class="ca">
+      <div class="ctb">
+        <span class="ctitle">Refracting Telescope (Keplerian)</span>
+        <div class="tbr">
+          <div class="tg" id="teleview">
+            <button class="tb act" onclick="setTV('2d')">2D</button>
+            <button class="tb" onclick="setTV('3d')">3D</button>
+          </div>
+        </div>
+      </div>
+      <div class="cw" id="tele-cw"><canvas id="telc" width="760" height="360"></canvas></div>
+    </div>
+  </div>
+  <div class="cp">
+    <div class="cs"><div class="csh">Parameters</div><div class="cb">
+      <div class="sr"><label><span class="pn">Objective fₒ</span><span class="pv" id="tefo-v">40 cm</span></label><input type="range" id="tefo" min="15" max="100" value="40" step="5" oninput="uT()"></div>
+      <div class="sr"><label><span class="pn">Eyepiece fₑ</span><span class="pv" id="tefe-v">5 cm</span></label><input type="range" id="tefe" min="1" max="20" value="5" step="1" oninput="uT()"></div>
+      <div class="sr"><label><span class="pn">Object Angle (height)</span><span class="pv" id="teh-v">3 cm</span></label><input type="range" id="teh" min="1" max="8" value="3" step="0.5" oninput="uT()"></div>
+    </div></div>
+    <div class="cs"><div class="csh">Results</div><div class="rg" id="ter"></div></div>
+  </div>
+</div>
+</div>
+
+<!-- PHYSICS -->
+<div id="tab-physics" class="tc">
+<div class="physl">
+  <nav class="pnav">
+    <button class="pnb act" onclick="switchPhys('mirrors')">Mirrors</button>
+    <button class="pnb" onclick="switchPhys('lenses')">Lenses</button>
+    <button class="pnb" onclick="switchPhys('microscope')">Microscope</button>
+    <button class="pnb" onclick="switchPhys('telescope')">Telescope</button>
+    <button class="pnb" onclick="switchPhys('conventions')">Sign Conventions</button>
+    <button class="pnb" onclick="switchPhys('raytracing')">Ray Tracing Rules</button>
+    <button class="pnb" onclick="switchPhys('aberrations')">Aberrations</button>
+  </nav>
+  <div class="pc" id="phys-content"></div>
+</div>
+</div>
+
+<!-- MANUAL -->
+<div id="tab-manual" class="tc">
+<div class="ml">
+<div class="ms"><div class="mst"><div class="sn">1</div>Overview</div><div class="mb">
+<p>This simulator models optical elements using the <strong>paraxial (thin-element) approximation</strong>. All physics follows the standard mirror and lens equations. Ray diagrams are drawn in real-time as you adjust parameters.</p>
+<ul>
+<li>Select a simulation from the top navigation: <strong>Mirrors, Lenses, Microscope, Telescope</strong></li>
+<li>Use the <strong>Physics</strong> tab to read derivations, formulas, and detailed explanations</li>
+<li>Toggle <strong>2D / 3D</strong> to switch between flat and perspective views</li>
+</ul>
+</div></div>
+
+<div class="ms"><div class="mst"><div class="sn">2</div>Mirrors</div><div class="mb">
+<p>Switch between <strong>Concave</strong> (converging) and <strong>Convex</strong> (diverging) mirrors. Three principal rays are drawn automatically.</p>
+<ul>
+<li><strong>Focal Length (f):</strong> Distance from mirror to focal point. Internally positive for concave, negative for convex.</li>
+<li><strong>Object Distance (dₒ):</strong> Try placing the object at f, 2f, and between them to observe the key cases.</li>
+<li><strong>Object Height (hₒ):</strong> Height of the object arrow above the principal axis.</li>
+</ul>
+<p>Special positions to explore:</p>
+<ul>
+<li><strong>dₒ &gt; 2f:</strong> Real, inverted, diminished image between f and 2f</li>
+<li><strong>dₒ = 2f:</strong> Real, inverted, same-size image at 2f</li>
+<li><strong>f &lt; dₒ &lt; 2f:</strong> Real, inverted, magnified image beyond 2f</li>
+<li><strong>dₒ → f:</strong> Image distance → ∞ (rays exit parallel)</li>
+<li><strong>dₒ &lt; f:</strong> Virtual, upright, magnified image (magnifying glass effect)</li>
+</ul>
+</div></div>
+
+<div class="ms"><div class="mst"><div class="sn">3</div>Lenses</div><div class="mb">
+<p>Switch between <strong>Converging (convex/biconvex)</strong> and <strong>Diverging (concave/biconcave)</strong>. Same equation as mirrors.</p>
+<ul>
+<li>Converging lens: same image cases as a concave mirror</li>
+<li>Diverging lens: <em>always</em> produces a virtual, upright, diminished image (like convex mirror)</li>
+<li><strong>Lens Power</strong> shown in Diopters (D = 1/f in meters)</li>
+</ul>
+</div></div>
+
+<div class="ms"><div class="mst"><div class="sn">4</div>Microscope</div><div class="mb">
+<ul>
+<li>Set <strong>fₒ</strong> (objective) short — e.g. 1–2 cm. Set <strong>uₒ</strong> slightly greater than fₒ for best magnification.</li>
+<li>Set <strong>fₑ</strong> (eyepiece) to 5–10 cm. Total magnification = m_obj × m_eye.</li>
+<li><span class="csw" style="background:#f5a623"></span><strong>Amber arrow:</strong> Intermediate real image between the lenses</li>
+<li><span class="csw" style="background:#a78bfa"></span><strong>Violet:</strong> Final virtual image (at near point 25 cm)</li>
+<li>The diagram shows three rays from the object through the objective, then from the intermediate image through the eyepiece.</li>
+</ul>
+</div></div>
+
+<div class="ms"><div class="mst"><div class="sn">5</div>Telescope</div><div class="mb">
+<ul>
+<li><strong>fₒ:</strong> Long focal length objective (captures parallel rays from distant object)</li>
+<li><strong>fₑ:</strong> Short focal length eyepiece (magnifies intermediate image)</li>
+<li>Angular magnification M = fₒ / fₑ. Separation = fₒ + fₑ.</li>
+<li>The intermediate image forms at the shared focal plane. Exit rays are parallel (eye at rest).</li>
+<li>Final image is <strong>inverted</strong> — standard for an astronomical (Keplerian) telescope.</li>
+</ul>
+</div></div>
+
+<div class="ms"><div class="mst"><div class="sn">6</div>Ray Color Legend</div><div class="mb">
+<ul>
+<li><span class="csw" style="background:#f5a623"></span><strong style="color:#f5a623">Amber:</strong> Ray parallel to axis → reflects/refracts through focal point F</li>
+<li><span class="csw" style="background:#00c8f8"></span><strong style="color:#00c8f8">Cyan:</strong> Ray through mirror pole or lens optical center → undeviated (lens) / symmetric reflection (mirror)</li>
+<li><span class="csw" style="background:#ff7070"></span><strong style="color:#ff7070">Red:</strong> Ray through/aimed at focal point → exits parallel to axis</li>
+<li><span class="csw" style="background:#e8f0ff;border:1px solid #555"></span><strong>White arrow:</strong> Object</li>
+<li><span class="csw" style="background:#36e09a"></span><strong style="color:#36e09a">Green arrow:</strong> Real image (solid)</li>
+<li><span class="csw" style="background:#a78bfa"></span><strong style="color:#a78bfa">Violet arrow:</strong> Virtual image (dashed)</li>
+<li>— Solid lines = actual ray paths. – – Dashed lines = virtual extensions.</li>
+</ul>
+</div></div>
+</div>
+</div>
+
+</div><!-- .app -->
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────
+const S = {
+  mt:'concave', mf:15, mdo:30, mh:4, mv:'2d',
+  lt:'conv',    lf:15, ldo:30, lh:4, lv:'2d',
+  mifo:2, miue:2.5, mife:5, miv:'2d',
+  tefo:40, tefe:5, teh:3, tev:'2d',
+  phys:'mirrors'
+};
+
+// ─── TAB ─────────────────────────────────────────────────────────────
+const TABS=['mirrors','lenses','microscope','telescope','physics','manual'];
+function switchTab(n){
+  document.querySelectorAll('.tc').forEach(e=>e.classList.remove('act'));
+  document.querySelectorAll('.mbt').forEach((b,i)=>b.classList.toggle('act',TABS[i]===n));
+  document.getElementById('tab-'+n).classList.add('act');
+  if(n==='physics')renderPhys();
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────
+const dI=(f,do_)=>(Math.abs(do_-f)<.005)?Infinity:f*do_/(do_-f);
+
+function resHtml(di,m,extra,h){
+  const diStr=Math.abs(di)>9999?'∞':di.toFixed(1)+' cm';
+  const mStr=Math.abs(m)>9999?'∞':m.toFixed(2)+'×';
+  const isR=di>0,isI=m<0,isE=Math.abs(m)>1;
+  return`<div class="ri"><div class="rl">Image Distance dᵢ</div><div class="rv ${isR?'pos':'neg'}">${diStr}</div></div>
+<div class="ri"><div class="rl">Magnification m</div><div class="rv ${isI?'neg':'pos'}">${mStr}</div></div>
+${extra}
+<div class="ri fw"><div class="rl">Image Properties</div><div style="margin-top:4px">
+<span class="bdg ${isR?'b-real':'b-virt'}">${isR?'Real':'Virtual'}</span>
+<span class="bdg ${isI?'b-inv':'b-upr'}">${isI?'Inverted':'Upright'}</span>
+<span class="bdg ${isE?'b-enl':'b-dim'}">${isE?'Enlarged':'Diminished'}</span>
+</div></div>`;
+}
+
+// ─── MIRROR ──────────────────────────────────────────────────────────
+function setMT(t){S.mt=t;document.querySelectorAll('#mtype .tb').forEach((b,i)=>b.classList.toggle('act',i===0?t==='concave':t==='convex'));document.getElementById('mirror-title').textContent=(t==='concave'?'Concave':'Convex')+' Mirror';uM();}
+function setMV(v){S.mv=v;document.querySelectorAll('#mview .tb').forEach((b,i)=>b.classList.toggle('act',i===0?v==='2d':v==='3d'));document.getElementById('mirror-cw').classList.toggle('v3d',v==='3d');uM();}
+function uM(){
+  const f=+document.getElementById('mf').value,do_=+document.getElementById('mdo').value,h=+document.getElementById('mh').value;
+  S.mf=f;S.mdo=do_;S.mh=h;
+  document.getElementById('mf-v').textContent=f+' cm';
+  document.getElementById('mdo-v').textContent=do_+' cm';
+  document.getElementById('mh-v').textContent=h+' cm';
+  const fEff=S.mt==='concave'?f:-f;
+  const di=dI(fEff,do_),m=isFinite(di)?-di/do_:Infinity;
+  const R=(2*f).toFixed(0);
+  const extra=`<div class="ri"><div class="rl">Radius of Curvature R</div><div class="rv hl">${R} cm</div></div>
+<div class="ri"><div class="rl">Image Height hᵢ</div><div class="rv">${Math.abs(m)>9999?'∞':(m*h).toFixed(2)+' cm'}</div></div>`;
+  document.getElementById('mr').innerHTML=isFinite(di)&&Math.abs(di)<9999?resHtml(di,m,extra,h):`<div class="ri fw"><div class="rl">Image</div><div class="rv hl">At Infinity (parallel rays)</div></div>`;
+  drawMirror(document.getElementById('mc'),fEff,do_,h,S.mt);
+}
+
+// ─── LENS ────────────────────────────────────────────────────────────
+function setLT(t){S.lt=t;document.querySelectorAll('#ltype .tb').forEach((b,i)=>b.classList.toggle('act',i===0?t==='conv':t==='div'));document.getElementById('lens-title').textContent=(t==='conv'?'Converging Lens (Convex)':'Diverging Lens (Concave)');uL();}
+function setLV(v){S.lv=v;document.querySelectorAll('#lview .tb').forEach((b,i)=>b.classList.toggle('act',i===0?v==='2d':v==='3d'));document.getElementById('lens-cw').classList.toggle('v3d',v==='3d');uL();}
+function uL(){
+  const f=+document.getElementById('lf').value,do_=+document.getElementById('ldo').value,h=+document.getElementById('lh').value;
+  S.lf=f;S.ldo=do_;S.lh=h;
+  document.getElementById('lf-v').textContent=f+' cm';
+  document.getElementById('ldo-v').textContent=do_+' cm';
+  document.getElementById('lh-v').textContent=h+' cm';
+  const fEff=S.lt==='conv'?f:-f;
+  const di=dI(fEff,do_),m=isFinite(di)?-di/do_:Infinity;
+  const P=(100/Math.abs(fEff)).toFixed(1);
+  const extra=`<div class="ri"><div class="rl">Lens Power P</div><div class="rv hl">${P} D</div></div>
+<div class="ri"><div class="rl">Image Height hᵢ</div><div class="rv">${Math.abs(m)>9999?'∞':(m*h).toFixed(2)+' cm'}</div></div>`;
+  document.getElementById('lr').innerHTML=isFinite(di)&&Math.abs(di)<9999?resHtml(di,m,extra,h):`<div class="ri fw"><div class="rl">Image</div><div class="rv hl">At Infinity (parallel rays)</div></div>`;
+  drawLens(document.getElementById('lc'),fEff,do_,h,S.lt);
+}
+
+// ─── MICROSCOPE ──────────────────────────────────────────────────────
+function setMiV(v){S.miv=v;document.querySelectorAll('#microview .tb').forEach((b,i)=>b.classList.toggle('act',i===0?v==='2d':v==='3d'));document.getElementById('micro-cw').classList.toggle('v3d',v==='3d');uMi();}
+function uMi(){
+  const fo=+document.getElementById('mifo').value,uo=+document.getElementById('miuo').value,fe=+document.getElementById('mife').value;
+  S.mifo=fo;S.miue=uo;S.mife=fe;
+  document.getElementById('mifo-v').textContent=fo+' cm';
+  document.getElementById('miuo-v').textContent=uo+' cm';
+  document.getElementById('mife-v').textContent=fe+' cm';
+  const vo=dI(fo,uo);
+  if(!isFinite(vo)||vo<=0){
+    document.getElementById('mir').innerHTML=`<div class="ri fw"><div class="rl">Warning</div><div class="rv neg">Place object beyond fo</div></div>`;
+    drawMicroscope(document.getElementById('mic'),fo,fe,uo,0,0);return;
+  }
+  const mo=-vo/uo;
+  const me=25/fe;
+  const M=mo*me;
+  document.getElementById('mir').innerHTML=`
+<div class="ri"><div class="rl">Intermediate Image vₒ</div><div class="rv pos">${vo.toFixed(1)} cm</div></div>
+<div class="ri"><div class="rl">Objective Mag. mₒ</div><div class="rv neg">${mo.toFixed(2)}×</div></div>
+<div class="ri"><div class="rl">Eyepiece Mag. mₑ</div><div class="rv pos">${me.toFixed(1)}×</div></div>
+<div class="ri fw"><div class="rl">Total Magnification</div><div class="rv hl">${Math.abs(M).toFixed(0)}× (inverted)</div></div>`;
+  drawMicroscope(document.getElementById('mic'),fo,fe,uo,vo,mo);
+}
+
+// ─── TELESCOPE ───────────────────────────────────────────────────────
+function setTV(v){S.tev=v;document.querySelectorAll('#teleview .tb').forEach((b,i)=>b.classList.toggle('act',i===0?v==='2d':v==='3d'));document.getElementById('tele-cw').classList.toggle('v3d',v==='3d');uT();}
+function uT(){
+  const fo=+document.getElementById('tefo').value,fe=+document.getElementById('tefe').value,h=+document.getElementById('teh').value;
+  S.tefo=fo;S.tefe=fe;S.teh=h;
+  document.getElementById('tefo-v').textContent=fo+' cm';
+  document.getElementById('tefe-v').textContent=fe+' cm';
+  document.getElementById('teh-v').textContent=h+' cm';
+  const M=fo/fe;
+  document.getElementById('ter').innerHTML=`
+<div class="ri"><div class="rl">Angular Magnification</div><div class="rv hl">${M.toFixed(1)}×</div></div>
+<div class="ri"><div class="rl">Tube Length L</div><div class="rv pos">${(fo+fe).toFixed(0)} cm</div></div>
+<div class="ri"><div class="rl">Image Orientation</div><div class="rv neg"><span class="bdg b-inv">Inverted</span></div></div>
+<div class="ri"><div class="rl">Exit Pupil (50mm obj)</div><div class="rv">${(50/M).toFixed(1)} mm</div></div>`;
+  drawTelescope(document.getElementById('telc'),fo,fe,h);
+}
+
+// ─── CANVAS HELPERS ──────────────────────────────────────────────────
+function bg(ctx,W,H){
+  ctx.fillStyle='#07090f';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#0d1526';ctx.lineWidth=.5;
+  for(let x=0;x<W;x+=28){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=28){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+function axis(ctx,W,cy){
+  ctx.strokeStyle='#1a3060';ctx.lineWidth=1;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();
+  ctx.fillStyle='#1a3060';ctx.beginPath();ctx.moveTo(W-2,cy);ctx.lineTo(W-10,cy-4);ctx.lineTo(W-10,cy+4);ctx.closePath();ctx.fill();
+}
+function arr(ctx,x,y0,y1,col,dash){
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2;
+  ctx.setLineDash(dash?[5,3]:[]);
+  ctx.beginPath();ctx.moveTo(x,y0);ctx.lineTo(x,y1);ctx.stroke();ctx.setLineDash([]);
+  const d=y1<y0?-1:1;
+  ctx.beginPath();ctx.moveTo(x,y1);ctx.lineTo(x-5,y1+d*8);ctx.lineTo(x+5,y1+d*8);ctx.closePath();ctx.fill();
+}
+function ray(ctx,x1,y1,x2,y2,col,dash){
+  ctx.strokeStyle=col;ctx.lineWidth=1.5;
+  ctx.setLineDash(dash?[7,4]:[]);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.setLineDash([]);
+}
+function dot(ctx,x,y,col,r){ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,r||4,0,Math.PI*2);ctx.fill();}
+function lbl(ctx,t,x,y,col,sz){
+  ctx.fillStyle=col||'#5a6a88';ctx.font=`${sz||10}px 'Space Mono',monospace`;ctx.fillText(t,x,y);
+}
+function toEdge(x,y,dx,dy,W,H){
+  let t=1e6;
+  if(dx>0)t=Math.min(t,(W-2-x)/dx);
+  if(dx<0)t=Math.min(t,(2-x)/dx);
+  if(dy>0)t=Math.min(t,(H-2-y)/dy);
+  if(dy<0)t=Math.min(t,(2-y)/dy);
+  return[x+dx*t,y+dy*t];
+}
+function lensShape(ctx,cx,cy,hw,conv){
+  const w=hw*.16;
+  ctx.beginPath();
+  if(conv){
+    ctx.moveTo(cx,cy-hw);ctx.bezierCurveTo(cx+w*5,cy-hw*.5,cx+w*5,cy+hw*.5,cx,cy+hw);
+    ctx.bezierCurveTo(cx-w*5,cy+hw*.5,cx-w*5,cy-hw*.5,cx,cy-hw);ctx.closePath();
+    ctx.fillStyle='rgba(0,200,248,.07)';ctx.fill();
+    ctx.strokeStyle='#00c8f8';ctx.lineWidth=2.5;ctx.stroke();
+    // Arrows
+    ctx.fillStyle='#00c8f8';
+    aHead(ctx,cx,cy-hw,0,-1,'#00c8f8');aHead(ctx,cx,cy+hw,0,1,'#00c8f8');
+  }else{
+    ctx.moveTo(cx,cy-hw);ctx.bezierCurveTo(cx-w*4,cy-hw*.5,cx-w*4,cy+hw*.5,cx,cy+hw);
+    ctx.bezierCurveTo(cx+w*4,cy+hw*.5,cx+w*4,cy-hw*.5,cx,cy-hw);ctx.closePath();
+    ctx.fillStyle='rgba(167,139,250,.07)';ctx.fill();
+    ctx.strokeStyle='#a78bfa';ctx.lineWidth=2.5;ctx.stroke();
+    aHead(ctx,cx,cy-hw+14,0,1,'#a78bfa');aHead(ctx,cx,cy+hw-14,0,-1,'#a78bfa');
+  }
+}
+function aHead(ctx,x,y,dx,dy,c){
+  ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(x,y);
+  ctx.lineTo(x-dy*5+dx*(-8),y+dx*5+dy*(-8));ctx.lineTo(x+dy*5+dx*(-8),y-dx*5+dy*(-8));ctx.closePath();ctx.fill();
+}
+
+// ─── MIRROR DRAWING ──────────────────────────────────────────────────
+function drawMirror(canvas,f,do_,h,type){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const cy=H/2;bg(ctx,W,H);axis(ctx,W,cy);
+  const mx=W*.70;
+  // adaptive scale
+  const di=dI(f,do_);
+  const hasImg=isFinite(di)&&Math.abs(di)<9998;
+  const maxL=Math.max(do_,hasImg&&di>0?di:0,Math.abs(f)*2.3)+Math.abs(f)*.4;
+  const maxR=Math.max(hasImg&&di<0?Math.abs(di)*1.1:1,Math.abs(f)*.7);
+  const sc=Math.min((mx-40)/maxL,(W-mx-15)/maxR,9);
+
+  const fX=mx-f*sc; // focal point (f can be neg for convex→ fX right of mirror)
+  const cX=mx-2*f*sc;
+  const objX=mx-do_*sc,objTY=cy-h*sc;
+
+  // Mirror arc
+  const mhh=H*.38,dep=type==='concave'?20:-20;
+  ctx.strokeStyle='#f5a623';ctx.lineWidth=3;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(mx,cy-mhh);ctx.quadraticCurveTo(mx+dep,cy,mx,cy+mhh);ctx.stroke();
+  // Hatching
+  for(let i=0;i<=14;i++){
+    const t=i/14,my2=cy-mhh+t*mhh*2,mx2=mx+dep*4*t*(1-t);
+    ctx.strokeStyle='#1e304a';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(mx2,my2);ctx.lineTo(mx2+12*(type==='concave'?1:-1),my2+6);ctx.stroke();
+  }
+
+  // Labels
+  ctx.fillStyle='#4a6080';ctx.font="10px 'Space Mono',monospace";
+  if(fX>10&&fX<W-10){dot(ctx,fX,cy,'#f5a623',4);ctx.fillStyle='#f5a623';lbl(ctx,'F',fX-5,cy-11,'#f5a623',12);}
+  if(cX>10&&cX<W-10){dot(ctx,cX,cy,'#5090b0',3);lbl(ctx,'C',cX-5,cy-10,'#5090b0',10);}
+
+  // Scale ticks
+  for(let d=10;d<=do_*1.2+20;d+=10){
+    const tx=mx-d*sc;if(tx<30||tx>mx-5)continue;
+    ctx.strokeStyle='#2a4060';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(tx,cy-3);ctx.lineTo(tx,cy+3);ctx.stroke();
+    lbl(ctx,d+'',tx-7,cy+14,'#2a4060',8);
+  }
+  lbl(ctx,'cm',40,cy+14,'#2a4060',8);
+
+  // Object
+  arr(ctx,objX,cy,objTY,'#e8f0ff',false);lbl(ctx,'O',objX+5,objTY-6,'#e8f0ff',11);
+
+  if(!hasImg){
+    lbl(ctx,'Image at ∞ (parallel rays)',W/2-100,cy+30,'#f5a623',11);
+    return;
+  }
+  const imgX=mx-di*sc,imgH=(-di/do_)*h,imgTY=cy-imgH*sc;
+  const imgXd=Math.max(5,Math.min(W-5,imgX));
+  const isReal=di>0;
+  const imgC=isReal?'#36e09a':'#a78bfa';
+
+  // RAY 1: Parallel to axis → reflects through F
+  ray(ctx,objX,objTY,mx,objTY,'#f5a623',false);
+  if(isReal){
+    // Reflected: from mirror hit (mx,objTY) through F toward image
+    ray(ctx,mx,objTY,imgX,imgTY,'#f5a623',false);
+  }else{
+    // Reflected actual: from (mx,objTY) direction away-from-F (leftward diverge)
+    // For concave: F is left, reflected goes LEFT away from (diverge). For convex: F is right.
+    const fdx=fX-mx,fdy=cy-objTY;
+    // Reflected goes in direction FROM F through hitPoint extended leftward
+    // For concave(f>0): fX<mx, fdx<0; reflected dir = (-fdx,-fdy)=(+f*sc,-h*sc) going RIGHT→ behind mirror
+    // Actually: reflected ray = from hit point going in direction (fX-mx, cy-objTY) but OUTWARD from mirror
+    // For concave with virtual image: obj between F and mirror, F is to left.
+    // Standard: parallel ray still goes through F. Reflected ray: from hitPt TOWARD F then continues.
+    if(type==='concave'){
+      // Actual reflected: from mx,objTY going toward fX direction (LEFT), draw to canvas edge
+      const[ex,ey]=toEdge(mx,objTY,fdx,fdy,W,H);
+      ray(ctx,mx,objTY,ex,ey,'#f5a623',false);
+      // Dashed extension behind mirror to virtual image
+      ray(ctx,mx,objTY,imgXd,imgTY,'#f5a623',true);
+    }else{
+      // Convex: F is right (behind). Reflected goes LEFT.
+      const[ex,ey]=toEdge(mx,objTY,-fdx,-fdy,W,H);
+      ray(ctx,mx,objTY,ex,ey,'#f5a623',false);
+      ray(ctx,mx,objTY,imgXd,imgTY,'#f5a623',true);
+    }
+  }
+
+  // RAY 2: Through mirror pole (center) → reflection: x-component flips
+  // Incident: objTip to pole (mx,cy)
+  ray(ctx,objX,objTY,mx,cy,'#00c8f8',false);
+  // Reflected direction: (-do_*sc, h*sc) normalized → going left with same y slope
+  {
+    const rdx=-do_*sc,rdy=h*sc; // reflected direction
+    if(isReal){
+      ray(ctx,mx,cy,imgX,imgTY,'#00c8f8',false);
+    }else{
+      const[ex,ey]=toEdge(mx,cy,rdx,rdy,W,H);
+      ray(ctx,mx,cy,ex,ey,'#00c8f8',false);
+      ray(ctx,mx,cy,imgXd,imgTY,'#00c8f8',true);
+    }
+  }
+
+  // RAY 3: Through/aimed at F → exits parallel to axis
+  // For concave(f>0): ray from objTip aimed at F1 (=fX) hits mirror, exits parallel
+  // Direction from objTip to F: (fX-objX, cy-objTY)
+  {
+    const dxr=fX-objX,dyr=cy-objTY;
+    if(Math.abs(dxr)>.1){
+      const t=(mx-objX)/dxr;
+      if(t>0){
+        const hy=objTY+t*dyr;
+        ray(ctx,objX,objTY,mx,hy,'#ff7070',false);
+        // After: reflected parallel to axis (horizontal, going LEFT)
+        if(isReal){
+          ray(ctx,mx,hy,imgX,imgTY,'#ff7070',false);
+        }else{
+          const[ex,ey]=toEdge(mx,hy,-1,0,W,H);
+          ray(ctx,mx,hy,ex,ey,'#ff7070',false);
+          ray(ctx,mx,hy,imgXd,imgTY,'#ff7070',true);
+        }
+      }
+    }
+  }
+
+  // Image
+  arr(ctx,imgXd,cy,imgTY,imgC,!isReal);
+  lbl(ctx,"I'",imgXd+5,imgTY-6,imgC,11);
+
+  // Dimension labels
+  ctx.fillStyle='#3a5070';ctx.font="9px 'Space Mono',monospace";
+  lbl(ctx,'dₒ='+do_.toFixed(0)+'cm',objX+(mx-objX)*.4,cy+24,'#3a5070',9);
+  if(hasImg)lbl(ctx,'dᵢ='+di.toFixed(1)+'cm',imgXd+5,cy+34,isReal?'#36e09a':'#a78bfa',9);
+}
+
+// ─── LENS DRAWING ────────────────────────────────────────────────────
+function drawLens(canvas,f,do_,h,type){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const cy=H/2;bg(ctx,W,H);axis(ctx,W,cy);
+  const lx=W*.42;
+  const di=dI(f,do_);
+  const hasImg=isFinite(di)&&Math.abs(di)<9998;
+  const maxL=Math.max(do_,hasImg&&di<0?Math.abs(di)*1.1:0,Math.abs(f)*2.3);
+  const maxR=Math.max(hasImg&&di>0?di*1.1:0,Math.abs(f)*2.3);
+  const sc=Math.min((lx-38)/maxL,(W-lx-38)/maxR,10);
+
+  const f1X=lx-Math.abs(f)*sc,f2X=lx+Math.abs(f)*sc;
+  const _2f1X=lx-Math.abs(f)*2*sc,_2f2X=lx+Math.abs(f)*2*sc;
+  const objX=lx-do_*sc,objTY=cy-h*sc;
+
+  // Lens
+  const hw=H*.38;
+  lensShape(ctx,lx,cy,hw,f>0);
+  // Center line
+  ctx.strokeStyle=f>0?'rgba(0,200,248,.3)':'rgba(167,139,250,.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(lx,cy-hw-8);ctx.lineTo(lx,cy+hw+8);ctx.stroke();ctx.setLineDash([]);
+
+  // Focal points
+  dot(ctx,f1X,cy,'#f5a623',4);lbl(ctx,'F₁',f1X-6,cy-11,'#f5a623',11);
+  dot(ctx,f2X,cy,'#f5a623',4);lbl(ctx,'F₂',f2X-6,cy-11,'#f5a623',11);
+  if(_2f1X>10){dot(ctx,_2f1X,cy,'#2a4060',3);lbl(ctx,'2F₁',_2f1X-9,cy-9,'#2a4060',9);}
+  if(_2f2X<W-10){dot(ctx,_2f2X,cy,'#2a4060',3);lbl(ctx,'2F₂',_2f2X-9,cy-9,'#2a4060',9);}
+
+  // Scale ticks
+  for(let d=10;d<=do_*1.2+20;d+=10){
+    const tx=lx-d*sc;if(tx<20||tx>lx-5)continue;
+    ctx.strokeStyle='#2a4060';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(tx,cy-3);ctx.lineTo(tx,cy+3);ctx.stroke();
+    lbl(ctx,d+'',tx-7,cy+14,'#2a4060',8);
+  }
+
+  // Object
+  arr(ctx,objX,cy,objTY,'#e8f0ff',false);lbl(ctx,'O',objX+5,objTY-6,'#e8f0ff',11);
+
+  if(!hasImg){lbl(ctx,'Image at ∞',W/2-50,cy+28,'#f5a623',11);return;}
+  const imgX=lx+di*sc,imgH=(-di/do_)*h,imgTY=cy-imgH*sc;
+  const imgXd=Math.max(5,Math.min(W-5,imgX));
+  const isReal=di>0,imgC=isReal?'#36e09a':'#a78bfa';
+
+  // RAY 1: Parallel → F2 (converging) or virtual F2 (diverging, left side)
+  ray(ctx,objX,objTY,lx,objTY,'#f5a623',false);
+  if(f>0){
+    if(isReal){ray(ctx,lx,objTY,imgX,imgTY,'#f5a623',false);}
+    else{
+      // Converging, virtual image (do<f): ray exits going rightward through F2
+      const[ex,ey]=toEdge(lx,objTY,f2X-lx,cy-objTY,W,H);
+      ray(ctx,lx,objTY,ex,ey,'#f5a623',false);
+      ray(ctx,lx,objTY,imgXd,imgTY,'#f5a623',true);
+    }
+  }else{
+    // Diverging: virtual F2 is at lx+f*sc = lx-|f|*sc (left of lens)
+    const vF2X=lx+f*sc;
+    // Refracted ray appears to come from vF2 (left). Direction: vF2→hitPt extended right
+    const ddx=lx-vF2X,ddy=objTY-cy;
+    const[ex,ey]=toEdge(lx,objTY,ddx,ddy,W,H);
+    ray(ctx,lx,objTY,ex,ey,'#f5a623',false);
+    ray(ctx,lx,objTY,imgXd,imgTY,'#f5a623',true);
+  }
+
+  // RAY 2: Through optical center (undeviated)
+  ray(ctx,objX,objTY,lx,cy,'#00c8f8',false);
+  if(isReal){ray(ctx,lx,cy,imgX,imgTY,'#00c8f8',false);}
+  else{
+    const ddx=do_*sc,ddy=h*sc;
+    const[ex,ey]=toEdge(lx,cy,ddx,ddy,W,H);
+    ray(ctx,lx,cy,ex,ey,'#00c8f8',false);
+    ray(ctx,lx,cy,imgXd,imgTY,'#00c8f8',true);
+  }
+
+  // RAY 3: Through/aimed at F1 → exits parallel
+  if(f>0){
+    // Aimed at F1 (left side)
+    const dxr=f1X-objX,dyr=cy-objTY;
+    if(Math.abs(dxr)>.1){
+      const t=(lx-objX)/dxr;
+      if(t>0){
+        const hy=objTY+t*dyr;
+        ray(ctx,objX,objTY,lx,hy,'#ff7070',false);
+        // exits parallel to axis (rightward)
+        if(isReal){ray(ctx,lx,hy,imgX,imgTY,'#ff7070',false);}
+        else{
+          const[ex,ey]=toEdge(lx,hy,1,0,W,H);
+          ray(ctx,lx,hy,ex,ey,'#ff7070',false);
+          ray(ctx,lx,hy,imgXd,imgTY,'#ff7070',true);
+        }
+      }
+    }
+  }else{
+    // Diverging: aimed at F2 on right → exits parallel
+    const vF2rX=lx-f*sc; // lx+|f|*sc
+    const dxr=vF2rX-objX,dyr=cy-objTY;
+    if(Math.abs(dxr)>.1){
+      const t=(lx-objX)/dxr;
+      if(t>0){
+        const hy=objTY+t*dyr;
+        ray(ctx,objX,objTY,lx,hy,'#ff7070',false);
+        const[ex,ey]=toEdge(lx,hy,1,0,W,H);
+        ray(ctx,lx,hy,ex,ey,'#ff7070',false);
+        ray(ctx,lx,hy,imgXd,imgTY,'#ff7070',true);
+      }
+    }
+  }
+
+  // Image
+  arr(ctx,imgXd,cy,imgTY,imgC,!isReal);
+  lbl(ctx,"I'",imgXd+5,imgTY-6,imgC,11);
+  lbl(ctx,'dₒ='+do_.toFixed(0)+'cm',objX+(lx-objX)*.4,cy+24,'#3a5070',9);
+  lbl(ctx,'dᵢ='+di.toFixed(1)+'cm',imgXd+5,cy+34,isReal?'#36e09a':'#a78bfa',9);
+}
+
+// ─── MICROSCOPE DRAWING ──────────────────────────────────────────────
+function drawMicroscope(canvas,fo,fe,uo,vo,mo){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const cy=H/2;bg(ctx,W,H);axis(ctx,W,cy);
+
+  if(vo<=0||!isFinite(vo)){
+    lbl(ctx,'Set object distance > fo for a real intermediate image',W/2-180,cy,'#f5a623',11);return;
+  }
+
+  const objH=2.5;
+  const sysLen=uo+vo+fe;
+  const mg=52,sc=Math.min((W-2*mg)/(sysLen*1.1),6);
+
+  const objX=mg;
+  const objLX=objX+uo*sc;
+  const intX=objLX+vo*sc;
+  const eyX=intX+fe*sc;
+  const objTY=cy-objH*sc;
+  const intH=mo*objH;
+  const intTY=Math.max(10,Math.min(H-10,cy-intH*sc));
+  const hw=H*.30;
+
+  // Draw objective
+  lensShape(ctx,objLX,cy,hw,true);
+  ctx.textAlign='center';
+  lbl(ctx,'Objective',objLX,cy+hw+17,'#00c8f8',9);
+  lbl(ctx,'fo='+fo.toFixed(1)+' cm',objLX,cy+hw+28,'#5a7090',8);
+  ctx.textAlign='left';
+
+  // Draw eyepiece
+  lensShape(ctx,eyX,cy,hw,true);
+  ctx.textAlign='center';
+  lbl(ctx,'Eyepiece',eyX,cy+hw+17,'#00c8f8',9);
+  lbl(ctx,'fe='+fe.toFixed(1)+' cm',eyX,cy+hw+28,'#5a7090',8);
+  ctx.textAlign='left';
+
+  // Focal points
+  const fo1=objLX-fo*sc,fo2=objLX+fo*sc,fe1=eyX-fe*sc;
+  dot(ctx,fo1,cy,'#f5a623',3);dot(ctx,fo2,cy,'#f5a623',3);dot(ctx,fe1,cy,'#f5a623',3);
+  lbl(ctx,'fo',fo2-6,cy-9,'#f5a623',8);lbl(ctx,'fo',fo1-6,cy-9,'#f5a623',8);lbl(ctx,'fe',fe1-6,cy-9,'#f5a623',8);
+
+  // Object
+  arr(ctx,objX,cy,objTY,'#e8f0ff',false);lbl(ctx,'O',objX+4,objTY-5,'#e8f0ff',10);
+
+  // ── Rays: object → objective → intermediate image ──
+  // Ray 1: parallel
+  ray(ctx,objX,objTY,objLX,objTY,'#f5a623',false);
+  ray(ctx,objLX,objTY,intX,intTY,'#f5a623',false);
+  // Ray 2: through center of objective
+  ray(ctx,objX,objTY,objLX,cy,'#00c8f8',false);
+  ray(ctx,objLX,cy,intX,intTY,'#00c8f8',false);
+  // Ray 3: toward fo1
+  {
+    const dxr=fo1-objX,dyr=cy-objTY;
+    if(Math.abs(dxr)>.1){
+      const t=(objLX-objX)/dxr;
+      if(t>0){
+        const hy=objTY+t*dyr;
+        ray(ctx,objX,objTY,objLX,hy,'#ff7070',false);
+        ray(ctx,objLX,hy,intX,intTY,'#ff7070',false);
+      }
+    }
+  }
+
+  // Intermediate image
+  arr(ctx,intX,cy,intTY,'#f5a623',false);
+  lbl(ctx,'I₁',intX+4,intTY-5,'#f5a623',10);
+  ctx.textAlign='center';lbl(ctx,'(intermediate)',intX,cy+24,'#7a6020',9);ctx.textAlign='left';
+
+  // ── Rays: intermediate → eyepiece → exit (parallel for object at focal plane) ──
+  // Ray 1: parallel to axis through eyepiece, exits through fe2
+  ray(ctx,intX,intTY,eyX,intTY,'#f5a623',false);
+  // Exits: heading toward fe2 (which is to the right of eyepiece)
+  // Since intermediate image is at focal plane of eyepiece, exit is parallel to axis
+  const[ex1,ey1]=toEdge(eyX,intTY,1,0,W,H);
+  ray(ctx,eyX,intTY,ex1,ey1,'#f5a623',false);
+
+  // Ray 2: through center of eyepiece
+  ray(ctx,intX,intTY,eyX,cy,'#00c8f8',false);
+  const ddx2=eyX-intX,ddy2=cy-intTY;
+  const[ex2,ey2]=toEdge(eyX,cy,ddx2,ddy2,W,H);
+  ray(ctx,eyX,cy,Math.min(ex2,W-4),ey2,'#00c8f8',false);
+
+  // Ray 3: horizontal (from intTY) through eyepiece, exits parallel (already parallel, passes through fe2)
+  ray(ctx,intX,cy,eyX,cy,'#ff7070',false);
+  const[ex3,ey3]=toEdge(eyX,cy,1,(intTY-cy)/(fe*sc),W,H);
+  ray(ctx,eyX,cy,Math.min(ex3,W-4),ey3,'#ff7070',false);
+
+  // Final image note
+  lbl(ctx,'→ Final image at ∞ (virtual, inverted)',eyX+8,cy-28,'#a78bfa',10);
+  const M=((-vo/uo)*(25/fe));
+  lbl(ctx,'M = '+Math.abs(M).toFixed(0)+'×',eyX+8,cy-15,'#a78bfa',9);
+
+  // Dimension bar
+  ctx.strokeStyle='#1e3050';ctx.lineWidth=1;ctx.setLineDash([2,3]);
+  ctx.beginPath();ctx.moveTo(objX,cy+50);ctx.lineTo(objLX,cy+50);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(objLX,cy+50);ctx.lineTo(intX,cy+50);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign='center';
+  lbl(ctx,'uₒ='+uo.toFixed(1),(objX+objLX)/2,cy+47,'#3a5070',8);
+  lbl(ctx,'vₒ='+vo.toFixed(1),(objLX+intX)/2,cy+47,'#3a5070',8);
+  ctx.textAlign='left';
+}
+
+// ─── TELESCOPE DRAWING ───────────────────────────────────────────────
+function drawTelescope(canvas,fo,fe,h){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const cy=H/2;bg(ctx,W,H);axis(ctx,W,cy);
+
+  const mg=55,sc=Math.min((W-2*mg)/((fo+fe)*1.15),3.5);
+  const objLX=mg,intX=objLX+fo*sc,eyX=intX+fe*sc;
+  const intH=h;
+  const intTY=cy+intH*sc; // inverted image below axis
+  const hw=H*.30;
+
+  lensShape(ctx,objLX,cy,hw,true);
+  ctx.textAlign='center';lbl(ctx,'Objective',objLX,cy+hw+17,'#00c8f8',9);
+  lbl(ctx,'fo='+fo+'cm',objLX,cy+hw+28,'#5a7090',8);ctx.textAlign='left';
+
+  lensShape(ctx,eyX,cy,hw,true);
+  ctx.textAlign='center';lbl(ctx,'Eyepiece',eyX,cy+hw+17,'#00c8f8',9);
+  lbl(ctx,'fe='+fe+'cm',eyX,cy+hw+28,'#5a7090',8);ctx.textAlign='left';
+
+  // Shared focal point (fo right = fe left)
+  dot(ctx,intX,cy,'#f5a623',4);lbl(ctx,'F₂/F₁',intX-14,cy-11,'#f5a623',9);
+
+  // Three parallel incoming rays at different heights
+  const heights=[h*sc,0,-h*sc];
+  const rcs=['#f5a623','#00c8f8','#ff7070'];
+  for(let i=0;i<3;i++){
+    const ry=cy-heights[i];
+    // Parallel incident
+    ray(ctx,0,ry,objLX,ry,rcs[i],false);
+    // Through objective → converges to intermediate image
+    ray(ctx,objLX,ry,intX,intTY,rcs[i],false);
+    // From intermediate → through eyepiece → exit parallel (tilted)
+    // The exit ray passes through intermediate image and exits the eyepiece at some height
+    // Rays going from intTY through eyepiece: they're parallel on exit (image at focal plane)
+    // Exit height at eyepiece:
+    const exitY=intTY+(eyX-intX)*(ry-intTY)/((intX-intX)||1); // simplified: parallel to each other
+    // Actually for correct optics: exit rays are tilted copies of each other
+    ray(ctx,intX,intTY,eyX,ry,rcs[i],false); // exits at same height as incident (in focal ratio)
+    // Exit parallel bundle at angle
+    const slope=(intTY-cy)/(fo*sc);
+    const[ex,ey]=toEdge(eyX,ry,1,-slope,W,H);
+    ray(ctx,eyX,ry,Math.min(ex,W-5),ey,rcs[i],false);
+  }
+
+  // Intermediate image
+  const intTYc=Math.max(10,Math.min(H-10,intTY));
+  arr(ctx,intX,cy,intTYc,'#f5a623',false);
+  lbl(ctx,'I₁',intX+4,intTYc+14,'#f5a623',10);
+
+  // Labels
+  lbl(ctx,'∥ rays from ∞',4,cy-h*sc-8,'#5a6a88',10);
+  lbl(ctx,'→ Inverted image at ∞',eyX+8,cy-28,'#a78bfa',10);
+  lbl(ctx,'M = fo/fe = '+(fo/fe).toFixed(1)+'×',eyX+8,cy-15,'#a78bfa',9);
+
+  // Dimension bars
+  ctx.strokeStyle='#1e3050';ctx.lineWidth=1;ctx.setLineDash([2,3]);
+  ctx.beginPath();ctx.moveTo(objLX,cy+52);ctx.lineTo(intX,cy+52);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(intX,cy+52);ctx.lineTo(eyX,cy+52);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.textAlign='center';
+  lbl(ctx,'fo='+fo+'cm',(objLX+intX)/2,cy+50,'#3a5070',8);
+  lbl(ctx,'fe='+fe+'cm',(intX+eyX)/2,cy+50,'#3a5070',8);
+  ctx.textAlign='left';
+}
+
+// ─── PHYSICS CONTENT ─────────────────────────────────────────────────
+const PHYS_SECTIONS=['mirrors','lenses','microscope','telescope','conventions','raytracing','aberrations'];
+function switchPhys(s){
+  S.phys=s;
+  document.querySelectorAll('.pnb').forEach((b,i)=>b.classList.toggle('act',PHYS_SECTIONS[i]===s));
+  renderPhys();
+}
+function renderPhys(){document.getElementById('phys-content').innerHTML=physicsData[S.phys]||'';}
+const physicsData={
+mirrors:`<h2>Curved Mirrors</h2>
+<p>Mirrors form images by <span class="ht">reflection</span>. Curved mirrors use the geometry of a sphere (paraxial approximation) to focus or spread light.</p>
+<h3>The Mirror Formula</h3>
+<div class="fb"><div class="ft">Mirror Equation (Real-is-Positive Convention)</div>
+1/f = 1/dₒ + 1/dᵢ<br><br>
+Magnification:  m = −dᵢ / dₒ = hᵢ / hₒ<br><br>
+Radius of Curvature:  R = 2f<br><br>
+where: dₒ = object distance, dᵢ = image distance, f = focal length</div>
+<h3>Concave Mirror (f &gt; 0)</h3>
+<p>The center of curvature C and focal point F lie in <em>front</em> of the mirror (on the reflecting side). Parallel rays converge at F after reflection.</p>
+<table class="it"><tr><th>Object Position</th><th>Image Type</th><th>Orientation</th><th>Size</th></tr>
+<tr><td>dₒ &gt; 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Diminished</td></tr>
+<tr><td>dₒ = 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Same size</td></tr>
+<tr><td>f &lt; dₒ &lt; 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Enlarged</td></tr>
+<tr><td>dₒ = f</td><td colspan="3" class="ht">Image at infinity — parallel rays emerge</td></tr>
+<tr><td>dₒ &lt; f</td><td class="hv">Virtual</td><td>Upright</td><td>Enlarged</td></tr></table>
+<h3>Convex Mirror (f &lt; 0)</h3>
+<p>F and C lie <em>behind</em> the mirror (virtual focal point). Reflected rays diverge as if originating from F. <strong>Always produces a virtual, upright, diminished image</strong> regardless of object position.</p>
+<div class="fb"><div class="ft">Key Applications</div>
+Concave: reflecting telescopes (Newtonian), parabolic dish antennas, dentist mirrors, solar furnaces, headlight reflectors<br>
+Convex: car rear-view mirrors (wide angle), security/store mirrors, road-bend mirrors</div>
+<h3>Derivation from Law of Reflection</h3>
+<p>For a spherical mirror of radius R, using small-angle (paraxial) approximation where sin θ ≈ θ, rays close to and nearly parallel to the principal axis satisfy 1/u + 1/v = 2/R, and since f = R/2, we obtain the mirror formula.</p>`,
+
+lenses:`<h2>Thin Lenses</h2>
+<p>Lenses redirect light by <span class="ht">refraction</span> at two surfaces. In the <em>thin lens approximation</em>, the lens thickness ≪ focal length, and all refraction is treated as occurring at a single plane.</p>
+<h3>Thin Lens Equation</h3>
+<div class="fb"><div class="ft">Thin Lens / Mirror Formula (Identical Form)</div>
+1/f = 1/dₒ + 1/dᵢ<br><br>
+Magnification:  m = −dᵢ / dₒ<br><br>
+Lens Power:  P = 1/f  (diopters; f in meters)<br><br>
+Lensmaker's Equation:  1/f = (n−1) [1/R₁ − 1/R₂]</div>
+<h3>Converging Lens (f &gt; 0, biconvex)</h3>
+<p>Parallel rays converge at the rear focal point F₂. The image cases are identical to a concave mirror.</p>
+<table class="it"><tr><th>Position</th><th>Type</th><th>Orientation</th><th>Size</th></tr>
+<tr><td>dₒ &gt; 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Diminished</td></tr>
+<tr><td>dₒ = 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Same size</td></tr>
+<tr><td>f &lt; dₒ &lt; 2f</td><td class="hg">Real</td><td class="hc">Inverted</td><td>Enlarged</td></tr>
+<tr><td>dₒ = f</td><td colspan="3" class="ht">Image at infinity</td></tr>
+<tr><td>dₒ &lt; f</td><td class="hv">Virtual</td><td>Upright</td><td>Enlarged (magnifier)</td></tr></table>
+<h3>Diverging Lens (f &lt; 0, biconcave)</h3>
+<p>Parallel rays diverge as if from virtual focal point F on the input side. <strong>Always produces a virtual, upright, diminished image.</strong></p>
+<div class="fb"><div class="ft">Combined Lenses (touching or close together)</div>
+1/f_total = 1/f₁ + 1/f₂<br>
+P_total = P₁ + P₂<br><br>
+Example: reading glasses +2D and −1D contact = +1D net power</div>
+<h3>Snell's Law (Underlying Physics)</h3>
+<div class="fb">n₁ sin θ₁ = n₂ sin θ₂<br><br>
+For small angles (paraxial): n₁ θ₁ ≈ n₂ θ₂<br>
+This leads directly to the lensmaker's equation when applied twice (two refracting surfaces).</div>`,
+
+microscope:`<h2>Compound Microscope</h2>
+<p>A compound microscope achieves high magnification of <span class="ht">nearby objects</span> using two converging lenses in series. The short-focal-length objective does the primary work; the eyepiece acts as a magnifying glass on the intermediate image.</p>
+<h3>Two-Stage Magnification</h3>
+<div class="fb"><div class="ft">Microscope Magnification Formulas</div>
+Objective magnification:    m_obj = −v_obj / u_obj<br>
+Approximate (large tube L): m_obj ≈ −L / fo<br><br>
+Eyepiece magnification:     m_eye = D / fe   (D = 25 cm, near point)<br><br>
+Total magnification:        M = m_obj × m_eye<br><br>
+Optical tube length: L = v_obj − fo (image distance minus fo)</div>
+<h3>Step-by-Step Optics</h3>
+<p><strong>1. Objective (fo ≈ 1–5 mm to 5 cm):</strong> Object placed just beyond fo → real, inverted, highly magnified intermediate image forms inside the tube.</p>
+<p><strong>2. Eyepiece (fe ≈ 2–5 cm):</strong> Positioned so the intermediate image lies at its front focal plane → rays exit parallel, and the observer's relaxed eye sees a virtual, further-magnified image effectively at infinity (or at 25 cm near point for m_eye calculation).</p>
+<h3>Resolution Limit</h3>
+<div class="fb"><div class="ft">Abbe / Rayleigh Criterion</div>
+d_min = 0.61 λ / (n sin θ) = 0.61 λ / NA<br><br>
+NA = n sin θ  (Numerical Aperture)<br>
+λ ≈ 550 nm (visible light)<br>
+Oil-immersion objective: NA ≈ 1.4 → d_min ≈ 240 nm</div>
+<table class="it"><tr><th>Objective</th><th>Approx. fo</th><th>NA</th><th>Working Distance</th></tr>
+<tr><td>4×</td><td>~32 mm</td><td>0.10</td><td>~30 mm</td></tr>
+<tr><td>10×</td><td>~16 mm</td><td>0.25</td><td>~10 mm</td></tr>
+<tr><td>40×</td><td>~4 mm</td><td>0.65</td><td>~0.7 mm</td></tr>
+<tr><td>100× (oil)</td><td>~1.8 mm</td><td>1.40</td><td>~0.1 mm</td></tr></table>`,
+
+telescope:`<h2>Refracting Telescope</h2>
+<p>The Keplerian telescope forms a magnified image of <span class="ht">distant (effectively infinite) objects</span> by collecting parallel ray bundles with a large-aperture objective and re-examining the intermediate real image with a short-focal-length eyepiece.</p>
+<h3>Angular Magnification</h3>
+<div class="fb"><div class="ft">Telescope Formulas</div>
+Angular magnification:   M = fo / fe<br>
+(negative = inverted, but |M| is quoted)<br><br>
+Normal-adjustment tube length:  L = fo + fe<br><br>
+Exit pupil diameter:     d_ep = D_obj / M<br><br>
+Limiting magnitude boost:  Δm = 2.5 log₁₀(M²)<br><br>
+Light-gathering ratio:   (D_obj / D_eye)²</div>
+<h3>How It Works</h3>
+<p><strong>1. Objective (large fo, large aperture):</strong> Parallel rays from a star at angle α converge to an intermediate real image of height h = fo · tan α ≈ fo · α at the focal plane. This image is <em>inverted</em>.</p>
+<p><strong>2. Eyepiece (short fe):</strong> The intermediate image lies at its front focal point, so exit rays are parallel — the observer's eye is relaxed. The apparent angular size is h/fe, giving M = fo/fe.</p>
+<h3>Types</h3>
+<table class="it"><tr><th>Design</th><th>Optics</th><th>Image</th><th>Uses</th></tr>
+<tr><td>Keplerian</td><td>2 convex lenses</td><td>Inverted</td><td>Astronomy</td></tr>
+<tr><td>Galilean</td><td>Convex obj + concave eye</td><td>Upright</td><td>Opera glasses</td></tr>
+<tr><td>Newtonian</td><td>Concave mirror + flat</td><td>Inverted</td><td>Amateur astro</td></tr>
+<tr><td>Cassegrain</td><td>Concave + convex mirrors</td><td>Inverted</td><td>Observatories</td></tr></table>
+<div class="fb"><div class="ft">Chromatic Aberration (Refracting Telescopes)</div>
+Refracting telescopes suffer from chromatic aberration: different wavelengths focus at different distances (dispersion). Achromatic doublets (crown + flint glass) minimize this. Reflectors are inherently chromatic-aberration-free.</div>`,
+
+conventions:`<h2>Sign Conventions</h2>
+<p>This simulator uses the <span class="ht">Real-is-Positive (New Cartesian)</span> convention, standard in most modern textbooks.</p>
+<h3>For Mirrors</h3>
+<div class="fb">
+Object distance dₒ:  always <span class="hg">positive</span> (real object in front)<br>
+Image distance dᵢ:  <span class="hg">positive</span> = real image (in front of mirror)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hv">negative</span> = virtual image (behind mirror)<br>
+Focal length f:     <span class="hg">positive</span> for concave, <span class="hv">negative</span> for convex<br>
+Height h:           <span class="hg">positive</span> above axis, <span class="hv">negative</span> below axis<br>
+Magnification m:    <span class="hg">positive</span> = upright, <span class="hv">negative</span> = inverted<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|m| > 1 = enlarged, |m| < 1 = diminished
+</div>
+<h3>For Lenses</h3>
+<div class="fb">
+Object distance dₒ:  <span class="hg">positive</span> (object on incoming-light side)<br>
+Image distance dᵢ:  <span class="hg">positive</span> = real image (on far side from object)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hv">negative</span> = virtual image (same side as object)<br>
+Focal length f:     <span class="hg">positive</span> for converging, <span class="hv">negative</span> for diverging
+</div>
+<h3>Quick Reference</h3>
+<table class="it"><tr><th>Symbol</th><th>Quantity</th><th>Sign Rule</th></tr>
+<tr><td>dₒ</td><td>Object distance</td><td class="hg">Always positive</td></tr>
+<tr><td>dᵢ</td><td>Image distance</td><td>+ real, − virtual</td></tr>
+<tr><td>f</td><td>Focal length</td><td>+ converging, − diverging</td></tr>
+<tr><td>m</td><td>Linear magnification</td><td>+ upright, − inverted</td></tr>
+<tr><td>R</td><td>Radius of curvature</td><td>= 2f (mirrors only)</td></tr>
+<tr><td>P</td><td>Power (diopters)</td><td>= 1/f(m); + converging</td></tr>
+<tr><td>n</td><td>Refractive index</td><td>Always ≥ 1 (vacuum = 1)</td></tr></table>
+<h3>Alternative Convention (Cartesian)</h3>
+<p>Some texts use the "all-distances-from-pole" Cartesian: incident light travels in +x direction; distances against the direction are negative. This leads to 1/v − 1/u = 1/f (note the minus sign). Results are identical — only the formula form differs.</p>`,
+
+raytracing:`<h2>Ray Tracing Rules</h2>
+<p>Any two of the three <span class="ht">principal rays</span> can locate the image. The third serves as a check. All constructions assume paraxial (small-angle) conditions.</p>
+<h3>Concave Mirror &amp; Converging Lens</h3>
+<div class="fb">
+<span class="ht">● Ray 1 (Parallel):</span>  Travels parallel to the principal axis<br>
+&nbsp;&nbsp;&nbsp;→ After mirror/lens: passes through focal point F<br><br>
+<span class="hc">● Ray 2 (Center):</span><br>
+&nbsp;&nbsp;&nbsp;Mirror: aimed at center of curvature C (= 2F)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Reflects back along the same path (perpendicular incidence)<br>
+&nbsp;&nbsp;&nbsp;Lens: passes through optical center O<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ Continues undeviated (straight through)<br><br>
+<span style="color:#ff7070">● Ray 3 (Focal):</span>  Passes through / aimed at F<br>
+&nbsp;&nbsp;&nbsp;→ Exits parallel to the principal axis
+</div>
+<h3>Convex Mirror &amp; Diverging Lens</h3>
+<div class="fb">
+<span class="ht">● Ray 1:</span>  Parallel → reflects/refracts as if FROM virtual F (behind element)<br>
+&nbsp;&nbsp;&nbsp;Extension passes through virtual F<br><br>
+<span class="hc">● Ray 2:</span>  Mirror: aimed at virtual C behind mirror → reflects back<br>
+&nbsp;&nbsp;&nbsp;Lens: through optical center → straight through (same as converging)<br><br>
+<span style="color:#ff7070">● Ray 3:</span>  Aimed at virtual F on the far side → exits parallel to axis
+</div>
+<h3>Solid vs Dashed Lines</h3>
+<div class="fb">
+————— Solid:   actual ray path (light physically travels here)<br>
+– – – – Dashed:  virtual extension (where ray <em>appears</em> to come from/go)<br><br>
+Real image  → rays physically converge → can be projected on screen<br>
+Virtual image → rays appear to diverge from a point → seen by eye/camera, cannot be screened
+</div>
+<h3>Paraxial Approximation</h3>
+<p>All ray-tracing assumes <span class="ht">paraxial rays</span>: rays close to and nearly parallel to the optical axis. The assumption sin θ ≈ tan θ ≈ θ gives the simple thin-lens/mirror equations. Real lenses and mirrors depart from this ideal, giving rise to <strong>aberrations</strong> (see Aberrations tab).</p>`,
+
+aberrations:`<h2>Optical Aberrations</h2>
+<p>Real optical systems depart from the ideal paraxial model, producing <span class="ht">aberrations</span> — defects in image formation. These are not simulated here but are critical in real optical design.</p>
+<h3>Monochromatic Aberrations (Seidel)</h3>
+<table class="it"><tr><th>Aberration</th><th>Cause</th><th>Effect</th></tr>
+<tr><td>Spherical</td><td>Marginal rays focus closer than paraxial</td><td>Blurry central spot even for on-axis object</td></tr>
+<tr><td>Coma</td><td>Off-axis magnification varies with aperture</td><td>Comet-shaped flare for off-axis points</td></tr>
+<tr><td>Astigmatism</td><td>Sagittal and tangential rays focus differently</td><td>Lines instead of points off-axis</td></tr>
+<tr><td>Field Curvature</td><td>Petzval surface is curved, not flat</td><td>Sharp center, blurry edges on flat detector</td></tr>
+<tr><td>Distortion</td><td>Magnification varies with field height</td><td>Barrel (−) or pincushion (+) shape distortion</td></tr></table>
+<h3>Chromatic Aberration</h3>
+<div class="fb">
+Axial chromatic:  Δf = f · V⁻¹ (V = Abbé V-number of glass)<br>
+Achromatic doublet: V₁/f₁ + V₂/f₂ = 0, 1/f₁ + 1/f₂ = 1/f<br><br>
+Crown glass (V ≈ 60) + Flint glass (V ≈ 36) corrects two wavelengths<br>
+Apochromat: corrects three wavelengths (used in high-end microscopes)
+</div>
+<h3>Remedies</h3>
+<div class="fb">
+Spherical: use parabolic mirror or aspheric lens; stop down aperture<br>
+Chromatic: achromatic doublet or mirror (inherently achromatic)<br>
+Coma/astigmatism: field-flattener lens; aplanatic design constraints<br>
+Modern: computer-optimized multi-element designs (ZEMAX, Code V)
+</div>
+<p>The Hubble Space Telescope was launched in 1990 with a spherically-aberrated primary mirror (ground 2.2 μm too flat). COSTAR corrective optics were installed in 1993, demonstrating how devastating and correctable aberrations can be in precision systems.</p>`
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  uM();uL();uMi();uT();renderPhys();
+  // Resize handler
+  const ro=new ResizeObserver(()=>{uM();uL();uMi();uT();});
+  document.querySelectorAll('.cw').forEach(e=>ro.observe(e));
+});
+</script>
+</body>
+</html>

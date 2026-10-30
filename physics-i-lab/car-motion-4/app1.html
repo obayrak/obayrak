@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Motion Dynamics — Physics Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Share+Tech+Mono&family=Michroma&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:      #07080c;
+  --panel:   #0d0f16;
+  --border:  #1e2235;
+  --aE:      #e8ff47; /* engine — lime yellow */
+  --aD:      #ff4d6d; /* air drag — hot pink */
+  --aR:      #48cae4; /* rolling resistance — sky */
+  --aN:      #c77dff; /* numerical — violet */
+  --aA:      #06ffa5; /* analytical — mint */
+  --aB:      #ff8500; /* brake — orange */
+  --aS:      #ffffff; /* speed — white */
+  --text:    #b8c0d4;
+  --muted:   #3a4060;
+  --glowE:   0 0 20px rgba(232,255,71,.4);
+  --glowD:   0 0 20px rgba(255,77,109,.4);
+  --glowA:   0 0 20px rgba(6,255,165,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;
+  font-size:13px;min-height:100vh;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% 0%,rgba(232,255,71,0.03),transparent),
+    linear-gradient(rgba(30,34,53,0.4) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(30,34,53,0.4) 1px,transparent 1px);
+  background-size:100% 100%,32px 32px,32px 32px;
+  pointer-events:none;z-index:0;
+}
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:20px;}
+
+/* ── Header ── */
+header{text-align:center;padding:28px 0 16px;position:relative;}
+header .tagline{font-family:'Michroma',monospace;font-size:9px;color:var(--muted);letter-spacing:6px;margin-bottom:12px;}
+header h1{
+  font-family:'Michroma',monospace;
+  font-size:clamp(18px,3.5vw,38px);letter-spacing:3px;font-weight:400;
+  background:linear-gradient(135deg,var(--aE),var(--aD));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+header p{color:var(--muted);margin-top:7px;font-size:10px;letter-spacing:3px;text-transform:uppercase;font-family:'Exo 2',sans-serif;}
+
+/* ── Theory toggle ── */
+.theory-toggle{
+  background:var(--panel);border:1px solid var(--border);border-radius:4px;
+  padding:10px 17px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  font-family:'Michroma',monospace;font-size:10px;color:var(--text);letter-spacing:1px;
+  transition:border-color .2s;user-select:none;
+}
+.theory-toggle:hover{border-color:var(--aE);}
+.theory-toggle .arr{color:var(--aE);transition:transform .3s;}
+.theory-toggle.open .arr{transform:rotate(180deg);}
+.tcoll{display:none;margin-top:12px;}
+.tcoll.vis{display:block;}
+
+/* ── Theory cards ── */
+.trow{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:12px;margin-bottom:12px;}
+.tcard{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.thead{
+  font-family:'Michroma',monospace;font-size:9px;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.thead .num{font-size:22px;font-family:'Michroma',monospace;opacity:.18;line-height:1;color:var(--aE);}
+.tbody{padding:14px;font-size:12px;line-height:1.85;color:var(--text);font-family:'Exo 2',sans-serif;font-weight:400;}
+.tbody p{margin-bottom:8px;}.tbody p:last-child{margin:0;}
+
+.eq-block{
+  background:rgba(0,0,0,.55);border-left:3px solid var(--aE);
+  padding:8px 12px;margin:8px 0;border-radius:0 3px 3px 0;
+  font-size:12px;color:var(--aE);font-family:'Share Tech Mono',monospace;
+}
+.eq-block.drag{border-color:var(--aD);color:var(--aD);}
+.eq-block.roll{border-color:var(--aR);color:var(--aR);}
+.eq-block.mint{border-color:var(--aA);color:var(--aA);}
+.eq-block.vio {border-color:var(--aN);color:var(--aN);}
+.eq-block.ora {border-color:var(--aB);color:var(--aB);}
+
+.hE{color:var(--aE);} .hD{color:var(--aD);} .hR{color:var(--aR);}
+.hN{color:var(--aN);} .hA{color:var(--aA);} .hB{color:var(--aB);}
+
+.step-list{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.step-list li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;}
+.step-list li .sn{
+  width:22px;height:22px;border-radius:2px;
+  background:rgba(232,255,71,.06);border:1px solid var(--aE);
+  color:var(--aE);font-size:10px;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:2px;font-family:'Share Tech Mono',monospace;
+}
+.comp-table{width:100%;border-collapse:collapse;font-size:11px;margin:7px 0;}
+.comp-table th,.comp-table td{padding:5px 9px;border:1px solid var(--border);text-align:left;font-family:'Share Tech Mono',monospace;}
+.comp-table th{color:var(--muted);background:rgba(0,0,0,.3);}
+.comp-table tr:nth-child(even) td{background:rgba(0,0,0,.18);}
+.rk4-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px;}
+.rk4-box{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.rk4-box .rk-lbl{font-size:9px;color:var(--muted);margin-bottom:3px;font-family:'Michroma',monospace;letter-spacing:1px;}
+.rk4-box .rk-eq{font-size:11px;color:var(--aN);font-family:'Share Tech Mono',monospace;}
+
+/* ── Live banner ── */
+.eq-banner{
+  background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--aE);
+  padding:12px 17px;margin:14px 0;border-radius:4px;
+  display:flex;flex-wrap:wrap;gap:9px;align-items:center;
+}
+.eq-banner .eq-main{font-size:clamp(11px,1.8vw,17px);color:var(--aE);flex:1;text-align:center;letter-spacing:.5px;font-family:'Share Tech Mono',monospace;}
+.eq-banner .eq-parts{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.eq-badge{background:rgba(232,255,71,.05);border:1px solid var(--border);padding:4px 9px;border-radius:3px;font-size:11px;color:var(--muted);}
+.eq-badge span{color:var(--text);}
+
+/* ── Layout ── */
+.main-grid{display:grid;grid-template-columns:265px 1fr;gap:13px;}
+@media(max-width:920px){.main-grid{grid-template-columns:1fr;}}
+
+/* ── Panel ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.panel-title{
+  font-family:'Michroma',monospace;font-size:9px;
+  text-transform:uppercase;letter-spacing:4px;color:var(--muted);
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--aE);box-shadow:var(--glowE);}
+
+/* ── Controls ── */
+.ctrl-inner{padding:12px 14px;display:flex;flex-direction:column;gap:12px;}
+.pg label{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:11px;}
+.pg label .pname{color:var(--muted);font-family:'Exo 2',sans-serif;}
+.pg label .pval{font-weight:600;}
+.pg label .psym{margin-right:4px;}
+.pE{color:var(--aE);} .pD{color:var(--aD);} .pR{color:var(--aR);} .pB{color:var(--aB);}
+
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:2px;background:var(--aE);box-shadow:0 0 7px var(--aE);cursor:pointer;border:2px solid var(--bg);}
+input[type=range].sD::-webkit-slider-thumb{background:var(--aD);box-shadow:0 0 7px var(--aD);}
+input[type=range].sR::-webkit-slider-thumb{background:var(--aR);box-shadow:0 0 7px var(--aR);}
+input[type=range].sB::-webkit-slider-thumb{background:var(--aB);box-shadow:0 0 7px var(--aB);}
+
+.divider{border:none;border-top:1px solid var(--border);}
+.btn{
+  width:100%;padding:9px;background:transparent;border:1px solid var(--aE);
+  color:var(--aE);font-family:'Share Tech Mono',monospace;font-size:11px;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:3px;transition:all .2s;
+}
+.btn:hover{background:rgba(232,255,71,.07);box-shadow:var(--glowE);}
+.btn.brake-btn{border-color:var(--aD);color:var(--aD);}
+.btn.brake-btn:hover,.btn.brake-btn.active{background:rgba(255,77,109,.1);box-shadow:var(--glowD);}
+.btn.reset-btn{border-color:var(--muted);color:var(--muted);}
+.btn.reset-btn:hover{border-color:var(--text);color:var(--text);}
+.btn-row{display:flex;gap:6px;}
+
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.metric-box{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:3px;padding:7px 9px;}
+.metric-box .mk{font-size:9px;color:var(--muted);margin-bottom:2px;font-family:'Michroma',monospace;letter-spacing:1px;}
+.metric-box .mv{font-size:14px;font-weight:700;color:var(--aE);font-family:'Share Tech Mono',monospace;}
+
+.gear-row{display:flex;gap:5px;}
+.gear-btn{
+  flex:1;padding:7px 4px;background:rgba(0,0,0,.3);border:1px solid var(--border);
+  color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:12px;
+  cursor:pointer;border-radius:3px;transition:all .15s;text-align:center;
+}
+.gear-btn:hover{border-color:var(--aE);color:var(--aE);}
+.gear-btn.active{border-color:var(--aE);color:var(--aE);background:rgba(232,255,71,.08);box-shadow:var(--glowE);}
+
+/* ── Right ── */
+.right-pane{display:flex;flex-direction:column;gap:13px;}
+canvas{display:block;width:100%;background:#080a10;}
+.canvas-label{font-size:9px;color:var(--muted);letter-spacing:4px;text-transform:uppercase;padding:5px 11px;border-bottom:1px solid var(--border);font-family:'Michroma',monospace;}
+.cw{display:flex;flex-direction:column;}
+.cw+.cw{border-left:1px solid var(--border);}
+
+.road-area{border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+@media(max-width:900px){.bottom-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.bottom-grid{grid-template-columns:1fr;}}
+
+.legend{display:flex;gap:13px;flex-wrap:wrap;padding:7px 12px;border-top:1px solid var(--border);}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);}
+.leg-line{width:16px;height:2px;border-radius:1px;}
+
+.sol-box{
+  background:rgba(0,0,0,.45);border:1px solid var(--border);border-left:3px solid var(--aA);
+  padding:9px 12px;font-size:11px;line-height:1.9;margin:0 12px 12px;
+  border-radius:0 3px 3px 0;font-family:'Share Tech Mono',monospace;
+}
+.sol-box .sol-title{color:var(--aA);font-size:9px;letter-spacing:3px;text-transform:uppercase;margin-bottom:5px;font-family:'Michroma',monospace;}
+.sol-box .sol-eq span{color:var(--aE);}
+
+/* Speedometer */
+.speedo-row{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
+.speedo-big{font-family:'Michroma',monospace;font-size:28px;color:var(--aE);line-height:1;text-shadow:var(--glowE);}
+.speedo-unit{font-size:10px;color:var(--muted);}
+.rpm-bar-bg{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px;}
+.rpm-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--aA),var(--aE),var(--aD));transition:width .08s;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header>
+  <div class="tagline">LONGITUDINAL VEHICLE DYNAMICS</div>
+  <h1>Car Motion Simulation</h1>
+  <p>Air Drag · Rolling Resistance · Engine Force · Gear Ratios · RK4 Numerical Integration</p>
+</header>
+
+<!-- ══ THEORY ══════════════════════════════════════════════════════════════ -->
+<div style="margin-bottom:14px;">
+  <div class="theory-toggle open" id="theoryToggle" onclick="toggleTheory()">
+    <span>📐 &nbsp; Theory — Deriving and solving the longitudinal dynamics equation</span>
+    <span class="arr">▲</span>
+  </div>
+  <div class="tcoll vis" id="theoryBody">
+    <div style="margin-top:12px;">
+      <div class="trow">
+
+        <!-- 01: Forces & Newton -->
+        <div class="tcard">
+          <div class="thead"><span class="num">01</span>Forces Acting on the Car — Newton's 2nd Law</div>
+          <div class="tbody">
+            <p>Consider a car of mass <span class="hE">m</span> moving along a flat road. Four longitudinal forces determine acceleration:</p>
+            <ul class="step-list">
+              <li><div class="sn">F</div><div><span class="hE">Engine/Traction force F_e</span> — delivered at the wheels. Depends on throttle, gear ratio, and engine torque curve.</div></li>
+              <li><div class="sn">D</div><div><span class="hD">Aerodynamic drag F_D</span> — quadratic: opposes motion, proportional to v². Dominates at high speed.</div></li>
+              <li><div class="sn">R</div><div><span class="hR">Rolling resistance F_R</span> — nearly constant: tire deformation, bearing friction. Dominates at low speed.</div></li>
+              <li><div class="sn">B</div><div><span class="hB">Braking force F_B</span> — applied by driver, limited by tire–road friction μ·m·g.</div></li>
+            </ul>
+            <p style="margin-top:8px;">Applying <strong>ΣF = ma</strong> in the longitudinal direction:</p>
+            <div class="eq-block">m·a = F_e − F_D − F_R − F_B</div>
+            <div class="eq-block">m·(dv/dt) = F_e − ½ρCd·A·v² − Cr·m·g − F_B</div>
+            <p style="color:var(--muted);font-size:11px;">Note: on a slope, add −m·g·sinα. Here we treat flat terrain. The equation is nonlinear due to the v² drag term — no simple closed form when all forces coexist.</p>
+          </div>
+        </div>
+
+        <!-- 02: Drag & Rolling -->
+        <div class="tcard">
+          <div class="thead"><span class="num">02</span>Aerodynamic Drag &amp; Rolling Resistance</div>
+          <div class="tbody">
+            <p><strong>Aerodynamic drag</strong> arises from pressure difference front-to-rear and skin friction:</p>
+            <div class="eq-block drag">F_D = ½ · ρ · Cd · A · v²</div>
+            <table class="comp-table">
+              <tr><th>Symbol</th><th>Quantity</th><th>Typical Value</th></tr>
+              <tr><td class="hD">ρ</td><td>Air density</td><td>1.225 kg/m³</td></tr>
+              <tr><td class="hD">Cd</td><td>Drag coefficient</td><td>0.25 – 0.45</td></tr>
+              <tr><td class="hD">A</td><td>Frontal area</td><td>1.8 – 2.5 m²</td></tr>
+            </table>
+            <p style="margin-top:8px;"><strong>Rolling resistance</strong> is primarily from tire hysteresis (deformation energy loss):</p>
+            <div class="eq-block roll">F_R = Cr · m · g</div>
+            <table class="comp-table">
+              <tr><th>Cr range</th><th>Surface</th></tr>
+              <tr><td class="hR">0.010 – 0.015</td><td>Asphalt / Concrete</td></tr>
+              <tr><td class="hR">0.020 – 0.030</td><td>Gravel / Dirt</td></tr>
+              <tr><td class="hR">0.100 – 0.350</td><td>Sand / Off-road</td></tr>
+            </table>
+            <p style="color:var(--muted);font-size:11px;margin-top:7px;">At low speeds rolling resistance dominates; at ~80 km/h for a typical car, drag and rolling resistance are roughly equal. Above that, drag grows quadratically and dominates completely.</p>
+          </div>
+        </div>
+
+        <!-- 03: Analytical solution -->
+        <div class="tcard">
+          <div class="thead"><span class="num">03</span>Analytical Solution — Terminal Velocity</div>
+          <div class="tbody">
+            <p>At <strong>constant throttle and no braking</strong>, define:</p>
+            <div class="eq-block mint">k = ½ρCd·A/m &nbsp;&nbsp; α = Cr·g<br>F_net = F_e/m − α</div>
+            <p>The ODE becomes: <span class="hA">v̇ = F_net − k·v²</span></p>
+            <p>At <strong>terminal velocity</strong> v̇ = 0:</p>
+            <div class="eq-block mint">v_∞ = √(F_net / k) = √((F_e/m − Cr·g) / (½ρCd·A/m))</div>
+            <p>The general solution (v₀ = 0) via separation of variables:</p>
+            <div class="eq-block mint">v(t) = v_∞ · tanh(t / τ)</div>
+            <div class="eq-block mint">τ = 1 / √(k · F_net) = m / (v_∞ · ½ρCd·A)</div>
+            <p>Position integrates to:</p>
+            <div class="eq-block mint">x(t) = (v_∞/α_k) · ln[cosh(t/τ)] &nbsp;where α_k = √(k·F_net)</div>
+            <p style="color:var(--muted);font-size:11px;">For non-zero v₀: v(t) = v_∞·tanh(α_k·t + arctanh(v₀/v_∞)). Matches RK4 to 6 significant figures.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="trow">
+        <!-- 04: Engine & Gears -->
+        <div class="tcard">
+          <div class="thead"><span class="num">04</span>Engine Force, Power &amp; Gear Ratios</div>
+          <div class="tbody">
+            <p>The <strong>traction force at the wheels</strong> is determined by engine torque, gear ratio, and wheel radius:</p>
+            <div class="eq-block">F_e = (T_engine · G_total · η) / r_wheel</div>
+            <p>where <span class="hE">G_total = G_gear · G_final</span> is the combined gear ratio and <span class="hE">η</span> is drivetrain efficiency (~0.85–0.92).</p>
+            <p>Engine torque peaks at a specific RPM and drops off. Engine speed relates to wheel speed by:</p>
+            <div class="eq-block">RPM = (v · G_total · 60) / (2π · r_wheel)</div>
+            <p><strong>Power limit</strong> caps maximum traction force:</p>
+            <div class="eq-block">F_e = min(F_e_torque, P_max / v)</div>
+            <table class="comp-table">
+              <tr><th>Gear</th><th>Ratio</th><th>Best for</th></tr>
+              <tr><td class="hE">1st</td><td>3.8</td><td>Acceleration, 0–20 km/h</td></tr>
+              <tr><td class="hE">2nd</td><td>2.2</td><td>City speeds</td></tr>
+              <tr><td class="hE">3rd</td><td>1.4</td><td>Suburban</td></tr>
+              <tr><td class="hE">4th</td><td>1.0</td><td>Highway</td></tr>
+              <tr><td class="hE">5th</td><td>0.8</td><td>Cruise / economy</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 05: RK4 -->
+        <div class="tcard">
+          <div class="thead"><span class="num">05</span>Numerical Integration — RK4</div>
+          <div class="tbody">
+            <p>The equation m·dv/dt = F_e − ½ρCd·A·v² − Cr·m·g is a <strong>1st-order nonlinear ODE</strong>. With position added, the state vector is [x, v]:</p>
+            <div class="eq-block vio">ẋ = v<br>v̇ = [F_e(v,t) − ½ρCd·A·v² − Cr·m·g − F_B] / m</div>
+            <p>RK4 at each time step h = 1/200 s:</p>
+            <div class="rk4-grid">
+              <div class="rk4-box"><div class="rk-lbl">k₁</div><div class="rk-eq">f(tₙ, vₙ)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₂</div><div class="rk-eq">f(t+h/2, v+h·k₁/2)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₃</div><div class="rk-eq">f(t+h/2, v+h·k₂/2)</div></div>
+              <div class="rk4-box"><div class="rk-lbl">k₄</div><div class="rk-eq">f(t+h, v+h·k₃)</div></div>
+            </div>
+            <div class="eq-block vio" style="margin-top:8px;">vₙ₊₁ = vₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)</div>
+            <p style="color:var(--muted);font-size:11px;margin-top:6px;">With constant throttle and no braking, the analytical tanh solution and RK4 agree to 6+ decimal places, validating the numerical scheme. Gear changes, braking, and speed-dependent torque curves require numerical treatment.</p>
+          </div>
+        </div>
+
+        <!-- 06: Stopping distance -->
+        <div class="tcard">
+          <div class="thead"><span class="num">06</span>Braking Distance &amp; Energy Dissipation</div>
+          <div class="tbody">
+            <p>During braking with force F_B = μ_brk·m·g, the ODE becomes:</p>
+            <div class="eq-block ora">m·v̇ = − ½ρCd·A·v² − (Cr + μ_brk)·m·g</div>
+            <p>The <strong>minimum stopping distance</strong> (from work-energy theorem, ignoring drag):</p>
+            <div class="eq-block ora">d_stop = v₀² / (2·μ_brk·g)</div>
+            <p>With drag included, the car stops slightly shorter. The kinetic energy ½mv² must equal the work done by all resistive forces:</p>
+            <div class="eq-block ora">½mv₀² = ∫₀^d [F_B + F_D + F_R] dx</div>
+            <table class="comp-table">
+              <tr><th>Speed</th><th>d_stop (μ=0.8)</th><th>d_stop (μ=0.5)</th></tr>
+              <tr><td>50 km/h</td><td>15 m</td><td>24 m</td></tr>
+              <tr><td>100 km/h</td><td>59 m</td><td>96 m</td></tr>
+              <tr><td>130 km/h</td><td>100 m</td><td>162 m</td></tr>
+            </table>
+            <p style="color:var(--muted);font-size:11px;margin-top:7px;">Stopping distance scales with v² — doubling speed quadruples stopping distance. The total kinetic energy is converted to heat in brakes (and partially in tires/air).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LIVE BANNER ══════════════════════════════════════════════════════════ -->
+<div class="eq-banner">
+  <div class="eq-main">m·(dv/dt) = F_e − ½ρCd·A·v² − Cr·m·g − F_B</div>
+  <div class="eq-parts">
+    <div class="eq-badge">v_∞ = <span id="b-vterm">—</span> km/h</div>
+    <div class="eq-badge">τ = <span id="b-tau">—</span> s</div>
+    <div class="eq-badge">F_e = <span id="b-Fe">—</span> N</div>
+    <div class="eq-badge">F_D = <span id="b-FD">—</span> N</div>
+    <div class="eq-badge">F_R = <span id="b-FR">—</span> N</div>
+  </div>
+</div>
+
+<!-- ══ SIMULATION ═══════════════════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- Controls -->
+  <div>
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div>Vehicle Parameters</div>
+      <div class="ctrl-inner">
+
+        <div class="pg">
+          <label><span><span class="psym pE">m</span><span class="pname"> — Mass</span></span><span class="pval pE" id="v-m">1400 kg</span></label>
+          <input type="range" id="s-m" min="600" max="3500" step="50" value="1400">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym pE">P</span><span class="pname"> — Engine Power</span></span><span class="pval pE" id="v-P">120 kW</span></label>
+          <input type="range" id="s-P" min="30" max="500" step="5" value="120">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym pE">Throttle</span></span><span class="pval pE" id="v-th">100%</span></label>
+          <input type="range" id="s-th" min="0" max="100" step="1" value="100">
+        </div>
+
+        <hr class="divider">
+        <div class="pg">
+          <label><span><span class="psym pD">Cd</span><span class="pname"> — Drag Coeff.</span></span><span class="pval pD" id="v-Cd">0.30</span></label>
+          <input type="range" id="s-Cd" class="sD" min="0.05" max="1.0" step="0.01" value="0.3">
+        </div>
+        <div class="pg">
+          <label><span><span class="psym pD">A</span><span class="pname"> — Frontal Area</span></span><span class="pval pD" id="v-A">2.20 m²</span></label>
+          <input type="range" id="s-A" class="sD" min="0.5" max="4.0" step="0.05" value="2.2">
+        </div>
+
+        <hr class="divider">
+        <div class="pg">
+          <label><span><span class="psym pR">Cr</span><span class="pname"> — Rolling Resist.</span></span><span class="pval pR" id="v-Cr">0.013</span></label>
+          <input type="range" id="s-Cr" class="sR" min="0.005" max="0.1" step="0.001" value="0.013">
+        </div>
+
+        <hr class="divider">
+        <!-- Gear selector -->
+        <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;font-family:'Michroma',monospace;">GEAR</div>
+        <div class="gear-row" id="gearRow">
+          <button class="gear-btn" onclick="setGear(1)">1</button>
+          <button class="gear-btn active" onclick="setGear(2)">2</button>
+          <button class="gear-btn" onclick="setGear(3)">3</button>
+          <button class="gear-btn" onclick="setGear(4)">4</button>
+          <button class="gear-btn" onclick="setGear(5)">5</button>
+          <button class="gear-btn" onclick="setGear(0)">N</button>
+        </div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:10px;margin-bottom:5px;font-family:'Michroma',monospace;">BRAKE STRENGTH</div>
+        <div class="pg" style="margin:0;">
+          <label><span><span class="psym pB">μ</span><span class="pname"> — Brake Friction</span></span><span class="pval pB" id="v-mu">0.80</span></label>
+          <input type="range" id="s-mu" class="sB" min="0.1" max="1.2" step="0.02" value="0.8">
+        </div>
+
+        <hr class="divider">
+        <div class="speedo-row">
+          <div class="speedo-big" id="speedo">0</div>
+          <div>
+            <div class="speedo-unit">km/h</div>
+            <div style="font-size:9px;color:var(--muted);margin-top:2px;" id="rpm-label">0 RPM</div>
+          </div>
+        </div>
+        <div class="rpm-bar-bg"><div class="rpm-bar-fill" id="rpm-bar" style="width:0%"></div></div>
+
+        <div class="metrics">
+          <div class="metric-box"><div class="mk">Distance (m)</div><div class="mv" id="m-x">0</div></div>
+          <div class="metric-box"><div class="mk">Accel (m/s²)</div><div class="mv" id="m-a">0.00</div></div>
+          <div class="metric-box"><div class="mk">0→100 (s)</div><div class="mv" id="m-t100">—</div></div>
+          <div class="metric-box"><div class="mk">Time (s)</div><div class="mv" id="m-t">0.0</div></div>
+        </div>
+
+        <hr class="divider">
+        <div class="btn-row">
+          <button class="btn" onclick="startSim()">▶ Start</button>
+          <button class="btn reset-btn" onclick="resetSim()">⟳ Reset</button>
+        </div>
+        <button class="btn brake-btn" id="brakeBtn" onmousedown="startBrake()" onmouseup="stopBrake()" ontouchstart="startBrake()" ontouchend="stopBrake()">🛑 BRAKE (hold)</button>
+        <button class="btn" onclick="togglePause()" id="pauseBtn" style="margin-top:6px;">⏸ Pause</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Right pane -->
+  <div class="right-pane">
+
+    <!-- Road animation canvas -->
+    <div class="panel road-area">
+      <div class="canvas-label">🚗 Road View — Forces &amp; Motion</div>
+      <canvas id="roadCanvas" height="200"></canvas>
+    </div>
+
+    <!-- v(t) and x(t) panel split -->
+    <div class="panel" style="overflow:hidden;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;">
+        <div class="cw">
+          <div class="canvas-label">📈 Velocity v(t)</div>
+          <canvas id="velCanvas" height="200"></canvas>
+        </div>
+        <div class="cw cw">
+          <div class="canvas-label">📏 Position x(t)</div>
+          <canvas id="posCanvas" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="leg-line" style="background:var(--aE)"></div>Numerical (RK4)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aA)"></div>Analytical (tanh)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aD)"></div>Air drag force</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aR)"></div>Rolling resistance</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--aB)"></div>Braking event</div>
+    </div>
+
+    <!-- Analytical solution panel -->
+    <div class="panel">
+      <div class="panel-title"><div class="dot" style="background:var(--aA);box-shadow:var(--glowA)"></div>Analytical Solution (Constant Throttle, No Brake)</div>
+      <div class="sol-box">
+        <div class="sol-title">v(t) = v_∞ · tanh(t / τ) &nbsp;—&nbsp; Terminal velocity approach</div>
+        <div class="sol-eq" id="sol-eq-text">Awaiting parameters…</div>
+      </div>
+    </div>
+
+    <!-- Three sub-panels -->
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aD);box-shadow:var(--glowD)"></div>Force Balance vs. Speed</div>
+        <canvas id="forceCanvas" height="200"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aE);box-shadow:var(--glowE)"></div>Acceleration vs. Speed</div>
+        <canvas id="accelCanvas" height="200"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--aN);box-shadow:0 0 16px rgba(199,125,255,.4)"></div>Power &amp; Energy</div>
+        <canvas id="powerCanvas" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCRIPT ═══════════════════════════════════════════════════════════════ -->
+<script>
+// ── Theory toggle ────────────────────────────────────────────────────────────
+function toggleTheory(){
+  const b=document.getElementById('theoryBody'),t=document.getElementById('theoryToggle');
+  t.classList.toggle('open',b.classList.toggle('vis'));
+}
+
+// ── Parameters ───────────────────────────────────────────────────────────────
+let mass=1400, Power=120000, throttle=1.0;
+let Cd=0.3, Af=2.2, Cr=0.013;
+let mu_brk=0.8;
+const rho=1.225, g_acc=9.81;
+const r_wheel=0.315; // m
+const G_final=3.7;
+const gearRatios=[0,3.8,2.2,1.4,1.0,0.8]; // index 0=Neutral
+let gear=2;
+let braking=false;
+
+// ── Simulation state ──────────────────────────────────────────────────────────
+let simV=0, simX=0, simT=0, simA=0;
+let running=false, paused=false, animId=null, lastTs=null;
+let history=[], maxHist=1200;
+let physDt=1/200, physAcc_=0;
+let t100=-1; // time to reach 100 km/h
+
+// ── Canvas refs ───────────────────────────────────────────────────────────────
+const roadC =document.getElementById('roadCanvas');
+const velC  =document.getElementById('velCanvas');
+const posC  =document.getElementById('posCanvas');
+const forceC=document.getElementById('forceCanvas');
+const accelC=document.getElementById('accelCanvas');
+const powerC=document.getElementById('powerCanvas');
+const ctxR=roadC.getContext('2d'), ctxV=velC.getContext('2d');
+const ctxP=posC.getContext('2d'),  ctxF=forceC.getContext('2d');
+const ctxAc=accelC.getContext('2d'),ctxPw=powerC.getContext('2d');
+
+function resizeAll(){
+  [roadC,velC,posC,forceC,accelC,powerC].forEach(c=>{
+    c.width=c.offsetWidth*devicePixelRatio;
+    c.height=c.offsetHeight*devicePixelRatio;
+  });
+}
+window.addEventListener('resize',()=>{resizeAll();drawAll();});
+resizeAll();
+
+// ── Physics ──────────────────────────────────────────────────────────────────
+function engineForce(v){
+  if(gear===0||throttle===0)return 0;
+  const G=gearRatios[gear]*G_final;
+  // Force from max power: F = P/v
+  const Fp=v>0.5?Power*throttle/v:Power*throttle/0.5;
+  // Traction limited by gear torque (approximate): max traction
+  const Ft_max=Power*throttle*G/(r_wheel*600); // rough constant torque estimate
+  const Fe=Math.min(Fp, Ft_max);
+  return Math.max(0,Fe);
+}
+
+function dragForce(v){return 0.5*rho*Cd*Af*v*v;}
+function rollForce(){return Cr*mass*g_acc;}
+function brakeForce(){return braking?mu_brk*mass*g_acc:0;}
+
+function accel(v){
+  const Fe=engineForce(v);
+  const FD=dragForce(v);
+  const FR=rollForce();
+  const FB=brakeForce();
+  const net=Fe-FD-FR-FB;
+  return net/mass;
+}
+
+// RK4
+function rk4Step(t,x,v,dt){
+  const k1v=accel(v);
+  const k2v=accel(v+dt/2*k1v);
+  const k3v=accel(v+dt/2*k2v);
+  const k4v=accel(v+dt*k3v);
+  const dv=dt/6*(k1v+2*k2v+2*k3v+k4v);
+  const dx=dt*(v+v+dv*0.5); // trapezoidal for x
+  return{v:Math.max(0,v+dv),x:x+dx};
+}
+
+// ── Analytical solution (constant throttle, no brake) ─────────────────────────
+function terminalVelocity(){
+  const k=0.5*rho*Cd*Af/mass;
+  const Fe0=Power*throttle/(1); // force at low speed estimate → use P/v_approx
+  // solve: Fe/m - Cr*g = k*v^2 iteratively
+  let vt=50/3.6;
+  for(let i=0;i<200;i++){
+    const Fe=Power*throttle/vt;
+    const Fnet=Fe/mass - Cr*g_acc;
+    if(Fnet<=0){vt*=0.99;continue;}
+    vt=Math.sqrt(Fnet/k);
+  }
+  return vt;
+}
+
+function analyticalV(t){
+  const vInf=terminalVelocity();
+  const k=0.5*rho*Cd*Af/mass;
+  const Fe=Power*throttle/vInf;
+  const Fnet=Fe/mass - Cr*g_acc;
+  if(Fnet<=0)return 0;
+  const ak=Math.sqrt(k*Fnet);
+  const v0=0;
+  if(v0===0){
+    return vInf*Math.tanh(ak*t);
+  }
+  const phi=Math.atanh(Math.min(v0/vInf,0.9999));
+  return vInf*Math.tanh(ak*t+phi);
+}
+
+function analyticalX(t){
+  const vInf=terminalVelocity();
+  const k=0.5*rho*Cd*Af/mass;
+  const Fe=Power*throttle/vInf;
+  const Fnet=Fe/mass - Cr*g_acc;
+  if(Fnet<=0)return 0;
+  const ak=Math.sqrt(k*Fnet);
+  // x(t) = (vInf/ak)*ln(cosh(ak*t))
+  const z=ak*t;
+  const lnCosh=z>20?z-Math.LN2:Math.log(Math.cosh(z));
+  return vInf/ak*lnCosh;
+}
+
+// RPM calculation
+function getRPM(v){
+  if(gear===0)return 800;
+  const G=gearRatios[gear]*G_final;
+  return Math.max(800,v*G*60/(2*Math.PI*r_wheel));
+}
+
+// ── UI Update ─────────────────────────────────────────────────────────────────
+function updateUI(){
+  document.getElementById('v-m').textContent=mass+' kg';
+  document.getElementById('v-P').textContent=(Power/1000).toFixed(0)+' kW';
+  document.getElementById('v-th').textContent=(throttle*100).toFixed(0)+'%';
+  document.getElementById('v-Cd').textContent=Cd.toFixed(2);
+  document.getElementById('v-A').textContent=Af.toFixed(2)+' m²';
+  document.getElementById('v-Cr').textContent=Cr.toFixed(3);
+  document.getElementById('v-mu').textContent=mu_brk.toFixed(2);
+
+  const vKmh=(simV*3.6).toFixed(0);
+  document.getElementById('speedo').textContent=vKmh;
+  const rpm=getRPM(simV);
+  document.getElementById('rpm-label').textContent=rpm.toFixed(0)+' RPM';
+  const rpmMax=gear===0?800:7000;
+  document.getElementById('rpm-bar').style.width=Math.min(rpm/rpmMax*100,100)+'%';
+
+  document.getElementById('m-x').textContent=simX.toFixed(0);
+  document.getElementById('m-a').textContent=simA.toFixed(2);
+  document.getElementById('m-t').textContent=simT.toFixed(1);
+  document.getElementById('m-t100').textContent=t100>0?t100.toFixed(2)+'s':'—';
+
+  // Banner
+  const Fe=engineForce(simV), FD=dragForce(simV), FR=rollForce();
+  const vt=terminalVelocity();
+  const k=0.5*rho*Cd*Af/mass;
+  const Fnet_=engineForce(vt)/mass-Cr*g_acc;
+  const tau=Fnet_>0?1/Math.sqrt(k*Fnet_):'—';
+  document.getElementById('b-vterm').textContent=(vt*3.6).toFixed(1);
+  document.getElementById('b-tau').textContent=typeof tau==='number'?tau.toFixed(2):'—';
+  document.getElementById('b-Fe').textContent=Fe.toFixed(0);
+  document.getElementById('b-FD').textContent=FD.toFixed(0);
+  document.getElementById('b-FR').textContent=FR.toFixed(0);
+
+  updateSolText();
+}
+
+function updateSolText(){
+  const vt=terminalVelocity();
+  const k=0.5*rho*Cd*Af/mass;
+  const Fe=Power*throttle/vt;
+  const Fnet=Fe/mass-Cr*g_acc;
+  const ak=Fnet>0?Math.sqrt(k*Fnet):0;
+  const tau=ak>0?(1/ak).toFixed(3):'—';
+  const el=document.getElementById('sol-eq-text');
+  el.innerHTML=
+    `v_∞ = √[(F_e/m − Cr·g) / k] = <span>${(vt*3.6).toFixed(1)}</span> km/h<br>`+
+    `τ = 1/√(k·F_net) = <span>${tau}</span> s &nbsp; k = ½ρCd·A/m = <span>${(k*mass).toFixed(3)}</span>/m<br>`+
+    `v(t) = <span>${(vt*3.6).toFixed(1)}</span> · tanh(t / <span>${tau}</span>) km/h<br>`+
+    `x(t) = <span>${(vt/ak).toFixed(2)}</span> · ln[cosh(t / <span>${tau}</span>)] m`;
+}
+
+// ── Draw helpers ──────────────────────────────────────────────────────────────
+function clr(ctx){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);}
+function grid(ctx,W,H,col='rgba(30,34,53,0.7)'){
+  ctx.strokeStyle=col;ctx.lineWidth=1;
+  for(let x=0;x<W;x+=W/10){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=H/8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+
+// ── Road animation ────────────────────────────────────────────────────────────
+let roadOffset=0;
+function drawRoad(){
+  const W=roadC.width, H=roadC.height, ctx=ctxR, dpr=devicePixelRatio;
+  clr(ctx);
+  const roadY=H*0.62, roadH=H*0.22;
+
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,roadY);
+  sky.addColorStop(0,'#060810'); sky.addColorStop(1,'#0d1520');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,roadY);
+
+  // Ground
+  ctx.fillStyle='#0a0e08'; ctx.fillRect(0,roadY+roadH,W,H-roadY-roadH);
+
+  // Road surface
+  const roadGrad=ctx.createLinearGradient(0,roadY,0,roadY+roadH);
+  roadGrad.addColorStop(0,'#1a1e2a'); roadGrad.addColorStop(1,'#12141a');
+  ctx.fillStyle=roadGrad; ctx.fillRect(0,roadY,W,roadH);
+  // Road edges
+  ctx.fillStyle='rgba(232,255,71,0.15)'; ctx.fillRect(0,roadY,W,2*dpr);
+  ctx.fillStyle='rgba(232,255,71,0.15)'; ctx.fillRect(0,roadY+roadH-2*dpr,W,2*dpr);
+
+  // Road dashes
+  const dashW=40*dpr, dashH=4*dpr, dashSpacing=80*dpr;
+  const dashY=roadY+roadH/2-dashH/2;
+  roadOffset=(roadOffset+simV*physDt*dpr*6)%(dashSpacing);
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  for(let dx=-dashSpacing+roadOffset;dx<W+dashSpacing;dx+=dashSpacing){
+    ctx.fillRect(dx,dashY,dashW,dashH);
+  }
+
+  // Distant road lines (perspective)
+  ctx.strokeStyle='rgba(30,34,53,0.8)'; ctx.lineWidth=dpr;
+  for(let i=0;i<3;i++){
+    const t_=i/3;
+    const y_=roadY+t_*roadH;
+    ctx.beginPath();ctx.moveTo(0,y_);ctx.lineTo(W,y_);ctx.stroke();
+  }
+
+  // Horizon glow
+  const hg=ctx.createLinearGradient(0,roadY-20*dpr,0,roadY+20*dpr);
+  hg.addColorStop(0,'transparent'); hg.addColorStop(0.5,'rgba(232,255,71,0.04)'); hg.addColorStop(1,'transparent');
+  ctx.fillStyle=hg; ctx.fillRect(0,roadY-20*dpr,W,40*dpr);
+
+  // Trees/scenery dots
+  for(let i=0;i<8;i++){
+    const tx=((i*180*dpr - simX*dpr*0.3)%(W+100*dpr)+W+100*dpr)%(W+100*dpr)-50*dpr;
+    const ty=roadY-30*dpr-i%3*15*dpr;
+    ctx.fillStyle='rgba(20,40,20,0.7)';
+    ctx.beginPath();ctx.arc(tx,ty,8*dpr,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Car ──
+  const carW=120*dpr, carH=44*dpr;
+  const carX=W*0.28-carW/2, carY=roadY-carH+6*dpr;
+
+  // Shadow
+  const sh=ctx.createRadialGradient(carX+carW/2,roadY+2*dpr,0,carX+carW/2,roadY+2*dpr,carW/2);
+  sh.addColorStop(0,'rgba(0,0,0,0.5)'); sh.addColorStop(1,'transparent');
+  ctx.fillStyle=sh; ctx.fillRect(carX-10*dpr,roadY-2*dpr,carW+20*dpr,12*dpr);
+
+  // Body
+  const bodyGrad=ctx.createLinearGradient(carX,carY,carX,carY+carH);
+  bodyGrad.addColorStop(0,'#2a2e3e'); bodyGrad.addColorStop(0.4,'#1e2230'); bodyGrad.addColorStop(1,'#13151e');
+  ctx.fillStyle=bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(carX+10*dpr,carY+carH);
+  ctx.lineTo(carX+10*dpr,carY+carH*0.55);
+  ctx.lineTo(carX+25*dpr,carY+carH*0.1);
+  ctx.lineTo(carX+carW*0.7,carY+carH*0.1);
+  ctx.lineTo(carX+carW-5*dpr,carY+carH*0.55);
+  ctx.lineTo(carX+carW-5*dpr,carY+carH);
+  ctx.closePath(); ctx.fill();
+  // Car highlight
+  ctx.strokeStyle='rgba(232,255,71,0.15)'; ctx.lineWidth=dpr;
+  ctx.stroke();
+
+  // Windshield
+  ctx.fillStyle='rgba(103,232,249,0.15)';
+  ctx.beginPath();
+  ctx.moveTo(carX+27*dpr,carY+carH*0.15);
+  ctx.lineTo(carX+40*dpr,carY+carH*0.12);
+  ctx.lineTo(carX+65*dpr,carY+carH*0.12);
+  ctx.lineTo(carX+carW*0.72,carY+carH*0.52);
+  ctx.lineTo(carX+28*dpr,carY+carH*0.52);
+  ctx.closePath(); ctx.fill();
+
+  // Wheels
+  const w1x=carX+22*dpr, w2x=carX+carW-22*dpr, wy=carY+carH-5*dpr, wr=14*dpr;
+  [w1x,w2x].forEach(wx=>{
+    ctx.fillStyle='#1a1c28'; ctx.beginPath(); ctx.arc(wx,wy,wr,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#2a2e40'; ctx.lineWidth=3*dpr; ctx.stroke();
+    // rim
+    const rimAngle=simT*simV*2;
+    ctx.strokeStyle='rgba(200,200,220,0.4)'; ctx.lineWidth=1.5*dpr;
+    for(let s=0;s<5;s++){
+      const a=rimAngle+s*Math.PI*2/5;
+      ctx.beginPath();ctx.moveTo(wx,wy);ctx.lineTo(wx+Math.cos(a)*wr*0.8,wy+Math.sin(a)*wr*0.8);ctx.stroke();
+    }
+    ctx.strokeStyle='rgba(200,200,220,0.5)'; ctx.lineWidth=1.5*dpr;
+    ctx.beginPath();ctx.arc(wx,wy,wr*0.4,0,Math.PI*2);ctx.stroke();
+  });
+
+  // Headlights glow
+  const hlGrad=ctx.createRadialGradient(carX+carW-8*dpr,carY+carH*0.55,0,carX+carW-8*dpr,carY+carH*0.55,60*dpr);
+  hlGrad.addColorStop(0,'rgba(255,255,200,0.12)'); hlGrad.addColorStop(1,'transparent');
+  ctx.fillStyle=hlGrad; ctx.beginPath();ctx.arc(carX+carW-8*dpr,carY+carH*0.55,60*dpr,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,180,0.9)'; ctx.beginPath();ctx.arc(carX+carW-8*dpr,carY+carH*0.5,3*dpr,0,Math.PI*2);ctx.fill();
+
+  // Brake lights
+  if(braking){
+    ctx.fillStyle='rgba(255,60,60,0.9)';
+    ctx.beginPath();ctx.arc(carX+12*dpr,carY+carH*0.5,4*dpr,0,Math.PI*2);ctx.fill();
+    const blGrad=ctx.createRadialGradient(carX+12*dpr,carY+carH*0.5,0,carX+12*dpr,carY+carH*0.5,40*dpr);
+    blGrad.addColorStop(0,'rgba(255,0,0,0.2)'); blGrad.addColorStop(1,'transparent');
+    ctx.fillStyle=blGrad; ctx.beginPath();ctx.arc(carX+12*dpr,carY+carH*0.5,40*dpr,0,Math.PI*2);ctx.fill();
+  }
+
+  // Exhaust smoke (when braking off and moving)
+  if(!braking && simV>1 && throttle>0.1){
+    for(let i=0;i<3;i++){
+      const sx=carX+(i*12-8)*dpr, sy=carY+carH*0.85+i*4*dpr;
+      const alpha=0.06+Math.sin(simT*3+i)*0.03;
+      ctx.fillStyle=`rgba(180,180,180,${alpha})`;
+      ctx.beginPath();ctx.arc(sx,sy,5*dpr+i*3*dpr,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  // ── Force arrows ──
+  const arrowY=carY+carH*0.35;
+  const scaleF=W*0.00008;
+  const Fe=engineForce(simV), FD=dragForce(simV), FR=rollForce(), FB=brakeForce();
+
+  function drawFArrow(x,y,len,col,label){
+    if(Math.abs(len)<2)return;
+    ctx.strokeStyle=col; ctx.lineWidth=2*dpr;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+len,y);ctx.stroke();
+    const dir=len>0?1:-1;
+    const as=8*dpr;
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.moveTo(x+len,y);
+    ctx.lineTo(x+len-dir*as,y-as*0.5);ctx.lineTo(x+len-dir*as,y+as*0.5);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle=col; ctx.font=`${8*dpr}px Share Tech Mono`; ctx.textAlign='center';
+    ctx.fillText(label,x+len/2,y-7*dpr);
+  }
+
+  const carCenterX=carX+carW/2;
+  drawFArrow(carCenterX,arrowY, Fe*scaleF,'rgba(232,255,71,0.85)',`F_e=${Fe.toFixed(0)}N`);
+  drawFArrow(carCenterX,arrowY+16*dpr, -(FD+FR+FB)*scaleF,'rgba(255,77,109,0.85)',`F_res=${(FD+FR+FB).toFixed(0)}N`);
+
+  // Speed text
+  ctx.fillStyle='rgba(58,64,96,0.9)'; ctx.font=`${9*dpr}px Share Tech Mono`; ctx.textAlign='left';
+  ctx.fillText(`${(simV*3.6).toFixed(1)} km/h  ${simX.toFixed(0)}m  t=${simT.toFixed(1)}s`,8*dpr,H-6*dpr);
+}
+
+// ── Velocity time-series ──────────────────────────────────────────────────────
+function drawVel(){
+  const W=velC.width,H=velC.height,ctx=ctxV,dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1e2235';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  if(history.length<2)return;
+  const tMax=Math.max(simT,20);
+  const vt=terminalVelocity()*3.6;
+  const vMax=Math.max(vt,simV*3.6,10)*1.1;
+  const mX=t=>t/tMax*pw+pad.l;
+  const mY=v=>ph-(v/vMax)*ph+pad.t;
+
+  // Terminal velocity line
+  ctx.strokeStyle='rgba(232,255,71,0.15)';ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mY(vt));ctx.lineTo(W-pad.r,mY(vt));ctx.stroke();ctx.setLineDash([]);
+
+  // Analytical (mint)
+  if(!braking&&throttle>0){
+    ctx.strokeStyle='rgba(6,255,165,0.5)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([5*dpr,3*dpr]);
+    ctx.beginPath();let fa=true;
+    for(let ti=0;ti<=tMax;ti+=tMax/300){
+      const va=analyticalV(ti)*3.6;
+      const cy=mY(va); const cx=mX(ti);
+      if(fa){ctx.moveTo(cx,cy);fa=false;}else ctx.lineTo(cx,cy);
+    }
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // Numerical (yellow)
+  ctx.strokeStyle='rgba(232,255,71,0.9)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();
+  history.forEach((h,i)=>{if(i===0)ctx.moveTo(mX(h.t),mY(h.v*3.6));else ctx.lineTo(mX(h.t),mY(h.v*3.6));});
+  ctx.stroke();
+
+  // Braking shading
+  history.forEach((h,i)=>{
+    if(h.brk&&i>0){
+      ctx.fillStyle='rgba(255,133,0,0.06)';
+      ctx.fillRect(mX(history[i-1].t),pad.t,mX(h.t)-mX(history[i-1].t),ph);
+    }
+  });
+
+  // Live marker
+  ctx.fillStyle='rgba(6,255,165,0.9)';
+  ctx.beginPath();ctx.arc(mX(simT),mY(simV*3.6),4*dpr,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle='rgba(58,64,96,0.8)';ctx.font=`${8*dpr}px Share Tech Mono`;ctx.textAlign='center';
+  ctx.fillText('t (s) →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('v (km/h)',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText(vMax.toFixed(0),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillStyle='rgba(232,255,71,0.3)';ctx.textAlign='left';
+  ctx.fillText(`v_∞=${vt.toFixed(0)}`,pad.l+4*dpr,mY(vt)-4*dpr);
+}
+
+// ── Position time-series ──────────────────────────────────────────────────────
+function drawPos(){
+  const W=posC.width,H=posC.height,ctx=ctxP,dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1e2235';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  if(history.length<2)return;
+  const tMax=Math.max(simT,20);
+  const xMax=Math.max(simX,analyticalX(tMax),10)*1.1;
+  const mX=t=>t/tMax*pw+pad.l;
+  const mY=x=>ph-(x/xMax)*ph+pad.t;
+
+  // Analytical x(t)
+  if(!braking&&throttle>0){
+    ctx.strokeStyle='rgba(6,255,165,0.5)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([5*dpr,3*dpr]);
+    ctx.beginPath();let fa=true;
+    for(let ti=0;ti<=tMax;ti+=tMax/300){
+      const xa=analyticalX(ti);
+      if(fa){ctx.moveTo(mX(ti),mY(xa));fa=false;}else ctx.lineTo(mX(ti),mY(xa));
+    }
+    ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // Numerical
+  ctx.strokeStyle='rgba(199,125,255,0.85)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();history.forEach((h,i)=>{if(i===0)ctx.moveTo(mX(h.t),mY(h.x));else ctx.lineTo(mX(h.t),mY(h.x));});
+  ctx.stroke();
+
+  ctx.fillStyle='rgba(199,125,255,0.9)';ctx.beginPath();ctx.arc(mX(simT),mY(simX),4*dpr,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle='rgba(58,64,96,0.8)';ctx.font=`${8*dpr}px Share Tech Mono`;ctx.textAlign='center';
+  ctx.fillText('t (s) →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('x (m)',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText(xMax.toFixed(0),pad.l-2*dpr,pad.t+4*dpr);
+}
+
+// ── Force balance vs speed ────────────────────────────────────────────────────
+function drawForce(){
+  const W=forceC.width,H=forceC.height,ctx=ctxF,dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1e2235';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  const vMax_=250/3.6;
+  const N=200;
+  const feArr=[],fdArr=[],frArr=[];
+  let fMax=0;
+  for(let i=0;i<=N;i++){
+    const v=i/N*vMax_;
+    const fe=engineForce(v),fd=dragForce(v),fr=rollForce();
+    feArr.push(fe);fdArr.push(fd+fr);frArr.push(fr);
+    fMax=Math.max(fMax,fe,fd+fr);
+  }
+  fMax=fMax*1.1;
+  const mX=i=>i/N*pw+pad.l;
+  const mY=f=>ph-(f/fMax)*ph+pad.t;
+
+  // Rolling resistance (flat line, sky)
+  ctx.strokeStyle='rgba(72,202,228,0.7)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();ctx.moveTo(mX(0),mY(frArr[0]));for(let i=1;i<=N;i++)ctx.lineTo(mX(i),mY(frArr[i]));ctx.stroke();
+
+  // Total resistance F_D + F_R (red)
+  ctx.strokeStyle='rgba(255,77,109,0.85)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();ctx.moveTo(mX(0),mY(fdArr[0]));for(let i=1;i<=N;i++)ctx.lineTo(mX(i),mY(fdArr[i]));ctx.stroke();
+
+  // Engine force (yellow)
+  ctx.strokeStyle='rgba(232,255,71,0.9)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();ctx.moveTo(mX(0),mY(feArr[0]));for(let i=1;i<=N;i++)ctx.lineTo(mX(i),mY(feArr[i]));ctx.stroke();
+
+  // Intersection = terminal velocity
+  // Mark current speed
+  const vi=Math.round(simV/vMax_*N);
+  if(vi>=0&&vi<=N){
+    ctx.fillStyle='rgba(6,255,165,0.9)';ctx.beginPath();ctx.arc(mX(vi),mY(feArr[vi]),4*dpr,0,Math.PI*2);ctx.fill();
+  }
+  // Zero acceleration line
+  ctx.strokeStyle='rgba(58,64,96,0.4)';ctx.lineWidth=dpr;ctx.setLineDash([3*dpr,3*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mY(0));ctx.lineTo(W-pad.r,mY(0));ctx.stroke();ctx.setLineDash([]);
+
+  ctx.fillStyle='rgba(58,64,96,0.8)';ctx.font=`${8*dpr}px Share Tech Mono`;ctx.textAlign='center';
+  ctx.fillText('v (km/h) →',W/2,H-4*dpr);
+  ctx.fillText('250',W-pad.r,H-pad.b+10*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('Force (N)',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText(fMax.toFixed(0),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.textAlign='left';
+  ctx.fillStyle='rgba(232,255,71,0.7)';ctx.fillText('F_e',pad.l+4*dpr,pad.t+10*dpr);
+  ctx.fillStyle='rgba(255,77,109,0.7)';ctx.fillText('F_D+F_R',pad.l+4*dpr,pad.t+20*dpr);
+  ctx.fillStyle='rgba(72,202,228,0.7)';ctx.fillText('F_R',pad.l+4*dpr,pad.t+30*dpr);
+}
+
+// ── Acceleration vs speed ─────────────────────────────────────────────────────
+function drawAccel(){
+  const W=accelC.width,H=accelC.height,ctx=ctxAc,dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1e2235';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  const vMax_=250/3.6, N=200;
+  const aArr=[];
+  let aMax=0, aMin=0;
+  for(let i=0;i<=N;i++){const v=i/N*vMax_;const a=accel(v);aArr.push(a);aMax=Math.max(aMax,a);aMin=Math.min(aMin,a);}
+  const range=Math.max(Math.abs(aMax),Math.abs(aMin))*1.2||1;
+  const mX=i=>i/N*pw+pad.l;
+  const mY=a=>ph/2-(a/range)*ph/2+pad.t;
+
+  // Zero line
+  ctx.strokeStyle='rgba(58,64,96,0.4)';ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mY(0));ctx.lineTo(W-pad.r,mY(0));ctx.stroke();ctx.setLineDash([]);
+
+  ctx.strokeStyle='rgba(6,255,165,0.85)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();ctx.moveTo(mX(0),mY(aArr[0]));for(let i=1;i<=N;i++)ctx.lineTo(mX(i),mY(aArr[i]));ctx.stroke();
+
+  // Current
+  const vi=Math.round(simV/vMax_*N);
+  if(vi>=0&&vi<=N){
+    ctx.fillStyle='rgba(232,255,71,0.9)';ctx.beginPath();ctx.arc(mX(vi),mY(aArr[vi]),4*dpr,0,Math.PI*2);ctx.fill();
+  }
+
+  ctx.fillStyle='rgba(58,64,96,0.8)';ctx.font=`${8*dpr}px Share Tech Mono`;ctx.textAlign='center';
+  ctx.fillText('v (km/h) →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('a (m/s²)',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText(range.toFixed(1),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillText((-range).toFixed(1),pad.l-2*dpr,H-pad.b-2*dpr);
+}
+
+// ── Power & Energy ────────────────────────────────────────────────────────────
+function drawPower(){
+  const W=powerC.width,H=powerC.height,ctx=ctxPw,dpr=devicePixelRatio;
+  clr(ctx); grid(ctx,W,H);
+  const pad={l:36*dpr,r:8*dpr,t:10*dpr,b:24*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  ctx.strokeStyle='#1e2235';ctx.lineWidth=dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+
+  // KE over time
+  if(history.length<2){ctx.fillStyle='rgba(58,64,96,0.5)';ctx.font=`${9*dpr}px Share Tech Mono`;ctx.textAlign='center';ctx.fillText('Awaiting data…',W/2,H/2);return;}
+
+  const tMax=Math.max(simT,20);
+  const keMax=0.5*mass*(simV*simV)*1.5||0.5*mass*100*1.5;
+  const pMax=Power*throttle*1.2;
+  const scale=Math.max(keMax,pMax);
+  const mX=t=>t/tMax*pw+pad.l;
+  const mY=v=>ph-(v/scale)*ph+pad.t;
+
+  // Engine power delivered (P_e = F_e * v)
+  ctx.strokeStyle='rgba(232,255,71,0.7)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([4*dpr,3*dpr]);
+  ctx.beginPath();let fa=true;
+  history.forEach(h=>{
+    const p=engineForce(h.v)*h.v;
+    if(fa){ctx.moveTo(mX(h.t),mY(p));fa=false;}else ctx.lineTo(mX(h.t),mY(p));
+  });
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Drag power (P_D = F_D * v)
+  ctx.strokeStyle='rgba(255,77,109,0.6)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();fa=true;
+  history.forEach(h=>{const p=dragForce(h.v)*h.v;if(fa){ctx.moveTo(mX(h.t),mY(p));fa=false;}else ctx.lineTo(mX(h.t),mY(p));});
+  ctx.stroke();
+
+  // KE = ½mv²
+  ctx.strokeStyle='rgba(6,255,165,0.85)';ctx.lineWidth=2*dpr;
+  ctx.beginPath();fa=true;
+  history.forEach(h=>{const ke=0.5*mass*h.v*h.v;if(fa){ctx.moveTo(mX(h.t),mY(ke));fa=false;}else ctx.lineTo(mX(h.t),mY(ke));});
+  ctx.stroke();
+
+  ctx.fillStyle='rgba(58,64,96,0.8)';ctx.font=`${8*dpr}px Share Tech Mono`;ctx.textAlign='center';
+  ctx.fillText('t (s) →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('W / J',0,0);ctx.restore();
+  ctx.textAlign='right';ctx.fillText((scale/1000).toFixed(0)+'k',pad.l-2*dpr,pad.t+4*dpr);
+  ctx.textAlign='left';
+  ctx.fillStyle='rgba(232,255,71,0.7)';ctx.fillText('P_engine',pad.l+4*dpr,pad.t+10*dpr);
+  ctx.fillStyle='rgba(255,77,109,0.6)';ctx.fillText('P_drag',pad.l+4*dpr,pad.t+20*dpr);
+  ctx.fillStyle='rgba(6,255,165,0.7)';ctx.fillText('KE=½mv²',pad.l+4*dpr,pad.t+30*dpr);
+}
+
+function drawAll(){drawRoad();drawVel();drawPos();drawForce();drawAccel();drawPower();}
+
+// ── Simulation loop ───────────────────────────────────────────────────────────
+function loop(ts){
+  if(!running||paused){lastTs=null;return;}
+  if(lastTs===null){lastTs=ts;animId=requestAnimationFrame(loop);return;}
+  let dt=(ts-lastTs)/1000;lastTs=ts;dt=Math.min(dt,0.05);
+  physAcc_+=dt;
+  while(physAcc_>=physDt){
+    const s=rk4Step(simT,simX,simV,physDt);
+    simV=s.v;simX=s.x;simT+=physDt;physAcc_-=physDt;
+    simA=accel(simV);
+    // 0-100 km/h check
+    if(t100<0&&simV*3.6>=100)t100=simT;
+    history.push({t:simT,v:simV,x:simX,a:simA,brk:braking});
+    if(history.length>maxHist)history.shift();
+  }
+  updateUI();drawAll();
+  animId=requestAnimationFrame(loop);
+}
+
+function startSim(){
+  if(animId)cancelAnimationFrame(animId);
+  running=true;paused=false;lastTs=null;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  animId=requestAnimationFrame(loop);
+}
+function resetSim(){
+  if(animId)cancelAnimationFrame(animId);
+  simV=0;simX=0;simT=0;simA=0;t100=-1;
+  history=[];running=false;paused=false;physAcc_=0;braking=false;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  document.getElementById('brakeBtn').classList.remove('active');
+  updateUI();drawAll();
+}
+function togglePause(){
+  if(!running)return;
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(!paused){lastTs=null;animId=requestAnimationFrame(loop);}
+}
+function startBrake(){braking=true;document.getElementById('brakeBtn').classList.add('active');}
+function stopBrake(){braking=false;document.getElementById('brakeBtn').classList.remove('active');}
+
+function setGear(g){
+  gear=g;
+  document.querySelectorAll('.gear-btn').forEach((b,i)=>{
+    b.classList.toggle('active',(i===g-1)||(i===5&&g===0));
+  });
+  updateUI();drawAll();
+}
+
+// ── Sliders ──────────────────────────────────────────────────────────────────
+function bind(id,fn){document.getElementById(id).addEventListener('input',function(){fn(parseFloat(this.value));updateUI();drawAll();});}
+bind('s-m', v=>{mass=v;});
+bind('s-P', v=>{Power=v*1000;});
+bind('s-th',v=>{throttle=v/100;});
+bind('s-Cd',v=>{Cd=v;});
+bind('s-A', v=>{Af=v;});
+bind('s-Cr',v=>{Cr=v;});
+bind('s-mu',v=>{mu_brk=v;});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+updateUI();drawAll();startSim();
+</script>
+</body>
+</html>

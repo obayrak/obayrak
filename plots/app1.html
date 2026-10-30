@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ƒ(xyz) — Function Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Jost:wght@300;400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#050a12;--panel:#0a1018;--panel2:#0d1420;--border:#152030;--border2:#1e2e42;
+  --accent:#00cfff;--accent-glow:rgba(0,207,255,0.1);--accent2:#ff6b35;--accent3:#7c6fff;
+  --ok:#00e5a0;--danger:#ff4466;--text:#8fb8cf;--text-bright:#dcedf5;--text-dim:#4a6a85;
+  --hf:'Rajdhani',sans-serif;--cf:'JetBrains Mono',monospace;--bf:'Inter','Segoe UI',system-ui,Arial,sans-serif;
+}
+html{font-size:16px;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--bf);overflow:hidden;line-height:1.5;}
+#hdr{height:56px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:14px;z-index:20;position:relative;}
+#hdr .logo{font-family:var(--hf);font-size:22px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);}
+#hdr .logo em{color:var(--text-dim);font-style:normal;font-weight:400;}
+#hdr .tag{font-family:var(--cf);font-size:11px;letter-spacing:2px;color:var(--text-dim);border:1px solid var(--border2);border-radius:3px;padding:3px 9px;}
+#sys-badge{margin-left:auto;font-family:var(--cf);font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:4px 11px;border-radius:4px;border:1px solid currentColor;}
+.badge-3d{color:var(--accent3);}.badge-2d{color:var(--accent2);}.badge-polar{color:var(--ok);}
+#main{display:flex;height:calc(100vh - 56px);overflow:hidden;}
+#sb{width:310px;min-width:310px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
+#sb::-webkit-scrollbar{width:4px;}#sb::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.sec{padding:16px;border-bottom:1px solid var(--border);}
+.sec-lbl{font-family:var(--cf);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;}
+.ctabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.ctab{padding:8px 3px;font-family:var(--hf);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;text-align:center;background:transparent;color:var(--text-dim);border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .12s;line-height:1.4;}
+.ctab:hover{color:var(--text);border-color:var(--border2);background:rgba(255,255,255,.02);}
+.ctab.active{color:var(--accent);border-color:var(--accent);background:var(--accent-glow);}
+.psel{width:100%;background:var(--panel2);color:var(--text-bright);border:1px solid var(--border2);border-radius:6px;padding:9px 30px 9px 12px;font-family:var(--bf);font-size:13px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%233a5570' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;transition:border-color .12s;line-height:1.4;}
+.psel:focus{border-color:var(--accent);}.psel option{background:var(--panel2);}
+.fbox{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:11px 14px;font-family:var(--cf);font-size:12.5px;color:var(--accent);letter-spacing:.3px;line-height:1.7;min-height:38px;word-break:break-all;}
+.finp-wrap{position:relative;display:flex;align-items:center;}
+.finp{width:100%;background:var(--bg);color:var(--text-bright);border:1px solid var(--border);border-radius:6px;padding:9px 32px 9px 12px;font-family:var(--cf);font-size:12.5px;outline:none;transition:border-color .12s;line-height:1.4;}
+.finp:focus{border-color:var(--accent3);}.finp.err{border-color:var(--danger);}
+.finp-clear{position:absolute;right:8px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;line-height:1;padding:0 3px;transition:color .1s;display:none;}
+.finp-clear:hover{color:var(--danger);}.finp-clear.visible{display:block;}
+.fhint{font-size:11px;color:var(--text-dim);font-family:var(--cf);margin-top:7px;line-height:1.6;}
+#err-msg{display:none;background:rgba(255,68,102,.08);border:1px solid var(--danger);border-radius:4px;padding:7px 11px;font-family:var(--cf);font-size:11px;color:var(--danger);margin-top:7px;line-height:1.5;}
+.pgrid{display:flex;flex-direction:column;gap:13px;}
+.prow{display:grid;grid-template-columns:24px 1fr 66px;align-items:center;gap:9px;}
+.pname{font-family:var(--cf);font-size:13px;font-weight:600;color:var(--accent);text-align:center;}
+.pslider{-webkit-appearance:none;appearance:none;height:4px;background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--pct,50%),var(--border2) var(--pct,50%),var(--border2) 100%);border-radius:2px;outline:none;cursor:pointer;width:100%;}
+.pslider::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 5px rgba(0,207,255,.5);transition:box-shadow .1s;}
+.pslider:hover::-webkit-slider-thumb{box-shadow:0 0 10px rgba(0,207,255,.8);}
+.pval{font-family:var(--cf);font-size:12px;color:var(--text-bright);text-align:right;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 6px;width:100%;outline:none;line-height:1.4;}
+.pval:focus{border-color:var(--accent);}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ditem{display:flex;flex-direction:column;gap:5px;}
+.dlbl{font-family:var(--cf);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);}
+.dinp{background:var(--bg);color:var(--text-bright);border:1px solid var(--border);border-radius:4px;padding:7px 9px;font-family:var(--cf);font-size:12px;width:100%;outline:none;text-align:center;line-height:1.4;}
+.dinp:focus{border-color:var(--accent);}
+.res-row{display:grid;grid-template-columns:1fr 52px;align-items:center;gap:9px;margin-top:10px;}
+.opt-row{display:flex;flex-wrap:wrap;gap:7px;}
+.osel{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:var(--cf);font-size:11.5px;outline:none;cursor:pointer;width:100%;line-height:1.4;}
+.osel:focus{border-color:var(--accent);}
+.obtn{padding:6px 12px;font-family:var(--cf);font-size:11px;font-weight:600;letter-spacing:.5px;background:var(--bg);color:var(--text-dim);border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:all .12s;}
+.obtn:hover{color:var(--text);border-color:var(--border2);}
+.obtn.active{color:var(--accent2);border-color:var(--accent2);background:rgba(255,107,53,.07);}
+.bcalc{width:100%;padding:12px;background:var(--accent-glow);border:1px solid var(--accent);border-radius:7px;color:var(--accent);font-family:var(--hf);font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;}
+.bcalc:hover{background:rgba(0,207,255,.2);box-shadow:0 0 14px rgba(0,207,255,.15);}
+#pa{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+#pd{flex:1;min-height:0;}
+#stbar{height:32px;background:var(--panel2);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:20px;flex-shrink:0;}
+.st-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 4px var(--ok);flex-shrink:0;}
+.sti{font-family:var(--cf);font-size:11px;color:var(--text-dim);letter-spacing:.3px;white-space:nowrap;}
+.sti b{color:var(--text-bright);font-weight:500;}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999;}
+#loading .ld-logo{font-family:var(--hf);font-size:30px;font-weight:700;letter-spacing:4px;color:var(--accent);}
+#loading .ld-txt{font-family:var(--cf);font-size:12px;color:var(--text-dim);letter-spacing:2px;}
+body.theme-light{
+  --bg:#eef2f6;--panel:#ffffff;--panel2:#f5f8fa;--border:#d6e0e8;--border2:#c2d0da;
+  --accent:#0088bb;--accent-glow:rgba(0,136,187,0.1);--accent2:#d1592a;--accent3:#5a4fd6;
+  --ok:#00915f;--danger:#d1304a;--text:#3d5468;--text-bright:#0f1a22;--text-dim:#6d8598;
+}
+#theme-toggle{width:34px;height:34px;flex-shrink:0;background:var(--panel2);color:var(--text);border:1px solid var(--border2);border-radius:6px;cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+#theme-toggle:hover{border-color:var(--accent);color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="ld-logo">ƒ(xyz) lab</div>
+  <div class="ld-txt">LOADING PLOTLY...</div>
+</div>
+
+<div id="hdr">
+  <div class="logo">ƒ(xyz) <em>lab</em></div>
+  <div class="tag">MULTI-COORD VISUALIZER</div>
+  <div id="sys-badge" class="badge-3d">3D SURFACE</div>
+  <button id="theme-toggle" title="Toggle day/night theme">🌙</button>
+</div>
+
+<div id="main">
+  <div id="sb">
+    <div class="sec">
+      <div class="sec-lbl">Coordinate System</div>
+      <div class="ctabs">
+        <button class="ctab" data-sys="cart2d">Cart<br>2D</button>
+        <button class="ctab active" data-sys="cart3d">Cart<br>3D</button>
+        <button class="ctab" data-sys="polar">Polar<br>2D</button>
+        <button class="ctab" data-sys="spherical">Spher<br>3D</button>
+        <button class="ctab" data-sys="cylindrical">Cyl<br>3D</button>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Preset Function</div>
+      <select class="psel" id="preset-sel"></select>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Formula</div>
+      <div class="fbox" id="fdisp">z = f(x, y)</div>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Custom Override</div>
+      <div class="finp-wrap">
+        <input class="finp" id="custom-f" type="text" placeholder="e.g. sin(a*x)*cos(b*y)" autocomplete="off" spellcheck="false"/>
+        <button class="finp-clear" id="custom-clear" title="Clear">×</button>
+      </div>
+      <div id="err-msg"></div>
+      <div class="fhint" id="fhint">vars: x, y &nbsp;|&nbsp; params: a, b, c, n</div>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Parameters</div>
+      <div class="pgrid" id="pgrid"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Domain / Range</div>
+      <div class="dgrid" id="dgrid"></div>
+      <div class="res-row">
+        <input type="range" class="pslider" id="res-sl" min="20" max="100" step="5" value="50" style="--pct:37%">
+        <input class="pval" id="res-v" value="50" readonly>
+      </div>
+      <div class="fhint" id="res-hint">Grid resolution (N×N)</div>
+    </div>
+    <div class="sec">
+      <div class="sec-lbl">Colormap</div>
+      <select class="osel" id="cmap-sel">
+        <option value="Viridis">Viridis</option>
+        <option value="Plasma">Plasma</option>
+        <option value="Turbo">Turbo</option>
+        <option value="RdBu">RdBu (Diverging)</option>
+        <option value="Hot">Hot</option>
+        <option value="Electric">Electric</option>
+        <option value="Jet">Jet</option>
+        <option value="Cividis">Cividis</option>
+        <option value="Portland">Portland</option>
+        <option value="Picnic">Picnic</option>
+        <option value="Blackbody">Blackbody</option>
+      </select>
+      <div class="opt-row" style="margin-top:8px;" id="mode-btns">
+        <button class="obtn active" data-mode="mesh">MESH</button>
+        <button class="obtn" data-mode="solid">SOLID</button>
+        <button class="obtn" data-mode="flat">FLAT</button>
+      </div>
+    </div>
+    <div class="sec">
+      <button class="bcalc" id="bcalc">↺ &nbsp;RECALCULATE</button>
+    </div>
+  </div>
+  <div id="pa">
+    <div id="pd"></div>
+    <div id="stbar">
+      <div class="st-dot"></div>
+      <div class="sti">System: <b id="st-sys">Cartesian 3D</b></div>
+      <div class="sti">Grid: <b id="st-grid">50×50</b></div>
+      <div class="sti">Points: <b id="st-pts">2,500</b></div>
+      <div class="sti">Render: <b id="st-t">—</b></div>
+    </div>
+  </div>
+</div>
+
+<!-- FIX: Plotly loaded at end of body, reliable CDN (jsDelivr) -->
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<script>
+/* ── All preset fn signatures: (x, y, p) where p = {a,b,c,n}
+   All custom compiled fns are wrapped to the same (x, y, p) signature.
+   Generators always call fn(x, y, p) — no more arg-count mismatch. ── */
+
+/* ============================================================
+   SYS — Extended Mathematical Presets
+   Cartesian 2D · Cartesian 3D · Polar · Spherical · Cylindrical
+   ============================================================ */
+ 
+const SYS = {
+ 
+  /* ══════════════════════════════════════════════════════════
+     CARTESIAN 2D
+  ══════════════════════════════════════════════════════════ */
+  cart2d: {
+    name: 'Cartesian 2D', badge: '2D CURVE', badgeCls: 'badge-2d', is2d: true,
+    hint: 'vars: x &nbsp;|&nbsp; params: a, b, c, n',
+    presets: [
+      /* ── Original presets ── */
+      {
+        name: 'Sine Wave', formula: 'y = a·sin(b·x + c)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[-6.28,6.28,0,.1] },
+        fn: (x,_,p) => p.a * Math.sin(p.b * x + p.c)
+      },
+      
+            /* ── NEW: Elementary trig / inverse-trig / log / power ── */
+      {
+        name: 'Cosine Wave', formula: 'y = a·cos(b·x + c)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[-6.28,6.28,0,.1] },
+        fn: (x,_,p) => p.a * Math.cos(p.b * x + p.c)
+      },
+      {
+        name: 'Tangent', formula: 'y = a·tan(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => { const c = Math.cos(p.b*x); return Math.abs(c) < 0.02 ? null : p.a*Math.sin(p.b*x)/c; }
+      },
+      {
+        name: 'Cotangent', formula: 'y = a·cot(b·x) = a·cos(b·x)/sin(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => { const s = Math.sin(p.b*x); return Math.abs(s) < 0.02 ? null : p.a*Math.cos(p.b*x)/s; }
+      },
+      {
+        name: 'Arcsine', formula: 'y = a·arcsin(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,3,1,.1] },
+        fn: (x,_,p) => { const u = p.b*x; return (u < -1 || u > 1) ? null : p.a*Math.asin(u); }
+      },
+      {
+        name: 'Arccosine', formula: 'y = a·arccos(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,3,1,.1] },
+        fn: (x,_,p) => { const u = p.b*x; return (u < -1 || u > 1) ? null : p.a*Math.acos(u); }
+      },
+      {
+        name: 'Common Log (base 10)', formula: 'y = a·log₁₀(b·|x|)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => Math.abs(x) < 1e-9 ? null : p.a * Math.log10(p.b * Math.abs(x))
+      },
+      {
+        name: 'Power Function (xⁿ)', formula: 'y = a·xⁿ',
+        p: { a:[0.1,5,1,.1], n:[-6,6,2,1] },
+        fn: (x,_,p) => { if (x < 0 && !Number.isInteger(p.n)) return null; return p.a * Math.pow(x, p.n); }
+      },
+      {
+        name: 'Reciprocal Power (1/xⁿ)', formula: 'y = a / xⁿ',
+        p: { a:[0.1,5,1,.1], n:[1,8,2,1] },
+        fn: (x,_,p) => { if (Math.abs(x) < 0.05) return null; if (x < 0 && !Number.isInteger(p.n)) return null; return p.a / Math.pow(x, p.n); }
+      },
+      
+      {
+        name: 'Damped Oscillation', formula: 'y = a·exp(−b·x)·cos(c·x)',
+        p: { a:[0.1,5,3,.1], b:[0.01,1,.15,.01], c:[0.1,10,2,.1] },
+        fn: (x,_,p) => p.a * Math.exp(-p.b * x) * Math.cos(p.c * x)
+      },
+      {
+        name: 'Polynomial', formula: 'y = a·x³ + b·x² + c·x',
+        p: { a:[-2,2,.1,.05], b:[-5,5,0,.1], c:[-5,5,1,.1] },
+        fn: (x,_,p) => p.a*x*x*x + p.b*x*x + p.c*x
+      },
+      {
+        name: 'Gaussian', formula: 'y = a·exp(−b·x²)',
+        p: { a:[0.1,5,2,.1], b:[0.01,2,.5,.01] },
+        fn: (x,_,p) => p.a * Math.exp(-p.b * x * x)
+      },
+      {
+        name: 'Logistic', formula: 'y = a / (1 + exp(−b·x))',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => p.a / (1 + Math.exp(-p.b * x))
+      },
+      {
+        name: 'Fourier Sum', formula: 'y = sin(x) + a·sin(b·x) + c·sin(n·x)',
+        p: { a:[0,2,.5,.05], b:[1,10,3,1], c:[0,1,.25,.05], n:[1,20,5,1] },
+        fn: (x,_,p) => Math.sin(x) + p.a*Math.sin(p.b*x) + p.c*Math.sin(p.n*x)
+      },
+ 
+      /* ── NEW: Algebra & Calculus classics ── */
+      {
+        name: 'Parabola', formula: 'y = a·x² + b·x + c',
+        p: { a:[-2,2,1,.1], b:[-5,5,0,.1], c:[-5,5,0,.1] },
+        fn: (x,_,p) => p.a*x*x + p.b*x + p.c
+      },
+      {
+        name: 'Catenary', formula: 'y = a·cosh(x/a) − a',
+        p: { a:[0.2,5,2,.1] },
+        fn: (x,_,p) => p.a * Math.cosh(x / p.a) - p.a
+      },
+      {
+        name: 'Hyperbola', formula: 'y = a / x  (upper branch)',
+        p: { a:[0.1,5,2,.1] },
+        fn: (x,_,p) => Math.abs(x) < 0.05 ? null : p.a / x
+      },
+      {
+        name: 'Power Law', formula: 'y = a·|x|ⁿ·sign(x)',
+        p: { a:[0.1,5,1,.1], n:[0.1,5,2,.1] },
+        fn: (x,_,p) => p.a * Math.sign(x) * Math.pow(Math.abs(x), p.n)
+      },
+      {
+        name: 'Sinc', formula: 'y = a·sin(b·x) / (b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => Math.abs(x) < 1e-9 ? p.a : p.a * Math.sin(p.b * x) / (p.b * x)
+      },
+      {
+        name: 'Witch of Agnesi', formula: 'y = a³ / (x² + a²)',
+        p: { a:[0.1,5,2,.1] },
+        fn: (x,_,p) => (p.a*p.a*p.a) / (x*x + p.a*p.a)
+      },
+      {
+        name: 'Hyperbolic Sine', formula: 'y = a·sinh(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,1,.3,.01] },
+        fn: (x,_,p) => p.a * Math.sinh(p.b * x)
+      },
+      {
+        name: 'Absolute-Value V', formula: 'y = a·|x − b| + c',
+        p: { a:[0.1,5,1,.1], b:[-5,5,0,.1], c:[-5,5,0,.1] },
+        fn: (x,_,p) => p.a * Math.abs(x - p.b) + p.c
+      },
+      {
+        name: 'Natural Log', formula: 'y = a·ln(b·|x|)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => Math.abs(x) < 1e-9 ? null : p.a * Math.log(p.b * Math.abs(x))
+      },
+      {
+        name: 'Arctangent', formula: 'y = a·arctan(b·x)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => p.a * Math.atan(p.b * x)
+      },
+      {
+        name: 'Square Wave (Fourier)', formula: 'y = Σ sin((2k−1)·b·x)/(2k−1), k=1..n',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1], n:[1,20,5,1] },
+        fn: (x,_,p) => {
+          let s = 0;
+          for (let k = 1; k <= Math.round(p.n); k++) s += Math.sin((2*k-1)*p.b*x)/(2*k-1);
+          return p.a * (4/Math.PI) * s;
+        }
+      },
+      {
+        name: 'Sawtooth (Fourier)', formula: 'y = a·Σ (−1)ᵏ⁺¹ sin(k·b·x)/k, k=1..n',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1], n:[1,20,8,1] },
+        fn: (x,_,p) => {
+          let s = 0;
+          for (let k = 1; k <= Math.round(p.n); k++) s += Math.pow(-1, k+1) * Math.sin(k*p.b*x) / k;
+          return p.a * (2/Math.PI) * s;
+        }
+      },
+      {
+        name: 'Triangle Wave (Fourier)', formula: 'y = a·Σ (−1)ᵏ sin((2k+1)·b·x)/(2k+1)²',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1], n:[0,20,4,1] },
+        fn: (x,_,p) => {
+          let s = 0;
+          for (let k = 0; k <= Math.round(p.n); k++) s += Math.pow(-1,k)*Math.sin((2*k+1)*p.b*x)/((2*k+1)*(2*k+1));
+          return p.a * (8/(Math.PI*Math.PI)) * s;
+        }
+      },
+      {
+        name: 'Chebyshev T₅', formula: 'y = a·T₅(x/b)',
+        p: { a:[0.1,5,1,.1], b:[1,5,3,.1] },
+        fn: (x,_,p) => {
+          const t = x / p.b;
+          return p.a * (16*t*t*t*t*t - 20*t*t*t + 5*t);
+        }
+      },
+      {
+        name: 'Error Function', formula: 'y = a·erf(b·x)',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => {
+          // Abramowitz & Stegun approximation
+          const t = p.b * x;
+          const sign = Math.sign(t);
+          const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,pVal=0.3275911;
+          const u = Math.abs(t);
+          const z = 1/(1+pVal*u);
+          const e = 1 - (((((a5*z+a4)*z+a3)*z+a2)*z+a1)*z) * Math.exp(-u*u);
+          return p.a * sign * e;
+        }
+      },
+      {
+        name: 'Reciprocal Quadratic', formula: 'y = a / (x² + b)',
+        p: { a:[0.1,10,4,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => p.a / (x*x + p.b)
+      },
+      {
+        name: 'Superellipse', formula: 'y = a·(1 − |x/b|ⁿ)^(1/n)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,3,.1], n:[0.2,8,2,.1] },
+        fn: (x,_,p) => {
+          const u = Math.pow(Math.abs(x/p.b), p.n);
+          return u > 1 ? 0 : p.a * Math.pow(1 - u, 1/p.n);
+        }
+      },
+      {
+        name: 'AM Signal', formula: 'y = (a + b·cos(x))·sin(c·x)',
+        p: { a:[0,3,1,.1], b:[0,3,1,.1], c:[1,20,10,1] },
+        fn: (x,_,p) => (p.a + p.b*Math.cos(x)) * Math.sin(p.c*x)
+      },
+      {
+        name: 'Lissajous (x-slice)', formula: 'y = a·sin(b·x + c)',
+        p: { a:[0.1,5,1,.1], b:[1,8,3,1], c:[0,3.14,0,.05] },
+        fn: (x,_,p) => p.a * Math.sin(p.b * x + p.c)
+      },
+      {
+        name: 'Witch-Sinc Hybrid', formula: 'y = a·sinc(b·x)·exp(−c·x²)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[0.01,1,.05,.005] },
+        fn: (x,_,p) => {
+          const s = Math.abs(x) < 1e-9 ? 1 : Math.sin(p.b*x)/(p.b*x);
+          return p.a * s * Math.exp(-p.c*x*x);
+        }
+      },
+      /* ── NEW: Physics presets ── */
+      {
+        name: 'QHO Wavefunction (n=2)', formula: 'y = a·(2x²−1)·exp(−x²/2)',
+        p: { a:[0.1,5,1,.1] },
+        fn: (x,_,p) => p.a * (2*x*x - 1) * Math.exp(-x*x/2)
+      },
+      {
+        name: 'Particle in a Box', formula: 'y = a·sin(n·π·x/b)',
+        p: { a:[0.1,3,1,.1], b:[1,10,5,.1], n:[1,10,2,1] },
+        fn: (x,_,p) => (x < 0 || x > p.b) ? null : p.a * Math.sin(p.n*Math.PI*x/p.b)
+      },
+      {
+        name: 'Woods-Saxon Potential', formula: 'y = −a / (1 + exp((x−b)/c))',
+        p: { a:[0.1,10,5,.1], b:[-5,5,2,.1], c:[0.05,2,.5,.05] },
+        fn: (x,_,p) => -p.a / (1 + Math.exp((x-p.b)/p.c))
+      },
+      {
+        name: 'Morse Potential', formula: 'y = a·(1−exp(−b·(x−c)))² − a',
+        p: { a:[0.1,5,2,.1], b:[0.1,3,1,.1], c:[-5,5,0,.1] },
+        fn: (x,_,p) => { const u = 1-Math.exp(-p.b*(x-p.c)); return p.a*u*u - p.a; }
+      },
+      {
+        name: 'Lennard-Jones Potential', formula: 'y = a·((b/x)¹² − (b/x)⁶)',
+        p: { a:[0.01,2,.3,.01], b:[0.2,3,1,.1] },
+        fn: (x,_,p) => { const ax=Math.abs(x); if(ax<0.05*p.b) return null; const u=p.b/ax; return p.a*(Math.pow(u,12)-Math.pow(u,6)); }
+      },
+      {
+        name: 'Maxwell-Boltzmann Speed Dist.', formula: 'y = a·x²·exp(−b·x²)',
+        p: { a:[0.1,10,2,.1], b:[0.01,2,.3,.01] },
+        fn: (x,_,p) => x < 0 ? null : p.a * x*x * Math.exp(-p.b*x*x)
+      },
+      {
+        name: 'Fermi-Dirac Distribution', formula: 'y = a / (exp((x−b)/c) + 1)',
+        p: { a:[0.1,3,1,.1], b:[-5,5,0,.1], c:[0.05,2,.3,.05] },
+        fn: (x,_,p) => p.a / (Math.exp((x-p.b)/p.c) + 1)
+      },
+      {
+        name: 'Bose-Einstein Distribution', formula: 'y = a / (exp((x−b)/c) − 1)',
+        p: { a:[0.1,3,1,.1], b:[0.5,6,3,.1], c:[0.05,2,.5,.05] },
+        fn: (x,_,p) => { const d = Math.exp((x-p.b)/p.c) - 1; return Math.abs(d) < 1e-6 ? null : p.a/d; }
+      },
+      {
+        name: 'Planck Blackbody Spectrum', formula: 'y = a / (x⁵·(exp(b/x) − 1))',
+        p: { a:[0.1,10,1,.1], b:[0.1,10,2,.1] },
+        fn: (x,_,p) => { if (x <= 0.02) return null; const d = Math.exp(p.b/x) - 1; return d<1e-12?null:p.a/(Math.pow(x,5)*d); }
+      },
+      {
+        name: 'Single-Slit Diffraction', formula: 'y = a·(sin(b·x)/(b·x))²',
+        p: { a:[0.1,5,1,.1], b:[0.1,10,3,.1] },
+        fn: (x,_,p) => { const u = Math.abs(x)<1e-9?1:Math.sin(p.b*x)/(p.b*x); return p.a*u*u; }
+      },
+      {
+        name: 'Double-Slit Interference', formula: 'y = a·cos²(c·x)·(sin(b·x)/(b·x))²',
+        p: { a:[0.1,5,1,.1], b:[0.1,10,2,.1], c:[0.1,20,8,.1] },
+        fn: (x,_,p) => { const s = Math.abs(x)<1e-9?1:Math.sin(p.b*x)/(p.b*x); const cs = Math.cos(p.c*x); return p.a*cs*cs*s*s; }
+      },
+      {
+        name: 'Radioactive Decay', formula: 'y = a·exp(−b·x)',
+        p: { a:[0.1,10,5,.1], b:[0.01,3,.5,.01] },
+        fn: (x,_,p) => x < 0 ? null : p.a * Math.exp(-p.b*x)
+      },
+      {
+        name: 'Driven Oscillator Resonance', formula: 'y = a / √((b²−x²)² + (c·x)²)',
+        p: { a:[0.1,5,1,.1], b:[0.5,8,3,.1], c:[0.01,3,.4,.01] },
+        fn: (x,_,p) => { const d = (p.b*p.b-x*x)*(p.b*p.b-x*x) + (p.c*x)*(p.c*x); return d<1e-9?null:p.a/Math.sqrt(d); }
+      },
+      {
+        name: 'Coulomb + Centrifugal Barrier', formula: 'y = a/x + b/x²',
+        p: { a:[-5,5,1,.1], b:[0,10,2,.1] },
+        fn: (x,_,p) => x <= 0.02 ? null : p.a/x + p.b/(x*x)
+      },
+      {
+        name: 'Chirp Signal', formula: 'y = a·sin(b·x² + c·x)',
+        p: { a:[0.1,5,1,.1], b:[0.01,2,.3,.01], c:[0,10,1,.1] },
+        fn: (x,_,p) => p.a * Math.sin(p.b*x*x + p.c*x)
+      },
+      {
+        name: 'Bessel J₀ (approx)', formula: 'y = a·J₀(b·x)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1] },
+        fn: (x,_,p) => {
+          const u = p.b*x, u2 = u*u/4;
+          return p.a*(1 - u2 + u2*u2/4 - u2*u2*u2/36 + u2*u2*u2*u2/576);
+        }
+      },
+      {
+        name: 'Woods-Saxon Derivative', formula: 'y = a·exp((x−b)/c) / (c·(1+exp((x−b)/c))²)',
+        p: { a:[0.1,10,5,.1], b:[-5,5,0,.1], c:[0.05,2,.5,.05] },
+        fn: (x,_,p) => { const u=Math.exp((x-p.b)/p.c); return p.a*u/(p.c*(1+u)*(1+u)); }
+      },
+
+     {
+        name: 'Custom', formula: '',
+        p: { a:[-5,5,1,.1], b:[-5,5,1,.1], c:[-5,5,0,.1], n:[-10,10,1,.1] },
+        fn: null
+      }
+    ],
+    dom: { xmin:-10, xmax:10 }
+  },
+ 
+  /* ══════════════════════════════════════════════════════════
+     CARTESIAN 3D
+  ══════════════════════════════════════════════════════════ */
+  cart3d: {
+    name: 'Cartesian 3D', badge: '3D SURFACE', badgeCls: 'badge-3d', is2d: false,
+    hint: 'vars: x, y &nbsp;|&nbsp; params: a, b, c, n',
+    presets: [
+      /* ── Original presets ── */
+      {
+        name: 'Gaussian Bell', formula: 'z = a·exp(−(x²+y²)/b²)',
+        p: { a:[0.1,5,2,.1], b:[0.5,5,2,.1] },
+        fn: (x,y,p) => p.a * Math.exp(-(x*x+y*y)/(p.b*p.b))
+      },
+      {
+        name: 'Ripple (Sinc)', formula: 'z = a·sin(b·r)/r, r=√(x²+y²)',
+        p: { a:[0.1,5,3,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => { const r=Math.sqrt(x*x+y*y); return r<1e-9?p.a:p.a*Math.sin(p.b*r)/r; }
+      },
+      {
+        name: 'Saddle', formula: 'z = a·(x² − y²) / b',
+        p: { a:[0.1,5,1,.1], b:[0.5,5,2,.1] },
+        fn: (x,y,p) => p.a*(x*x-y*y)/p.b
+      },
+      {
+        name: 'Wave Product', formula: 'z = a·sin(b·x)·cos(b·y)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a*Math.sin(p.b*x)*Math.cos(p.b*y)
+      },
+      {
+        name: 'Egg Carton', formula: 'z = a·(cos(b·x) + cos(b·y))',
+        p: { a:[0.1,3,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a*(Math.cos(p.b*x)+Math.cos(p.b*y))
+      },
+      {
+        name: 'Monkey Saddle', formula: 'z = a·(x³ − 3·x·y²) / b',
+        p: { a:[0.01,2,.1,.01], b:[1,20,5,1] },
+        fn: (x,y,p) => p.a*(x*x*x-3*x*y*y)/p.b
+      },
+      {
+        name: 'Hyperbolic Tan', formula: 'z = a·tanh(b·(x²−y²))',
+        p: { a:[0.1,5,2,.1], b:[0.1,3,.5,.05] },
+        fn: (x,y,p) => p.a*Math.tanh(p.b*(x*x-y*y))
+      },
+      {
+        name: 'Twisted Valley', formula: 'z = a·sin(x+b·y)·cos(y)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a*Math.sin(x+p.b*y)*Math.cos(y)
+      },
+ 
+      /* ── NEW presets ── */
+      {
+        name: 'Peaks (MATLAB)', formula: 'z = 3(1−x)²exp(−x²−(y+1)²) − …',
+        p: { a:[0.1,3,1,.1] },
+        fn: (x,y,p) => p.a * (
+          3*(1-x)*(1-x)*Math.exp(-x*x-(y+1)*(y+1))
+          - 10*(x/5 - x*x*x - y*y*y*y*y)*Math.exp(-x*x-y*y)
+          - (1/3)*Math.exp(-(x+1)*(x+1)-y*y)
+        )
+      },
+      {
+        name: 'Mexican Hat', formula: 'z = a·(1 − b·r²)·exp(−r²/2)',
+        p: { a:[0.1,5,1,.1], b:[0.1,2,.5,.05] },
+        fn: (x,y,p) => { const r2=x*x+y*y; return p.a*(1-p.b*r2)*Math.exp(-r2/2); }
+      },
+      {
+        name: 'Enneper Surface', formula: 'z = a·(x² − y²)/b − (x⁴ + y⁴)/(4b)',
+        p: { a:[0.1,3,1,.1], b:[1,20,4,1] },
+        fn: (x,y,p) => p.a*(x*x-y*y)/p.b - (x*x*x*x + y*y*y*y)/(4*p.b)
+      },
+      {
+        name: 'Torus Height', formula: 'z = a·sin(n·atan2(y,x)) / (√(x²+y²)+b)',
+        p: { a:[0.1,5,2,.1], b:[0.5,5,1,.1], n:[1,10,3,1] },
+        fn: (x,y,p) => {
+          const r = Math.sqrt(x*x+y*y);
+          return p.a * Math.sin(p.n * Math.atan2(y,x)) / (r + p.b);
+        }
+      },
+      {
+        name: 'Radial Sine', formula: 'z = a·cos(b·r)·exp(−c·r)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,2,.1], c:[0,1,.1,.01] },
+        fn: (x,y,p) => { const r=Math.sqrt(x*x+y*y); return p.a*Math.cos(p.b*r)*Math.exp(-p.c*r); }
+      },
+      {
+        name: 'Cross-Wave', formula: 'z = a·sin(b·x) + a·sin(b·y)',
+        p: { a:[0.1,3,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a*Math.sin(p.b*x) + p.a*Math.sin(p.b*y)
+      },
+      {
+        name: 'Checkerboard', formula: 'z = a·sign(sin(b·x)·sin(b·y))',
+        p: { a:[0.1,5,1,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a * Math.sign(Math.sin(p.b*x)*Math.sin(p.b*y))
+      },
+      {
+        name: 'Paraboloid', formula: 'z = a·(x² + y²)',
+        p: { a:[0.01,2,.2,.01] },
+        fn: (x,y,p) => p.a*(x*x + y*y)
+      },
+      {
+        name: 'Hyperbolic Paraboloid', formula: 'z = a·x·y',
+        p: { a:[0.1,2,.5,.05] },
+        fn: (x,y,p) => p.a*x*y
+      },
+      {
+        name: 'Bivariate Gaussian', formula: 'z = a·exp(−(x²/b + y²/c))',
+        p: { a:[0.1,5,2,.1], b:[0.5,5,2,.1], c:[0.5,5,4,.1] },
+        fn: (x,y,p) => p.a*Math.exp(-(x*x/p.b + y*y/p.c))
+      },
+      {
+        name: 'Sine Lattice', formula: 'z = a·|sin(b·x)·sin(b·y)|',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1] },
+        fn: (x,y,p) => p.a*Math.abs(Math.sin(p.b*x)*Math.sin(p.b*y))
+      },
+      {
+        name: 'Scherk Surface', formula: 'z = a·ln|cos(c·y)/cos(c·x)|',
+        p: { a:[0.1,3,1,.1], c:[0.1,1,.4,.05] },
+        fn: (x,y,p) => {
+          const num = Math.cos(p.c*y), den = Math.cos(p.c*x);
+          if (Math.abs(den) < 0.05 || Math.abs(num) < 0.05) return null;
+          return p.a * Math.log(Math.abs(num/den));
+        }
+      },
+      {
+        name: 'Rosenbrock Valley', formula: 'z = a·(b·(y−x²)² + (1−x)²)',
+        p: { a:[0.01,1,.05,.005], b:[1,200,100,5] },
+        fn: (x,y,p) => p.a*(p.b*(y-x*x)*(y-x*x) + (1-x)*(1-x))
+      },
+      {
+        name: 'Rastrigin Surface', formula: 'z = a·n + (x²−a·cos(2πx)) + (y²−a·cos(2πy))',
+        p: { a:[0.1,2,1,.1] },
+        fn: (x,y,p) => {
+          return 2*p.a + (x*x - p.a*Math.cos(2*Math.PI*x)) + (y*y - p.a*Math.cos(2*Math.PI*y));
+        }
+      },
+      /* ── NEW: Physics presets ── */
+      {
+        name: 'Coulomb Potential', formula: 'z = a / √(x²+y²+b²)',
+        p: { a:[0.1,10,3,.1], b:[0.05,3,.3,.05] },
+        fn: (x,y,p) => p.a / Math.sqrt(x*x+y*y+p.b*p.b)
+      },
+      {
+        name: 'Electric Dipole Potential', formula: 'z = a·x / (x²+y²+b²)^1.5',
+        p: { a:[0.1,10,3,.1], b:[0.1,3,.5,.05] },
+        fn: (x,y,p) => p.a*x / Math.pow(x*x+y*y+p.b*p.b, 1.5)
+      },
+      {
+        name: 'Two-Source Interference', formula: 'z = cos(c·r₁) + cos(c·r₂)',
+        p: { a:[0.5,4,2,.1], c:[0.5,5,2,.1] },
+        fn: (x,y,p) => {
+          const r1 = Math.sqrt((x-p.a)*(x-p.a)+y*y), r2 = Math.sqrt((x+p.a)*(x+p.a)+y*y);
+          return Math.cos(p.c*r1) + Math.cos(p.c*r2);
+        }
+      },
+      {
+        name: 'Circular Aperture Diffraction', formula: 'z = a·(sin(b·r)/(b·r))², r=√(x²+y²)',
+        p: { a:[0.1,5,2,.1], b:[0.5,5,2,.1] },
+        fn: (x,y,p) => { const r=Math.sqrt(x*x+y*y); const u=r<1e-9?1:Math.sin(p.b*r)/(p.b*r); return p.a*u*u; }
+      },
+      {
+        name: '2D Infinite Well Eigenstate', formula: 'z = a·sin(n·πx/5)·sin(b·πy/5)',
+        p: { a:[0.1,3,1,.1], b:[1,6,2,1], n:[1,6,2,1] },
+        fn: (x,y,p) => (Math.abs(x)>5||Math.abs(y)>5) ? 0 : p.a*Math.sin(p.n*Math.PI*(x+5)/10)*Math.sin(p.b*Math.PI*(y+5)/10)
+      },
+      {
+        name: '2D Harmonic Oscillator (px·py)', formula: 'z = a·x·y·exp(−(x²+y²)/b²)',
+        p: { a:[0.1,3,1,.1], b:[0.5,6,2.5,.1] },
+        fn: (x,y,p) => p.a*x*y*Math.exp(-(x*x+y*y)/(p.b*p.b))
+      },
+      {
+        name: 'Lennard-Jones Radial Potential', formula: 'z = a·((b/r)¹² − (b/r)⁶), r=√(x²+y²)',
+        p: { a:[0.001,1,.05,.001], b:[0.5,4,2,.1] },
+        fn: (x,y,p) => { const r=Math.sqrt(x*x+y*y); if(r<0.15*p.b) return null; const u=p.b/r; return p.a*(Math.pow(u,12)-Math.pow(u,6)); }
+      },
+      {
+        name: 'Softened Gravitational Potential', formula: 'z = −a / √(x²+y²+b²)',
+        p: { a:[0.1,10,3,.1], b:[0.1,3,.5,.05] },
+        fn: (x,y,p) => -p.a / Math.sqrt(x*x+y*y+p.b*p.b)
+      },
+      {
+        name: 'Planck Spectral Surface', formula: 'z = a·x³ / (exp(x/y) − 1)',
+        p: { a:[0.1,10,2,.1] },
+        fn: (x,y,p) => { if(x<=0.05||y<=0.05) return null; const d=Math.exp(x/y)-1; return d<1e-9?null:p.a*x*x*x/d; }
+      },
+      {
+        name: 'Gaussian Wave Packet', formula: 'z = a·cos(b·x)·exp(−(x²+y²)/c)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,2,.1], c:[0.5,20,6,.1] },
+        fn: (x,y,p) => p.a*Math.cos(p.b*x)*Math.exp(-(x*x+y*y)/p.c)
+      },
+      {
+        name: 'Morse Potential Surface', formula: 'z = a·(1−exp(−b·(r−c)))², r=√(x²+y²)',
+        p: { a:[0.1,3,1,.1], b:[0.1,2,.7,.05], c:[0.2,4,1.5,.1] },
+        fn: (x,y,p) => { const r=Math.sqrt(x*x+y*y); const u=1-Math.exp(-p.b*(r-p.c)); return p.a*u*u; }
+      },
+      {
+        name: 'Fraunhofer Double-Slit 2D', formula: 'z = a·(sin(b·x)/(b·x))²·cos²(c·y)',
+        p: { a:[0.1,5,2,.1], b:[0.2,5,1.5,.1], c:[0.2,10,3,.1] },
+        fn: (x,y,p) => { const u=Math.abs(x)<1e-9?1:Math.sin(p.b*x)/(p.b*x); const cy=Math.cos(p.c*y); return p.a*u*u*cy*cy; }
+      },
+      {
+        name: 'Rotated Saddle (Angle c)', formula: 'z = a·(u²−v²)/b, u=x·cos(c)+y·sin(c), v=−x·sin(c)+y·cos(c)',
+        p: { a:[0.1,5,1,.1], b:[0.5,5,2,.1], c:[-3.14,3.14,0,.05] },
+        fn: (x,y,p) => {
+          const ct=Math.cos(p.c), st=Math.sin(p.c);
+          const u = x*ct + y*st, v = -x*st + y*ct;
+          return p.a*(u*u - v*v)/p.b;
+        }
+      },
+      {
+        name: 'Rotated Elliptical Gaussian (Angle c)', formula: 'z = a·exp(−u²/b² − v²/n²)',
+        p: { a:[0.1,5,2,.1], b:[0.3,5,2,.1], c:[-3.14,3.14,0,.05], n:[0.3,5,1,.1] },
+        fn: (x,y,p) => {
+          const ct=Math.cos(p.c), st=Math.sin(p.c);
+          const u = x*ct + y*st, v = -x*st + y*ct;
+          return p.a*Math.exp(-(u*u)/(p.b*p.b) - (v*v)/(p.n*p.n));
+        }
+      },
+      {
+        name: 'Precessing Spiral Ridge (Angle c)', formula: 'z = a·cos(b·r − n·(φ−c)), r=√(x²+y²), φ=atan2(y,x)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[-3.14,3.14,0,.05], n:[1,10,3,1] },
+        fn: (x,y,p) => {
+          const r = Math.sqrt(x*x+y*y), phi = Math.atan2(y,x);
+          return p.a*Math.cos(p.b*r - p.n*(phi - p.c));
+        }
+      },
+      {
+        name: 'Custom', formula: '',
+        p: { a:[-5,5,1,.1], b:[-5,5,1,.1], c:[-5,5,0,.1], n:[-10,10,1,.1] },
+        fn: null
+      }
+    ],
+    dom: { xmin:-5, xmax:5, ymin:-5, ymax:5 }
+  },
+ 
+  /* ══════════════════════════════════════════════════════════
+     POLAR 2D
+  ══════════════════════════════════════════════════════════ */
+  polar: {
+    name: 'Polar 2D', badge: 'POLAR', badgeCls: 'badge-polar', is2d: true,
+    hint: 'vars: theta &nbsp;|&nbsp; params: a, b, c, n',
+    presets: [
+      /* ── Original presets ── */
+      {
+        name: 'Rose Curve', formula: 'r = a·cos(n·θ)',
+        p: { a:[0.1,5,3,.1], n:[1,10,3,1] },
+        fn: (t,p) => p.a*Math.cos(p.n*t), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Cardioid', formula: 'r = a·(1 + cos(θ))',
+        p: { a:[0.1,5,2,.1] },
+        fn: (t,p) => p.a*(1+Math.cos(t)), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Limaçon', formula: 'r = a + b·cos(θ)',
+        p: { a:[0,5,3,.1], b:[0,5,2,.1] },
+        fn: (t,p) => p.a+p.b*Math.cos(t), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Archimedean Spiral', formula: 'r = a·θ',
+        p: { a:[0.01,1,.3,.01] },
+        fn: (t,p) => p.a*t, tR:[0,8*Math.PI], tN:2000
+      },
+      {
+        name: 'Lemniscate', formula: 'r = a·√|cos(2θ)|',
+        p: { a:[0.1,5,3,.1] },
+        fn: (t,p) => { const v=Math.cos(2*t); return v>=0?p.a*Math.sqrt(v):null; }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Log Spiral', formula: 'r = a·exp(b·θ)',
+        p: { a:[0.01,0.5,.05,.005], b:[0.01,.3,.1,.005] },
+        fn: (t,p) => p.a*Math.exp(p.b*t), tR:[0,4*Math.PI], tN:1200
+      },
+      {
+        name: 'Epitrochoid', formula: 'r = a + b·cos(n·θ)',
+        p: { a:[0.5,4,2,.1], b:[0,3,1,.1], n:[1,10,5,1] },
+        fn: (t,p) => p.a+p.b*Math.cos(p.n*t), tR:[0,2*Math.PI]
+      },
+ 
+      /* ── NEW presets ── */
+      {
+        name: 'Fermat Spiral', formula: 'r = a·√θ',
+        p: { a:[0.1,2,.5,.05] },
+        fn: (t,p) => t >= 0 ? p.a*Math.sqrt(t) : null, tR:[0,6*Math.PI], tN:1500
+      },
+      {
+        name: 'Hyperbolic Spiral', formula: 'r = a / θ',
+        p: { a:[0.1,5,2,.1] },
+        fn: (t,p) => t < 0.1 ? null : p.a/t, tR:[0.1,6*Math.PI], tN:1200
+      },
+      {
+        name: 'Involute of Circle', formula: 'r = a·√(1 + θ²)',
+        p: { a:[0.05,1,.2,.01] },
+        fn: (t,p) => p.a*Math.sqrt(1+t*t), tR:[0,8*Math.PI], tN:1500
+      },
+      {
+        name: 'Cissoid', formula: 'r = 2a·sin(θ)·tan(θ)',
+        p: { a:[0.1,3,1,.1] },
+        fn: (t,p) => {
+          const c = Math.cos(t);
+          return Math.abs(c) < 1e-6 ? null : 2*p.a*Math.sin(t)*Math.sin(t)/c;
+        }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Strophoid', formula: 'r = a·cos(2θ)/cos(θ)',
+        p: { a:[0.1,5,2,.1] },
+        fn: (t,p) => {
+          const c = Math.cos(t);
+          return Math.abs(c) < 1e-6 ? null : p.a*Math.cos(2*t)/c;
+        }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Butterfly Curve', formula: 'r = exp(sin θ) − 2cos(4θ) + sin⁵((2θ−π)/24)',
+        p: { a:[0.1,2,1,.05] },
+        fn: (t,p) => {
+          const v = Math.exp(Math.sin(t)) - 2*Math.cos(4*t) + Math.pow(Math.sin((2*t-Math.PI)/24),5);
+          return p.a * v;
+        }, tR:[0,24*Math.PI], tN:2000
+      },
+      {
+        name: 'Hypotrochoid', formula: 'r = |(a−b)e^{it} + n·e^{i(a−b)t/b}|',
+        p: { a:[1,3,2,.1], b:[0.1,2,1,.1], n:[0,2,.5,.05] },
+        fn: (t,p) => {
+          const ratio = (p.a - p.b)/p.b;
+          const x = (p.a - p.b)*Math.cos(t) + p.n*Math.cos(ratio*t);
+          const y = (p.a - p.b)*Math.sin(t) - p.n*Math.sin(ratio*t);
+          return Math.sqrt(x*x+y*y);
+        }, tR:[0,10*Math.PI], tN:2000
+      },
+      {
+        name: 'Maclaurin Trisectrix', formula: 'r = a·(1 + 2cos(θ))',
+        p: { a:[0.5,3,1.5,.1] },
+        fn: (t,p) => p.a*(1 + 2*Math.cos(t)), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Cochleoid', formula: 'r = a·sin(θ) / θ',
+        p: { a:[0.5,5,3,.1] },
+        fn: (t,p) => Math.abs(t)<1e-9 ? p.a : p.a*Math.sin(t)/t, tR:[-4*Math.PI, 4*Math.PI], tN:2000
+      },
+      {
+        name: 'Rhodonea (sin)', formula: 'r = a·sin(n·θ)',
+        p: { a:[0.5,5,3,.1], n:[1,10,4,1] },
+        fn: (t,p) => p.a*Math.sin(p.n*t), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Talbot Curve', formula: 'r = a·√(1 − b·sin²θ)',
+        p: { a:[0.5,5,3,.1], b:[0,1,.5,.01] },
+        fn: (t,p) => {
+          const v = 1 - p.b*Math.sin(t)*Math.sin(t);
+          return v < 0 ? null : p.a*Math.sqrt(v);
+        }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Bifolium', formula: 'r = a·sin(θ)·cos²(θ)',
+        p: { a:[1,8,4,.1] },
+        fn: (t,p) => p.a*Math.sin(t)*Math.cos(t)*Math.cos(t), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Quadrifolium', formula: 'r = a·sin(2θ)',
+        p: { a:[0.5,5,3,.1] },
+        fn: (t,p) => p.a*Math.sin(2*t), tR:[0,2*Math.PI]
+      },
+      /* ── NEW: Physics presets ── */
+      {
+        name: 'Keplerian Orbit', formula: 'r = a(1−b²) / (1+b·cos θ)',
+        p: { a:[0.5,5,3,.1], b:[0,0.95,.6,.01] },
+        fn: (t,p) => { const d = 1+p.b*Math.cos(t); return d<0.05?null:p.a*(1-p.b*p.b)/d; }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Rutherford Scattering', formula: 'r = a / sin⁴(θ/2)',
+        p: { a:[0.01,2,.2,.01] },
+        fn: (t,p) => { const s = Math.sin(t/2); const s4 = s*s*s*s; return s4<0.002?null:p.a/s4; }, tR:[0.35,2*Math.PI-0.35], tN:1400
+      },
+      {
+        name: 'Antenna Array Factor', formula: 'r = a·|sin(n·θ/2)/sin(θ/2)|',
+        p: { a:[0.1,3,1,.1], n:[2,16,6,1] },
+        fn: (t,p) => { const s=Math.sin(t/2); return Math.abs(s)<1e-6?p.a*p.n:p.a*Math.abs(Math.sin(p.n*t/2)/s); }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Dipole Radiation Pattern', formula: 'r = a·sin²(θ)',
+        p: { a:[0.5,5,3,.1] },
+        fn: (t,p) => p.a*Math.sin(t)*Math.sin(t), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Single-Slit Diffraction (Angular)', formula: 'r = a·(sin(b·sinθ)/(b·sinθ))²',
+        p: { a:[0.5,5,3,.1], b:[1,20,8,.5] },
+        fn: (t,p) => { const u=p.b*Math.sin(t); const s=Math.abs(u)<1e-9?1:Math.sin(u)/u; return p.a*s*s; }, tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Quadrupole Radiation Pattern', formula: 'r = a·|sin(θ)·cos(θ)|',
+        p: { a:[0.5,5,3,.1] },
+        fn: (t,p) => p.a*Math.abs(Math.sin(t)*Math.cos(t)), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Rotated Rose (Angle c)', formula: 'r = a·cos(n·(θ−c))',
+        p: { a:[0.1,5,3,.1], c:[-3.14,3.14,0,.05], n:[1,10,3,1] },
+        fn: (t,p) => p.a*Math.cos(p.n*(t-p.c)), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Tilted Limaçon (Angle c)', formula: 'r = a + b·cos(θ−c)',
+        p: { a:[0,5,3,.1], b:[0,5,2,.1], c:[-3.14,3.14,0,.05] },
+        fn: (t,p) => p.a+p.b*Math.cos(t-p.c), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Precessing Epitrochoid (Angle c)', formula: 'r = a + b·cos(n·(θ−c))',
+        p: { a:[0.5,4,2,.1], b:[0,3,1,.1], c:[-3.14,3.14,0,.05], n:[1,10,5,1] },
+        fn: (t,p) => p.a+p.b*Math.cos(p.n*(t-p.c)), tR:[0,2*Math.PI]
+      },
+      {
+        name: 'Custom', formula: '',
+        p: { a:[-5,5,1,.1], b:[-5,5,1,.1], c:[-5,5,0,.1], n:[1,10,3,1] },
+        fn: null, tR:[0,2*Math.PI]
+      }
+    ],
+    dom: {}
+  },
+ 
+  /* ══════════════════════════════════════════════════════════
+     SPHERICAL 3D
+  ══════════════════════════════════════════════════════════ */
+  spherical: {
+    name: 'Spherical 3D', badge: 'SPHERICAL', badgeCls: 'badge-3d', is2d: false,
+    hint: 'vars: theta (polar 0→π), phi (azimuth 0→2π) &nbsp;|&nbsp; params: a, b, c, n',
+    presets: [
+      /* ── Original presets ── */
+      {
+        name: 'Sphere', formula: 'r = a',
+        p: { a:[0.1,5,2,.1] },
+        fn: (th,ph,p) => p.a
+      },
+      {
+        name: 'Peanut/Dumbbell', formula: 'r = a·cos²(θ)',
+        p: { a:[0.1,5,3,.1] },
+        fn: (th,ph,p) => p.a*Math.cos(th)**2
+      },
+      {
+        name: 'Bumpy Sphere', formula: 'r = a·(1 + b·sin(n·θ)·sin(n·φ))',
+        p: { a:[0.5,3,2,.1], b:[0,1,.3,.05], n:[1,8,3,1] },
+        fn: (th,ph,p) => p.a*(1+p.b*Math.sin(p.n*th)*Math.sin(p.n*ph))
+      },
+      {
+        name: 'Floral', formula: 'r = a·|sin(n·θ)|·(1+b·cos(n·φ))',
+        p: { a:[0.5,3,1.5,.1], b:[0,1,.5,.05], n:[1,6,3,1] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.sin(p.n*th))*(1+p.b*Math.cos(p.n*ph))
+      },
+      {
+        name: 'Latitude Waves', formula: 'r = a + b·cos(n·θ)',
+        p: { a:[0.5,4,2,.1], b:[0,2,.8,.05], n:[1,8,3,1] },
+        fn: (th,ph,p) => Math.max(0,p.a+p.b*Math.cos(p.n*th))
+      },
+      {
+        name: 'Heart', formula: 'r = a·(1 − sin(θ))',
+        p: { a:[0.1,5,2,.1] },
+        fn: (th,ph,p) => p.a*(1-Math.sin(th))
+      },
+ 
+      /* ── NEW presets ── */
+      {
+        name: 'Dipole Antenna', formula: 'r = a·sin²(θ)',
+        p: { a:[0.5,5,3,.1] },
+        fn: (th,ph,p) => p.a * Math.sin(th)*Math.sin(th)
+      },
+      {
+        name: 'Clover 3D', formula: 'r = a·|sin(n·θ)·cos(n·φ)|',
+        p: { a:[0.5,3,2,.1], n:[1,6,2,1] },
+        fn: (th,ph,p) => p.a * Math.abs(Math.sin(p.n*th)*Math.cos(p.n*ph))
+      },
+      {
+        name: 'Ellipsoid', formula: 'r = a·b / √(b²cos²θ + a²sin²θ)',
+        p: { a:[0.5,5,2,.1], b:[0.5,5,3,.1] },
+        fn: (th,ph,p) => {
+          const c = Math.cos(th), s = Math.sin(th);
+          const denom = Math.sqrt(p.b*p.b*c*c + p.a*p.a*s*s);
+          return denom < 1e-9 ? 0 : p.a*p.b/denom;
+        }
+      },
+      {
+        name: 'Longitude Waves', formula: 'r = a + b·cos(n·φ)',
+        p: { a:[0.5,4,2,.1], b:[0,2,.8,.05], n:[1,8,3,1] },
+        fn: (th,ph,p) => Math.max(0, p.a + p.b*Math.cos(p.n*ph))
+      },
+      {
+        name: 'Twisted Sphere', formula: 'r = a·(1 + b·sin(n·θ + n·φ))',
+        p: { a:[0.5,3,1.5,.1], b:[0,1,.4,.05], n:[1,8,3,1] },
+        fn: (th,ph,p) => Math.max(0, p.a*(1+p.b*Math.sin(p.n*th + p.n*ph)))
+      },
+      {
+        name: 'Superquadric', formula: 'r = a / (|sin^n θ·cos^n φ|+|sin^n θ·sin^n φ|+|cos^n θ|)^(1/n)',
+        p: { a:[0.5,3,2,.1], n:[0.2,5,2,.1] },
+        fn: (th,ph,p) => {
+          const n = p.n;
+          const s = Math.sin(th), c = Math.cos(th);
+          const denom = Math.pow(
+            Math.pow(Math.abs(s*Math.cos(ph)),n) +
+            Math.pow(Math.abs(s*Math.sin(ph)),n) +
+            Math.pow(Math.abs(c),n),
+            1/n);
+          return denom < 1e-9 ? 0 : p.a / denom;
+        }
+      },
+      {
+        name: 'Spikey Ball', formula: 'r = a·(1 + b·sin(n·θ)·sin(n·φ)²)',
+        p: { a:[0.5,3,1.5,.1], b:[0,2,.8,.05], n:[2,10,5,1] },
+        fn: (th,ph,p) => Math.max(0, p.a*(1 + p.b*Math.sin(p.n*th)*Math.sin(p.n*ph)*Math.sin(p.n*ph)))
+      },
+      {
+        name: 'Legendre P₄', formula: 'r = a·|P₄(cos θ)|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => {
+          const x = Math.cos(th);
+          // P4(x) = (35x^4 - 30x^2 + 3)/8
+          const P4 = (35*x*x*x*x - 30*x*x + 3)/8;
+          return p.a * Math.abs(P4);
+        }
+      },
+      {
+        name: 'Snail Shell', formula: 'r = a·exp(b·θ)·(1 + c·cos(φ))',
+        p: { a:[0.1,2,.3,.05], b:[0,1,.2,.01], c:[0,2,1,.05] },
+        fn: (th,ph,p) => Math.max(0, p.a*Math.exp(p.b*th)*(1+p.c*Math.cos(ph)))
+      },
+      /* ── NEW: Atomic orbital & multipole presets ── */
+      {
+        name: 'p-orbital (pz)', formula: 'r = a·|cos θ|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.cos(th))
+      },
+      {
+        name: 'p-orbital (px)', formula: 'r = a·|sin θ·cos φ|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.sin(th)*Math.cos(ph))
+      },
+      {
+        name: 'd-orbital (dz²)', formula: 'r = a·|3cos²θ − 1|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => { const c=Math.cos(th); return p.a*Math.abs(3*c*c-1); }
+      },
+      {
+        name: 'd-orbital (dxy)', formula: 'r = a·|sin²θ·sin(2φ)|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => { const s=Math.sin(th); return p.a*Math.abs(s*s*Math.sin(2*ph)); }
+      },
+      {
+        name: 'f-orbital (fz³)', formula: 'r = a·|cosθ·(5cos²θ − 3)|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => { const c=Math.cos(th); return p.a*Math.abs(c*(5*c*c-3)); }
+      },
+      {
+        name: 'Magnetic Dipole Field', formula: 'r = a·√(1 + 3cos²θ)',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => p.a*Math.sqrt(1+3*Math.cos(th)*Math.cos(th))
+      },
+      {
+        name: 'Quadrupole Radiation (3D)', formula: 'r = a·|sinθ·cosθ|',
+        p: { a:[0.5,5,3,.1] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.sin(th)*Math.cos(th))
+      },
+      {
+        name: 'Legendre P₃', formula: 'r = a·|P₃(cos θ)|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => { const x=Math.cos(th); const P3=(5*x*x*x-3*x)/2; return p.a*Math.abs(P3); }
+      },
+      {
+        name: 'd-orbital (dxz)', formula: 'r = a·|sinθ·cosθ·cosφ|',
+        p: { a:[0.5,5,2,.1] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.sin(th)*Math.cos(th)*Math.cos(ph))
+      },
+      {
+        name: 'Rotated p-orbital (Angle c)', formula: 'r = a·|cos(θ−c)|',
+        p: { a:[0.5,5,2,.1], c:[-3.14,3.14,0,.05] },
+        fn: (th,ph,p) => p.a*Math.abs(Math.cos(th-p.c))
+      },
+      {
+        name: 'Precessing Petal (Angle c)', formula: 'r = a·(1 + b·cos(n·(φ−c)))',
+        p: { a:[0.5,4,2,.1], b:[0,2,.8,.05], c:[-3.14,3.14,0,.05], n:[1,8,3,1] },
+        fn: (th,ph,p) => Math.max(0, p.a*(1+p.b*Math.cos(p.n*(ph-p.c))))
+      },
+      {
+        name: 'Custom', formula: '',
+        p: { a:[-5,5,1,.1], b:[-5,5,1,.1], c:[-5,5,0,.1], n:[1,10,3,1] },
+        fn: null
+      }
+    ],
+    dom: {}
+  },
+ 
+  /* ══════════════════════════════════════════════════════════
+     CYLINDRICAL 3D
+  ══════════════════════════════════════════════════════════ */
+  cylindrical: {
+    name: 'Cylindrical 3D', badge: 'CYLINDRICAL', badgeCls: 'badge-3d', is2d: false,
+    hint: 'vars: r, theta &nbsp;|&nbsp; params: a, b, c, n',
+    presets: [
+      /* ── Original presets ── */
+      {
+        name: 'Paraboloid', formula: 'z = a·r²',
+        p: { a:[0.1,3,.5,.05] },
+        fn: (r,t,p) => p.a*r*r
+      },
+      {
+        name: 'Cone', formula: 'z = a·r',
+        p: { a:[0.1,5,1,.1] },
+        fn: (r,t,p) => p.a*r
+      },
+      {
+        name: 'Helicoid', formula: 'z = a·θ',
+        p: { a:[0.1,3,.5,.05] },
+        fn: (r,t,p) => p.a*t
+      },
+      {
+        name: 'Spiral Wave', formula: 'z = a·sin(b·r + c·θ)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[0,10,2,.5] },
+        fn: (r,t,p) => p.a*Math.sin(p.b*r+p.c*t)
+      },
+      {
+        name: 'Twisted Petals', formula: 'z = a·r·cos(n·θ)',
+        p: { a:[0.1,5,1,.1], n:[1,10,3,1] },
+        fn: (r,t,p) => p.a*r*Math.cos(p.n*t)
+      },
+      {
+        name: 'Gaussian Ring', formula: 'z = a·exp(−b·(r−c)²)',
+        p: { a:[0.1,5,3,.1], b:[0.1,5,1,.1], c:[0,4,2,.1] },
+        fn: (r,t,p) => p.a*Math.exp(-p.b*(r-p.c)**2)
+      },
+ 
+      /* ── NEW presets ── */
+      {
+        name: 'Catenoid', formula: 'z = a·cosh(r/a)',
+        p: { a:[0.2,3,1,.1] },
+        fn: (r,t,p) => p.a*Math.cosh(r/p.a)
+      },
+      {
+        name: 'Pseudosphere', formula: 'z = a·(ln|tan(r/(2a))| + cos(r/a))',
+        p: { a:[0.5,3,1,.1] },
+        fn: (r,t,p) => {
+          const u = r/(2*p.a);
+          if (u <= 0 || u >= Math.PI/2) return null;
+          return p.a * (Math.log(Math.abs(Math.tan(u))) + Math.cos(r/p.a));
+        }
+      },
+      {
+        name: 'Torus Cross-Section', formula: 'z = a·sin(atan2(√((r−b)²), 1))',
+        p: { a:[0.1,3,1,.1], b:[0.5,4,2,.1] },
+        fn: (r,t,p) => {
+          const diff = r - p.b;
+          const inner = p.a*p.a - diff*diff;
+          return inner < 0 ? null : p.a * Math.sqrt(inner) / p.a;
+        }
+      },
+      {
+        name: 'Sinusoidal Funnel', formula: 'z = a·r·sin(b·θ)',
+        p: { a:[0.1,3,1,.1], b:[1,10,2,.5] },
+        fn: (r,t,p) => p.a*r*Math.sin(p.b*t)
+      },
+      {
+        name: 'Ripple Cone', formula: 'z = a·r + b·sin(c·r)',
+        p: { a:[0.1,3,.5,.05], b:[0.1,2,.5,.05], c:[0.1,5,2,.1] },
+        fn: (r,t,p) => p.a*r + p.b*Math.sin(p.c*r)
+      },
+      {
+        name: 'Saddle Ring', formula: 'z = a·(r − b)·cos(n·θ)',
+        p: { a:[0.1,3,1,.1], b:[0.5,4,2,.1], n:[1,10,2,1] },
+        fn: (r,t,p) => p.a*(r-p.b)*Math.cos(p.n*t)
+      },
+      {
+        name: 'Corrugated Sheet', formula: 'z = a·sin(b·r)·cos(n·θ)',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], n:[0,10,4,1] },
+        fn: (r,t,p) => p.a*Math.sin(p.b*r)*Math.cos(p.n*t)
+      },
+      {
+        name: 'Spherical Cap', formula: 'z = √max(0, a² − r²)',
+        p: { a:[1,5,3,.1] },
+        fn: (r,t,p) => {
+          const v = p.a*p.a - r*r;
+          return v < 0 ? null : Math.sqrt(v);
+        }
+      },
+      {
+        name: 'Witch of Agnesi 3D', formula: 'z = a³ / (r² + a²)',
+        p: { a:[0.5,5,2,.1] },
+        fn: (r,t,p) => (p.a*p.a*p.a) / (r*r + p.a*p.a)
+      },
+      {
+        name: 'Bessel J₀ Surface', formula: 'z = a·J₀(b·r) [approx]',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,.8,.05] },
+        fn: (r,t,p) => {
+          // J0 approximation: 1 - (x/2)^2/(1!)^2 + (x/2)^4/(2!)^2 ...
+          const x = p.b * r;
+          const x2 = x*x/4;
+          return p.a*(1 - x2 + x2*x2/4 - x2*x2*x2/36 + x2*x2*x2*x2/576);
+        }
+      },
+      /* ── NEW: Physics presets ── */
+      {
+        name: 'Line Charge Potential', formula: 'z = −a·ln(r + b)',
+        p: { a:[0.1,5,1,.1], b:[0.05,2,.2,.05] },
+        fn: (r,t,p) => -p.a*Math.log(r+p.b)
+      },
+      {
+        name: 'Chladni Drum Mode', formula: 'z = a·J₀(b·r)·cos(n·θ) [approx]',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1.2,.05], n:[0,8,3,1] },
+        fn: (r,t,p) => {
+          const x = p.b*r, x2 = x*x/4;
+          const J0 = 1 - x2 + x2*x2/4 - x2*x2*x2/36 + x2*x2*x2*x2/576;
+          return p.a*J0*Math.cos(p.n*t);
+        }
+      },
+      {
+        name: 'Woods-Saxon Radial Well', formula: 'z = −a / (1 + exp((r−b)/c))',
+        p: { a:[0.1,10,5,.1], b:[0.5,5,2,.1], c:[0.05,2,.4,.05] },
+        fn: (r,t,p) => -p.a / (1 + Math.exp((r-p.b)/p.c))
+      },
+      {
+        name: 'Skin-Effect Current Density', formula: 'z = a·exp(−r/b)·cos(r/b)',
+        p: { a:[0.1,5,2,.1], b:[0.2,5,1,.1] },
+        fn: (r,t,p) => p.a*Math.exp(-r/p.b)*Math.cos(r/p.b)
+      },
+      {
+        name: 'Bessel J₁ Surface', formula: 'z = a·J₁(b·r) [approx]',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,.8,.05] },
+        fn: (r,t,p) => {
+          const x = p.b*r;
+          return p.a*(x/2 - Math.pow(x,3)/16 + Math.pow(x,5)/384 - Math.pow(x,7)/18432);
+        }
+      },
+      {
+        name: 'Vortex Rankine Profile', formula: 'z = a·min(r, b²/r)',
+        p: { a:[0.1,5,2,.1], b:[0.3,4,1.5,.1] },
+        fn: (r,t,p) => r < 1e-6 ? 0 : p.a*Math.min(r, p.b*p.b/r)
+      },
+      {
+        name: 'Circular Diffraction Radial', formula: 'z = a·(sin(b·r)/(b·r))²·cos(n·θ)',
+        p: { a:[0.1,5,2,.1], b:[0.3,5,1.5,.1], n:[0,10,2,1] },
+        fn: (r,t,p) => { const u=r<1e-9?1:Math.sin(p.b*r)/(p.b*r); return p.a*u*u*Math.cos(p.n*t); }
+      },
+      {
+        name: 'Bessel J₂ Surface', formula: 'z = a·J₂(b·r)·cos(n·θ) [approx]',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], n:[0,10,2,1] },
+        fn: (r,t,p) => {
+          const x = p.b*r, u = (x*x)/4;
+          const J2 = u*(0.5 - u/6 + u*u/48 - u*u*u/720);
+          return p.a*J2*Math.cos(p.n*t);
+        }
+      },
+      {
+        name: 'Precessing Spiral Wave (Angle c)', formula: 'z = a·sin(b·r + n·(θ−c))',
+        p: { a:[0.1,5,2,.1], b:[0.1,5,1,.1], c:[-3.14,3.14,0,.05], n:[0,10,2,.5] },
+        fn: (r,t,p) => p.a*Math.sin(p.b*r + p.n*(t-p.c))
+      },
+      {
+        name: 'Precessing Saddle Ring (Angle c)', formula: 'z = a·(r−b)·cos(n·(θ−c))',
+        p: { a:[0.1,3,1,.1], b:[0.5,4,2,.1], c:[-3.14,3.14,0,.05], n:[1,10,2,1] },
+        fn: (r,t,p) => p.a*(r-p.b)*Math.cos(p.n*(t-p.c))
+      },
+      {
+        name: 'Custom', formula: '',
+        p: { a:[-5,5,1,.1], b:[-5,5,1,.1], c:[-5,5,2,.1], n:[-10,10,1,.1] },
+        fn: null
+      }
+    ],
+    dom: { rmin:0, rmax:5, tmin:0, tmax:+(2*Math.PI).toFixed(5) }
+  }
+};
+
+const state={sys:'cart3d',presetIdx:0,params:{},resolution:50,custom:'',cmap:'Viridis',mode:'mesh',dom:{},theme:'dark'};
+const getSys=()=>SYS[state.sys];
+const getPre=()=>getSys().presets[state.presetIdx];
+const linspace=(a,b,n)=>{const s=(b-a)/(n-1),r=new Array(n);for(let i=0;i<n;i++)r[i]=a+i*s;return r;}
+function setSliderTrack(el){const mn=+el.min,mx=+el.max,v=+el.value;el.style.setProperty('--pct',((v-mn)/(mx-mn)*100)+'%');}
+
+/* Math context for custom formulas */
+const MCTX=['sin','cos','tan','asin','acos','atan','atan2','sinh','cosh','tanh',
+            'exp','log','log2','log10','sqrt','abs','ceil','floor','round','sign','pow','min','max']
+  .map(f=>`const ${f}=Math.${f};`).join('')+'const pi=Math.PI;const e=Math.E;';
+
+/* FIX: compile custom fn and wrap it so it always matches (v1, v2, p) signature */
+function compileCart2DCustom(formula){
+  try{
+    const raw=new Function('x','_','a','b','c','n',`${MCTX}return (${formula});`);
+    raw(1,0,1,1,0,1); // test call
+    return (x,_,p)=>raw(x,0,p.a,p.b,p.c,p.n);
+  }catch(e){return{error:e.message};}
+}
+function compileCart3DCustom(formula){
+  try{
+    const raw=new Function('x','y','a','b','c','n',`${MCTX}return (${formula});`);
+    raw(1,1,1,1,0,1);
+    return (x,y,p)=>raw(x,y,p.a,p.b,p.c,p.n);
+  }catch(e){return{error:e.message};}
+}
+function compilePolarCustom(formula){
+  try{
+    const raw=new Function('theta','a','b','c','n',`${MCTX}return (${formula});`);
+    raw(1,1,1,0,1);
+    return (t,p)=>raw(t,p.a,p.b,p.c,p.n);
+  }catch(e){return{error:e.message};}
+}
+function compileSphCustom(formula){
+  try{
+    const raw=new Function('theta','phi','a','b','c','n',`${MCTX}return (${formula});`);
+    raw(1,1,1,1,0,1);
+    return (th,ph,p)=>raw(th,ph,p.a,p.b,p.c,p.n);
+  }catch(e){return{error:e.message};}
+}
+function compileCylCustom(formula){
+  try{
+    const raw=new Function('r','theta','a','b','c','n',`${MCTX}return (${formula});`);
+    raw(1,1,1,1,0,1);
+    return (r,t,p)=>raw(r,t,p.a,p.b,p.c,p.n);
+  }catch(e){return{error:e.message};}
+}
+
+function showErr(msg){
+  const el=document.getElementById('err-msg'),inp=document.getElementById('custom-f');
+  if(msg){el.style.display='block';el.textContent='⚠ '+msg;inp.classList.add('err');}
+  else{el.style.display='none';inp.classList.remove('err');}
+}
+
+function getFn(compiler){
+  if(state.custom.trim()){
+    const r=compiler(state.custom);
+    if(r&&r.error){showErr(r.error);return null;}
+    showErr(null);return r;
+  }
+  const pre=getPre();
+  if(!pre.fn){showErr('Enter a custom formula above.');return null;}
+  showErr(null);return pre.fn;
+}
+
+/* ── UI BUILD ── */
+function buildPresets(){
+  const sel=document.getElementById('preset-sel');sel.innerHTML='';
+  getSys().presets.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.name;sel.appendChild(o);});
+  sel.value=state.presetIdx;
+}
+function buildParams(){
+  const pre=getPre(),grid=document.getElementById('pgrid');grid.innerHTML='';state.params={};
+  Object.entries(pre.p).forEach(([nm,[mn,mx,df,st]])=>{
+    state.params[nm]=df;
+    const row=document.createElement('div');row.className='prow';
+    row.innerHTML=`<div class="pname">${nm}</div><input type="range" class="pslider" id="sl-${nm}" min="${mn}" max="${mx}" step="${st}" value="${df}"><input class="pval" id="pv-${nm}" value="${(+df.toFixed(4)).toString()}">`;
+    grid.appendChild(row);
+    const sl=row.querySelector(`#sl-${nm}`),pv=row.querySelector(`#pv-${nm}`);
+    setSliderTrack(sl);
+    sl.addEventListener('input',()=>{const v=+sl.value;state.params[nm]=v;pv.value=(+v.toFixed(4)).toString();setSliderTrack(sl);debounce();});
+    pv.addEventListener('change',()=>{const v=parseFloat(pv.value);if(isNaN(v))return;state.params[nm]=v;sl.value=Math.max(mn,Math.min(mx,v));setSliderTrack(sl);debounce();});
+  });
+}
+function buildDomain(){
+  const grid=document.getElementById('dgrid');grid.innerHTML='';
+  const add=(id,lbl,val)=>{
+    const it=document.createElement('div');it.className='ditem';
+    it.innerHTML=`<div class="dlbl">${lbl}</div><input class="dinp" id="d-${id}" value="${val}">`;
+    grid.appendChild(it);
+    it.querySelector(`#d-${id}`).addEventListener('change',e=>{const v=parseFloat(e.target.value);if(!isNaN(v)){state.dom[id]=v;debounce();}});
+  };
+  const sys=state.sys,pre=getPre();
+  if(sys==='cart2d'){state.dom={xmin:-10,xmax:10};add('xmin','X MIN',-10);add('xmax','X MAX',10);}
+  else if(sys==='cart3d'){state.dom={xmin:-5,xmax:5,ymin:-5,ymax:5};add('xmin','X MIN',-5);add('xmax','X MAX',5);add('ymin','Y MIN',-5);add('ymax','Y MAX',5);}
+  else if(sys==='polar'){const tR=pre.tR||[0,2*Math.PI];state.dom={tmin:tR[0],tmax:tR[1]};add('tmin','θ MIN',tR[0].toFixed(5));add('tmax','θ MAX',tR[1].toFixed(5));}
+  else if(sys==='spherical'){state.dom={thmin:0,thmax:Math.PI,phmin:0,phmax:2*Math.PI};add('thmin','θ MIN',0);add('thmax','θ MAX',+(Math.PI).toFixed(5));add('phmin','φ MIN',0);add('phmax','φ MAX',+(2*Math.PI).toFixed(5));}
+  else if(sys==='cylindrical'){state.dom={rmin:0,rmax:5,tmin:0,tmax:+(2*Math.PI).toFixed(5)};add('rmin','R MIN',0);add('rmax','R MAX',5);add('tmin','θ MIN',0);add('tmax','θ MAX',+(2*Math.PI).toFixed(5));}
+}
+function updateFormula(){document.getElementById('fdisp').textContent=state.custom||getPre().formula||'(custom)';document.getElementById('fhint').innerHTML=getSys().hint;}
+function updateBadge(){const s=getSys(),b=document.getElementById('sys-badge');b.textContent=s.badge;b.className='';b.classList.add(s.badgeCls);}
+function updateModeVisibility(){
+  const is2d=getSys().is2d;
+  document.getElementById('mode-btns').style.display=is2d?'none':'flex';
+  document.getElementById('cmap-sel').style.display=is2d?'none':'block';
+  document.getElementById('res-hint').textContent=is2d?'Sample points (N)':'Grid resolution (N×N)';
+}
+function rebuildAll(){buildPresets();buildParams();buildDomain();updateFormula();updateBadge();updateModeVisibility();plotInit=false;}
+function getP(){const p=state.params;return{a:p.a??1,b:p.b??1,c:p.c??0,n:p.n??1};}
+
+/* ── GENERATORS ── */
+const PLOT_THEMES={
+  dark:{ paper:'#050a12', plot:'#050a12', grid:'#111e2e', zero:'#1e2e42', axis:'#5a7d99',
+         sceneBg:'#050a12', sceneGrid:'#0f1d2c', sceneZero:'#1a2d40', sceneBgPane:'#070d14',
+         font:'#8fb8cf', cbarTick:'#8fb8cf', cbarOutline:'#152030', cbarBg:'#0a1018', accent:'#00cfff' },
+  light:{ paper:'#eef2f6', plot:'#eef2f6', grid:'#d3dee6', zero:'#b7c6d1', axis:'#5a7285',
+         sceneBg:'#eef2f6', sceneGrid:'#d8e2e9', sceneZero:'#bccbd5', sceneBgPane:'#f5f8fa',
+         font:'#3d5468', cbarTick:'#3d5468', cbarOutline:'#c2d0da', cbarBg:'#ffffff', accent:'#0088bb' }
+};
+function pt(){ return PLOT_THEMES[state.theme]; }
+function buildDarkLayout(){
+  const t=pt();
+  return {
+    paper_bgcolor:t.paper,plot_bgcolor:t.plot,
+    font:{family:'Inter, Segoe UI, system-ui, Arial, sans-serif',color:t.font,size:12},
+    xaxis:{gridcolor:t.grid,zerolinecolor:t.zero,color:t.axis},
+    yaxis:{gridcolor:t.grid,zerolinecolor:t.zero,color:t.axis},
+    scene:{bgcolor:t.sceneBg,
+      xaxis:{gridcolor:t.sceneGrid,zerolinecolor:t.sceneZero,color:t.axis,backgroundcolor:t.sceneBgPane},
+      yaxis:{gridcolor:t.sceneGrid,zerolinecolor:t.sceneZero,color:t.axis,backgroundcolor:t.sceneBgPane},
+      zaxis:{gridcolor:t.sceneGrid,zerolinecolor:t.sceneZero,color:t.axis,backgroundcolor:t.sceneBgPane}},
+    legend:{bgcolor:'rgba(0,0,0,0)',font:{size:12}},
+    modebar:{bgcolor:'transparent',color:t.font,activecolor:t.accent}
+  };
+}
+function buildCbar(){
+  const t=pt();
+  return {thickness:12,tickfont:{size:11,color:t.cbarTick},outlinecolor:t.cbarOutline,bgcolor:t.cbarBg};
+}
+
+function genCart2D(){
+  const fn=getFn(compileCart2DCustom);if(!fn)return null;
+  const{xmin,xmax}=state.dom,n=Math.max(300,state.resolution*5),p=getP();
+  const xs=linspace(xmin,xmax,n);
+  const ys=xs.map(x=>{try{const v=fn(x,0,p);return(isFinite(v)&&!isNaN(v))?v:null;}catch{return null;}});
+  const dl=buildDarkLayout();
+  return{traces:[{x:xs,y:ys,type:'scatter',mode:'lines',line:{color:pt().accent,width:2.5,shape:'spline'},name:getPre().name}],
+    layout:{...dl,xaxis:{...dl.xaxis,title:'x',range:[xmin,xmax]},yaxis:{...dl.yaxis,title:'y'}},
+    is3d:false,nPts:n};
+}
+
+function genCart3D(){
+  const fn=getFn(compileCart3DCustom);if(!fn)return null;
+  const{xmin,xmax,ymin,ymax}=state.dom,N=state.resolution,p=getP();
+  const xs=linspace(xmin,xmax,N),ys=linspace(ymin,ymax,N);
+  const z=ys.map(y=>xs.map(x=>{try{const v=fn(x,y,p);return(isFinite(v)&&!isNaN(v))?v:0;}catch{return 0;}}));
+  const dl=buildDarkLayout(),cb=buildCbar();
+  if(state.mode==='flat'){
+    return{traces:[{x:xs,y:ys,z,type:'heatmap',colorscale:state.cmap,showscale:true,colorbar:cb}],
+      layout:{...dl,xaxis:{...dl.xaxis,title:'x',range:[xmin,xmax]},yaxis:{...dl.yaxis,title:'y',range:[ymin,ymax]}},
+      is3d:false,nPts:N*N};
+  }
+  const mesh=state.mode==='mesh';
+  return{traces:[{type:'surface',x:xs,y:ys,z,colorscale:state.cmap,showscale:true,colorbar:cb,
+    opacity:mesh?0.88:1,
+    contours:mesh?{x:{show:true,color:'rgba(0,207,255,.25)',width:1},y:{show:true,color:'rgba(0,207,255,.25)',width:1}}:{}}],
+    layout:{...dl,scene:{...dl.scene,
+      xaxis:{...dl.scene.xaxis,title:'X'},yaxis:{...dl.scene.yaxis,title:'Y'},zaxis:{...dl.scene.zaxis,title:'Z'},
+      camera:{eye:{x:1.5,y:1.5,z:1.2}}}},
+    is3d:true,nPts:N*N};
+}
+
+function genPolar(){
+  const fn=getFn(compilePolarCustom);if(!fn)return null;
+  const pre=getPre(),tmin=state.dom.tmin??0,tmax=state.dom.tmax??(pre.tR||[0,2*Math.PI])[1];
+  const nPts=pre.tN||900,thetas=linspace(tmin,tmax,nPts),p=getP();
+  const segsX=[],segsY=[];let sx=[],sy=[];
+  thetas.forEach(t=>{
+    try{const r=fn(t,p);
+      if(r===null||r===undefined||!isFinite(r)){if(sx.length>1){segsX.push([...sx]);segsY.push([...sy]);}sx=[];sy=[];return;}
+      sx.push(r*Math.cos(t));sy.push(r*Math.sin(t));
+    }catch{if(sx.length>1){segsX.push([...sx]);segsY.push([...sy]);}sx=[];sy=[];}
+  });
+  if(sx.length>1){segsX.push(sx);segsY.push(sy);}
+  if(!segsX.length)return null;
+  const colors=state.theme==='dark'?['#00cfff','#7c6fff','#ff6b35','#00e5a0']:['#0088bb','#5a4fd6','#d1592a','#00915f'];
+  const dl=buildDarkLayout();
+  return{traces:segsX.map((x,i)=>({x,y:segsY[i],type:'scatter',mode:'lines',
+    line:{color:colors[i%colors.length],width:2.5,shape:'spline'},showlegend:i===0,name:pre.name})),
+    layout:{...dl,xaxis:{...dl.xaxis,scaleanchor:'y',showgrid:true,zeroline:true},yaxis:{...dl.yaxis,showgrid:true,zeroline:true}},
+    is3d:false,nPts};
+}
+
+function genSpherical(){
+  const fn=getFn(compileSphCustom);if(!fn)return null;
+  const N=state.resolution,p=getP();
+  const{thmin=0,thmax=Math.PI,phmin=0,phmax=2*Math.PI}=state.dom;
+  const thetas=linspace(thmin,thmax,N),phis=linspace(phmin,phmax,N);
+  const X=[],Y=[],Z=[],R=[];
+  for(let i=0;i<N;i++){const xr=[],yr=[],zr=[],rr=[];
+    for(let j=0;j<N;j++){try{const rv=Math.max(0,fn(thetas[i],phis[j],p));
+      xr.push(rv*Math.sin(thetas[i])*Math.cos(phis[j]));yr.push(rv*Math.sin(thetas[i])*Math.sin(phis[j]));zr.push(rv*Math.cos(thetas[i]));rr.push(rv);
+    }catch{xr.push(0);yr.push(0);zr.push(0);rr.push(0);}}
+    X.push(xr);Y.push(yr);Z.push(zr);R.push(rr);}
+  const mesh=state.mode==='mesh',dl=buildDarkLayout(),cb=buildCbar();
+  return{traces:[{type:'surface',x:X,y:Y,z:Z,surfacecolor:R,colorscale:state.cmap,showscale:true,opacity:mesh?0.88:1,
+    colorbar:{...cb,title:{text:'r',font:{size:11}}},
+    contours:mesh?{x:{show:true,color:'rgba(0,207,255,.2)',width:1},y:{show:true,color:'rgba(0,207,255,.2)',width:1}}:{}}],
+    layout:{...dl,scene:{...dl.scene,aspectmode:'data',
+      xaxis:{...dl.scene.xaxis,title:'X'},yaxis:{...dl.scene.yaxis,title:'Y'},zaxis:{...dl.scene.zaxis,title:'Z'}}},
+    is3d:true,nPts:N*N};
+}
+
+function genCylindrical(){
+  const fn=getFn(compileCylCustom);if(!fn)return null;
+  const{rmin=0,rmax=5,tmin=0,tmax=2*Math.PI}=state.dom,N=state.resolution,p=getP();
+  const rs=linspace(rmin,rmax,N),ts=linspace(tmin,tmax,N);
+  const X=[],Y=[],Z=[];
+  for(let i=0;i<N;i++){const xr=[],yr=[],zr=[];
+    for(let j=0;j<N;j++){try{const zv=fn(rs[i],ts[j],p);
+      xr.push(rs[i]*Math.cos(ts[j]));yr.push(rs[i]*Math.sin(ts[j]));zr.push(isFinite(zv)?zv:0);
+    }catch{xr.push(0);yr.push(0);zr.push(0);}}
+    X.push(xr);Y.push(yr);Z.push(zr);}
+  const mesh=state.mode==='mesh',dl=buildDarkLayout(),cb=buildCbar();
+  return{traces:[{type:'surface',x:X,y:Y,z:Z,colorscale:state.cmap,showscale:true,opacity:mesh?0.88:1,colorbar:cb,
+    contours:mesh?{x:{show:true,color:'rgba(0,207,255,.2)',width:1},y:{show:true,color:'rgba(0,207,255,.2)',width:1}}:{}}],
+    layout:{...dl,scene:{...dl.scene,
+      xaxis:{...dl.scene.xaxis,title:'X'},yaxis:{...dl.scene.yaxis,title:'Y'},zaxis:{...dl.scene.zaxis,title:'Z'}}},
+    is3d:true,nPts:N*N};
+}
+
+/* ── RENDER ── */
+let plotInit=false;
+function render(){
+  const t0=performance.now();let res;
+  try{
+    if(state.sys==='cart2d')res=genCart2D();
+    else if(state.sys==='cart3d')res=genCart3D();
+    else if(state.sys==='polar')res=genPolar();
+    else if(state.sys==='spherical')res=genSpherical();
+    else if(state.sys==='cylindrical')res=genCylindrical();
+  }catch(e){console.error(e);}
+  if(!res)return;
+  const{traces,layout,is3d,nPts}=res;
+  const th=pt();
+  const lyt={...layout,paper_bgcolor:th.paper,plot_bgcolor:th.plot,
+    margin:is3d?{l:0,r:30,t:8,b:0}:{l:52,r:20,t:10,b:46},
+    font:{family:'Inter, Segoe UI, system-ui, Arial, sans-serif',color:th.font,size:12}};
+  const div=document.getElementById('pd');
+  if(plotInit){Plotly.react(div,traces,lyt,{responsive:true});}
+  else{Plotly.newPlot(div,traces,lyt,{responsive:true,displayModeBar:true,displaylogo:false,modeBarButtonsToRemove:['toImage']});plotInit=true;}
+  const dt=(performance.now()-t0).toFixed(0),N=state.resolution,is2d=getSys().is2d;
+  document.getElementById('st-sys').textContent=getSys().name;
+  if(is2d){document.getElementById('st-grid').textContent=`N=${nPts}`;document.getElementById('st-pts').textContent=(nPts).toLocaleString();}
+  else{document.getElementById('st-grid').textContent=`${N}×${N}`;document.getElementById('st-pts').textContent=(N*N).toLocaleString();}
+  document.getElementById('st-t').textContent=`${dt} ms`;
+}
+
+let dbTimer=null;
+function debounce(){clearTimeout(dbTimer);dbTimer=setTimeout(render,130);}
+
+/* ── EVENTS ── */
+document.querySelectorAll('.ctab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');state.sys=tab.dataset.sys;state.presetIdx=0;state.custom='';
+    document.getElementById('custom-f').value='';document.getElementById('custom-clear').classList.remove('visible');
+    showErr(null);rebuildAll();render();
+  });
+});
+document.getElementById('preset-sel').addEventListener('change',e=>{
+  state.presetIdx=+e.target.value;state.custom='';
+  document.getElementById('custom-f').value='';document.getElementById('custom-clear').classList.remove('visible');
+  showErr(null);buildParams();buildDomain();updateFormula();render();
+});
+document.getElementById('custom-f').addEventListener('input',e=>{
+  state.custom=e.target.value;
+  document.getElementById('custom-clear').classList.toggle('visible',!!e.target.value);
+  updateFormula();debounce();
+});
+document.getElementById('custom-clear').addEventListener('click',()=>{
+  state.custom='';document.getElementById('custom-f').value='';
+  document.getElementById('custom-clear').classList.remove('visible');showErr(null);updateFormula();debounce();
+});
+document.getElementById('res-sl').addEventListener('input',e=>{
+  state.resolution=+e.target.value;document.getElementById('res-v').value=state.resolution;setSliderTrack(e.target);debounce();
+});
+document.getElementById('cmap-sel').addEventListener('change',e=>{state.cmap=e.target.value;debounce();});
+document.querySelectorAll('.obtn[data-mode]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.obtn[data-mode]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');state.mode=btn.dataset.mode;debounce();
+  });
+});
+document.getElementById('bcalc').addEventListener('click',render);
+document.getElementById('theme-toggle').addEventListener('click',()=>{
+  state.theme=state.theme==='dark'?'light':'dark';
+  document.body.classList.toggle('theme-light',state.theme==='light');
+  document.getElementById('theme-toggle').textContent=state.theme==='dark'?'🌙':'☀️';
+  render();
+});
+new ResizeObserver(()=>{if(plotInit)Plotly.Plots.resize('pd');}).observe(document.getElementById('pa'));
+
+/* ── INIT (wait for Plotly to be ready) ── */
+function init(){
+  document.getElementById('loading').style.display='none';
+  rebuildAll();render();
+}
+if(typeof Plotly!=='undefined'){init();}
+else{document.querySelector('#loading .ld-txt').textContent='WAITING FOR PLOTLY...';
+  const t=setInterval(()=>{if(typeof Plotly!=='undefined'){clearInterval(t);init();}},100);}
+</script>
+</body>
+</html>

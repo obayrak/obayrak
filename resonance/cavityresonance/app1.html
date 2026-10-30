@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Microwave Cavity Resonance Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+:root{
+  --bg:#020913;--bg2:rgba(4,16,38,0.9);--bg3:rgba(3,12,28,0.95);
+  --border:rgba(0,220,255,0.15);--border2:rgba(0,220,255,0.35);
+  --cyan:#00dcff;--mag:#ff0077;--gold:#ffcc00;--green:#00ff99;
+  --text:#b8d8f0;--dim:rgba(184,216,240,0.45);
+  --mono:'Share Tech Mono',monospace;--head:'Orbitron',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--head)}
+body::before{content:'';position:fixed;inset:0;
+  background:linear-gradient(rgba(0,220,255,.025) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(0,220,255,.025) 1px,transparent 1px);
+  background-size:36px 36px;pointer-events:none;z-index:0}
+
+#app{position:relative;z-index:1;display:grid;
+  grid-template-columns:210px 1fr 268px;
+  grid-template-rows:46px 1fr 1fr;
+  height:100vh;gap:2px;padding:3px}
+
+#hdr{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;background:var(--bg2);border:1px solid var(--border2);
+  border-bottom:2px solid var(--cyan)}
+#hdr h1{font-size:12px;font-weight:900;letter-spacing:5px;color:var(--cyan);
+  text-shadow:0 0 12px rgba(0,220,255,.8),0 0 30px rgba(0,220,255,.3)}
+.sbar{display:flex;gap:18px;font-family:var(--mono);font-size:10px;color:var(--green)}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;
+  animation:pulse 1.2s infinite;box-shadow:0 0 8px var(--green);margin-right:5px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.panel{background:var(--bg2);border:1px solid var(--border);backdrop-filter:blur(8px);overflow:hidden;position:relative}
+.ptitle{padding:5px 10px;font-size:8px;letter-spacing:3px;color:var(--cyan);
+  border-bottom:1px solid var(--border);background:rgba(0,220,255,.04);text-transform:uppercase}
+
+#ctrl{grid-row:2/4;grid-column:1;display:flex;flex-direction:column}
+.cg{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cg label{display:block;font-size:7.5px;letter-spacing:2px;color:var(--dim);margin-bottom:5px;text-transform:uppercase}
+.mbts{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:5px}
+.mbt{padding:5px 3px;font-family:var(--mono);font-size:9.5px;background:transparent;
+  border:1px solid var(--border);color:var(--text);cursor:pointer;transition:all .2s;text-align:center}
+.mbt:hover,.mbt.ac{border-color:var(--cyan);color:var(--cyan);background:rgba(0,220,255,.08)}
+.mbt.tm:hover,.mbt.tm.ac{border-color:var(--mag);color:var(--mag);background:rgba(255,0,119,.08)}
+.presets{display:flex;flex-direction:column;gap:2px}
+.pbt{padding:4px 6px;font-family:var(--mono);font-size:9px;background:transparent;
+  border:1px solid var(--border);color:var(--dim);cursor:pointer;transition:all .2s;text-align:left}
+.pbt:hover,.pbt.ac{color:var(--cyan);border-color:var(--cyan)}
+.pbt.tm.ac{color:var(--mag);border-color:var(--mag)}
+.sr{margin:3px 0}
+.sr span.v{font-family:var(--mono);font-size:10px;color:var(--gold);float:right}
+.sr input[type=range]{width:100%;accent-color:var(--cyan);height:2px;margin-top:3px}
+.vtabs{display:flex;gap:2px;padding:4px 8px;border-bottom:1px solid var(--border)}
+.vt{flex:1;padding:3px;font-family:var(--mono);font-size:7.5px;letter-spacing:1px;
+  background:transparent;border:1px solid var(--border);color:var(--dim);cursor:pointer;text-align:center}
+.vt.ac{color:var(--cyan);border-color:var(--cyan);background:rgba(0,220,255,.07)}
+.abt{display:block;width:100%;padding:5px;margin:2px 0;font-family:var(--head);font-size:7.5px;
+  letter-spacing:1.5px;background:transparent;border:1px solid var(--border);color:var(--dim);
+  cursor:pointer;text-transform:uppercase;transition:all .2s}
+.abt:hover{border-color:var(--gold);color:var(--gold);background:rgba(255,204,0,.05)}
+.abt.physics-btn{border-color:rgba(0,220,255,.4);color:var(--cyan);background:rgba(0,220,255,.06)}
+.abt.physics-btn:hover{border-color:var(--cyan);background:rgba(0,220,255,.14);box-shadow:0 0 12px rgba(0,220,255,.2)}
+
+#cv2d-panel{grid-row:2;grid-column:2;position:relative}
+#cv2d{display:block;width:100%;height:calc(100% - 24px)}
+#cvOverlay{position:absolute;top:28px;right:8px;font-family:var(--mono);
+  font-size:9px;color:rgba(255,255,255,.4);pointer-events:none}
+#cbar{position:absolute;right:8px;top:32px;width:10px;height:calc(100% - 48px);
+  border:1px solid rgba(0,220,255,.2)}
+
+#info{grid-row:2;grid-column:3;overflow-y:auto;display:flex;flex-direction:column}
+.ib{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ib h3{font-size:8px;letter-spacing:2px;color:var(--cyan);margin-bottom:6px;text-transform:uppercase}
+.eq{font-family:var(--mono);font-size:9.5px;color:var(--gold);background:rgba(255,204,0,.04);
+  padding:6px 8px;border-left:2px solid var(--gold);margin:3px 0;line-height:1.7;white-space:pre}
+.fdisplay{font-family:var(--mono);font-size:22px;color:var(--green);
+  text-align:center;padding:6px;letter-spacing:1px}
+.fdisplay .unit{font-size:11px;color:var(--dim);margin-left:4px}
+.mdesc{font-family:var(--mono);font-size:8.5px;color:var(--dim);line-height:1.55}
+.badge{display:inline-block;padding:2px 8px;font-family:var(--mono);font-size:9px;
+  border:1px solid;margin:2px;border-radius:2px}
+.badge.te{border-color:var(--cyan);color:var(--cyan)}
+.badge.tm{border-color:var(--mag);color:var(--mag)}
+
+#cv3d-panel{grid-row:3;grid-column:2;position:relative}
+#cv3d{display:block;width:100%;height:calc(100% - 24px)}
+.rot-hint{position:absolute;bottom:6px;left:10px;font-family:var(--mono);font-size:8px;color:var(--dim)}
+
+#spec-panel{grid-row:3;grid-column:3;display:flex;flex-direction:column}
+.chart-wrap{flex:1;padding:8px;min-height:0;position:relative}
+.excard{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s}
+.excard:hover{background:rgba(0,220,255,.04)}
+.excard h4{font-size:7.5px;letter-spacing:1.5px;color:var(--mag);margin-bottom:3px;text-transform:uppercase}
+.excard p{font-family:var(--mono);font-size:8.5px;color:var(--dim);line-height:1.45}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+
+.fdtd-tabs{display:flex;gap:1px;padding:3px 8px;border-bottom:1px solid var(--border)}
+.fdtd-tab{flex:1;padding:2px;font-family:var(--mono);font-size:7.5px;
+  background:transparent;border:1px solid var(--border);color:var(--dim);cursor:pointer;text-align:center}
+.fdtd-tab.ac{color:var(--green);border-color:var(--green)}
+
+/* ── PHYSICS OVERLAY ── */
+#physics-overlay{
+  display:none;position:absolute;inset:0;z-index:100;
+  background:rgba(2,9,19,0.97);backdrop-filter:blur(12px);
+  overflow:hidden;flex-direction:column}
+#physics-overlay.open{display:flex}
+
+.phy-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;border-bottom:2px solid var(--cyan);background:rgba(0,220,255,.04);flex-shrink:0}
+.phy-hdr h2{font-size:11px;letter-spacing:6px;color:var(--cyan);
+  text-shadow:0 0 14px rgba(0,220,255,.7)}
+.phy-close{font-family:var(--mono);font-size:11px;color:var(--dim);background:transparent;
+  border:1px solid var(--border);padding:3px 10px;cursor:pointer;transition:all .2s}
+.phy-close:hover{color:var(--mag);border-color:var(--mag)}
+
+.phy-body{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar nav */
+.phy-nav{width:160px;flex-shrink:0;border-right:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;padding:8px 0}
+.phy-nav-item{padding:7px 12px;font-family:var(--mono);font-size:9px;letter-spacing:1.5px;
+  color:var(--dim);cursor:pointer;border-left:2px solid transparent;transition:all .18s;
+  text-transform:uppercase}
+.phy-nav-item:hover{color:var(--text);background:rgba(0,220,255,.04)}
+.phy-nav-item.ac{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,220,255,.07)}
+.phy-nav-item.tm-nav.ac{color:var(--mag);border-left-color:var(--mag);background:rgba(255,0,119,.06)}
+.phy-nav-sep{height:1px;background:var(--border);margin:6px 10px}
+.phy-nav-group{font-size:7px;letter-spacing:3px;color:rgba(184,216,240,.25);
+  padding:8px 12px 3px;text-transform:uppercase}
+
+/* Content area */
+.phy-content{flex:1;overflow-y:auto;padding:0}
+.phy-section{display:none;padding:20px 28px}
+.phy-section.active{display:block}
+
+.phy-section h3{font-size:10px;letter-spacing:4px;color:var(--cyan);
+  margin-bottom:14px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:8px}
+.phy-section h4{font-size:8.5px;letter-spacing:2px;color:var(--gold);
+  margin:16px 0 8px;text-transform:uppercase}
+
+.phy-text{font-family:var(--mono);font-size:10px;color:var(--text);line-height:1.75;margin-bottom:10px}
+.phy-dim{font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.65;margin-bottom:8px}
+
+.phy-eq-block{background:rgba(0,0,0,.4);border:1px solid rgba(0,220,255,.15);
+  border-left:3px solid var(--cyan);padding:12px 16px;margin:10px 0;
+  font-family:var(--mono);font-size:11px;color:var(--gold);line-height:2.0;white-space:pre}
+.phy-eq-block.tm-col{border-left-color:var(--mag)}
+.phy-eq-block.green-col{border-left-color:var(--green);color:var(--green)}
+.phy-eq-block.gold-col{border-left-color:var(--gold)}
+
+.phy-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.phy-card{background:rgba(0,0,0,.3);border:1px solid var(--border);padding:12px 14px}
+.phy-card h5{font-size:8px;letter-spacing:2px;color:var(--cyan);margin-bottom:8px;text-transform:uppercase}
+.phy-card.tm-card h5{color:var(--mag)}
+.phy-card p{font-family:var(--mono);font-size:9px;color:var(--dim);line-height:1.6}
+.phy-card .phy-mini-eq{font-family:var(--mono);font-size:10px;color:var(--gold);margin-top:6px}
+
+.phy-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:9.5px;margin:10px 0}
+.phy-table th{font-size:8px;letter-spacing:2px;color:var(--cyan);border-bottom:1px solid var(--border2);
+  padding:5px 8px;text-align:left;text-transform:uppercase}
+.phy-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--dim)}
+.phy-table td:first-child{color:var(--text)}
+.phy-table tr:hover td{background:rgba(0,220,255,.03)}
+
+.phy-badge-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.phy-badge{font-family:var(--mono);font-size:9px;padding:3px 10px;
+  border:1px solid;border-radius:2px}
+.phy-badge.c{border-color:var(--cyan);color:var(--cyan)}
+.phy-badge.m{border-color:var(--mag);color:var(--mag)}
+.phy-badge.g{border-color:var(--green);color:var(--green)}
+.phy-badge.go{border-color:var(--gold);color:var(--gold)}
+
+.phy-step{display:flex;gap:12px;margin:8px 0;align-items:flex-start}
+.phy-step-num{width:22px;height:22px;border-radius:50%;border:1px solid var(--cyan);
+  font-size:9px;color:var(--cyan);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.phy-step-body{flex:1;font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.6}
+.phy-step-body strong{color:var(--text)}
+
+.phy-highlight{background:rgba(255,204,0,.07);border:1px solid rgba(255,204,0,.2);
+  padding:10px 14px;margin:10px 0;font-family:var(--mono);font-size:9.5px;
+  color:var(--gold);line-height:1.65}
+.phy-highlight::before{content:'⚡ KEY INSIGHT  ';letter-spacing:2px;font-size:8px;
+  display:block;margin-bottom:4px;color:rgba(255,204,0,.5)}
+
+.phy-diagram{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--border);
+  margin:10px 0;overflow:hidden}
+
+/* =========================================================
+   READABILITY + THEME CONTROLS
+   No grid/layout geometry is changed.
+   ========================================================= */
+.hdr-right{display:flex;align-items:center;gap:14px;min-width:0}
+.theme-buttons{display:flex;gap:4px;align-items:center}
+.theme-btn{
+  min-width:42px;height:30px;padding:3px 8px;
+  font-family:var(--mono);font-size:13px;font-weight:700;
+  line-height:1;border:1px solid var(--border2);
+  background:rgba(0,0,0,.16);color:var(--text);
+  cursor:pointer;border-radius:3px;transition:all .2s;
+}
+.theme-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.theme-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,220,255,.10);
+  box-shadow:0 0 8px rgba(0,220,255,.12)}
+
+/* Larger, clearer typography while preserving the original panel geometry. */
+#hdr h1{font-size:15px;letter-spacing:3px}
+.sbar{font-size:12px;gap:14px}
+.ptitle{font-size:10px;letter-spacing:2px;padding:6px 10px}
+.cg label{font-size:9px;letter-spacing:1.5px;margin-bottom:6px}
+.mbt{font-size:11px;padding:7px 4px}
+.pbt{font-size:11px;padding:6px 7px}
+.sr{font-size:11px;margin:4px 0}
+.sr span.v{font-size:12px}
+.sr input[type=range]{height:4px;margin-top:5px}
+.vt{font-size:9px;padding:5px;letter-spacing:.8px}
+.abt{font-size:9.5px;padding:7px;margin:3px 0;letter-spacing:1.2px}
+#cvOverlay{font-size:11px}
+.ib{padding:9px 10px}
+.ib h3{font-size:10px;letter-spacing:1.7px}
+.eq{font-size:11px;line-height:1.65;padding:7px 9px}
+.fdisplay{font-size:25px}
+.fdisplay .unit{font-size:13px}
+.mdesc{font-size:10px;line-height:1.6}
+.badge{font-size:10px}
+.fdtd-tab{font-size:9px;padding:4px}
+.rot-hint{font-size:10px}
+.excard{padding:7px 10px}
+.excard h4{font-size:9px}
+.excard p{font-size:10px;line-height:1.55}
+
+/* Physics guide readability */
+.phy-hdr h2{font-size:13px}
+.phy-close{font-size:12px;padding:5px 11px}
+.phy-nav-item{font-size:10px;padding:8px 12px}
+.phy-nav-group{font-size:8px}
+.phy-section{padding:20px 28px}
+.phy-section h3{font-size:12px}
+.phy-section h4{font-size:10px}
+.phy-text{font-size:11px;line-height:1.8}
+.phy-dim{font-size:10.5px;line-height:1.7}
+.phy-eq-block{font-size:12px;line-height:1.9}
+.phy-card h5{font-size:9px}
+.phy-card p{font-size:10px;line-height:1.7}
+.phy-card .phy-mini-eq{font-size:11px}
+.phy-table{font-size:10.5px}
+.phy-table th{font-size:9px}
+.phy-table th,.phy-table td{padding:6px 8px}
+.phy-badge{font-size:10px}
+.phy-step-body{font-size:10.5px;line-height:1.7}
+.phy-step-num{font-size:10px}
+.phy-highlight{font-size:10.5px;line-height:1.7}
+.phy-highlight::before{font-size:9px}
+
+/* DAY theme: keep the same layout and controls, only improve contrast/readability. */
+body[data-theme="day"]{
+  --bg:#eef3f7;
+  --bg2:rgba(255,255,255,.96);
+  --bg3:rgba(248,251,253,.98);
+  --border:rgba(20,105,135,.22);
+  --border2:rgba(20,105,135,.48);
+  --cyan:#007a9b;
+  --mag:#c00063;
+  --gold:#9a6500;
+  --green:#007a52;
+  --text:#173247;
+  --dim:rgba(23,50,71,.68);
+}
+body[data-theme="day"]::before{
+  background:linear-gradient(rgba(0,90,120,.055) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(0,90,120,.055) 1px,transparent 1px);
+}
+body[data-theme="day"] .theme-btn{
+  background:rgba(255,255,255,.85);
+}
+body[data-theme="day"] #physics-overlay{
+  background:rgba(242,247,250,.98);
+}
+body[data-theme="day"] .phy-eq-block{
+  background:rgba(225,235,241,.72);
+  color:#765000;
+}
+body[data-theme="day"] .phy-card,
+body[data-theme="day"] .phy-diagram{
+  background:rgba(255,255,255,.72);
+}
+body[data-theme="day"] .phy-highlight{
+  background:rgba(255,204,0,.12);
+}
+body[data-theme="day"] .eq{
+  background:rgba(255,204,0,.10);
+}
+
+
+/* =========================================================
+   PHYSICS GUIDE — HIGH READABILITY PASS
+   Equations are consolidated in the guide; main dashboard
+   remains focused on live results and visualizations.
+   ========================================================= */
+.phy-content{
+  font-size:13px;
+  scroll-behavior:smooth;
+}
+.phy-section{
+  padding:26px 34px 34px;
+  max-width:1100px;
+}
+.phy-section h3{
+  font-size:15px;
+  letter-spacing:2.5px;
+  line-height:1.35;
+  margin-bottom:18px;
+  padding-bottom:10px;
+}
+.phy-section h4{
+  font-size:12px;
+  letter-spacing:1.6px;
+  margin:22px 0 10px;
+}
+.phy-text{
+  font-size:13px;
+  line-height:1.9;
+  margin-bottom:14px;
+}
+.phy-dim{
+  font-size:12px;
+  line-height:1.8;
+  margin-bottom:12px;
+}
+.phy-eq-block{
+  font-size:14px;
+  line-height:2.0;
+  padding:15px 18px;
+  margin:13px 0 18px;
+  overflow-x:auto;
+  white-space:pre-wrap;
+  word-break:normal;
+}
+.phy-card{
+  padding:15px 17px;
+}
+.phy-card h5{
+  font-size:11px;
+  letter-spacing:1.5px;
+  margin-bottom:9px;
+}
+.phy-card p{
+  font-size:12px;
+  line-height:1.8;
+}
+.phy-card .phy-mini-eq{
+  font-size:12.5px;
+}
+.phy-table{
+  font-size:12px;
+  margin:13px 0 18px;
+}
+.phy-table th{
+  font-size:10px;
+  letter-spacing:1.5px;
+  padding:8px 9px;
+}
+.phy-table td{
+  padding:8px 9px;
+}
+.phy-badge{
+  font-size:11px;
+  padding:5px 11px;
+}
+.phy-step{
+  gap:14px;
+  margin:11px 0;
+}
+.phy-step-num{
+  width:25px;
+  height:25px;
+  font-size:11px;
+}
+.phy-step-body{
+  font-size:12px;
+  line-height:1.8;
+}
+.phy-highlight{
+  font-size:12px;
+  line-height:1.8;
+  padding:13px 16px;
+  margin:14px 0 18px;
+}
+.phy-highlight::before{
+  font-size:10px;
+}
+.phy-nav{
+  width:190px;
+}
+.phy-nav-item{
+  font-size:11px;
+  padding:10px 14px;
+  letter-spacing:1px;
+  line-height:1.35;
+}
+.phy-nav-group{
+  font-size:9px;
+  padding:10px 14px 4px;
+  letter-spacing:2px;
+}
+.phy-hdr h2{
+  font-size:15px;
+  letter-spacing:4px;
+}
+.phy-hdr span{
+  font-size:11px !important;
+}
+.phy-close{
+  font-size:13px;
+  padding:6px 12px;
+}
+#info .mdesc{
+  font-size:11px;
+  line-height:1.7;
+}
+
+
+@media (max-width:900px){
+  .phy-nav{width:165px}
+  .phy-section{padding:22px 22px 30px}
+  .phy-eq-block{font-size:13px}
+}
+@media (max-width:650px){
+  .phy-body{flex-direction:column}
+  .phy-nav{width:100%;height:150px;border-right:0;border-bottom:1px solid var(--border)}
+  .phy-content{min-height:0}
+  .phy-grid{grid-template-columns:1fr}
+  .phy-section{padding:18px}
+  .phy-text{font-size:12.5px}
+  .phy-eq-block{font-size:12px}
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<div id="hdr" class="panel">
+  <h1>⚡ MICROWAVE CAVITY RESONANCE SIMULATOR</h1>
+  <div class="hdr-right">
+    <div class="sbar">
+      <span><span class="ldot"></span>LIVE</span>
+      <span id="fps">FPS: --</span>
+      <span id="tdisp">t = 0.000 ns</span>
+      <span id="mdisp">TE₁₀</span>
+    </div>
+    <div class="theme-buttons" aria-label="Theme">
+      <button class="theme-btn active" id="nightBtn" onclick="setTheme('night')" title="Night mode">☾ C</button>
+      <button class="theme-btn" id="dayBtn" onclick="setTheme('day')" title="Day mode">★</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div id="ctrl" class="panel">
+  <div class="ptitle">⚙ Parameters</div>
+  <div class="cg">
+    <label>Mode Family</label>
+    <div class="mbts">
+      <button class="mbt ac" id="btn-TE" onclick="setFamily('TE')">TE Mode</button>
+      <button class="mbt tm"  id="btn-TM" onclick="setFamily('TM')">TM Mode</button>
+    </div>
+    <label>Preset Configurations</label>
+    <div class="presets">
+      <button class="pbt ac" id="p-TE10" onclick="applyPreset('TE',1,0)">TE₁₀ — Dominant mode</button>
+      <button class="pbt"    id="p-TE11" onclick="applyPreset('TE',1,1)">TE₁₁ — Cross pattern</button>
+      <button class="pbt"    id="p-TE20" onclick="applyPreset('TE',2,0)">TE₂₀ — Two lobes</button>
+      <button class="pbt"    id="p-TE21" onclick="applyPreset('TE',2,1)">TE₂₁ — Four lobes</button>
+      <button class="pbt tm" id="p-TM11" onclick="applyPreset('TM',1,1)">TM₁₁ — Lowest TM</button>
+      <button class="pbt tm" id="p-TM21" onclick="applyPreset('TM',2,1)">TM₂₁ — Six lobes</button>
+      <button class="pbt tm" id="p-TM12" onclick="applyPreset('TM',1,2)">TM₁₂ — Tall cavity</button>
+    </div>
+  </div>
+  <div class="cg">
+    <label>Mode Indices (m, n)</label>
+    <div class="sr">m = <span class="v" id="mv">1</span>
+      <input type="range" id="ms" min="0" max="4" step="1" value="1" oninput="setParam('m',+this.value)">
+    </div>
+    <div class="sr">n = <span class="v" id="nv">0</span>
+      <input type="range" id="ns" min="0" max="4" step="1" value="0" oninput="setParam('n',+this.value)">
+    </div>
+  </div>
+  <div class="cg">
+    <label>Cavity Dimensions (m)</label>
+    <div class="sr">a = <span class="v" id="av">1.00</span>
+      <input type="range" id="as" min="0.1" max="2" step="0.05" value="1" oninput="setParam('a',+this.value)">
+    </div>
+    <div class="sr">b = <span class="v" id="bv">0.50</span>
+      <input type="range" id="bs" min="0.1" max="2" step="0.05" value="0.5" oninput="setParam('b',+this.value)">
+    </div>
+  </div>
+  <div class="cg">
+    <label>Animation Speed</label>
+    <div class="sr">× <span class="v" id="spv">1.0</span>
+      <input type="range" id="sps" min="0" max="5" step="0.1" value="1" oninput="setParam('speed',+this.value)">
+    </div>
+    <label style="margin-top:6px">Particle Density</label>
+    <div class="sr"><span class="v" id="pdv">300</span>
+      <input type="range" id="pds" min="50" max="600" step="50" value="300" oninput="setParam('pd',+this.value)">
+    </div>
+  </div>
+  <div class="vtabs">
+    <button class="vt ac" onclick="setViz('E',this)">|E| field</button>
+    <button class="vt"    onclick="setViz('H',this)">|H| field</button>
+    <button class="vt"    onclick="setViz('S',this)">Poynting</button>
+  </div>
+  <div class="cg">
+    <button class="abt physics-btn" onclick="openPhysics()">📖 Physics Guide</button>
+    <button class="abt" onclick="exportPNG()">📥 Export PNG</button>
+    <button class="abt" id="pauseBtn" onclick="togglePause()">▶ Resume</button>
+    <button class="abt" onclick="resetTime()">↺ Reset Time</button>
+    <button class="abt" onclick="respawnParticles()">✦ Respawn Particles</button>
+  </div>
+</div>
+
+<!-- 2D FIELD MAP -->
+<div id="cv2d-panel" class="panel">
+  <div class="ptitle" id="cv2d-title">⚡ 2D FIELD INTENSITY MAP — TE₁₀ MODE</div>
+  <canvas id="cv2d"></canvas>
+  <canvas id="cbar"></canvas>
+  <div id="cvOverlay">plasma colormap · |E| field</div>
+</div>
+
+<!-- INFO / EQUATIONS -->
+<div id="info" class="panel">
+  <div class="ptitle">📐 Physics Engine</div>
+  <div class="ib">
+    <h3>Resonance Frequency</h3>
+    <div class="fdisplay"><span id="fval">--</span><span class="unit">GHz</span></div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--gold);text-align:center">
+      λ = <span id="lval">--</span> cm &nbsp;|&nbsp; k<sub>c</sub> = <span id="kcval">--</span> m⁻¹
+    </div>
+  </div>
+  <div class="ib">
+    <h3>Mode Info</h3>
+    <div id="mdesc" class="mdesc">TE₁₀: Dominant rectangular waveguide mode. Single half-cycle in x, uniform in y. E-field polarized along y. Used in: radar, microwave comms, particle accelerators.</div>
+  </div>
+</div>
+
+<!-- 3D VISUALIZATION -->
+<div id="cv3d-panel" class="panel">
+  <div class="fdtd-tabs">
+    <button class="fdtd-tab ac" onclick="set3DTab('3d',this)">3D Cavity</button>
+    <button class="fdtd-tab"    onclick="set3DTab('fdtd',this)">FDTD vs Analytical</button>
+    <button class="fdtd-tab"    onclick="set3DTab('phase',this)">Phase Portrait</button>
+  </div>
+  <canvas id="cv3d"></canvas>
+  <div id="fdtd-panel" style="display:none;height:calc(100% - 26px);padding:6px">
+    <canvas id="fdtdChart"></canvas>
+  </div>
+  <div id="phase-panel" style="display:none;height:calc(100% - 26px);padding:6px">
+    <canvas id="phaseChart"></canvas>
+  </div>
+  <div class="rot-hint">Drag to rotate 3D</div>
+</div>
+
+<!-- SPECTRUM + EXAMPLES -->
+<div id="spec-panel" class="panel">
+  <div class="ptitle">📊 Resonance Spectrum</div>
+  <div class="chart-wrap">
+    <canvas id="specChart"></canvas>
+  </div>
+  <div class="ptitle" style="margin-top:1px">🌍 Real-World Resonance</div>
+  <div style="overflow-y:auto;flex:1">
+    <div class="excard" onclick="loadExample('opera')">
+      <h4>🎭 Opera Singer Breaks Glass</h4>
+      <p>Sustained tone at glass resonant freq (440–520 Hz) causes exponential amplitude growth. Q-factor determines break time. At resonance: A(t) = A₀e^(ωt/2Q). Destructive when strain exceeds tensile strength ~69 MPa.</p>
+    </div>
+    <div class="excard" onclick="loadExample('guitar')">
+      <h4>🎸 Guitar Body Cavity</h4>
+      <p>Helmholtz resonator + plate modes. Air cavity resonates at f₀ ≈ (c/2π)√(S/VL). Multiple standing wave modes amplify harmonics. Optimal geometry maximizes coupling to strings.</p>
+    </div>
+    <div class="excard" onclick="loadExample('room')">
+      <h4>🏛 Auditorium Room Modes</h4>
+      <p>Axial, tangential, oblique modes. f_mnp = (c/2)√[(m/L)²+(n/W)²+(p/H)²]. Golden ratio dimensions L:W:H = 2.56:1.6:1 minimize mode clustering. Sabine: RT60 = 0.161V/A.</p>
+    </div>
+    <div class="excard" onclick="loadExample('anc')">
+      <h4>🎧 Active Noise Cancellation</h4>
+      <p>Anti-resonance via destructive interference. Secondary speaker generates wave π-shifted relative to primary. ANC bandwidth ~1 kHz. Cavity mode suppression reduces SPL by 20–40 dB.</p>
+    </div>
+    <div class="excard" onclick="loadExample('microwave')">
+      <h4>📡 Microwave Oven 2.45 GHz</h4>
+      <p>TE₁₀ dominant mode. Cavity: 35×35×23 cm. Standing wave creates field maxima every λ/2 = 6.1 cm → hot spots. Mode stirrer averages field distribution. Heating: P = σ|E|²/2.</p>
+    </div>
+    <div class="excard" onclick="loadExample('accel')">
+      <h4>⚛ Particle Accelerator Cavity</h4>
+      <p>Superconducting RF cavities at 1.3 GHz. TM₀₁₀ mode accelerates charged particles on-axis. Q > 10¹⁰ at 2K. Peak gradient ~50 MV/m. CERN LHC uses 400 MHz cavities.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PHYSICS OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div id="physics-overlay">
+  <div class="phy-hdr">
+    <h2>⚡ PHYSICS REFERENCE GUIDE</h2>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--dim)">
+        Electromagnetic Cavity Resonance — Complete Theory
+      </span>
+      <button class="phy-close" onclick="closePhysics()">✕ CLOSE</button>
+    </div>
+  </div>
+
+  <div class="phy-body">
+    <!-- NAV SIDEBAR -->
+    <div class="phy-nav">
+      <div class="phy-nav-group">Simulator Reference</div>
+      <div class="phy-nav-item ac" onclick="showSection('simulator',this)">Simulator Equations</div>
+      <div class="phy-nav-sep"></div>
+      <div class="phy-nav-group">Foundations</div>
+      <div class="phy-nav-item" onclick="showSection('maxwell',this)">Maxwell's Equations</div>
+      <div class="phy-nav-item" onclick="showSection('wave',this)">Wave Equation</div>
+      <div class="phy-nav-item" onclick="showSection('boundary',this)">Boundary Conditions</div>
+      <div class="phy-nav-sep"></div>
+      <div class="phy-nav-group">Cavity Modes</div>
+      <div class="phy-nav-item" onclick="showSection('te',this)">TE Modes</div>
+      <div class="phy-nav-item tm-nav" onclick="showSection('tm',this)">TM Modes</div>
+      <div class="phy-nav-item" onclick="showSection('resonance',this)">Resonance Conditions</div>
+      <div class="phy-nav-sep"></div>
+      <div class="phy-nav-group">Energy & Loss</div>
+      <div class="phy-nav-item" onclick="showSection('poynting',this)">Poynting Vector</div>
+      <div class="phy-nav-item" onclick="showSection('qfactor',this)">Quality Factor</div>
+      <div class="phy-nav-sep"></div>
+      <div class="phy-nav-group">Numerical</div>
+      <div class="phy-nav-item" onclick="showSection('fdtd',this)">FDTD Method</div>
+      <div class="phy-nav-item" onclick="showSection('rk4',this)">Runge-Kutta RK4</div>
+      <div class="phy-nav-sep"></div>
+      <div class="phy-nav-item" onclick="showSection('glossary',this)">Glossary</div>
+    </div>
+
+    <!-- CONTENT PANE -->
+    <div class="phy-content">
+
+      <!-- ─── SIMULATOR EQUATIONS ─── -->
+      <div class="phy-section active" id="sec-simulator">
+        <h3>Simulator Equations — Live Calculation Reference</h3>
+        <p class="phy-text">These are the equations used directly by the interactive simulator. The resonance and field expressions update with the selected TE/TM mode and cavity dimensions.</p>
+
+        <h4>Wave Equation</h4>
+        <div class="phy-eq-block">∇²Ψ = με ∂²Ψ/∂t²
+(Ψ = E or H field)
+
+∂²u/∂x² + ∂²u/∂y² = (1/c²)∂²u/∂t²</div>
+
+        <h4>Resonance Condition</h4>
+        <div class="phy-eq-block" id="guide-res-eq">f_mn = (c/2)√[(m/a)² + (n/b)²]</div>
+
+        <h4 id="guide-field-title">TE Mode Field Components</h4>
+        <div class="phy-eq-block" id="guide-field-eqs">Hz= H₀cos(mπx/a)cos(nπy/b)cos(ωt)
+Ex=−(nπ/b)/kc²·H₀·sin(ωt)
+Ey= (mπ/a)/kc²·H₀·sin(ωt)</div>
+
+        <h4>Boundary Conditions</h4>
+        <div class="phy-eq-block">E_tangential = 0  (PEC walls)
+H_normal    = 0  (PEC walls)
+⇒ Standing wave resonance</div>
+
+        <h4>FDTD Update Equations</h4>
+        <div class="phy-eq-block green-col">Hy^(n+½)[i]= Hy[i]−(Δt/μΔx)(Ez[i+1]−Ez[i])
+Ez^(n+1)[i]= Ez[i]−(Δt/εΔx)(Hy[i+½]−Hy[i−½])</div>
+
+        <h4>Quality Factor</h4>
+        <div class="phy-eq-block">Q = ω·W_stored / P_dissipated
+Q_cavity ≈ (a·b·d)·kc³ / (π²·Rs·...)
+Typical: Q ~ 10³–10⁵ (metal)</div>
+
+        <h4>Runge-Kutta (RK4) ODE</h4>
+        <div class="phy-eq-block">dψ/dt = f(t,ψ)
+k₁=h·f(t,ψ)
+k₂=h·f(t+h/2, ψ+k₁/2)
+k₃=h·f(t+h/2, ψ+k₂/2)
+k₄=h·f(t+h, ψ+k₃)
+ψ_{n+1}=ψ_n+(k₁+2k₂+2k₃+k₄)/6</div>
+
+        <div class="phy-highlight">Use this section as the compact equation reference while experimenting with the mode family, indices, cavity dimensions, field visualization, and numerical methods.</div>
+      </div>
+
+      <!-- ─── MAXWELL ─── -->
+      <div class="phy-section" id="sec-maxwell">
+        <h3>Maxwell's Equations — The Foundation of Electromagnetism</h3>
+
+        <p class="phy-text">All electromagnetic phenomena in this simulator—field patterns, resonance, wave propagation—arise directly from four coupled partial differential equations formulated by James Clerk Maxwell in 1865.</p>
+
+        <h4>Differential Form (in free space)</h4>
+        <div class="phy-eq-block">∇ · E = ρ/ε₀         (Gauss's Law — electric)
+∇ · B = 0             (Gauss's Law — magnetic, no monopoles)
+∇ × E = −∂B/∂t        (Faraday's Law of induction)
+∇ × H = J + ∂D/∂t     (Ampère-Maxwell Law)</div>
+
+        <p class="phy-dim">Where: E = electric field [V/m], H = magnetic field [A/m], B = μH = magnetic flux density [T], D = εE = electric displacement [C/m²], ρ = charge density [C/m³], J = current density [A/m²]</p>
+
+        <h4>Inside a Perfect Metal Cavity (source-free)</h4>
+        <div class="phy-eq-block green-col">ρ = 0,  J = 0  →  source-free Maxwell equations:
+
+∇ × E = −μ ∂H/∂t
+∇ × H =  ε ∂E/∂t
+∇ · E = 0
+∇ · H = 0</div>
+
+        <div class="phy-highlight">Faraday's Law says a changing magnetic field induces an electric field. Ampère's Law says a changing electric field induces a magnetic field. Together, they create self-sustaining oscillations — electromagnetic waves.</div>
+
+        <h4>Material Constitutive Relations</h4>
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>Inside the cavity</h5>
+            <p>D = εE = ε₀εᵣE<br>B = μH = μ₀μᵣH</p>
+            <p class="phy-mini-eq">For air/vacuum: εᵣ = μᵣ = 1</p>
+          </div>
+          <div class="phy-card">
+            <h5>Speed of Light</h5>
+            <p>Derived from Maxwell's equations:<br>phase velocity in medium</p>
+            <p class="phy-mini-eq">c = 1/√(με) = 3×10⁸ m/s</p>
+          </div>
+        </div>
+
+        <h4>Integral Form</h4>
+        <div class="phy-eq-block">∮ E·dA = Q_enc/ε₀        (total flux through closed surface)
+∮ B·dA = 0             (no magnetic monopoles)
+∮ E·dl = −dΦ_B/dt      (EMF = rate of flux change)
+∮ H·dl = I_enc + dΦ_E/dt  (circulation of H)</div>
+
+        <p class="phy-dim">The integral form is used to derive boundary conditions at material interfaces and at conductor walls — the key to understanding cavity mode shapes.</p>
+      </div>
+
+      <!-- ─── WAVE EQUATION ─── -->
+      <div class="phy-section" id="sec-wave">
+        <h3>The Electromagnetic Wave Equation</h3>
+
+        <p class="phy-text">Taking the curl of Faraday's Law and substituting Ampère's Law eliminates one field and yields the wave equation — governing how fields propagate through space and time.</p>
+
+        <h4>Derivation</h4>
+        <div class="phy-step">
+          <div class="phy-step-num">1</div>
+          <div class="phy-step-body">Start with Faraday's Law: <strong>∇ × E = −μ ∂H/∂t</strong></div>
+        </div>
+        <div class="phy-step">
+          <div class="phy-step-num">2</div>
+          <div class="phy-step-body">Take curl of both sides: <strong>∇ × (∇ × E) = −μ ∂/∂t (∇ × H)</strong></div>
+        </div>
+        <div class="phy-step">
+          <div class="phy-step-num">3</div>
+          <div class="phy-step-body">Use vector identity: <strong>∇ × (∇ × E) = ∇(∇·E) − ∇²E = −∇²E</strong> (since ∇·E = 0)</div>
+        </div>
+        <div class="phy-step">
+          <div class="phy-step-num">4</div>
+          <div class="phy-step-body">Substitute Ampère's Law ∇ × H = ε ∂E/∂t into step 2</div>
+        </div>
+
+        <div class="phy-eq-block">∇²E = με ∂²E/∂t²
+
+∇²H = με ∂²H/∂t²
+
+These are the vector wave equations for E and H fields.</div>
+
+        <h4>Scalar Form (2D cavity)</h4>
+        <div class="phy-eq-block">∂²u/∂x² + ∂²u/∂y² = (1/c²) ∂²u/∂t²
+
+where c = 1/√(με) = phase velocity</div>
+
+        <h4>Standing Wave Solution</h4>
+        <p class="phy-text">In a bounded cavity with PEC walls, the spatial part must satisfy Dirichlet or Neumann boundary conditions. Separation of variables gives:</p>
+        <div class="phy-eq-block">u(x,y,t) = X(x)·Y(y)·T(t)
+
+X(x) = A·sin(kₓx) + B·cos(kₓx)
+Y(y) = C·sin(k_y·y) + D·cos(k_y·y)
+T(t) = E·cos(ωt) + F·sin(ωt)
+
+Dispersion relation:  kₓ² + k_y² = ω²με = k²</div>
+
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>Wavenumbers</h5>
+            <p>kₓ = mπ/a  (x-direction)<br>k_y = nπ/b  (y-direction)<br><br>m, n = integers (mode indices)</p>
+          </div>
+          <div class="phy-card">
+            <h5>Cutoff condition</h5>
+            <p>kc² = kₓ² + k_y²<br><br>Waves exist only if ω ≥ ωc = c·kc<br>(below cutoff: evanescent decay)</p>
+          </div>
+        </div>
+
+        <div class="phy-highlight">The dispersion relation kₓ² + k_y² = ω²/c² is the heart of cavity resonance. It directly gives the discrete resonant frequencies: only specific (m,n) combinations satisfy the boundary conditions.</div>
+      </div>
+
+      <!-- ─── BOUNDARY ─── -->
+      <div class="phy-section" id="sec-boundary">
+        <h3>Boundary Conditions at Cavity Walls</h3>
+
+        <p class="phy-text">The cavity walls are modelled as Perfect Electric Conductors (PEC). Inside a PEC, E = 0 and H = 0. Applying Maxwell's equations at the interface determines how fields must behave at the walls.</p>
+
+        <h4>Conditions at a PEC Surface</h4>
+        <div class="phy-eq-block green-col">E_tangential  = 0    (no tangential E at PEC)
+H_normal      = 0    (no normal H at PEC)
+
+D_normal      = ρ_s  (surface charge density)
+H_tangential  = J_s  (surface current density)</div>
+
+        <p class="phy-dim">The tangential E = 0 condition means the electric field must be zero everywhere along the wall surface. The normal H = 0 condition means the magnetic field must be parallel to the wall (no component penetrating it).</p>
+
+        <h4>Consequence for Mode Shapes</h4>
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5 style="color:var(--cyan)">TE modes</h5>
+            <p>Eₙ = 0 at walls → E∥ can be non-zero at walls<br><br>Hz uses cosines → non-zero at x=0<br>Ey uses sines → zero at x=0, x=a ✓<br>Ex uses sines → zero at y=0, y=b ✓</p>
+          </div>
+          <div class="phy-card tm-card">
+            <h5>TM modes</h5>
+            <p>Ez = 0 at all walls → must use sines in both directions<br><br>Ez = sin(mπx/a)sin(nπy/b) → zero at all four walls ✓<br><br>Both m ≥ 1 and n ≥ 1 required.</p>
+          </div>
+        </div>
+
+        <h4>Physical Interpretation</h4>
+        <div class="phy-step">
+          <div class="phy-step-num">E</div>
+          <div class="phy-step-body"><strong>Tangential E = 0:</strong> Free charges in the metal redistribute instantly, creating surface charges that cancel any tangential field. This is why E-field lines meet walls perpendicularly.</div>
+        </div>
+        <div class="phy-step">
+          <div class="phy-step-num">H</div>
+          <div class="phy-step-body"><strong>Normal H = 0:</strong> The continuity of magnetic flux (∇·B = 0) combined with B = 0 inside the conductor forces the normal component to vanish. H-field lines run along walls.</div>
+        </div>
+        <div class="phy-step">
+          <div class="phy-step-num">J</div>
+          <div class="phy-step-body"><strong>Surface currents:</strong> Jₛ = n̂ × H flows on the conductor surface. These currents sustain the magnetic field and are responsible for ohmic losses in real (non-ideal) cavities.</div>
+        </div>
+
+        <div class="phy-highlight">Boundary conditions are what quantize the allowed modes. Only discrete (m,n) pairs satisfy all four wall conditions simultaneously — this is the origin of the mode spectrum shown in the resonance chart.</div>
+      </div>
+
+      <!-- ─── TE MODES ─── -->
+      <div class="phy-section" id="sec-te">
+        <h3>Transverse Electric (TE) Modes</h3>
+
+        <p class="phy-text">In TE modes, the electric field has no component along the z-axis (propagation direction). The longitudinal magnetic field Hz is the source term from which all other field components are derived.</p>
+
+        <div class="phy-badge-row">
+          <span class="phy-badge c">Ez = 0 everywhere</span>
+          <span class="phy-badge c">Hz ≠ 0 (longitudinal H)</span>
+          <span class="phy-badge go">TE₁₀ is dominant mode</span>
+        </div>
+
+        <h4>Field Component Equations</h4>
+        <div class="phy-eq-block">Hz = H₀ cos(mπx/a) cos(nπy/b) cos(ωt)
+Ez = 0
+
+Ex = +(ωμ/kc²)(nπ/b) cos(mπx/a) sin(nπy/b) sin(ωt)
+Ey = −(ωμ/kc²)(mπ/a) sin(mπx/a) cos(nπy/b) sin(ωt)
+
+Hx = +(jβ/kc²)(mπ/a) sin(mπx/a) cos(nπy/b) sin(ωt)
+Hy = +(jβ/kc²)(nπ/b) cos(mπx/a) sin(nπy/b) sin(ωt)
+
+where  kc² = (mπ/a)² + (nπ/b)²</div>
+
+        <h4>The Dominant TE₁₀ Mode</h4>
+        <p class="phy-text">With m=1, n=0, this is the lowest-frequency TE mode (n=0 eliminates terms involving nπ/b). It has a single half-cosine field variation across the width a.</p>
+        <div class="phy-eq-block">Hz = H₀ cos(πx/a) cos(ωt)           [standing wave]
+Ey = −(ωμa/π) H₀ sin(πx/a) sin(ωt)  [only E component]
+Ex = 0,  Ez = 0                       [no other E components]
+
+Resonant frequency:  f₁₀ = c/(2a)
+Cutoff wavelength:   λ_c = 2a</div>
+
+        <h4>Mode Chart</h4>
+        <table class="phy-table">
+          <tr><th>Mode</th><th>m</th><th>n</th><th>E field</th><th>Properties</th></tr>
+          <tr><td>TE₁₀</td><td>1</td><td>0</td><td>Ey only</td><td>Dominant; single lobe; linear polarization</td></tr>
+          <tr><td>TE₀₁</td><td>0</td><td>1</td><td>Ex only</td><td>Orthogonal to TE₁₀; dual polarization with 90° rotation</td></tr>
+          <tr><td>TE₂₀</td><td>2</td><td>0</td><td>Ey, 2 lobes</td><td>Two antiphase lobes; power divider applications</td></tr>
+          <tr><td>TE₁₁</td><td>1</td><td>1</td><td>Ex + Ey</td><td>Diagonal pattern; can be elliptically polarized</td></tr>
+          <tr><td>TE₂₁</td><td>2</td><td>1</td><td>Four lobes</td><td>Used in directional couplers</td></tr>
+        </table>
+
+        <div class="phy-highlight">For TE modes, if n = 0, the mode is uniform in y — requiring only a single-dimension boundary condition in x. This is why TE₁₀ exists but TM₁₀ does not: TM requires sin functions in both x and y simultaneously.</div>
+      </div>
+
+      <!-- ─── TM MODES ─── -->
+      <div class="phy-section" id="sec-tm">
+        <h3>Transverse Magnetic (TM) Modes</h3>
+
+        <p class="phy-text">In TM modes, the magnetic field has no z-component. The longitudinal electric field Ez drives all other components. TM modes require both m ≥ 1 and n ≥ 1 — they cannot have a zero index in either direction.</p>
+
+        <div class="phy-badge-row">
+          <span class="phy-badge m">Hz = 0 everywhere</span>
+          <span class="phy-badge m">Ez ≠ 0 (longitudinal E)</span>
+          <span class="phy-badge go">Min. indices: m≥1, n≥1</span>
+        </div>
+
+        <h4>Field Component Equations</h4>
+        <div class="phy-eq-block tm-col">Ez = E₀ sin(mπx/a) sin(nπy/b) cos(ωt)
+Hz = 0
+
+Ex = −(jβ/kc²)(mπ/a) cos(mπx/a) sin(nπy/b) sin(ωt)
+Ey = −(jβ/kc²)(nπ/b) sin(mπx/a) cos(nπy/b) sin(ωt)
+
+Hx = +(jωε/kc²)(nπ/b) sin(mπx/a) cos(nπy/b) sin(ωt)
+Hy = −(jωε/kc²)(mπ/a) cos(mπx/a) sin(nπy/b) sin(ωt)
+
+where  kc² = (mπ/a)² + (nπ/b)²</div>
+
+        <h4>Why TM₁₀ and TM₀₁ Don't Exist</h4>
+        <p class="phy-dim">For TM modes, Ez = E₀ sin(mπx/a) sin(nπy/b). If m=0, sin(0) = 0 everywhere → trivial (zero) solution. Same for n=0. Therefore the minimum TM mode is TM₁₁.</p>
+
+        <h4>TM₁₁ — The Lowest TM Mode</h4>
+        <div class="phy-eq-block tm-col">Ez = E₀ sin(πx/a) sin(πy/b) cos(ωt)
+
+Hx = +(jωε/kc²)(π/b) sin(πx/a) cos(πy/b) sin(ωt)
+Hy = −(jωε/kc²)(π/a) cos(πx/a) sin(πy/b) sin(ωt)
+
+Resonant frequency: f₁₁ = (c/2)√[(1/a)² + (1/b)²]
+The H-field curls in closed loops around the Ez maximum.</div>
+
+        <h4>Key Differences vs TE Modes</h4>
+        <div class="phy-grid">
+          <div class="phy-card tm-card">
+            <h5>TM strengths</h5>
+            <p>• On-axis Ez field accelerates particles (used in accelerator cavities)<br>• Simpler H-field topology (loops)<br>• Ez maxima in interior of cavity, not near walls</p>
+          </div>
+          <div class="phy-card tm-card">
+            <h5>TM applications</h5>
+            <p>• Particle accelerator RF cavities (TM₀₁₀)<br>• Microwave oscillators<br>• Cavity filters requiring axial coupling<br>• Electron cyclotron resonance sources</p>
+          </div>
+        </div>
+
+        <div class="phy-highlight">TM modes have their electric field maximum on the cavity axis. This makes them ideal for particle acceleration — a charged particle traveling along the axis experiences the maximum accelerating gradient from the Ez field.</div>
+      </div>
+
+      <!-- ─── RESONANCE ─── -->
+      <div class="phy-section" id="sec-resonance">
+        <h3>Resonance Conditions &amp; Mode Spectrum</h3>
+
+        <p class="phy-text">Resonance occurs when the cavity dimensions allow standing waves to form — a self-consistent field pattern that satisfies boundary conditions on all walls simultaneously. Each (m,n) pair defines a unique resonant frequency.</p>
+
+        <h4>Resonant Frequency Formula</h4>
+        <div class="phy-eq-block">f_mn = (c/2) √[ (m/a)² + (n/b)² ]
+
+where:
+  c = 3 × 10⁸ m/s  (speed of light in vacuum)
+  m = number of half-wave variations in x  (0,1,2,...)
+  n = number of half-wave variations in y  (0,1,2,...)
+  a = cavity width  [m]
+  b = cavity height [m]</div>
+
+        <h4>Cutoff Wavenumber</h4>
+        <div class="phy-eq-block">kc = π √[ (m/a)² + (n/b)² ]    [rad/m]
+
+ωc = c · kc    (cutoff angular frequency)
+λc = 2π/kc     (cutoff wavelength)
+
+Below cutoff (f < f_mn): fields decay evanescently.
+At resonance (f = f_mn): standing wave sustained.</div>
+
+        <h4>Mode Degeneracy</h4>
+        <p class="phy-text">Two different modes can share the same resonant frequency — this is called mode degeneracy. For a square cavity (a = b), many TE and TM modes become degenerate:</p>
+        <div class="phy-eq-block">Square cavity: a = b → f_mn = f_nm  (degenerate pair)
+TE₁₂ ↔ TE₂₁  at same frequency
+TE₁₁ ↔ TM₁₁  (always degenerate when a = b)</div>
+
+        <h4>Mode Density</h4>
+        <p class="phy-dim">As frequency increases, the number of modes per frequency interval (mode density) grows rapidly. At high frequencies, many modes coexist, causing complex multi-mode behavior in microwave systems.</p>
+
+        <table class="phy-table">
+          <tr><th>Ratio a/b</th><th>Lowest mode</th><th>2nd mode</th><th>Separation factor</th></tr>
+          <tr><td>2.0</td><td>TE₁₀: f₀</td><td>TE₂₀: 2f₀</td><td>2.00× (good isolation)</td></tr>
+          <tr><td>1.0</td><td>TE₁₀ = TE₀₁</td><td>TE₁₁,TM₁₁</td><td>Degenerate at f₀</td></tr>
+          <tr><td>1.5</td><td>TE₁₀: f₀</td><td>TE₀₁: 1.5f₀</td><td>Moderate separation</td></tr>
+        </table>
+
+        <div class="phy-highlight">Standard WR-90 X-band waveguide has a = 22.86 mm, b = 10.16 mm (a/b ≈ 2.25). This ratio was chosen so TE₁₀ is the only propagating mode across the 8.2–12.4 GHz X-band — preventing mode contamination.</div>
+
+        <h4>3D Cavity Extension</h4>
+        <div class="phy-eq-block">For a 3D rectangular cavity (a × b × d):
+
+f_mnp = (c/2) √[ (m/a)² + (n/b)² + (p/d)² ]
+
+Adds a third index p for the z-direction half-waves.
+TE and TM degeneracy is partially broken by different
+boundary conditions in the third dimension.</div>
+      </div>
+
+      <!-- ─── POYNTING ─── -->
+      <div class="phy-section" id="sec-poynting">
+        <h3>Poynting Vector &amp; Energy Flow</h3>
+
+        <p class="phy-text">The Poynting vector describes the instantaneous direction and magnitude of electromagnetic power flow. It is the cross product of E and H fields and has units of Watts per square metre [W/m²].</p>
+
+        <h4>Definition</h4>
+        <div class="phy-eq-block">S = E × H                      [W/m²]
+
+Time-averaged Poynting vector:
+⟨S⟩ = ½ Re(E × H*)         [W/m²]
+
+where H* is the complex conjugate of H.</div>
+
+        <h4>Physical Meaning</h4>
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>Energy flux</h5>
+            <p>|S| = power crossing unit area perpendicular to S. Total power through surface A:<br><br>P = ∮ S · dA   [Watts]</p>
+          </div>
+          <div class="phy-card">
+            <h5>In a resonating cavity</h5>
+            <p>⟨S⟩ = 0 in interior (standing wave — equal forward/backward flow). S ≠ 0 at walls → power absorbed by finite conductivity.</p>
+          </div>
+        </div>
+
+        <h4>Energy Density</h4>
+        <div class="phy-eq-block">Electric energy density:   u_E = ½ε|E|²   [J/m³]
+Magnetic energy density:  u_H = ½μ|H|²   [J/m³]
+Total energy density:     u = u_E + u_H
+
+At resonance in a lossless cavity:
+  ⟨u_E⟩ = ⟨u_H⟩    (energy equipartition)
+  Total stored energy: W = ∫∫∫ u dV</div>
+
+        <h4>Poynting Theorem (Energy Conservation)</h4>
+        <div class="phy-eq-block">∂u/∂t + ∇·S = −J·E
+
+Physical interpretation:
+  ∂u/∂t  = rate of change of stored EM energy
+  ∇·S     = net power flux out of volume
+  J·E     = power delivered to charges (Joule heating)
+
+Integrated over cavity volume:
+  dW/dt = −∮ S·dA − P_loss</div>
+
+        <h4>Visualization in This Simulator</h4>
+        <p class="phy-dim">Selecting "Poynting" view shows the cross product magnitude |E × H| using the Inferno colormap. In a standing wave cavity, this oscillates at twice the field frequency. The time-averaged pattern reveals where energy circulates between electric and magnetic form — typically creating rotating energy vortices near the cavity walls.</p>
+
+        <div class="phy-highlight">In the TE₁₀ mode, the Poynting vector shows energy sloshing back and forth between the wide walls. At quarter-period intervals: all energy is electric (E max, H = 0), then all magnetic (H max, E = 0) — a perfect electromagnetic harmonic oscillator analogous to a mass-spring system.</div>
+      </div>
+
+      <!-- ─── Q FACTOR ─── -->
+      <div class="phy-section" id="sec-qfactor">
+        <h3>Quality Factor (Q)</h3>
+
+        <p class="phy-text">The Q-factor quantifies how efficiently a resonator stores energy relative to how quickly it loses it. A high-Q cavity stores energy for many oscillation cycles before dissipating it — enabling sharp resonance peaks and long coherence times.</p>
+
+        <h4>Fundamental Definition</h4>
+        <div class="phy-eq-block">Q = ω₀ · (Energy stored) / (Power dissipated)
+Q = ω₀ · W / P_loss
+
+Equivalently:
+Q = f₀ / Δf     (resonant freq. / 3dB bandwidth)
+Q = ω₀ · τ      (τ = 1/e energy decay time)</div>
+
+        <h4>Sources of Loss in Real Cavities</h4>
+        <table class="phy-table">
+          <tr><th>Loss source</th><th>Mechanism</th><th>Contribution</th></tr>
+          <tr><td>Ohmic (wall) loss</td><td>Surface currents in finite-σ conductor</td><td>1/Q_ohmic</td></tr>
+          <tr><td>Dielectric loss</td><td>Molecular friction in filling material</td><td>1/Q_dielectric</td></tr>
+          <tr><td>Radiation loss</td><td>Leakage through apertures/coupling ports</td><td>1/Q_external</td></tr>
+          <tr><td>Total loaded Q</td><td>Sum of all mechanisms</td><td>1/Q_L = Σ 1/Qᵢ</td></tr>
+        </table>
+
+        <h4>Wall Loss Calculation</h4>
+        <div class="phy-eq-block">Surface resistance:  Rₛ = √(πfμ₀/σ)  [Ω/sq]
+Skin depth:          δ  = 1/√(πfμσ)  [m]
+
+Power loss in walls:  P = ½Rₛ ∮|Hₜ|² dA
+
+Q_wall = ω₀ · W / P_loss = (kc · volume) / (Rₛ · ∫|Hₜ|²dA)
+
+For copper at 10 GHz:  Rₛ ≈ 26 mΩ/sq,  δ ≈ 0.66 μm</div>
+
+        <h4>Typical Q Values</h4>
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>Room temperature metal</h5>
+            <p>Copper cavity: Q ~ 10³–10⁵<br>Aluminium: Q ~ 5×10³–5×10⁴<br>Silver: Q ~ 2×10⁴–2×10⁵<br><br>Limited by skin depth losses</p>
+          </div>
+          <div class="phy-card">
+            <h5>Superconducting cavities</h5>
+            <p>Nb at 2K, 1.3 GHz:<br>Q ~ 10¹⁰–10¹¹<br><br>Surface resistance drops 5–6 orders of magnitude below T_c. Used in CERN LHC, ILC, LCLS-II.</p>
+          </div>
+        </div>
+
+        <div class="phy-highlight">A Q of 10¹⁰ means a photon stored in a superconducting cavity would bounce back and forth for ~12 seconds before being absorbed. This extraordinary coherence enables quantum computing (circuit QED), particle acceleration, and precision metrology.</div>
+
+        <h4>Amplitude Decay</h4>
+        <div class="phy-eq-block">After excitation source is removed:
+
+E(t) = E₀ · e^(−ω₀t/2Q) · cos(ω₀t)
+
+Energy:  W(t) = W₀ · e^(−ω₀t/Q) = W₀ · e^(−t/τ)
+
+τ = Q/ω₀ = Q/(2πf₀)   [energy 1/e decay time]
+
+For Q = 10⁴ at 10 GHz:  τ ≈ 160 ns  (very sharp resonance)</div>
+      </div>
+
+      <!-- ─── FDTD ─── -->
+      <div class="phy-section" id="sec-fdtd">
+        <h3>Finite-Difference Time-Domain (FDTD) Method</h3>
+
+        <p class="phy-text">FDTD is a direct numerical solution of Maxwell's equations in the time domain. It discretises space and time on a staggered grid (Yee grid) and updates E and H fields alternately — a leapfrog scheme that conserves energy and satisfies Gauss's laws automatically.</p>
+
+        <h4>The Yee Grid (1966)</h4>
+        <p class="phy-dim">Kane Yee's key insight: stagger E and H fields in both space and time. E-field components sit at cell edges; H-field components sit at cell face centres. E at integer time steps, H at half-integer steps. This ensures central differences are always second-order accurate.</p>
+
+        <div class="phy-eq-block green-col">1D update equations (Ez, Hy):
+
+Hy^(n+½)[i] = Hy^(n-½)[i] − (Δt/μ·Δx)(Ez^n[i+1] − Ez^n[i])
+
+Ez^(n+1)[i] = Ez^n[i] − (Δt/ε·Δx)(Hy^(n+½)[i] − Hy^(n+½)[i-1])
+
+Boundary conditions (PEC):  Ez[0] = Ez[Nmax] = 0</div>
+
+        <h4>Courant Stability Condition</h4>
+        <div class="phy-eq-block">For stable (non-diverging) simulation:
+
+Δt ≤ Δx / (c·√D)   where D = number of dimensions
+
+1D:  Δt ≤ Δx/c         → Courant number S = c·Δt/Δx ≤ 1
+2D:  Δt ≤ Δx/(c·√2)   → S ≤ 1/√2
+3D:  Δt ≤ Δx/(c·√3)   → S ≤ 1/√3
+
+This simulator uses S = 0.95 (slightly below limit for safety)</div>
+
+        <h4>Accuracy &amp; Numerical Dispersion</h4>
+        <p class="phy-dim">FDTD introduces numerical dispersion: the simulated phase velocity depends weakly on wavelength. For accurate results, spatial resolution should be at least 10–20 cells per wavelength (Δx ≤ λ/10). The simulator uses 120 grid points across the cavity.</p>
+
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>FDTD strengths</h5>
+            <p>• Time-domain broadband results<br>• Natural handling of dispersive media<br>• Straightforward implementation<br>• Parallelises efficiently on GPU</p>
+          </div>
+          <div class="phy-card">
+            <h5>FDTD limitations</h5>
+            <p>• Staircase approximation for curved boundaries<br>• Memory: O(N³) in 3D<br>• Numerical dispersion at coarse grids<br>• Requires fine time step for accuracy</p>
+          </div>
+        </div>
+
+        <h4>Comparing FDTD to Analytical Solution</h4>
+        <p class="phy-text">The "FDTD vs Analytical" tab plots the numerical Ez field (green) against the exact analytical standing wave (dashed gold). At t=0 they match perfectly; as the simulation progresses, small phase errors accumulate — this is numerical dispersion. The error grows as ~ (π/λ)² (Δx)² per unit distance.</p>
+
+        <div class="phy-highlight">FDTD was originally developed for antenna and scattering problems (Yee 1966). Today it is the workhorse of computational electromagnetics, used for everything from designing iPhone antennas and photonic chips to simulating radar cross-sections of stealth aircraft.</div>
+      </div>
+
+      <!-- ─── RK4 ─── -->
+      <div class="phy-section" id="sec-rk4">
+        <h3>Runge-Kutta RK4 Integration</h3>
+
+        <p class="phy-text">The Runge-Kutta 4th-order method (RK4) is a family of explicit ODE solvers with 4th-order accuracy — error per step ∝ h⁵. It is used here to numerically integrate particle trajectories through the field for the particle-tracing visualization.</p>
+
+        <h4>The ODE Problem</h4>
+        <div class="phy-eq-block">Given:  dψ/dt = f(t, ψ)
+
+For a particle at position (x,y) in the field:
+  dx/dt = vₓ(x,y,t) = Eₓ(x,y,t) / |E|
+  dy/dt = v_y(x,y,t) = E_y(x,y,t) / |E|
+
+Goal: advance (x,y) from t to t + h accurately.</div>
+
+        <h4>RK4 Algorithm</h4>
+        <div class="phy-eq-block green-col">k₁ = h · f(t,       ψ)
+k₂ = h · f(t + h/2, ψ + k₁/2)
+k₃ = h · f(t + h/2, ψ + k₂/2)
+k₄ = h · f(t + h,   ψ + k₃)
+
+ψ_{n+1} = ψ_n + (k₁ + 2k₂ + 2k₃ + k₄) / 6
+
+Geometric interpretation:
+  k₁ = slope at start
+  k₂ = slope at midpoint (using k₁)
+  k₃ = slope at midpoint (using k₂, more accurate)
+  k₄ = slope at end
+  Final: weighted average — most weight on midpoints</div>
+
+        <h4>Why Not Euler's Method?</h4>
+        <div class="phy-grid">
+          <div class="phy-card">
+            <h5>Euler (1st order)</h5>
+            <p>ψ_{n+1} = ψ_n + h·f(t,ψ)<br><br>Error per step: O(h²)<br>Global error: O(h)<br><br>Simple but inaccurate — particles spiral to wrong positions for large h</p>
+          </div>
+          <div class="phy-card">
+            <h5>RK4 (4th order)</h5>
+            <p>4 function evaluations per step<br><br>Error per step: O(h⁵)<br>Global error: O(h⁴)<br><br>1000× more accurate than Euler for same step size h</p>
+          </div>
+        </div>
+
+        <h4>Phase Portrait Connection</h4>
+        <p class="phy-text">The "Phase Portrait" tab integrates a point in the centre of the cavity and plots Ez versus dEz/dt. For a perfect resonance with no damping, this traces a perfect ellipse — a hallmark of simple harmonic motion. Real cavities with finite Q spiral inward as energy is lost.</p>
+
+        <div class="phy-highlight">RK4 was developed by Carl Runge (1895) and Wilhelm Kutta (1901). It remains one of the most widely used numerical methods in science and engineering — from celestial mechanics and plasma simulation to the field-line tracing in this simulator.</div>
+      </div>
+
+      <!-- ─── GLOSSARY ─── -->
+      <div class="phy-section" id="sec-glossary">
+        <h3>Glossary of Terms</h3>
+        <table class="phy-table">
+          <tr><th>Symbol / Term</th><th>Meaning</th><th>Unit</th></tr>
+          <tr><td>E</td><td>Electric field vector</td><td>V/m</td></tr>
+          <tr><td>H</td><td>Magnetic field intensity</td><td>A/m</td></tr>
+          <tr><td>B = μH</td><td>Magnetic flux density</td><td>Tesla [T]</td></tr>
+          <tr><td>D = εE</td><td>Electric displacement</td><td>C/m²</td></tr>
+          <tr><td>S = E×H</td><td>Poynting vector (power flux)</td><td>W/m²</td></tr>
+          <tr><td>ε₀</td><td>Permittivity of free space: 8.854×10⁻¹² F/m</td><td>F/m</td></tr>
+          <tr><td>μ₀</td><td>Permeability of free space: 4π×10⁻⁷ H/m</td><td>H/m</td></tr>
+          <tr><td>c</td><td>Speed of light: 1/√(ε₀μ₀) ≈ 3×10⁸ m/s</td><td>m/s</td></tr>
+          <tr><td>ω = 2πf</td><td>Angular frequency</td><td>rad/s</td></tr>
+          <tr><td>k = ω/c</td><td>Free-space wavenumber</td><td>rad/m</td></tr>
+          <tr><td>kc</td><td>Cutoff wavenumber = π√[(m/a)²+(n/b)²]</td><td>rad/m</td></tr>
+          <tr><td>λc = 2π/kc</td><td>Cutoff wavelength</td><td>m</td></tr>
+          <tr><td>m, n</td><td>Mode indices (half-wave counts in x, y)</td><td>—</td></tr>
+          <tr><td>a, b</td><td>Cavity dimensions (width, height)</td><td>m</td></tr>
+          <tr><td>Q</td><td>Quality factor = ω₀W/P_loss</td><td>dimensionless</td></tr>
+          <tr><td>Rₛ</td><td>Surface resistance = √(πfμ₀/σ)</td><td>Ω/sq</td></tr>
+          <tr><td>δ</td><td>Skin depth = 1/√(πfμσ)</td><td>m</td></tr>
+          <tr><td>PEC</td><td>Perfect Electric Conductor (σ → ∞)</td><td>—</td></tr>
+          <tr><td>TE</td><td>Transverse Electric (Ez = 0)</td><td>—</td></tr>
+          <tr><td>TM</td><td>Transverse Magnetic (Hz = 0)</td><td>—</td></tr>
+          <tr><td>FDTD</td><td>Finite-Difference Time-Domain method</td><td>—</td></tr>
+          <tr><td>RK4</td><td>4th-order Runge-Kutta integrator</td><td>—</td></tr>
+          <tr><td>∇²</td><td>Laplacian operator: ∂²/∂x² + ∂²/∂y² + ∂²/∂z²</td><td>—</td></tr>
+          <tr><td>∇×</td><td>Curl operator</td><td>—</td></tr>
+          <tr><td>∇·</td><td>Divergence operator</td><td>—</td></tr>
+        </table>
+      </div>
+
+    </div><!-- .phy-content -->
+  </div><!-- .phy-body -->
+</div><!-- #physics-overlay -->
+
+</div><!-- #app -->
+
+<script>
+/* ======================================================
+   PHYSICS ENGINE
+   ====================================================== */
+const C = 3e8;
+const S = {
+  family:'TE', m:1, n:0, a:1.0, b:0.5,
+  speed:1.0, pd:300, viz:'E',
+  t:0, paused:true,
+  particles:[],
+  tab:'3d'
+};
+
+function resonFreq(m,n,a,b){
+  const km=m*Math.PI/a, kn=n*Math.PI/b;
+  return (C/2)*Math.sqrt(km*km+kn*kn);
+}
+
+function getField(x,y,t){
+  const {family,m,n,a,b}=S;
+  const kx=m*Math.PI/a, ky=n*Math.PI/b;
+  const kc2v=kx*kx+ky*ky;
+  const omega=2*Math.PI*resonFreq(m,n,a,b);
+  const cosT=Math.cos(omega*t), sinT=Math.sin(omega*t);
+  if(family==='TE'){
+    const Hz=Math.cos(kx*x)*(ky>0?Math.cos(ky*y):1)*cosT;
+    let Ex=0,Ey=0,Hx=0,Hy=0;
+    if(kc2v>1e-10){
+      Ex=-(ky/kc2v)*Math.cos(kx*x)*(ky>0?Math.sin(ky*y):0)*sinT;
+      Ey= (kx/kc2v)*Math.sin(kx*x)*(ky>0?Math.cos(ky*y):1)*sinT;
+    }
+    return{Ex,Ey,Hx,Hy,Hz,Ez:0,Emag:Math.sqrt(Ex*Ex+Ey*Ey),Hmag:Math.abs(Hz)};
+  } else {
+    const Ez=Math.sin(kx*x)*(ky>0?Math.sin(ky*y):1)*cosT;
+    let Hx=0,Hy=0;
+    if(kc2v>1e-10){
+      Hx= (ky/kc2v)*Math.sin(kx*x)*(ky>0?Math.cos(ky*y):0)*sinT;
+      Hy=-(kx/kc2v)*Math.cos(kx*x)*(ky>0?Math.sin(ky*y):1)*sinT;
+    }
+    return{Ex:0,Ey:0,Hx,Hy,Hz:0,Ez,Emag:Math.abs(Ez),Hmag:Math.sqrt(Hx*Hx+Hy*Hy)};
+  }
+}
+
+function fieldMag(f){
+  if(S.viz==='E') return f.Emag;
+  if(S.viz==='H') return f.Hmag;
+  return Math.abs(f.Ex*f.Hy - f.Ey*f.Hx);
+}
+
+const PLASMA=[[13,8,135],[62,4,155],[106,0,167],[143,13,163],[176,42,143],[203,71,120],[224,100,97],[240,130,73],[250,162,48],[253,195,28],[240,249,33]];
+const VIRID=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
+const INFERNO=[[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[252,188,97],[252,253,191]];
+function lerp3(arr,t){
+  t=Math.max(0,Math.min(1,t));
+  const idx=t*(arr.length-1),i=Math.floor(idx),f=idx-i;
+  const c1=arr[Math.min(i,arr.length-1)],c2=arr[Math.min(i+1,arr.length-1)];
+  return[Math.round(c1[0]+f*(c2[0]-c1[0])),Math.round(c1[1]+f*(c2[1]-c1[1])),Math.round(c1[2]+f*(c2[2]-c1[2]))];
+}
+function cmap(t){
+  if(S.viz==='H') return lerp3(VIRID,t);
+  if(S.viz==='S') return lerp3(INFERNO,t);
+  return lerp3(PLASMA,t);
+}
+
+/* 2D Canvas */
+const cv2d=document.getElementById('cv2d');
+const ctx2=cv2d.getContext('2d');
+let imgW=0,imgH=0;
+function resize2D(){
+  const p=document.getElementById('cv2d-panel');
+  const r=p.getBoundingClientRect();
+  cv2d.width=Math.floor(r.width);
+  cv2d.height=Math.floor(r.height-24);
+  imgW=cv2d.width; imgH=cv2d.height;
+}
+function sampleMax(){
+  const{a,b}=S; let mx=0; const N=12;
+  for(let i=1;i<N;i++) for(let j=1;j<N;j++){
+    const f=getField(i/N*a,j/N*b,S.t); mx=Math.max(mx,fieldMag(f));
+  }
+  return mx||1;
+}
+function drawField(){
+  if(!imgW||!imgH) return;
+  const{a,b}=S;
+  const idata=ctx2.createImageData(imgW,imgH);
+  const d=idata.data, mx=sampleMax();
+  for(let py=0;py<imgH;py++){
+    for(let px=0;px<imgW;px++){
+      const x=(px/imgW)*a, y=((imgH-py)/imgH)*b;
+      const f=getField(x,y,S.t);
+      const v=fieldMag(f)/mx;
+      const[r,g,bl]=cmap(v);
+      const i=(py*imgW+px)*4;
+      d[i]=r;d[i+1]=g;d[i+2]=bl;d[i+3]=255;
+    }
+  }
+  ctx2.putImageData(idata,0,0);
+}
+function drawArrows(){
+  const{a,b}=S;const W=imgW,H=imgH;const NX=14,NY=9;
+  for(let i=1;i<NX;i++){for(let j=1;j<NY;j++){
+    const x=(i/NX)*a,y=(j/NY)*b;
+    const f=getField(x,y,S.t);
+    let dx,dy;
+    if(S.family==='TE'&&S.viz!=='H'){dx=f.Ex;dy=f.Ey;}
+    else{dx=f.Hx;dy=f.Hy;}
+    const len=Math.sqrt(dx*dx+dy*dy);if(len<1e-10) continue;
+    const px=(x/a)*W,py=H-(y/b)*H;
+    const AL=11*(Math.min(len,0.5)/0.5);
+    const nx=(dx/len)*AL,ny=-(dy/len)*AL;
+    ctx2.strokeStyle='rgba(255,255,255,0.65)';ctx2.lineWidth=0.9;
+    ctx2.beginPath();ctx2.moveTo(px-nx*.5,py-ny*.5);ctx2.lineTo(px+nx*.5,py+ny*.5);ctx2.stroke();
+    const ang=Math.atan2(ny,nx);
+    ctx2.fillStyle='rgba(255,255,255,0.85)';ctx2.beginPath();
+    ctx2.moveTo(px+nx*.5,py+ny*.5);
+    ctx2.lineTo(px+nx*.5-3.5*Math.cos(ang-.45),py+ny*.5-3.5*Math.sin(ang-.45));
+    ctx2.lineTo(px+nx*.5-3.5*Math.cos(ang+.45),py+ny*.5-3.5*Math.sin(ang+.45));
+    ctx2.closePath();ctx2.fill();
+  }}
+}
+function drawBounds(){
+  ctx2.strokeStyle='rgba(0,220,255,0.7)';ctx2.lineWidth=2;
+  ctx2.strokeRect(1,1,imgW-2,imgH-2);
+  ctx2.fillStyle='rgba(0,220,255,0.5)';ctx2.font='8px "Share Tech Mono"';
+  ctx2.fillText('(0,0)',4,imgH-4);ctx2.fillText('(a,b)',imgW-30,14);
+}
+function drawColorbar(){
+  const cb=document.getElementById('cbar');
+  const h=cb.parentElement.clientHeight-48;if(h<=0) return;
+  cb.width=10;cb.height=h;const c=cb.getContext('2d');
+  for(let i=0;i<h;i++){const[r,g,bl]=cmap(1-i/h);c.fillStyle=`rgb(${r},${g},${bl})`;c.fillRect(0,i,10,1);}
+}
+
+/* Particles */
+function spawnParticles(){
+  S.particles=[];
+  for(let i=0;i<S.pd;i++){
+    S.particles.push({x:Math.random()*S.a,y:Math.random()*S.b,life:Math.random(),maxLife:.4+Math.random()*.6,trail:[]});
+  }
+}
+function updateParticles(dt){
+  const{a,b}=S;const spd=0.025*a;
+  for(const p of S.particles){
+    p.life+=dt;
+    if(p.life>p.maxLife){p.x=Math.random()*a;p.y=Math.random()*b;p.life=0;p.trail=[];continue;}
+    const f=getField(p.x,p.y,S.t);
+    let dx,dy;
+    if(S.family==='TE'){dx=f.Ex;dy=f.Ey;}else{dx=f.Hx;dy=f.Hy;}
+    const len=Math.sqrt(dx*dx+dy*dy)+1e-9;
+    p.trail.push({x:p.x,y:p.y});if(p.trail.length>18) p.trail.shift();
+    p.x+=dx/len*spd;p.y+=dy/len*spd;
+    if(p.x<0||p.x>a||p.y<0||p.y>b){p.x=Math.random()*a;p.y=Math.random()*b;p.life=0;p.trail=[];}
+  }
+}
+function drawParticles(){
+  const{a,b}=S;const W=imgW,H=imgH;
+  const col=S.viz==='H'?'94,201,98':S.viz==='S'?'255,150,50':'0,220,255';
+  for(const p of S.particles){
+    if(p.trail.length<2) continue;
+    const alpha=(1-p.life/p.maxLife)*0.75;
+    ctx2.beginPath();ctx2.moveTo((p.trail[0].x/a)*W,H-(p.trail[0].y/b)*H);
+    for(let i=1;i<p.trail.length;i++) ctx2.lineTo((p.trail[i].x/a)*W,H-(p.trail[i].y/b)*H);
+    ctx2.strokeStyle=`rgba(${col},${alpha})`;ctx2.lineWidth=1.4;ctx2.stroke();
+    const last=p.trail[p.trail.length-1];
+    ctx2.beginPath();ctx2.arc((last.x/a)*W,H-(last.y/b)*H,1.8,0,Math.PI*2);
+    ctx2.fillStyle=`rgba(${col},${Math.min(1,alpha*1.5)})`;ctx2.fill();
+  }
+}
+
+/* Three.js 3D */
+let r3,scene,cam,fpts,boxMesh;
+let isDrag=false,lastMX=0,lastMY=0;
+function init3D(){
+  const cv3=document.getElementById('cv3d');
+  const p=document.getElementById('cv3d-panel');
+  const b=p.getBoundingClientRect();
+  const W=b.width,H=b.height-26;
+  r3=new THREE.WebGLRenderer({canvas:cv3,antialias:true,alpha:true});
+  r3.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  r3.setSize(W,H);r3.setClearColor(0x000000,0);
+  scene=new THREE.Scene();
+  cam=new THREE.PerspectiveCamera(42,W/H,.01,100);
+  cam.position.set(2.2,1.4,3.0);cam.lookAt(0,0,0);
+  const bg=new THREE.BoxGeometry(2,1,1.5);
+  const bm=new THREE.MeshBasicMaterial({color:0x00dcff,wireframe:true,transparent:true,opacity:.25});
+  boxMesh=new THREE.Mesh(bg,bm);scene.add(boxMesh);
+  const planes=[
+    {geo:new THREE.PlaneGeometry(2,1),pos:[0,0,.75],rot:[0,0,0]},
+    {geo:new THREE.PlaneGeometry(1.5,1),pos:[1,0,0],rot:[0,Math.PI/2,0]},
+    {geo:new THREE.PlaneGeometry(2,1.5),pos:[0,.5,0],rot:[Math.PI/2,0,0]},
+  ];
+  for(const pl of planes){
+    const m=new THREE.Mesh(pl.geo,new THREE.MeshBasicMaterial({color:0x001030,transparent:true,opacity:.15,side:THREE.DoubleSide}));
+    m.position.set(...pl.pos);m.rotation.set(...pl.rot);scene.add(m);
+  }
+  [[[-1.2,0,0],[1.2,0,0]],[[0,-0.6,0],[0,0.6,0]],[[0,0,-0.9],[0,0,0.9]]].forEach(a=>{
+    const g=new THREE.BufferGeometry().setFromPoints(a.map(p=>new THREE.Vector3(...p)));
+    scene.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x333355,transparent:true,opacity:.4})));
+  });
+  build3DParticles();
+  scene.add(new THREE.AmbientLight(0x002244,.6));
+  const pl2=new THREE.PointLight(0x00aaff,1,10);pl2.position.set(2,2,2);scene.add(pl2);
+  const c3=document.getElementById('cv3d');
+  c3.addEventListener('mousedown',e=>{isDrag=true;lastMX=e.clientX;lastMY=e.clientY});
+  window.addEventListener('mouseup',()=>isDrag=false);
+  window.addEventListener('mousemove',e=>{
+    if(!isDrag) return;
+    scene.rotation.y+=(e.clientX-lastMX)*.012;scene.rotation.x+=(e.clientY-lastMY)*.012;
+    lastMX=e.clientX;lastMY=e.clientY;
+  });
+}
+function build3DParticles(){
+  if(fpts) scene.remove(fpts);
+  const N=2400;
+  const pos=new Float32Array(N*3),col=new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    const x=(Math.random()-.5)*2,y=(Math.random()-.5)*1,z=(Math.random()-.5)*1.5;
+    const px2=(x+1)/2*S.a,py2=(y+.5)*S.b;
+    const f=getField(px2,py2,0);
+    const[r,g,bl]=cmap(Math.min(1,fieldMag(f)*2.5));
+    pos[i*3]=x;pos[i*3+1]=y;pos[i*3+2]=z;
+    col[i*3]=r/255;col[i*3+1]=g/255;col[i*3+2]=bl/255;
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+  fpts=new THREE.Points(geo,new THREE.PointsMaterial({size:.04,vertexColors:true,transparent:true,opacity:.85}));
+  scene.add(fpts);
+}
+function update3DColors(){
+  if(!fpts) return;
+  const col=fpts.geometry.attributes.color;
+  const pos=fpts.geometry.attributes.position;
+  const N=pos.count;
+  for(let i=0;i<N;i++){
+    const x=pos.getX(i),y=pos.getY(i);
+    const px2=(x+1)/2*S.a,py2=(y+.5)*S.b;
+    const f=getField(px2,py2,S.t);
+    const[r,g,bl]=cmap(Math.min(1,fieldMag(f)*2.5));
+    col.setXYZ(i,r/255,g/255,bl/255);
+  }
+  col.needsUpdate=true;
+}
+
+/* FDTD */
+const NFDTD=120;
+let fdtd_Ez=new Float64Array(NFDTD+1);
+let fdtd_Hy=new Float64Array(NFDTD);
+let fdtd_t=0;
+const MU0=4*Math.PI*1e-7,EPS0=8.854e-12;
+let fdtdChart,phaseChart;
+function initFDTD(){
+  fdtd_t=0;const{m,a}=S;const kx=m*Math.PI/a;
+  for(let i=0;i<=NFDTD;i++) fdtd_Ez[i]=Math.sin(kx*(i/NFDTD)*a);
+  fdtd_Hy.fill(0);
+}
+function stepFDTD(dt){
+  const{a}=S;const dx=a/NFDTD;
+  const dts=dx*0.95/C;const steps=Math.max(1,Math.round(dt/dts));
+  for(let s=0;s<steps;s++){
+    for(let i=0;i<NFDTD;i++) fdtd_Hy[i]-=(dts/(MU0*dx))*(fdtd_Ez[i+1]-fdtd_Ez[i]);
+    for(let i=1;i<NFDTD;i++) fdtd_Ez[i]-=(dts/(EPS0*dx))*(fdtd_Hy[i]-fdtd_Hy[i-1]);
+    fdtd_Ez[0]=0;fdtd_Ez[NFDTD]=0;fdtd_t+=dts;
+  }
+}
+function initFDTDChart(){
+  const canvas=document.getElementById('fdtdChart');
+  const xs=Array.from({length:NFDTD+1},(_,i)=>(i/NFDTD).toFixed(2));
+  fdtdChart=new Chart(canvas,{type:'line',data:{labels:xs,datasets:[
+    {label:'FDTD',data:Array(NFDTD+1).fill(0),borderColor:'#00ff99',borderWidth:1.5,pointRadius:0,tension:.3},
+    {label:'Analytical',data:Array(NFDTD+1).fill(0),borderColor:'#ffcc00',borderWidth:1.5,pointRadius:0,borderDash:[4,3],tension:.3}
+  ]},options:{responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{labels:{color:'#b8d8f0',font:{family:'Share Tech Mono',size:9}}}},
+    scales:{x:{ticks:{color:'#666',font:{size:8},maxTicksLimit:6},grid:{color:'rgba(0,220,255,.07)'},
+      title:{display:true,text:'x/a',color:'#888',font:{size:9}}},
+      y:{ticks:{color:'#b8d8f0',font:{family:'Share Tech Mono',size:8}},grid:{color:'rgba(0,220,255,.07)'},min:-1.2,max:1.2}}}});
+}
+function updateFDTDChart(){
+  if(!fdtdChart) return;
+  const{m,n,a}=S;const kx=m*Math.PI/a;const f=resonFreq(m,n,a,S.b);
+  const analytical=Array.from({length:NFDTD+1},(_,i)=>Math.sin(kx*(i/NFDTD)*a)*Math.cos(2*Math.PI*f*fdtd_t));
+  fdtdChart.data.datasets[0].data=[...fdtd_Ez];
+  fdtdChart.data.datasets[1].data=analytical;
+  fdtdChart.update('none');
+}
+function initPhaseChart(){
+  const canvas=document.getElementById('phaseChart');
+  phaseChart=new Chart(canvas,{type:'scatter',data:{datasets:[{
+    label:'Phase portrait',data:[],borderColor:'#ff0077',backgroundColor:'rgba(255,0,119,.15)',
+    pointRadius:1.5,showLine:true,tension:.4}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{labels:{color:'#b8d8f0',font:{family:'Share Tech Mono',size:9}}}},
+      scales:{x:{title:{display:true,text:'E_z (normalised)',color:'#888',font:{size:9}},
+        ticks:{color:'#888',font:{size:8}},grid:{color:'rgba(255,0,119,.08)'},min:-1.5,max:1.5},
+        y:{title:{display:true,text:'dE_z/dt',color:'#888',font:{size:9}},
+        ticks:{color:'#888',font:{size:8}},grid:{color:'rgba(255,0,119,.08)'},min:-1.5,max:1.5}}}});
+}
+const phaseHistory=[];
+function updatePhase(){
+  if(!phaseChart) return;
+  const{m,n,a,b}=S;const kx=m*Math.PI/a,ky=n*Math.PI/b;
+  const f=resonFreq(m,n,a,b);
+  const Ez=Math.sin(kx*a*.5)*(ky>0?Math.sin(ky*b*.5):1)*Math.cos(2*Math.PI*f*S.t);
+  const dEz=-Math.sin(kx*a*.5)*(ky>0?Math.sin(ky*b*.5):1)*Math.sin(2*Math.PI*f*S.t);
+  phaseHistory.push({x:parseFloat(Ez.toFixed(3)),y:parseFloat(dEz.toFixed(3))});
+  if(phaseHistory.length>200) phaseHistory.shift();
+  phaseChart.data.datasets[0].data=[...phaseHistory];phaseChart.update('none');
+}
+
+/* Spectrum */
+let specChart;
+const MODES_LIST=[['TE',1,0],['TE',0,1],['TE',2,0],['TE',1,1],['TE',0,2],['TM',1,1],['TE',2,1],['TM',2,1],['TE',1,2],['TM',2,2]];
+function initSpecChart(){
+  const canvas=document.getElementById('specChart');
+  const freqs=MODES_LIST.map(([t,m,n])=>{const f=resonFreq(m,n,S.a,S.b)/1e9;return isFinite(f)&&f<1000?parseFloat(f.toFixed(3)):0;});
+  const labels=MODES_LIST.map(([t,m,n])=>`${t}${m}${n}`);
+  const bgc=MODES_LIST.map(([t])=>t==='TE'?'rgba(0,220,255,.55)':'rgba(255,0,119,.55)');
+  specChart=new Chart(canvas,{type:'bar',data:{labels,datasets:[{label:'f (GHz)',data:freqs,backgroundColor:bgc,borderColor:bgc.map(c=>c.replace('.55','.9')),borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#b8d8f0',font:{family:'Share Tech Mono',size:8}},grid:{color:'rgba(0,220,255,.07)'}},
+        y:{ticks:{color:'#b8d8f0',font:{family:'Share Tech Mono',size:8}},grid:{color:'rgba(0,220,255,.07)'},title:{display:true,text:'GHz',color:'#888',font:{size:9}}}}}});
+}
+function updateSpecChart(){
+  if(!specChart) return;
+  const curF=resonFreq(S.m,S.n,S.a,S.b)/1e9;
+  specChart.data.datasets[0].data=MODES_LIST.map(([t,m,n])=>{const f=resonFreq(m,n,S.a,S.b)/1e9;return isFinite(f)&&f<1000?parseFloat(f.toFixed(3)):0;});
+  specChart.data.datasets[0].backgroundColor=MODES_LIST.map(([t,m,n])=>{
+    const f=resonFreq(m,n,S.a,S.b)/1e9;if(Math.abs(f-curF)<0.01) return 'rgba(255,204,0,.85)';
+    return t==='TE'?'rgba(0,220,255,.55)':'rgba(255,0,119,.55)';});
+  specChart.update('none');
+}
+
+/* Info panel */
+const MODE_DESC={
+  'TE10':'TE₁₀: Dominant waveguide mode. E-field solely in y-direction. Single half-cosine in x, uniform in y. Cutoff: f_c=c/2a. Used in: radar systems, satellite links, accelerator waveguides.',
+  'TE11':'TE₁₁: Both Ex and Ey components present. Forms a diagonal field pattern. Can support circular or elliptical polarization with 90° phase shift.',
+  'TE20':'TE₂₀: Two half-cycles in x. Creates two E-field lobes with opposing polarity. Higher cutoff than TE₁₀.',
+  'TE21':'TE₂₁: Complex pattern with four distinct field regions. Used in directional couplers and mode filters.',
+  'TM11':'TM₁₁: Lowest TM mode. Longitudinal Ez field with sinusoidal variation in both x and y. H-field forms closed loops.',
+  'TM21':'TM₂₁: Six lobe TM pattern. More complex resonance structure.',
+  'TM12':'TM₁₂: Elongated TM pattern favoring narrow tall cavities.',
+};
+function updateInfo(){
+  const{family,m,n,a,b}=S;
+  const f=resonFreq(m,n,a,b);const fGHz=f/1e9;
+  const lam=isFinite(f)&&f>0?C/f*100:Infinity;
+  const kc=isFinite(f)&&f>0?(2*Math.PI*f/C).toFixed(2):'∞';
+  document.getElementById('fval').textContent=isFinite(fGHz)&&fGHz<1000?fGHz.toFixed(3):'∞';
+  document.getElementById('lval').textContent=isFinite(lam)&&lam<10000?lam.toFixed(1):'∞';
+  document.getElementById('kcval').textContent=kc;
+  document.getElementById('mdisp').textContent=`${family}₍${m}${n}₎`;
+  document.getElementById('cv2d-title').textContent=`⚡ 2D FIELD INTENSITY MAP — ${family}₍${m}${n}₎ MODE`;
+  const guideRes=document.getElementById('guide-res-eq');
+  if(guideRes) guideRes.textContent=`f_${m}${n} = (c/2)√[(m/a)² + (n/b)²] = ${fGHz.toFixed(3)} GHz`;
+  document.getElementById('guide-field-title').textContent=`${family} Mode Field Components`;
+  if(family==='TE'){
+    document.getElementById('guide-field-eqs').textContent=
+`Hz= H₀cos(${m}πx/a)cos(${n}πy/b)cos(ωt)
+Ex=−(${n}π/b)/kc²·H₀·cos(kxˣ)sin(kyʸ)sin(ωt)
+Ey= (${m}π/a)/kc²·H₀·sin(kxˣ)cos(kyʸ)sin(ωt)`;
+  } else {
+    document.getElementById('guide-field-eqs').textContent=
+`Ez= E₀sin(${m}πx/a)sin(${n}πy/b)cos(ωt)
+Hx= (${n}π/b)/kc²·E₀·sin(kxˣ)cos(kyʸ)sin(ωt)
+Hy=−(${m}π/a)/kc²·E₀·cos(kxˣ)sin(kyʸ)sin(ωt)`;
+  }
+  const key=`${family}${m}${n}`;
+  document.getElementById('mdesc').textContent=MODE_DESC[key]||
+    `${family}₍${m}${n}₎: Custom mode with ${m} half-cycles in x, ${n} in y. Resonance at ${isFinite(fGHz)?fGHz.toFixed(3):'∞'} GHz.`;
+  const ol=document.getElementById('cvOverlay');
+  ol.textContent=(S.viz==='H'?'viridis':S.viz==='S'?'inferno':'plasma')+` colormap · |${S.viz}| field`;
+}
+
+/* Control handlers */
+function setFamily(f){
+  S.family=f;
+  document.getElementById('btn-TE').classList.toggle('ac',f==='TE');
+  document.getElementById('btn-TM').classList.toggle('ac',f==='TM');
+  if(f==='TM'&&S.n===0) setParam('n',1);
+  spawnParticles();initFDTD();updateInfo();updateSpecChart();
+}
+function applyPreset(fam,m,n){
+  S.family=fam;S.m=m;S.n=n;
+  document.getElementById('ms').value=m;document.getElementById('mv').textContent=m;
+  document.getElementById('ns').value=n;document.getElementById('nv').textContent=n;
+  document.querySelectorAll('.pbt').forEach(b=>b.classList.remove('ac'));
+  const el=document.getElementById(`p-${fam}${m}${n}`);if(el) el.classList.add('ac');
+  document.getElementById('btn-TE').classList.toggle('ac',fam==='TE');
+  document.getElementById('btn-TM').classList.toggle('ac',fam==='TM');
+  spawnParticles();initFDTD();updateInfo();updateSpecChart();build3DParticles();
+  if(gsap) gsap.from('#cv2d',{opacity:0,duration:.3});
+}
+function setParam(p,v){
+  if(p==='a'||p==='b') v=parseFloat(v);
+  S[p]=v;
+  const el=document.getElementById(p[0]+'v');
+  if(el) el.textContent=typeof v==='number'?v.toFixed(p==='a'||p==='b'?2:1):v;
+  if(p==='pd') spawnParticles();
+  if(p==='a'||p==='b'){initFDTD();build3DParticles();}
+  updateInfo();updateSpecChart();
+}
+function setViz(v,btn){
+  S.viz=v;
+  document.querySelectorAll('.vt').forEach(b=>b.classList.remove('ac'));
+  if(btn) btn.classList.add('ac');
+  drawColorbar();updateInfo();
+}
+function exportPNG(){
+  const link=document.createElement('a');
+  link.download=`cavity_${S.family}${S.m}${S.n}_field.png`;
+  link.href=cv2d.toDataURL();link.click();
+}
+function togglePause(){
+  S.paused=!S.paused;
+  document.getElementById('pauseBtn').textContent=S.paused?'▶ Resume':'⏸ Pause';
+}
+function resetTime(){S.t=0;fdtd_t=0;initFDTD();phaseHistory.length=0;}
+function respawnParticles(){spawnParticles();}
+function set3DTab(tab,btn){
+  S.tab=tab;
+  document.querySelectorAll('.fdtd-tab').forEach(b=>b.classList.remove('ac'));
+  if(btn) btn.classList.add('ac');
+  document.getElementById('cv3d').style.display=tab==='3d'?'block':'none';
+  document.getElementById('fdtd-panel').style.display=tab==='fdtd'?'block':'none';
+  document.getElementById('phase-panel').style.display=tab==='phase'?'block':'none';
+  if(tab==='fdtd'&&!fdtdChart) initFDTDChart();
+  if(tab==='phase'&&!phaseChart) initPhaseChart();
+}
+function loadExample(ex){
+  const examples={
+    opera:{family:'TE',m:1,n:1,a:.8,b:.8,speed:.3},
+    guitar:{family:'TE',m:2,n:1,a:1.2,b:.6,speed:.5},
+    room:{family:'TE',m:3,n:2,a:2.0,b:1.0,speed:.2},
+    anc:{family:'TM',m:1,n:1,a:.5,b:.5,speed:2.5},
+    microwave:{family:'TE',m:1,n:0,a:.35,b:.25,speed:1},
+    accel:{family:'TM',m:1,n:1,a:.12,b:.12,speed:1.5},
+  };
+  const cfg=examples[ex];if(!cfg) return;
+  Object.assign(S,cfg);
+  ['m','n','a','b','speed'].forEach(p=>{
+    const sl=document.getElementById(p+'s'),vl=document.getElementById(p[0]+'v');
+    if(sl) sl.value=S[p];
+    if(vl) vl.textContent=typeof S[p]==='number'?S[p].toFixed(p==='a'||p==='b'?2:1):S[p];
+  });
+  document.querySelectorAll('.pbt').forEach(b=>b.classList.remove('ac'));
+  spawnParticles();initFDTD();updateInfo();updateSpecChart();build3DParticles();
+  if(gsap) gsap.fromTo('#cv2d',{opacity:0},{opacity:1,duration:.4});
+}
+
+/* ─── PHYSICS OVERLAY ─── */
+function openPhysics(){
+  const ov=document.getElementById('physics-overlay');
+  ov.classList.add('open');
+  if(gsap){
+    gsap.from('.phy-hdr',{y:-20,opacity:0,duration:.3});
+    gsap.from('.phy-nav',{x:-30,opacity:0,duration:.35,delay:.05});
+    gsap.from('.phy-content',{opacity:0,duration:.4,delay:.1});
+  }
+}
+function closePhysics(){
+  const ov=document.getElementById('physics-overlay');
+  if(gsap){
+    gsap.to(ov,{opacity:0,duration:.2,onComplete:()=>{ov.classList.remove('open');ov.style.opacity=1;}});
+  } else {
+    ov.classList.remove('open');
+  }
+}
+
+function showSection(id, navEl){
+  document.querySelectorAll('.phy-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.phy-nav-item').forEach(n=>n.classList.remove('ac'));
+  const sec=document.getElementById('sec-'+id);
+  if(sec) sec.classList.add('active');
+  if(navEl) navEl.classList.add('ac');
+  document.querySelector('.phy-content').scrollTop=0;
+}
+
+
+/* ─── THEME ─── */
+function setTheme(theme){
+  const isDay = theme === 'day';
+  document.body.dataset.theme = isDay ? 'day' : 'night';
+  document.getElementById('nightBtn').classList.toggle('active', !isDay);
+  document.getElementById('dayBtn').classList.toggle('active', isDay);
+
+  /* Keep Chart.js readable in both themes without changing any data/calculation. */
+  const text = isDay ? '#173247' : '#b8d8f0';
+  const dim = isDay ? '#526b7b' : '#888';
+  [fdtdChart, phaseChart, specChart].forEach(ch=>{
+    if(!ch) return;
+    const scales = ch.options.scales || {};
+    Object.values(scales).forEach(sc=>{
+      if(sc.ticks) sc.ticks.color = text;
+      if(sc.title) sc.title.color = dim;
+      if(sc.grid) sc.grid.color = isDay ? 'rgba(20,105,135,.13)' : 'rgba(0,220,255,.07)';
+    });
+    if(ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels){
+      ch.options.plugins.legend.labels.color = text;
+    }
+    ch.update('none');
+  });
+}
+
+/* ─── MAIN LOOP ─── */
+let lastT=0,fpsT=0,fpsC=0,frame3N=0;
+function animate(ts){
+  requestAnimationFrame(animate);
+  const dt=Math.min((ts-lastT)/1000,.05);lastT=ts;
+  fpsC++;fpsT+=dt;
+  if(fpsT>.5){document.getElementById('fps').textContent=`FPS: ${Math.round(fpsC/fpsT)}`;fpsC=0;fpsT=0;}
+  if(!S.paused){
+    S.t+=dt*S.speed*.08;
+    document.getElementById('tdisp').textContent=`t = ${(S.t*1e9).toFixed(3)} ns`;
+    updateParticles(dt*S.speed*.08);
+    if(S.tab==='fdtd') stepFDTD(dt*S.speed*2e-9);
+  }
+  drawField();drawParticles();drawArrows();drawBounds();
+  frame3N++;
+  if(frame3N%2===0&&S.tab==='3d'){
+    update3DColors();
+    if(!S.paused&&scene) scene.rotation.y+=.004;
+    if(r3&&cam) r3.render(scene,cam);
+  }
+  if(frame3N%4===0){
+    if(S.tab==='fdtd') updateFDTDChart();
+    if(S.tab==='phase') updatePhase();
+  }
+  if(frame3N%30===0) updateSpecChart();
+}
+
+window.addEventListener('load',()=>{
+  setTheme('night');
+  document.getElementById('pauseBtn').textContent='▶ Resume';
+  resize2D();spawnParticles();drawColorbar();updateInfo();
+  setTimeout(()=>{
+    init3D();initSpecChart();requestAnimationFrame(animate);initFDTD();
+    if(gsap){
+      gsap.from('#hdr',{y:-30,opacity:0,duration:.5});
+      gsap.from('#ctrl',{x:-30,opacity:0,duration:.5,delay:.1});
+      gsap.from('#cv2d-panel',{opacity:0,duration:.6,delay:.2});
+      gsap.from('#info',{x:30,opacity:0,duration:.5,delay:.2});
+      gsap.from('#cv3d-panel',{opacity:0,duration:.5,delay:.3});
+      gsap.from('#spec-panel',{x:30,opacity:0,duration:.5,delay:.3});
+    }
+  },150);
+});
+
+window.addEventListener('resize',()=>{
+  resize2D();drawColorbar();
+  if(r3&&cam){
+    const p=document.getElementById('cv3d-panel');const b=p.getBoundingClientRect();
+    r3.setSize(b.width,b.height-26);cam.aspect=b.width/(b.height-26);cam.updateProjectionMatrix();
+  }
+});
+
+/* ESC key closes physics overlay */
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closePhysics();
+});
+</script>
+</body>
+</html> 

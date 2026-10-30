@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numerical Methods Simulator</title>
+
+<!-- External Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+<script>
+// MathJax config before loading
+window.MathJax = {
+  tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' },
+  startup: { ready() { MathJax.startup.defaultReady(); } }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+
+<style>
+/* =====================================================================
+   DESIGN SYSTEM — Oscilloscope / Scientific Instrument Aesthetic
+   Dark background, phosphor-green accents, monospace precision
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;800&display=swap');
+
+:root {
+  --bg-deep:    #080c10;
+  --bg-panel:   #0d1117;
+  --bg-card:    #111820;
+  --bg-input:   #0a0f16;
+  --border:     #1e2d3d;
+  --border-hi:  #2a4060;
+  --phosphor:   #00ff88;
+  --phosphor-d: #00cc6a;
+  --phosphor-f: #00ff8822;
+  --amber:      #ffb347;
+  --red:        #ff4560;
+  --cyan:       #00d4ff;
+  --purple:     #c678dd;
+  --text-hi:    #e8f4f8;
+  --text-mid:   #7a9bb5;
+  --text-low:   #3d5a72;
+  --glow:       0 0 12px #00ff8844, 0 0 30px #00ff8811;
+  --glow-btn:   0 0 8px #00ff8866;
+  --scanline: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,136,0.015) 2px,
+    rgba(0,255,136,0.015) 4px
+  );
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 14px; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-hi);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: var(--scanline);
+}
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(135deg, #0a1520 0%, #0d1e2e 100%);
+  border-bottom: 1px solid var(--phosphor-d);
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 24px rgba(0,255,136,0.08);
+}
+
+.logo-icon {
+  width: 40px; height: 40px;
+  background: var(--phosphor-f);
+  border: 1px solid var(--phosphor);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: var(--glow);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 8px #00ff8833; }
+  50%      { box-shadow: 0 0 20px #00ff8866, 0 0 40px #00ff8822; }
+}
+
+header h1 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.4rem;
+  letter-spacing: 0.05em;
+  color: var(--text-hi);
+}
+header h1 span { color: var(--phosphor); }
+
+.header-badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--phosphor);
+  border: 1px solid var(--phosphor-d);
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.12em;
+  background: var(--phosphor-f);
+}
+
+/* ── TABS ── */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 16px 32px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-x: auto;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-low);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+}
+
+.tab-btn:hover { color: var(--text-mid); border-color: var(--border); }
+
+.tab-btn.active {
+  color: var(--phosphor);
+  border-color: var(--border-hi);
+  border-bottom: 2px solid var(--bg-panel);
+  background: var(--bg-panel);
+  margin-bottom: -1px;
+  z-index: 2;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px; left: 0; right: 0;
+  height: 2px;
+  background: var(--phosphor);
+  box-shadow: 0 0 8px var(--phosphor);
+}
+
+/* ── PANELS ── */
+.tab-panel { display: none; padding: 24px 32px; }
+.tab-panel.active { display: grid; grid-template-columns: 340px 1fr; gap: 24px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+
+.card:hover { border-color: var(--border-hi); }
+
+.card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--phosphor);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title::before {
+  content: '';
+  width: 3px; height: 14px;
+  background: var(--phosphor);
+  border-radius: 2px;
+  box-shadow: var(--glow-btn);
+}
+
+/* ── FORM ELEMENTS ── */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-mid);
+  margin-bottom: 5px;
+  letter-spacing: 0.06em;
+}
+
+.field input, .field select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-hi);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field input:focus, .field select:focus {
+  border-color: var(--phosphor-d);
+  box-shadow: 0 0 0 2px var(--phosphor-f);
+}
+
+.field input::placeholder { color: var(--text-low); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.18s;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--phosphor-f);
+  border-color: var(--phosphor);
+  color: var(--phosphor);
+}
+.btn-primary:hover {
+  background: #00ff8833;
+  box-shadow: var(--glow-btn);
+}
+.btn-primary:active { transform: scale(0.97); }
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--border-hi);
+  color: var(--text-mid);
+}
+.btn-secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.btn-danger {
+  background: transparent;
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn-danger:hover { background: rgba(255,69,96,0.1); }
+
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ── METHOD SELECTOR ── */
+.method-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border: 1px solid var(--border-hi);
+  color: var(--text-mid);
+  background: transparent;
+  transition: all 0.18s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.chip:hover { border-color: var(--phosphor-d); color: var(--phosphor); }
+.chip.active {
+  background: var(--phosphor-f);
+  border-color: var(--phosphor);
+  color: var(--phosphor);
+  box-shadow: 0 0 6px var(--phosphor-f);
+}
+
+/* ── RIGHT PANEL ── */
+.right-col { display: flex; flex-direction: column; gap: 16px; }
+
+.plot-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  min-height: 360px;
+}
+
+.plot-container .plotly-graph-div { background: transparent !important; }
+
+/* ── ITERATION TABLE ── */
+.iter-table-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+}
+
+.iter-table-wrap::-webkit-scrollbar { width: 5px; }
+.iter-table-wrap::-webkit-scrollbar-track { background: var(--bg-deep); }
+.iter-table-wrap::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+thead th {
+  padding: 8px 10px;
+  text-align: left;
+  color: var(--phosphor);
+  border-bottom: 1px solid var(--border-hi);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  position: sticky; top: 0;
+  background: var(--bg-panel);
+}
+tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-hi);
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(0,255,136,0.04); }
+tbody tr.converged td { color: var(--phosphor); }
+tbody tr.diverged td { color: var(--red); }
+
+/* ── LOG ── */
+.log-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 0.7rem;
+  color: var(--text-mid);
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.7;
+}
+.log-box .log-ok    { color: var(--phosphor); }
+.log-box .log-warn  { color: var(--amber); }
+.log-box .log-err   { color: var(--red); }
+.log-box .log-info  { color: var(--cyan); }
+
+/* ── STATUS BADGE ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+}
+.status-badge.ok   { background: rgba(0,255,136,0.1); color: var(--phosphor); border: 1px solid var(--phosphor-d); }
+.status-badge.warn { background: rgba(255,179,71,0.1); color: var(--amber);   border: 1px solid var(--amber); }
+.status-badge.err  { background: rgba(255,69,96,0.1);  color: var(--red);     border: 1px solid var(--red); }
+.status-badge::before { content: '●'; font-size: 8px; }
+
+/* ── FORMULA DISPLAY ── */
+.formula-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border-hi);
+  border-radius: 6px;
+  padding: 12px 16px;
+  text-align: center;
+  color: var(--text-mid);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── RANGE ROW ── */
+.range-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── PROGRESS BAR ── */
+.progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--phosphor-d), var(--phosphor));
+  border-radius: 3px;
+  transition: width 0.3s;
+  box-shadow: 0 0 6px var(--phosphor-d);
+}
+
+/* ── SCROLLBAR GLOBAL ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+/* ── ANIMATION ── */
+@keyframes fadeIn   { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes glow     { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes scandown { from{background-position:0 0} to{background-position:0 100%} }
+
+.animate-in { animation: fadeIn 0.4s ease forwards; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .tab-panel.active { grid-template-columns: 1fr; }
+  header { padding: 12px 16px; }
+  .tab-bar, .tab-panel { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ── EXPORT ROW ── */
+.export-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.export-row span { font-size: 0.68rem; color: var(--text-low); }
+
+/* ── GRID HELPER ── */
+.two-plots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 1100px) { .two-plots { grid-template-columns: 1fr; } }
+
+/* ── DIVIDER ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+/* ── TOOLTIP ── */
+[data-tip] { position: relative; cursor: help; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hi);
+  color: var(--text-hi);
+  font-size: 0.65rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 50;
+}
+[data-tip]:hover::after { opacity: 1; }
+
+/* Numbers display */
+.result-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--phosphor);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(0,255,136,0.4);
+}
+.result-label { font-size: 0.65rem; color: var(--text-low); letter-spacing: 0.1em; }
+.result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0; }
+.result-cell { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; }
+
+/* ODE comparison grid */
+.ode-methods { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* Theory panel */
+#panel-theory { display: none; padding: 24px 32px; }
+#panel-theory.active { display: block; }
+.theory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); gap: 20px; }
+.theory-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px; }
+.theory-card h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; color: var(--phosphor); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+.theory-card h3 .badge { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; background: var(--phosphor-f); border: 1px solid var(--phosphor-d); color: var(--phosphor); padding: 2px 8px; border-radius: 10px; letter-spacing: 0.08em; }
+.theory-card p { font-size: 0.78rem; color: var(--text-mid); line-height: 1.8; margin-bottom: 12px; }
+.theory-card .formula { background: var(--bg-input); border: 1px solid var(--border-hi); border-radius: 6px; padding: 14px 18px; margin: 12px 0; text-align: center; overflow-x: auto; }
+.theory-card ul { list-style: none; padding: 0; }
+.theory-card ul li { font-size: 0.75rem; color: var(--text-mid); padding: 5px 0; border-bottom: 1px solid var(--border); }
+.theory-card ul li:last-child { border-bottom: none; }
+.theory-card ul li .tag { color: var(--phosphor); font-weight: 600; margin-right: 6px; }
+.theory-card ul li .amber { color: var(--amber); }
+.theory-card ul li .red { color: var(--red); }
+.theory-card ul li .cyan { color: var(--cyan); }
+.theory-section-title { font-family: 'Syne', sans-serif; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.2em; color: var(--text-low); text-transform: uppercase; margin: 24px 0 12px; }
+
+/* Preset select */
+.preset-select { width: 100%; background: var(--bg-deep); border: 1px solid var(--border-hi); border-radius: 5px; color: var(--phosphor); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; padding: 7px 10px; outline: none; cursor: pointer; margin-bottom: 12px; transition: border-color 0.2s; }
+.preset-select:focus { border-color: var(--phosphor-d); }
+.preset-label { font-size: 0.65rem; color: var(--text-low); margin-bottom: 5px; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header>
+  <div class="logo-icon">∫</div>
+  <div>
+    <h1>Numerical <span>Methods</span> Simulator</h1>
+    <div style="font-size:0.65rem;color:var(--text-low);margin-top:2px;">Interactive Scientific Computing</div>
+  </div>
+  <div class="header-badge">v2.0 — LIVE</div>
+</header>
+
+<!-- ═══════════════════════════ TAB BAR ═══════════════════════════ -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('roots')">⊕ Root Finding</button>
+  <button class="tab-btn" onclick="switchTab('deriv')">∂ Derivatives</button>
+  <button class="tab-btn" onclick="switchTab('integ')">∫ Integration</button>
+  <button class="tab-btn" onclick="switchTab('ode')">≋ Differential Eqs</button>
+  <button class="tab-btn" onclick="switchTab('theory')">📖 Theory</button>
+</div>
+
+<!-- ═══════════════════════════ ROOT FINDING ═══════════════════════════ -->
+<div id="panel-roots" class="tab-panel active">
+  <!-- LEFT CONTROLS -->
+  <div>
+    <div class="card">
+      <div class="card-title">Function &amp; Method</div>
+
+      <div class="method-chips">
+        <button class="chip active" onclick="setRootMethod('bisection',this)">Bisection</button>
+        <button class="chip" onclick="setRootMethod('newton',this)">Newton-Raphson</button>
+        <button class="chip" onclick="setRootMethod('secant',this)">Secant</button>
+      </div>
+
+      <div class="formula-box" id="roots-formula">$$x_{n+1} = \frac{a_n+b_n}{2}$$</div>
+
+      <div class="preset-label">⚡ Preset Functions</div>
+      <select class="preset-select" onchange="applyRootPreset(this.value)">
+        <option value="">— choose a preset —</option>
+        <option value="x*x*x - 2*x - 5|3*x*x - 2|2|3">x³ − 2x − 5  (root ≈ 2.0946)</option>
+        <option value="sin(x) - x/2|cos(x) - 0.5|1.5|2">sin(x) − x/2  (root ≈ 1.8955)</option>
+        <option value="exp(x) - 3*x|exp(x) - 3|0|1">eˣ − 3x  (root ≈ 0.6190)</option>
+        <option value="x*x - 2|2*x|1|2">x² − 2  (√2 ≈ 1.4142)</option>
+        <option value="cos(x) - x|(-sin(x) - 1)|0|1">cos(x) − x  (root ≈ 0.7391)</option>
+        <option value="x*exp(x) - 1|exp(x)+x*exp(x)|0|1">x·eˣ − 1  (root ≈ 0.5671)</option>
+        <option value="log(x) - x + 2|1/x - 1|0.1|3">ln(x) − x + 2  (root ≈ 0.1588)</option>
+      </select>
+
+      <div class="field">
+        <label>f(x) — use js math syntax</label>
+        <input id="r-fx" value="x*x*x - 2*x - 5" placeholder="e.g. x**3 - 2*x - 5">
+      </div>
+
+      <div id="r-dfx-field" class="field" style="display:none">
+        <label>f'(x) — analytical derivative (optional)</label>
+        <input id="r-dfx" value="3*x*x - 2" placeholder="e.g. 3*x**2 - 2">
+      </div>
+
+      <div class="range-row">
+        <div class="field">
+          <label>a (left bound / x0)</label>
+          <input id="r-a" type="number" value="2" step="any">
+        </div>
+        <div class="field">
+          <label>b (right bound / x1)</label>
+          <input id="r-b" type="number" value="3" step="any">
+        </div>
+      </div>
+
+      <div class="range-row">
+        <div class="field">
+          <label>Tolerance</label>
+          <input id="r-tol" type="number" value="1e-8" step="any">
+        </div>
+        <div class="field">
+          <label>Max Iterations</label>
+          <input id="r-maxit" type="number" value="50" min="1" max="500">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Animation Speed (ms/step)</label>
+        <input id="r-speed" type="range" min="50" max="1000" value="300" style="padding:0">
+        <span id="r-speed-label" style="font-size:0.65rem;color:var(--text-low)">300 ms</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runRoots()">▶ Run</button>
+        <button class="btn btn-secondary" onclick="animateRoots()">⟳ Animate</button>
+        <button class="btn btn-danger" onclick="stopAnim()">■ Stop</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Results</div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="result-label">ROOT</div>
+          <div class="result-number" id="r-res-root">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">f(root)</div>
+          <div class="result-number" style="font-size:1rem" id="r-res-froot">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">ITERS</div>
+          <div class="result-number" id="r-res-iter">—</div>
+        </div>
+      </div>
+      <div id="r-status" style="margin-bottom:8px"></div>
+      <div class="export-row">
+        <span>Export:</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.65rem" onclick="exportDat('roots')">⇩ .dat</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Log</div>
+      <div class="log-box" id="r-log">Awaiting execution…</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PLOTS -->
+  <div class="right-col">
+    <div class="card">
+      <div class="card-title">Function &amp; Root Convergence</div>
+      <div class="plot-container" id="roots-plot" style="min-height:320px"></div>
+    </div>
+    <div class="two-plots">
+      <div class="card">
+        <div class="card-title">Error vs Iteration</div>
+        <div class="plot-container" id="roots-error-plot" style="min-height:240px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Iteration Table</div>
+        <div class="iter-table-wrap">
+          <table id="r-table">
+            <thead><tr><th>n</th><th>xₙ</th><th>f(xₙ)</th><th>Error</th></tr></thead>
+            <tbody id="r-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ DERIVATIVES ═══════════════════════════ -->
+<div id="panel-deriv" class="tab-panel">
+  <div>
+    <div class="card">
+      <div class="card-title">Numerical Differentiation</div>
+
+      <div class="method-chips">
+        <button class="chip active" onclick="setDerivMethod('forward',this)">Forward Δ</button>
+        <button class="chip" onclick="setDerivMethod('backward',this)">Backward Δ</button>
+        <button class="chip" onclick="setDerivMethod('central',this)">Central Δ</button>
+        <button class="chip" onclick="setDerivMethod('second',this)">2nd Order</button>
+      </div>
+
+      <div class="formula-box" id="deriv-formula">$$f'(x) \approx \frac{f(x+h)-f(x)}{h}$$</div>
+
+      <div class="preset-label">⚡ Preset Functions</div>
+      <select class="preset-select" onchange="applyDerivPreset(this.value)">
+        <option value="">— choose a preset —</option>
+        <option value="sin(x)*exp(-x/4)|cos(x)*exp(-x/4) - sin(x)*exp(-x/4)/4|1.0|0|6.28">sin(x)·e^(−x/4)  (damped sine)</option>
+        <option value="x*x*x - 3*x|3*x*x - 3|1.0|−2|3">x³ − 3x  (polynomial)</option>
+        <option value="log(x+1)|1/(x+1)|1.0|0|5">ln(x+1)  (logarithm)</option>
+        <option value="x*x*cos(x)|2*x*cos(x)-x*x*sin(x)|1.0|0|6.28">x²·cos(x)  (product rule)</option>
+        <option value="1/(1+x*x)|(-2*x)/((1+x*x)*(1+x*x))|1.0|-3|3">1/(1+x²)  (Lorentzian)</option>
+        <option value="exp(-x*x)|(-2*x)*exp(-x*x)|0.5|-2|2">e^(−x²)  (Gaussian)</option>
+        <option value="sin(x)/x|(x*cos(x)-sin(x))/(x*x)|1.0|0.5|10">sinc(x) = sin(x)/x</option>
+      </select>
+
+      <div class="field">
+        <label>f(x)</label>
+        <input id="d-fx" value="sin(x)*exp(-x/4)" placeholder="e.g. sin(x)">
+      </div>
+      <div class="field">
+        <label>f'(x) analytical (optional — for error comparison)</label>
+        <input id="d-dfx" value="cos(x)*exp(-x/4) - sin(x)*exp(-x/4)/4" placeholder="exact derivative">
+      </div>
+
+      <div class="range-row">
+        <div class="field">
+          <label>x point</label>
+          <input id="d-x0" type="number" value="1.0" step="any">
+        </div>
+        <div class="field">
+          <label>Step size h</label>
+          <input id="d-h" type="number" value="0.1" step="any">
+        </div>
+      </div>
+
+      <div class="range-row">
+        <div class="field">
+          <label>Plot range [a, b]</label>
+          <input id="d-a" type="number" value="0" step="any">
+        </div>
+        <div class="field">
+          <label></label>
+          <input id="d-b" type="number" value="6.28" step="any">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runDeriv()">▶ Compute</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Results at x₀</div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="result-label">NUMERICAL</div>
+          <div class="result-number" style="font-size:1rem" id="d-num">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">ANALYTICAL</div>
+          <div class="result-number" style="font-size:1rem" id="d-ana">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">ABS ERROR</div>
+          <div class="result-number" style="font-size:1rem" id="d-err">—</div>
+        </div>
+      </div>
+      <div class="export-row">
+        <span>Export:</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.65rem" onclick="exportDat('deriv')">⇩ .dat</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Log</div>
+      <div class="log-box" id="d-log">Awaiting execution…</div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="card">
+      <div class="card-title">Function &amp; Derivative Curves</div>
+      <div class="plot-container" id="deriv-plot" style="min-height:320px"></div>
+    </div>
+    <div class="two-plots">
+      <div class="card">
+        <div class="card-title">Error vs Step Size h</div>
+        <div class="plot-container" id="deriv-error-plot" style="min-height:240px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">All Methods Comparison</div>
+        <div class="plot-container" id="deriv-compare-plot" style="min-height:240px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ INTEGRATION ═══════════════════════════ -->
+<div id="panel-integ" class="tab-panel">
+  <div>
+    <div class="card">
+      <div class="card-title">Numerical Integration</div>
+
+      <div class="method-chips">
+        <button class="chip active" onclick="setIntegMethod('trap',this)">Trapezoidal</button>
+        <button class="chip" onclick="setIntegMethod('simpson',this)">Simpson 1/3</button>
+        <button class="chip" onclick="setIntegMethod('both',this)">Both</button>
+      </div>
+
+      <div class="formula-box" id="integ-formula">$$\int_a^b f(x)\,dx \approx \frac{h}{2}\bigl[f(a)+2\sum f(x_i)+f(b)\bigr]$$</div>
+
+      <div class="preset-label">⚡ Preset Functions</div>
+      <select class="preset-select" onchange="applyIntegPreset(this.value)">
+        <option value="">— choose a preset —</option>
+        <option value="sin(x)|-cos(x)|0|3.14159265">∫sin(x)dx [0,π]  = 2 (exact)</option>
+        <option value="x*x|x*x*x/3|0|1">∫x² dx [0,1]  = 1/3 (exact)</option>
+        <option value="exp(-x*x)||0|2">∫e^(−x²) dx [0,2]  (no closed form)</option>
+        <option value="x*sin(x)|sin(x)-x*cos(x)|0|3.14159265">∫x·sin(x) dx [0,π]  = π (exact)</option>
+        <option value="1/x|log(x)|1|3">∫1/x dx [1,3]  = ln(3) (exact)</option>
+        <option value="sqrt(1-x*x)||0|1">∫√(1−x²) dx [0,1]  = π/4 (quarter circle)</option>
+        <option value="exp(x)|exp(x)|0|1">∫eˣ dx [0,1]  = e−1 (exact)</option>
+      </select>
+
+      <div class="field">
+        <label>f(x)</label>
+        <input id="i-fx" value="sin(x)" placeholder="e.g. sin(x)">
+      </div>
+      <div class="field">
+        <label>Exact integral (optional)</label>
+        <input id="i-exact" value="-cos(x)" placeholder="e.g. -cos(x) for sin(x)">
+      </div>
+
+      <div class="range-row">
+        <div class="field">
+          <label>a (lower bound)</label>
+          <input id="i-a" type="number" value="0" step="any">
+        </div>
+        <div class="field">
+          <label>b (upper bound)</label>
+          <input id="i-b" type="number" value="3.14159265" step="any">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Number of subintervals N</label>
+        <input id="i-n" type="number" value="10" min="2" max="2000">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runInteg()">▶ Compute</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Results</div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="result-label">TRAP RESULT</div>
+          <div class="result-number" style="font-size:1rem" id="i-trap-res">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">SIMP RESULT</div>
+          <div class="result-number" style="font-size:1rem" id="i-simp-res">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">EXACT</div>
+          <div class="result-number" style="font-size:1rem" id="i-exact-res">—</div>
+        </div>
+      </div>
+      <div class="result-grid">
+        <div class="result-cell">
+          <div class="result-label">TRAP ERROR</div>
+          <div class="result-number" style="font-size:0.85rem" id="i-trap-err">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">SIMP ERROR</div>
+          <div class="result-number" style="font-size:0.85rem" id="i-simp-err">—</div>
+        </div>
+        <div class="result-cell">
+          <div class="result-label">N</div>
+          <div class="result-number" id="i-n-disp">—</div>
+        </div>
+      </div>
+      <div class="export-row">
+        <span>Export:</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.65rem" onclick="exportDat('integ')">⇩ .dat</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Log</div>
+      <div class="log-box" id="i-log">Awaiting execution…</div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="card">
+      <div class="card-title">Area Visualization</div>
+      <div class="plot-container" id="integ-plot" style="min-height:320px"></div>
+    </div>
+    <div class="two-plots">
+      <div class="card">
+        <div class="card-title">Error vs N (Convergence)</div>
+        <div class="plot-container" id="integ-conv-plot" style="min-height:240px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Method Comparison</div>
+        <div class="plot-container" id="integ-compare-plot" style="min-height:240px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ DIFFERENTIAL EQUATIONS ═══════════════════════════ -->
+<div id="panel-ode" class="tab-panel">
+  <div>
+    <div class="card">
+      <div class="card-title">Problem Type</div>
+      <div class="method-chips">
+        <button class="chip active" onclick="setODEType('ivp',this)">IVP</button>
+        <button class="chip" onclick="setODEType('bvp',this)">BVP (FDM)</button>
+        <button class="chip" onclick="setODEType('eigen',this)">Eigenvalue (Numerov)</button>
+      </div>
+
+      <!-- IVP SECTION -->
+      <div id="ode-ivp-section">
+        <div class="formula-box" id="ode-formula">$$y_{n+1} = y_n + h\,f(t_n,y_n)$$</div>
+
+        <div class="field">
+          <label>dy/dt = f(t, y)</label>
+          <input id="o-ft" value="-2*y + t" placeholder="e.g. -y + sin(t)">
+        </div>
+        <div class="field">
+          <label>Exact solution y(t) (optional)</label>
+          <input id="o-exact" value="(2*t - 1 + 5*exp(-2*t))/4" placeholder="optional">
+        </div>
+        <div class="range-row">
+          <div class="field">
+            <label>t₀</label>
+            <input id="o-t0" type="number" value="0" step="any">
+          </div>
+          <div class="field">
+            <label>t_end</label>
+            <input id="o-tend" type="number" value="5" step="any">
+          </div>
+        </div>
+        <div class="range-row">
+          <div class="field">
+            <label>y₀ (initial condition)</label>
+            <input id="o-y0" type="number" value="1" step="any">
+          </div>
+          <div class="field">
+            <label>Step size h</label>
+            <input id="o-h" type="number" value="0.1" step="any">
+          </div>
+        </div>
+
+        <div class="card-title" style="margin-top:12px">Methods to Compare</div>
+        <div class="ode-methods">
+          <button class="chip active" id="ivp-euler-chip" onclick="toggleChip(this)">Euler</button>
+          <button class="chip active" id="ivp-rk4-chip" onclick="toggleChip(this)">RK4</button>
+          <button class="chip" id="ivp-exact-chip" onclick="toggleChip(this)">Exact</button>
+        </div>
+      </div>
+
+      <!-- BVP SECTION -->
+      <div id="ode-bvp-section" style="display:none">
+        <div class="formula-box">$$y'' + p(x)y' + q(x)y = r(x)$$</div>
+        <div class="field">
+          <label>p(x) coefficient of y'</label>
+          <input id="b-px" value="0" placeholder="e.g. 0">
+        </div>
+        <div class="field">
+          <label>q(x) coefficient of y</label>
+          <input id="b-qx" value="-1" placeholder="e.g. -1">
+        </div>
+        <div class="field">
+          <label>r(x) right-hand side</label>
+          <input id="b-rx" value="0" placeholder="e.g. 0">
+        </div>
+        <div class="range-row">
+          <div class="field"><label>x = a (left)</label><input id="b-a" type="number" value="0" step="any"></div>
+          <div class="field"><label>x = b (right)</label><input id="b-b" type="number" value="1" step="any"></div>
+        </div>
+        <div class="range-row">
+          <div class="field"><label>y(a) BC</label><input id="b-ya" type="number" value="0" step="any"></div>
+          <div class="field"><label>y(b) BC</label><input id="b-yb" type="number" value="1" step="any"></div>
+        </div>
+        <div class="field">
+          <label>Number of interior points N</label>
+          <input id="b-n" type="number" value="20" min="3" max="500">
+        </div>
+        <div class="field">
+          <label>Exact solution (optional)</label>
+          <input id="b-exact" value="sinh(x)/sinh(1)" placeholder="e.g. sinh(x)/sinh(1)">
+        </div>
+      </div>
+
+      <!-- EIGENVALUE SECTION -->
+      <div id="ode-eigen-section" style="display:none">
+        <div class="formula-box">$$\psi'' = \bigl[V(x) - E\bigr]\psi$$</div>
+        <div class="field">
+          <label>Potential V(x)</label>
+          <input id="e-vx" value="x*x" placeholder="e.g. x*x (harmonic oscillator)">
+        </div>
+        <div class="range-row">
+          <div class="field"><label>x min</label><input id="e-xmin" type="number" value="-5" step="any"></div>
+          <div class="field"><label>x max</label><input id="e-xmax" type="number" value="5" step="any"></div>
+        </div>
+        <div class="range-row">
+          <div class="field"><label>Grid points N</label><input id="e-n" type="number" value="200" min="20"></div>
+          <div class="field"><label>Energy E guess</label><input id="e-E" type="number" value="1.0" step="any"></div>
+        </div>
+        <div class="field">
+          <label>Number of eigenstates to find</label>
+          <input id="e-nstates" type="number" value="4" min="1" max="10">
+        </div>
+      </div>
+
+      <hr class="divider">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runODE()">▶ Solve</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Results</div>
+      <div id="ode-result-display" style="font-size:0.75rem;color:var(--text-mid)">Run solver to see results.</div>
+      <div class="export-row" style="margin-top:8px">
+        <span>Export:</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.65rem" onclick="exportDat('ode')">⇩ .dat</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">Log</div>
+      <div class="log-box" id="o-log">Awaiting execution…</div>
+    </div>
+  </div>
+
+  <div class="right-col">
+    <div class="card">
+      <div class="card-title">Solution Curves</div>
+      <div class="plot-container" id="ode-plot" style="min-height:340px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Error / Residual</div>
+      <div class="plot-container" id="ode-error-plot" style="min-height:220px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ JAVASCRIPT ═══════════════════════════ -->
+<script>
+/* ====================================================================
+   UTILITY — safe function parser & math helpers
+   ==================================================================== */
+
+const { sin, cos, tan, exp, log, log2, log10, sqrt, abs, PI, E,
+        pow, asin, acos, atan, atan2, cosh, sinh, tanh,
+        floor, ceil, round, sign, max, min } = Math;
+
+function safeF(expr) {
+  /* Build a compiled function from a user expression.
+     Variables available: x, t, y, E_eigen */
+  try {
+    return new Function('x','t','y','E_eigen',
+      `"use strict";
+       const {sin,cos,tan,exp,log,log2,log10,sqrt,abs,PI,E,
+              pow,asin,acos,atan,atan2,cosh,sinh,tanh,
+              floor,ceil,round,sign,max,min}=Math;
+       const heaviside = v => v>=0?1:0;
+       return (${expr});`);
+  } catch(e) {
+    return null;
+  }
+}
+
+function evalF(fn, x=0, t=0, y=0, Eig=0) {
+  if (!fn) return NaN;
+  try { return fn(x, t, y, Eig); }
+  catch(e) { return NaN; }
+}
+
+// Numerical derivative via central difference
+function numDeriv(fn, x, h=1e-5) {
+  return (evalF(fn, x+h) - evalF(fn, x-h)) / (2*h);
+}
+
+// Linspace
+function linspace(a, b, n) {
+  const arr = [];
+  const step = (b - a) / (n - 1);
+  for (let i = 0; i < n; i++) arr.push(a + i * step);
+  return arr;
+}
+
+// Plotly dark template
+const PLT = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: "'JetBrains Mono', monospace", color: '#7a9bb5', size: 10 },
+  margin: { l:46, r:14, t:18, b:38 },
+  xaxis: { gridcolor: '#1e2d3d', zerolinecolor: '#2a4060', linecolor: '#1e2d3d',
+           tickfont: { size: 9 } },
+  yaxis: { gridcolor: '#1e2d3d', zerolinecolor: '#2a4060', linecolor: '#1e2d3d',
+           tickfont: { size: 9 } },
+  legend: { bgcolor: 'rgba(0,0,0,0.6)', bordercolor: '#1e2d3d', borderwidth: 1,
+            font: { size: 9 } },
+  modebar: { bgcolor: 'transparent', color: '#3d5a72', activecolor: '#00ff88' }
+};
+
+const PLT_CFG = { responsive: true, displaylogo: false,
+                  toImageButtonOptions: { format: 'png', scale: 2 } };
+
+function mkLayout(extra={}) {
+  return Object.assign({}, PLT, extra,
+    extra.xaxis ? { xaxis: Object.assign({}, PLT.xaxis, extra.xaxis) } : {},
+    extra.yaxis ? { yaxis: Object.assign({}, PLT.yaxis, extra.yaxis) } : {}
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   LOG HELPER
+   ──────────────────────────────────────────────────────────────────── */
+function addLog(id, msg, cls='') {
+  const el = document.getElementById(id);
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(id) {
+  document.getElementById(id).innerHTML = '';
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   TAB SWITCHING
+   ──────────────────────────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  const btns = document.querySelectorAll('.tab-btn');
+  const names = ['roots','deriv','integ','ode','theory'];
+  btns[names.indexOf(name)].classList.add('active');
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   STATUS HELPERS
+   ──────────────────────────────────────────────────────────────────── */
+function setStatus(id, msg, cls) {
+  document.getElementById(id).innerHTML =
+    `<span class="status-badge ${cls}">${msg}</span>`;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   GLOBAL DATA for export
+   ──────────────────────────────────────────────────────────────────── */
+const DATA = { roots: null, deriv: null, integ: null, ode: null };
+
+function exportDat(key) {
+  const d = DATA[key];
+  if (!d) { alert('Run the simulation first!'); return; }
+  const text = d.header + '\n' + d.rows.map(r => r.join('\t')).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `numerical_${key}.dat`;
+  a.click();
+}
+
+/* ====================================================================
+   ██████╗  ██████╗  ██████╗ ████████╗███████╗
+   ██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝██╔════╝
+   ██████╔╝██║   ██║██║   ██║   ██║   ███████╗
+   ██╔══██╗██║   ██║██║   ██║   ██║   ╚════██║
+   ██║  ██║╚██████╔╝╚██████╔╝   ██║   ███████║
+   ╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝   ╚══════╝
+   ROOT FINDING
+   ==================================================================== */
+
+let rootMethod = 'bisection';
+let animTimer = null;
+let animSteps = [];
+let animIdx = 0;
+
+const ROOT_FORMULAS = {
+  bisection: '$$x_{n+1} = \\dfrac{a_n+b_n}{2}$$',
+  newton:    '$$x_{n+1} = x_n - \\dfrac{f(x_n)}{f\'(x_n)}$$',
+  secant:    '$$x_{n+1} = x_n - f(x_n)\\cdot\\dfrac{x_n - x_{n-1}}{f(x_n)-f(x_{n-1})}$$'
+};
+
+function setRootMethod(m, el) {
+  rootMethod = m;
+  document.querySelectorAll('#panel-roots .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('roots-formula').innerHTML = ROOT_FORMULAS[m];
+  document.getElementById('r-dfx-field').style.display = m === 'newton' ? 'block' : 'none';
+  if (window.MathJax) MathJax.typesetPromise();
+}
+
+/* ── Bisection ── */
+function bisection(f, a, b, tol, maxIt) {
+  const steps = [];
+  if (evalF(f, a) * evalF(f, b) > 0)
+    return { steps, error: 'f(a) and f(b) must have opposite signs' };
+  let fa = evalF(f, a);
+  for (let n = 1; n <= maxIt; n++) {
+    const mid = (a + b) / 2;
+    const fm  = evalF(f, mid);
+    const err = Math.abs(b - a) / 2;
+    steps.push({ n, x: mid, fx: fm, err });
+    if (err < tol || fm === 0) { steps[steps.length-1].converged = true; break; }
+    if (fa * fm < 0) { b = mid; }
+    else { a = mid; fa = fm; }
+    if (n === maxIt) steps[steps.length-1].diverged = true;
+  }
+  return { steps };
+}
+
+/* ── Newton-Raphson ── */
+function newtonRaphson(f, dfExpr, x0, tol, maxIt) {
+  const steps = [];
+  let dfFn = dfExpr ? safeF(dfExpr) : null;
+  let x = x0;
+  for (let n = 1; n <= maxIt; n++) {
+    const fx = evalF(f, x);
+    const df = dfFn ? evalF(dfFn, x) : numDeriv(f, x);
+    if (Math.abs(df) < 1e-14) { steps[steps.length-1] && (steps[steps.length-1].diverged=true); break; }
+    const xn  = x - fx / df;
+    const err = Math.abs(xn - x);
+    steps.push({ n, x: xn, fx: evalF(f, xn), err });
+    if (err < tol) { steps[steps.length-1].converged = true; break; }
+    if (Math.abs(xn) > 1e10) { steps[steps.length-1].diverged = true; break; }
+    x = xn;
+    if (n === maxIt) steps[steps.length-1].diverged = true;
+  }
+  return { steps };
+}
+
+/* ── Secant ── */
+function secant(f, x0, x1, tol, maxIt) {
+  const steps = [];
+  let xa = x0, xb = x1;
+  for (let n = 1; n <= maxIt; n++) {
+    const fa = evalF(f, xa), fb = evalF(f, xb);
+    const denom = fb - fa;
+    if (Math.abs(denom) < 1e-14) { steps[steps.length-1] && (steps[steps.length-1].diverged=true); break; }
+    const xc  = xb - fb * (xb - xa) / denom;
+    const err = Math.abs(xc - xb);
+    steps.push({ n, x: xc, fx: evalF(f, xc), err });
+    if (err < tol) { steps[steps.length-1].converged = true; break; }
+    if (Math.abs(xc) > 1e10) { steps[steps.length-1].diverged = true; break; }
+    xa = xb; xb = xc;
+    if (n === maxIt) steps[steps.length-1].diverged = true;
+  }
+  return { steps };
+}
+
+function runRoots() {
+  clearLog('r-log');
+  const fx   = document.getElementById('r-fx').value;
+  const dfx  = document.getElementById('r-dfx').value;
+  const a    = parseFloat(document.getElementById('r-a').value);
+  const b    = parseFloat(document.getElementById('r-b').value);
+  const tol  = parseFloat(document.getElementById('r-tol').value);
+  const maxit= parseInt(document.getElementById('r-maxit').value);
+  const f    = safeF(fx);
+
+  if (!f) { addLog('r-log','❌ Cannot parse f(x)','log-err'); return; }
+
+  addLog('r-log', `Method: ${rootMethod.toUpperCase()}`, 'log-info');
+  addLog('r-log', `f(x) = ${fx}`, 'log-info');
+  addLog('r-log', `[a,b] = [${a}, ${b}]  tol=${tol}  maxIt=${maxit}`, 'log-info');
+
+  let result;
+  if (rootMethod === 'bisection') result = bisection(f, a, b, tol, maxit);
+  else if (rootMethod === 'newton') result = newtonRaphson(f, dfx, a, tol, maxit);
+  else result = secant(f, a, b, tol, maxit);
+
+  if (result.error) { addLog('r-log', '⚠ ' + result.error, 'log-warn'); return; }
+
+  const steps = result.steps;
+  const last  = steps[steps.length - 1];
+  const root  = last.x;
+  const iters = steps.length;
+  const conv  = last.converged;
+  const divg  = last.diverged;
+
+  // Results display
+  document.getElementById('r-res-root').textContent = root.toPrecision(10);
+  document.getElementById('r-res-froot').textContent = last.fx.toExponential(3);
+  document.getElementById('r-res-iter').textContent = iters;
+  setStatus('r-status', conv ? 'CONVERGED' : divg ? 'DIVERGED' : 'MAX ITERS',
+                         conv ? 'ok' : divg ? 'err' : 'warn');
+
+  if (conv) addLog('r-log', `✓ Converged to x = ${root.toPrecision(12)} in ${iters} iters`, 'log-ok');
+  else if (divg) addLog('r-log', `✗ Diverged at iter ${iters}`, 'log-err');
+  else addLog('r-log', `⚠ Max iterations reached`, 'log-warn');
+  addLog('r-log', `Final error: ${last.err.toExponential(4)}`);
+
+  // Table
+  const tbody = document.getElementById('r-tbody');
+  tbody.innerHTML = '';
+  steps.forEach(s => {
+    const tr = document.createElement('tr');
+    if (s.converged) tr.className = 'converged';
+    if (s.diverged)  tr.className = 'diverged';
+    tr.innerHTML = `<td>${s.n}</td><td>${s.x.toPrecision(8)}</td>
+                    <td>${s.fx.toExponential(4)}</td><td>${s.err.toExponential(4)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Export data
+  DATA.roots = {
+    header: `# Root Finding — ${rootMethod}\n# n\tx\tf(x)\terror`,
+    rows: steps.map(s => [s.n, s.x, s.fx, s.err])
+  };
+
+  // Plots
+  plotRoots(f, fx, a, b, steps, root);
+  plotRootsError(steps);
+}
+
+function plotRoots(f, fxStr, a, b, steps, root) {
+  // Function curve
+  const margin = Math.abs(b - a) * 0.3;
+  const xs = linspace(a - margin, b + margin, 400);
+  const ys = xs.map(x => evalF(f, x));
+
+  // Clamp for display
+  const ymax = Math.max(...ys.filter(isFinite));
+  const ymin = Math.min(...ys.filter(isFinite));
+  const span = ymax - ymin;
+
+  const traces = [
+    { x: xs, y: ys, type: 'scatter', mode: 'lines', name: `f(x) = ${fxStr}`,
+      line: { color: '#00ff88', width: 2 } },
+    { x: [xs[0], xs[xs.length-1]], y: [0,0], type: 'scatter', mode: 'lines',
+      line: { color: '#2a4060', width: 1, dash: 'dot' }, showlegend: false },
+    { x: steps.map(s=>s.x), y: steps.map(s=>s.fx), type: 'scatter',
+      mode: 'markers', name: 'Iterations',
+      marker: { color: steps.map((s,i) => `hsl(${120 - i*120/steps.length},80%,60%)`),
+                size: 6, symbol: 'circle' } },
+    { x: [root], y: [0], type: 'scatter', mode: 'markers', name: 'Root',
+      marker: { color: '#ff4560', size: 12, symbol: 'x', line: { width: 2, color: '#ff4560' } } }
+  ];
+
+  Plotly.newPlot('roots-plot', traces,
+    mkLayout({ xaxis: { title: 'x' }, yaxis: { title: 'f(x)', range: [ymin - span*0.2, ymax + span*0.2] } }),
+    PLT_CFG);
+}
+
+function plotRootsError(steps) {
+  const ns  = steps.map(s => s.n);
+  const ers = steps.map(s => Math.max(s.err, 1e-17));
+  Plotly.newPlot('roots-error-plot', [{
+    x: ns, y: ers, type: 'scatter', mode: 'lines+markers',
+    line: { color: '#ffb347', width: 2 },
+    marker: { color: '#ffb347', size: 5 },
+    name: 'Error'
+  }], mkLayout({
+    xaxis: { title: 'Iteration' },
+    yaxis: { title: 'Error', type: 'log' }
+  }), PLT_CFG);
+}
+
+/* ── Animation ── */
+function stopAnim() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+}
+
+function animateRoots() {
+  stopAnim();
+  const fx   = document.getElementById('r-fx').value;
+  const dfx  = document.getElementById('r-dfx').value;
+  const a    = parseFloat(document.getElementById('r-a').value);
+  const b    = parseFloat(document.getElementById('r-b').value);
+  const tol  = parseFloat(document.getElementById('r-tol').value);
+  const maxit= parseInt(document.getElementById('r-maxit').value);
+  const speed= parseInt(document.getElementById('r-speed').value);
+  const f    = safeF(fx);
+  if (!f) return;
+
+  let result;
+  if (rootMethod === 'bisection') result = bisection(f, a, b, tol, maxit);
+  else if (rootMethod === 'newton') result = newtonRaphson(f, dfx, a, tol, maxit);
+  else result = secant(f, a, b, tol, maxit);
+  if (result.error) return;
+
+  animSteps = result.steps;
+  animIdx = 0;
+
+  const margin = Math.abs(b - a) * 0.3;
+  const xs = linspace(a - margin, b + margin, 400);
+  const ys = xs.map(x => evalF(f, x));
+
+  animTimer = setInterval(() => {
+    if (animIdx >= animSteps.length) { stopAnim(); return; }
+    const s = animSteps[animIdx];
+    const prev = animSteps.slice(0, animIdx + 1);
+
+    Plotly.react('roots-plot', [
+      { x: xs, y: ys, type: 'scatter', mode: 'lines', name: `f(x)`,
+        line: { color: '#00ff88', width: 2 } },
+      { x: [xs[0], xs[xs.length-1]], y: [0,0], type: 'scatter', mode: 'lines',
+        line: { color: '#2a4060', width: 1, dash: 'dot' }, showlegend: false },
+      { x: prev.map(p=>p.x), y: prev.map(p=>p.fx), type: 'scatter', mode: 'markers+lines',
+        name: 'Path', marker: { color: '#ffb347', size: 5 },
+        line: { color: '#ffb347', width: 1, dash: 'dash' } },
+      { x: [s.x], y: [s.fx], type: 'scatter', mode: 'markers', name: `Step ${s.n}`,
+        marker: { color: '#ff4560', size: 12, symbol: 'circle',
+                  line: { color: '#ff4560', width: 2 } } }
+    ], mkLayout({ xaxis: { title: 'x' }, yaxis: { title: 'f(x)' } }), PLT_CFG);
+
+    animIdx++;
+  }, speed);
+}
+
+document.getElementById('r-speed').addEventListener('input', function() {
+  document.getElementById('r-speed-label').textContent = this.value + ' ms';
+});
+
+/* ====================================================================
+   DERIVATIVES
+   ==================================================================== */
+
+let derivMethod = 'forward';
+const DERIV_FORMULAS = {
+  forward:  "$$f'(x) \\approx \\frac{f(x+h)-f(x)}{h}$$",
+  backward: "$$f'(x) \\approx \\frac{f(x)-f(x-h)}{h}$$",
+  central:  "$$f'(x) \\approx \\frac{f(x+h)-f(x-h)}{2h}$$",
+  second:   "$$f''(x) \\approx \\frac{f(x+h)-2f(x)+f(x-h)}{h^2}$$"
+};
+
+function setDerivMethod(m, el) {
+  derivMethod = m;
+  document.querySelectorAll('#panel-deriv .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('deriv-formula').innerHTML = DERIV_FORMULAS[m];
+  if (window.MathJax) MathJax.typesetPromise();
+}
+
+function numericalDerivative(f, x, h, method) {
+  const fx   = evalF(f, x);
+  const fxph = evalF(f, x + h);
+  const fxmh = evalF(f, x - h);
+  switch(method) {
+    case 'forward':  return (fxph - fx) / h;
+    case 'backward': return (fx - fxmh) / h;
+    case 'central':  return (fxph - fxmh) / (2 * h);
+    case 'second':   return (fxph - 2*fx + fxmh) / (h * h);
+  }
+}
+
+function runDeriv() {
+  clearLog('d-log');
+  const fx   = document.getElementById('d-fx').value;
+  const dfx  = document.getElementById('d-dfx').value;
+  const x0   = parseFloat(document.getElementById('d-x0').value);
+  const h    = parseFloat(document.getElementById('d-h').value);
+  const a    = parseFloat(document.getElementById('d-a').value);
+  const b    = parseFloat(document.getElementById('d-b').value);
+  const f    = safeF(fx);
+  const dfFn = dfx.trim() ? safeF(dfx) : null;
+
+  if (!f) { addLog('d-log','❌ Cannot parse f(x)','log-err'); return; }
+
+  const numVal = numericalDerivative(f, x0, h, derivMethod);
+  const anaVal = dfFn ? evalF(dfFn, x0) : NaN;
+  const errVal = isFinite(anaVal) ? Math.abs(numVal - anaVal) : NaN;
+
+  document.getElementById('d-num').textContent = numVal.toPrecision(8);
+  document.getElementById('d-ana').textContent = isFinite(anaVal) ? anaVal.toPrecision(8) : 'N/A';
+  document.getElementById('d-err').textContent = isFinite(errVal) ? errVal.toExponential(4) : 'N/A';
+
+  addLog('d-log', `Method: ${derivMethod.toUpperCase()}`, 'log-info');
+  addLog('d-log', `f(x) = ${fx}  at x = ${x0}`, 'log-info');
+  addLog('d-log', `h = ${h}`, 'log-info');
+  addLog('d-log', `Numerical f'(x₀) = ${numVal.toPrecision(10)}`, 'log-ok');
+  if (isFinite(anaVal)) {
+    addLog('d-log', `Analytical f'(x₀) = ${anaVal.toPrecision(10)}`);
+    addLog('d-log', `Absolute error = ${errVal.toExponential(4)}`);
+  }
+
+  // Main curve plot
+  const xs = linspace(a, b, 400);
+  const ys = xs.map(x => evalF(f, x));
+  // Derivative curve (central always for visual)
+  const dys = xs.map(x => (evalF(f,x+1e-5)-evalF(f,x-1e-5))/(2e-5));
+  // Analytical derivative
+  const adys = dfFn ? xs.map(x => evalF(dfFn, x)) : null;
+
+  const traces = [
+    { x: xs, y: ys, type:'scatter', mode:'lines', name:`f(x)`,
+      line:{color:'#00ff88',width:2} },
+    { x: xs, y: dys, type:'scatter', mode:'lines', name:`f'(x) numerical`,
+      line:{color:'#ffb347',width:2,dash:'dash'} }
+  ];
+  if (adys) traces.push({ x: xs, y: adys, type:'scatter', mode:'lines', name:`f'(x) analytical`,
+    line:{color:'#00d4ff',width:1.5} });
+  // Mark x0
+  traces.push({ x:[x0], y:[numVal], type:'scatter', mode:'markers', name:`f'(x₀)`,
+    marker:{color:'#ff4560',size:10,symbol:'diamond'} });
+
+  Plotly.newPlot('deriv-plot', traces,
+    mkLayout({ xaxis:{title:'x'}, yaxis:{title:'value'} }), PLT_CFG);
+
+  // Error vs h plot (log-log)
+  const hs = [];
+  for (let e = -1; e >= -10; e -= 0.25) hs.push(Math.pow(10, e));
+  const errs = {forward:[], backward:[], central:[], second:[]};
+  hs.forEach(hh => {
+    ['forward','backward','central','second'].forEach(m => {
+      const nv = numericalDerivative(f, x0, hh, m);
+      if (dfFn) errs[m].push(Math.max(Math.abs(nv - (m==='second'
+        ? evalF(safeF(`(${dfx})`), x0) // approximate; just show numerical for 2nd
+        : evalF(dfFn, x0))), 1e-17));
+      else errs[m].push(null);
+    });
+  });
+
+  if (dfFn) {
+    Plotly.newPlot('deriv-error-plot', [
+      { x:hs, y:errs.forward,  mode:'lines', name:'Forward',  line:{color:'#c678dd'} },
+      { x:hs, y:errs.backward, mode:'lines', name:'Backward', line:{color:'#ffb347'} },
+      { x:hs, y:errs.central,  mode:'lines', name:'Central',  line:{color:'#00ff88',width:2} },
+    ], mkLayout({ xaxis:{title:'h',type:'log'}, yaxis:{title:'|Error|',type:'log'} }), PLT_CFG);
+  } else {
+    Plotly.newPlot('deriv-error-plot', [{
+      x:[0], y:[0], type:'scatter', mode:'markers', name:'Provide f\'(x) for error plot'
+    }], mkLayout({ xaxis:{title:'h'}, yaxis:{title:'|Error|'} }), PLT_CFG);
+  }
+
+  // All methods comparison at x0 — 1st derivative methods vs analytical
+  // The "second" chip computes f''(x) which is a different quantity; handle separately
+  const methods1st = ['forward','backward','central'];
+  const vals1st = methods1st.map(m => numericalDerivative(f, x0, h, m));
+  const val2nd  = numericalDerivative(f, x0, h, 'second');
+
+  const barLabels = [...methods1st.map(m => m.charAt(0).toUpperCase()+m.slice(1))];
+  const barVals   = [...vals1st];
+  const barColors = ['#c678dd','#ffb347','#00ff88'];
+
+  // If analytical f'(x0) is known, append it
+  if (dfFn && isFinite(anaVal)) {
+    barLabels.push('Analytical');
+    barVals.push(anaVal);
+    barColors.push('#00d4ff');
+  }
+
+  // Errors relative to analytical (or relative differences between methods)
+  const errBars = barVals.map((v, i) => {
+    if (dfFn && isFinite(anaVal) && barLabels[i] !== 'Analytical')
+      return Math.abs(v - anaVal);
+    return null;
+  });
+
+  const hasErrData = errBars.some(e => e !== null);
+
+  Plotly.newPlot('deriv-compare-plot', [
+    {
+      x: barLabels, y: barVals,
+      type: 'bar', name: "f'(x₀)",
+      marker: { color: barColors },
+      text: barVals.map(v => isFinite(v) ? v.toPrecision(7) : 'NaN'),
+      textposition: 'outside',
+      textfont: { size: 9, color: '#7a9bb5' }
+    },
+    ...(hasErrData ? [{
+      x: barLabels.filter((_,i) => errBars[i] !== null),
+      y: errBars.filter(e => e !== null),
+      type: 'bar', name: '|Error|',
+      yaxis: 'y2',
+      marker: { color: '#ff456044', line: { color: '#ff4560', width: 1 } },
+      text: errBars.filter(e=>e!==null).map(e => e.toExponential(2)),
+      textposition: 'outside',
+      textfont: { size: 8, color: '#ff4560' }
+    }] : []),
+    // 2nd derivative annotation as a separate scatter point
+    {
+      x: ['Central (2nd)'], y: [val2nd],
+      type: 'bar', name: "f''(x₀)",
+      marker: { color: '#3d8a6644' , line: { color: '#00d4ff88', width: 1 } },
+      text: [isFinite(val2nd) ? val2nd.toPrecision(6) : 'NaN'],
+      textposition: 'outside',
+      textfont: { size: 9, color: '#00d4ff' }
+    }
+  ], mkLayout({
+    barmode: 'group',
+    xaxis: { title: 'Method' },
+    yaxis: { title: "f'(x₀)" },
+    yaxis2: hasErrData ? { title: '|Error vs Analytical|', overlaying: 'y', side: 'right',
+      type: 'log', showgrid: false, tickfont:{size:9,color:'#ff4560'}, color:'#ff4560' } : {}
+  }), PLT_CFG);
+
+  DATA.deriv = {
+    header: `# Numerical Derivatives at x0=${x0}, h=${h}\n# method\tvalue\terror`,
+    rows: [
+      ...methods1st.map((m,i) => [m, vals1st[i], isFinite(anaVal)?Math.abs(vals1st[i]-anaVal):'N/A']),
+      ['central_2nd', val2nd, 'N/A (different quantity)']
+    ]
+  };
+}
+
+/* ====================================================================
+   INTEGRATION
+   ==================================================================== */
+
+let integMethod = 'trap';
+
+const INTEG_FORMULAS = {
+  trap:    "$$\\int_a^b f\\,dx \\approx \\frac{h}{2}\\bigl[f(a)+2\\textstyle\\sum_{i=1}^{n-1}f(x_i)+f(b)\\bigr]$$",
+  simpson: "$$\\int_a^b f\\,dx \\approx \\frac{h}{3}\\bigl[f(a)+4f(x_1)+2f(x_2)+\\cdots+f(b)\\bigr]$$",
+  both:    "$$\\text{Trapezoid} \\quad \\&\\quad \\text{Simpson}$$"
+};
+
+function setIntegMethod(m, el) {
+  integMethod = m;
+  document.querySelectorAll('#panel-integ .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('integ-formula').innerHTML = INTEG_FORMULAS[m];
+  if (window.MathJax) MathJax.typesetPromise();
+}
+
+/* Trapezoidal rule */
+function trapezoidal(f, a, b, n) {
+  const h = (b - a) / n;
+  let s = evalF(f, a) + evalF(f, b);
+  for (let i = 1; i < n; i++) s += 2 * evalF(f, a + i * h);
+  return h * s / 2;
+}
+
+/* Simpson's 1/3 rule — n must be even */
+function simpsons(f, a, b, n) {
+  if (n % 2 !== 0) n++;
+  const h = (b - a) / n;
+  let s = evalF(f, a) + evalF(f, b);
+  for (let i = 1; i < n; i++) {
+    s += (i % 2 === 0 ? 2 : 4) * evalF(f, a + i * h);
+  }
+  return h * s / 3;
+}
+
+function runInteg() {
+  clearLog('i-log');
+  const fx    = document.getElementById('i-fx').value;
+  const exact = document.getElementById('i-exact').value.trim();
+  const a     = parseFloat(document.getElementById('i-a').value);
+  const b     = parseFloat(document.getElementById('i-b').value);
+  let n       = parseInt(document.getElementById('i-n').value);
+  const f     = safeF(fx);
+
+  if (!f) { addLog('i-log','❌ Cannot parse f(x)','log-err'); return; }
+  if (a >= b) { addLog('i-log','⚠ a must be < b','log-warn'); return; }
+
+  const trapRes = trapezoidal(f, a, b, n);
+  let simpN = n % 2 === 0 ? n : n + 1;
+  const simpRes = simpsons(f, a, b, simpN);
+
+  // Exact value
+  let exactVal = NaN;
+  if (exact) {
+    const antiFn = safeF(exact);
+    if (antiFn) exactVal = evalF(antiFn, b) - evalF(antiFn, a);
+  }
+
+  document.getElementById('i-trap-res').textContent = trapRes.toPrecision(8);
+  document.getElementById('i-simp-res').textContent = simpRes.toPrecision(8);
+  document.getElementById('i-exact-res').textContent = isFinite(exactVal) ? exactVal.toPrecision(8) : 'N/A';
+  document.getElementById('i-trap-err').textContent = isFinite(exactVal) ? Math.abs(trapRes-exactVal).toExponential(3) : 'N/A';
+  document.getElementById('i-simp-err').textContent = isFinite(exactVal) ? Math.abs(simpRes-exactVal).toExponential(3) : 'N/A';
+  document.getElementById('i-n-disp').textContent = n;
+
+  addLog('i-log', `f(x) = ${fx}`, 'log-info');
+  addLog('i-log', `∫ from ${a} to ${b} with N=${n}`, 'log-info');
+  addLog('i-log', `Trapezoid = ${trapRes.toPrecision(12)}`, 'log-ok');
+  addLog('i-log', `Simpson   = ${simpRes.toPrecision(12)}`, 'log-ok');
+  if (isFinite(exactVal)) {
+    addLog('i-log', `Exact     = ${exactVal.toPrecision(12)}`);
+    addLog('i-log', `Trap err  = ${Math.abs(trapRes-exactVal).toExponential(4)}`);
+    addLog('i-log', `Simp err  = ${Math.abs(simpRes-exactVal).toExponential(4)}`);
+  }
+
+  // Visualization
+  const xs = linspace(a, b, 600);
+  const ys = xs.map(x => evalF(f, x));
+
+  // Partition bars for trapezoidal (show up to 50 bars)
+  const showN = Math.min(n, 60);
+  const bh = (b - a) / showN;
+  const barX = [], barY = [];
+  for (let i = 0; i <= showN; i++) {
+    const xi = a + i * bh;
+    barX.push(xi, xi);
+    barY.push(0, evalF(f, xi));
+    if (i < showN) { barX.push(xi, a+(i+1)*bh); barY.push(evalF(f,xi), evalF(f,xi)); }
+  }
+
+  Plotly.newPlot('integ-plot', [
+    // Shaded area
+    { x: xs, y: ys, fill: 'tozeroy', fillcolor: 'rgba(0,255,136,0.08)',
+      type: 'scatter', mode: 'none', name: 'Area', showlegend: true },
+    // Function curve
+    { x: xs, y: ys, type: 'scatter', mode: 'lines', name: `f(x) = ${fx}`,
+      line: { color: '#00ff88', width: 2.5 } },
+    // Trap lines
+    { x: barX, y: barY, type: 'scatter', mode: 'lines', name: 'Partitions',
+      line: { color: '#ffb34766', width: 1 } }
+  ], mkLayout({ xaxis:{title:'x'}, yaxis:{title:'f(x)'} }), PLT_CFG);
+
+  // Convergence plot
+  const Ns = [2,4,8,16,32,64,128,256,512].filter(v => v <= 2000);
+  const trapErrs = [], simpErrs = [];
+  Ns.forEach(Ni => {
+    const tr = trapezoidal(f, a, b, Ni);
+    const si = simpsons(f, a, b, Ni % 2 === 0 ? Ni : Ni+1);
+    if (isFinite(exactVal)) {
+      trapErrs.push(Math.max(Math.abs(tr - exactVal), 1e-17));
+      simpErrs.push(Math.max(Math.abs(si - exactVal), 1e-17));
+    } else {
+      trapErrs.push(Math.abs(tr));
+      simpErrs.push(Math.abs(si));
+    }
+  });
+
+  Plotly.newPlot('integ-conv-plot', [
+    { x:Ns, y:trapErrs, type:'scatter', mode:'lines+markers', name:'Trapezoid',
+      line:{color:'#ffb347'}, marker:{size:4} },
+    { x:Ns, y:simpErrs, type:'scatter', mode:'lines+markers', name:'Simpson',
+      line:{color:'#00ff88'}, marker:{size:4} }
+  ], mkLayout({
+    xaxis:{title:'N', type:'log'},
+    yaxis:{title: isFinite(exactVal)?'|Error|':'Value', type:'log'}
+  }), PLT_CFG);
+
+  // Method comparison bar
+  Plotly.newPlot('integ-compare-plot', [{
+    x: ['Trapezoid', "Simpson's"],
+    y: [trapRes, simpRes],
+    type: 'bar',
+    marker: { color: ['#ffb347','#00ff88'] },
+    text: [trapRes.toPrecision(6), simpRes.toPrecision(6)],
+    textposition: 'outside'
+  }].concat(isFinite(exactVal) ? [{
+    x: ['Exact'], y: [exactVal], type: 'bar',
+    marker: { color: ['#00d4ff'] },
+    text: [exactVal.toPrecision(6)], textposition: 'outside'
+  }] : []), mkLayout({ yaxis:{title:'Integral value'} }), PLT_CFG);
+
+  DATA.integ = {
+    header: `# Numerical Integration\n# N\tTrapezoid\tSimpson\tExact`,
+    rows: Ns.map((Ni,i) => [Ni, trapezoidal(f,a,b,Ni), simpsons(f,a,b,Ni%2===0?Ni:Ni+1), exactVal])
+  };
+}
+
+/* ====================================================================
+   DIFFERENTIAL EQUATIONS
+   ==================================================================== */
+
+let odeType = 'ivp';
+
+function setODEType(type, el) {
+  odeType = type;
+  document.querySelectorAll('#panel-ode .chip:not(.ode-methods .chip)').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  ['ivp','bvp','eigen'].forEach(t => {
+    document.getElementById(`ode-${t}-section`).style.display = t === type ? 'block' : 'none';
+  });
+}
+
+function toggleChip(el) {
+  el.classList.toggle('active');
+}
+
+/* ── Euler Method ── */
+function eulerSolve(f, t0, tend, y0, h) {
+  const ts = [t0], ys = [y0];
+  let t = t0, y = y0;
+  while (t < tend - h*0.001) {
+    const k = evalF(f, 0, t, y);
+    y = y + h * k;
+    t = t + h;
+    ts.push(t); ys.push(y);
+    if (!isFinite(y) || Math.abs(y) > 1e12) break;
+  }
+  return { ts, ys };
+}
+
+/* ── Runge-Kutta 4 ── */
+function rk4Solve(f, t0, tend, y0, h) {
+  const ts = [t0], ys = [y0];
+  let t = t0, y = y0;
+  while (t < tend - h*0.001) {
+    const k1 = evalF(f, 0, t,       y);
+    const k2 = evalF(f, 0, t+h/2,   y + h*k1/2);
+    const k3 = evalF(f, 0, t+h/2,   y + h*k2/2);
+    const k4 = evalF(f, 0, t+h,     y + h*k3);
+    y = y + h*(k1 + 2*k2 + 2*k3 + k4)/6;
+    t = t + h;
+    ts.push(t); ys.push(y);
+    if (!isFinite(y) || Math.abs(y) > 1e12) break;
+  }
+  return { ts, ys };
+}
+
+/* ── Finite Difference Method for BVP ──
+   Solves: y'' + p(x)y' + q(x)y = r(x), y(a)=ya, y(b)=yb
+   Using Thomas algorithm for tridiagonal system */
+function fdmBVP(pFn, qFn, rFn, a, b, ya, yb, n) {
+  const h = (b - a) / (n + 1);
+  const xs = [];
+  for (let i = 1; i <= n; i++) xs.push(a + i*h);
+
+  // Build tridiagonal system A*y = rhs
+  const lower = [], diag = [], upper = [], rhs = [];
+
+  for (let i = 0; i < n; i++) {
+    const xi = xs[i];
+    const p = evalF(pFn, xi), q = evalF(qFn, xi), r = evalF(rFn, xi);
+    diag.push(-(2 - h*h*q));
+    lower.push(1 + h*p/2);   // a_i
+    upper.push(1 - h*p/2);   // c_i
+    rhs.push(-h*h*r);
+  }
+  // Boundary adjustments
+  rhs[0]   -= lower[0] * ya;
+  rhs[n-1] -= upper[n-1] * yb;
+
+  // Thomas (TDMA) algorithm
+  const c2 = new Array(n), d2 = new Array(n);
+  c2[0] = upper[0] / diag[0];
+  d2[0] = rhs[0]   / diag[0];
+  for (let i = 1; i < n; i++) {
+    const m = diag[i] - lower[i]*c2[i-1];
+    c2[i] = upper[i] / m;
+    d2[i] = (rhs[i] - lower[i]*d2[i-1]) / m;
+  }
+  const ys = new Array(n);
+  ys[n-1] = d2[n-1];
+  for (let i = n-2; i >= 0; i--) ys[i] = d2[i] - c2[i]*ys[i+1];
+
+  const fullX = [a, ...xs, b];
+  const fullY = [ya, ...ys, yb];
+  return { xs: fullX, ys: fullY };
+}
+
+/* ── Numerov Method for eigenvalue (Schrödinger-like) ──
+   ψ''(x) = [V(x) - E] ψ(x)   with ψ(xmin)=ψ(xmax)=0
+   Uses shooting method to find eigenvalues */
+function numerovSolve(vFn, xmin, xmax, N, E) {
+  const h = (xmax - xmin) / N;
+  const xs = [];
+  for (let i = 0; i <= N; i++) xs.push(xmin + i*h);
+  const psi = new Array(N+1).fill(0);
+  psi[0] = 0;
+  psi[1] = 1e-5; // small start
+
+  const f = (x) => evalF(vFn, x) - E;
+
+  for (let i = 1; i < N; i++) {
+    const f0 = f(xs[i-1]), f1 = f(xs[i]), f2 = f(xs[i+1]);
+    psi[i+1] = (2*psi[i]*(1 - 5*h*h*f1/12) - psi[i-1]*(1 + h*h*f0/12))
+               / (1 + h*h*f2/12);
+    if (Math.abs(psi[i+1]) > 1e10) {
+      // Normalize to avoid overflow
+      const scale = Math.abs(psi[i+1]);
+      for (let j = 0; j <= i+1; j++) psi[j] /= scale;
+    }
+  }
+
+  // Normalize wavefunction
+  let norm = 0;
+  for (let i = 0; i < N; i++) norm += (psi[i]*psi[i] + psi[i+1]*psi[i+1])/2 * h;
+  const A = Math.sqrt(norm > 0 ? norm : 1);
+  return { xs, psi: psi.map(p => p/A), boundary: psi[N] };
+}
+
+/* Find eigenvalue by bisection on boundary condition */
+function findEigenvalue(vFn, xmin, xmax, N, Emin, Emax, tol=1e-6) {
+  let fa = numerovSolve(vFn, xmin, xmax, N, Emin).boundary;
+  let fb = numerovSolve(vFn, xmin, xmax, N, Emax).boundary;
+  if (fa * fb > 0) return null;
+  for (let i = 0; i < 60; i++) {
+    const Em = (Emin + Emax) / 2;
+    const fm = numerovSolve(vFn, xmin, xmax, N, Em).boundary;
+    if (Math.abs(fm) < tol || (Emax - Emin)/2 < tol) return Em;
+    if (fa * fm < 0) { Emax = Em; fb = fm; }
+    else { Emin = Em; fa = fm; }
+  }
+  return (Emin + Emax) / 2;
+}
+
+function runODE() {
+  clearLog('o-log');
+  if (odeType === 'ivp') runIVP();
+  else if (odeType === 'bvp') runBVP();
+  else runEigen();
+}
+
+function runIVP() {
+  const fExpr  = document.getElementById('o-ft').value;
+  const exExpr = document.getElementById('o-exact').value.trim();
+  const t0     = parseFloat(document.getElementById('o-t0').value);
+  const tend   = parseFloat(document.getElementById('o-tend').value);
+  const y0     = parseFloat(document.getElementById('o-y0').value);
+  const h      = parseFloat(document.getElementById('o-h').value);
+  const f      = safeF(fExpr);
+
+  if (!f) { addLog('o-log','❌ Cannot parse f(t,y)','log-err'); return; }
+  addLog('o-log', `dy/dt = ${fExpr}`, 'log-info');
+  addLog('o-log', `t∈[${t0},${tend}]  y₀=${y0}  h=${h}`, 'log-info');
+
+  const eulerActive = document.getElementById('ivp-euler-chip').classList.contains('active');
+  const rk4Active   = document.getElementById('ivp-rk4-chip').classList.contains('active');
+  const exactActive = document.getElementById('ivp-exact-chip').classList.contains('active');
+  const exFn = exExpr ? safeF(exExpr.replace(/\bt\b/g,'x')) : null;
+
+  const traces = [];
+  let eulerData, rk4Data;
+
+  if (eulerActive) {
+    eulerData = eulerSolve(f, t0, tend, y0, h);
+    addLog('o-log', `Euler: ${eulerData.ts.length} steps`, 'log-ok');
+    traces.push({ x: eulerData.ts, y: eulerData.ys, type:'scatter', mode:'lines',
+      name:'Euler', line:{color:'#ffb347',width:2,dash:'dash'} });
+  }
+
+  if (rk4Active) {
+    rk4Data = rk4Solve(f, t0, tend, y0, h);
+    addLog('o-log', `RK4: ${rk4Data.ts.length} steps`, 'log-ok');
+    traces.push({ x: rk4Data.ts, y: rk4Data.ys, type:'scatter', mode:'lines',
+      name:'RK4', line:{color:'#00ff88',width:2.5} });
+  }
+
+  let exactTs, exactYs;
+  if (exactActive && exFn) {
+    exactTs = linspace(t0, tend, 400);
+    exactYs = exactTs.map(t => evalF(exFn, t));
+    traces.push({ x: exactTs, y: exactYs, type:'scatter', mode:'lines',
+      name:'Exact', line:{color:'#00d4ff',width:1.5} });
+  }
+
+  if (traces.length === 0) { addLog('o-log','⚠ Select at least one method','log-warn'); return; }
+
+  Plotly.newPlot('ode-plot', traces,
+    mkLayout({ xaxis:{title:'t'}, yaxis:{title:'y(t)'} }), PLT_CFG);
+
+  // Error plot
+  const errTraces = [];
+  if (exactActive && exFn) {
+    if (eulerActive && eulerData) {
+      const errs = eulerData.ts.map((t,i) => Math.abs(eulerData.ys[i] - evalF(exFn,t)));
+      errTraces.push({ x: eulerData.ts, y: errs, mode:'lines', name:'Euler Error',
+        line:{color:'#ffb347'} });
+    }
+    if (rk4Active && rk4Data) {
+      const errs = rk4Data.ts.map((t,i) => Math.abs(rk4Data.ys[i] - evalF(exFn,t)));
+      errTraces.push({ x: rk4Data.ts, y: errs, mode:'lines', name:'RK4 Error',
+        line:{color:'#00ff88'} });
+    }
+  } else {
+    // Phase plot or step variation
+    if (eulerActive && rk4Active && eulerData && rk4Data) {
+      const minLen = Math.min(eulerData.ts.length, rk4Data.ts.length);
+      const diff = [];
+      for (let i = 0; i < minLen; i++)
+        diff.push(Math.abs(eulerData.ys[i] - rk4Data.ys[i]));
+      errTraces.push({ x: eulerData.ts.slice(0,minLen), y: diff, mode:'lines',
+        name:'|Euler-RK4|', line:{color:'#c678dd'} });
+    }
+  }
+
+  if (errTraces.length > 0) {
+    Plotly.newPlot('ode-error-plot', errTraces,
+      mkLayout({ xaxis:{title:'t'}, yaxis:{title:'|Error|', type:'log'} }), PLT_CFG);
+  } else {
+    Plotly.purge('ode-error-plot');
+  }
+
+  const finalT = rk4Active && rk4Data ? rk4Data.ts[rk4Data.ts.length-1] : null;
+  const finalY = rk4Active && rk4Data ? rk4Data.ys[rk4Data.ys.length-1] : null;
+  document.getElementById('ode-result-display').innerHTML =
+    `<div style="color:var(--phosphor)">IVP Solved</div>
+     ${finalY !== null ? `<div>RK4 y(${finalT.toFixed(4)}) = <b>${finalY.toPrecision(8)}</b></div>` : ''}
+     ${exFn && rk4Active && rk4Data ? `<div>Final error: ${Math.abs(rk4Data.ys[rk4Data.ys.length-1]-evalF(exFn,rk4Data.ts[rk4Data.ts.length-1])).toExponential(4)}</div>` : ''}`;
+
+  DATA.ode = rk4Active && rk4Data ? {
+    header: `# IVP Solution\n# t\tEuler_y\tRK4_y`,
+    rows: rk4Data.ts.map((t,i) => [t,
+      eulerActive && eulerData && eulerData.ys[i] !== undefined ? eulerData.ys[i] : 'N/A',
+      rk4Data.ys[i]])
+  } : null;
+}
+
+function runBVP() {
+  const pExpr = document.getElementById('b-px').value;
+  const qExpr = document.getElementById('b-qx').value;
+  const rExpr = document.getElementById('b-rx').value;
+  const a     = parseFloat(document.getElementById('b-a').value);
+  const b     = parseFloat(document.getElementById('b-b').value);
+  const ya    = parseFloat(document.getElementById('b-ya').value);
+  const yb    = parseFloat(document.getElementById('b-yb').value);
+  const n     = parseInt(document.getElementById('b-n').value);
+  const exExpr= document.getElementById('b-exact').value.trim();
+
+  const pFn = safeF(pExpr), qFn = safeF(qExpr), rFn = safeF(rExpr);
+  if (!pFn || !qFn || !rFn) { addLog('o-log','❌ Cannot parse coefficients','log-err'); return; }
+
+  addLog('o-log', `BVP: y''+${pExpr}*y'+${qExpr}*y=${rExpr}`, 'log-info');
+  addLog('o-log', `[${a},${b}]  y(a)=${ya}  y(b)=${yb}  N=${n}`, 'log-info');
+
+  const sol = fdmBVP(pFn, qFn, rFn, a, b, ya, yb, n);
+  addLog('o-log', `FDM solved with ${n} interior points`, 'log-ok');
+
+  const traces = [
+    { x: sol.xs, y: sol.ys, type:'scatter', mode:'lines+markers',
+      name:'FDM Solution', line:{color:'#00ff88',width:2.5}, marker:{size:3} }
+  ];
+
+  let exactYs = null;
+  if (exExpr) {
+    const exFn = safeF(exExpr.replace(/\bx\b/g,'x'));
+    if (exFn) {
+      exactYs = sol.xs.map(x => evalF(exFn, x));
+      traces.push({ x: sol.xs, y: exactYs, type:'scatter', mode:'lines',
+        name:'Exact', line:{color:'#00d4ff',width:1.5,dash:'dot'} });
+    }
+  }
+
+  Plotly.newPlot('ode-plot', traces,
+    mkLayout({ xaxis:{title:'x'}, yaxis:{title:'y(x)'} }), PLT_CFG);
+
+  if (exactYs) {
+    const errs = sol.ys.map((y,i) => Math.max(Math.abs(y - exactYs[i]),1e-17));
+    Plotly.newPlot('ode-error-plot', [{
+      x: sol.xs, y: errs, mode:'lines', name:'|Error|',
+      line:{color:'#ff4560'}, fill:'tozeroy', fillcolor:'rgba(255,69,96,0.1)'
+    }], mkLayout({ xaxis:{title:'x'}, yaxis:{title:'|Error|',type:'log'} }), PLT_CFG);
+    const maxErr = Math.max(...errs);
+    addLog('o-log', `Max error vs exact: ${maxErr.toExponential(4)}`, 'log-ok');
+  }
+
+  document.getElementById('ode-result-display').innerHTML =
+    `<div style="color:var(--phosphor)">BVP Solved via FDM</div>
+     <div>Points: ${sol.xs.length}  Interior: ${n}</div>`;
+
+  DATA.ode = {
+    header: `# BVP FDM Solution\n# x\ty_fdm\ty_exact`,
+    rows: sol.xs.map((x,i) => [x, sol.ys[i], exactYs ? exactYs[i] : 'N/A'])
+  };
+}
+
+function runEigen() {
+  const vExpr = document.getElementById('e-vx').value;
+  const xmin  = parseFloat(document.getElementById('e-xmin').value);
+  const xmax  = parseFloat(document.getElementById('e-xmax').value);
+  const N     = parseInt(document.getElementById('e-n').value);
+  const nStates= parseInt(document.getElementById('e-nstates').value);
+  const vFn   = safeF(vExpr);
+
+  if (!vFn) { addLog('o-log','❌ Cannot parse V(x)','log-err'); return; }
+  addLog('o-log', `Numerov method for V(x) = ${vExpr}`, 'log-info');
+  addLog('o-log', `x∈[${xmin},${xmax}]  N=${N}  seeking ${nStates} eigenstates`, 'log-info');
+
+  // Search for eigenvalues by scanning energy range
+  const Emax_search = Math.max(20, nStates * 10);
+  const scanE = linspace(0.1, Emax_search, 800);
+  const boundaries = scanE.map(E => numerovSolve(vFn, xmin, xmax, N, E).boundary);
+
+  // Find sign changes → bracket eigenvalues
+  const eigenvalues = [];
+  for (let i = 0; i < scanE.length - 1 && eigenvalues.length < nStates; i++) {
+    if (boundaries[i] * boundaries[i+1] < 0) {
+      const Eig = findEigenvalue(vFn, xmin, xmax, N, scanE[i], scanE[i+1]);
+      if (Eig !== null) eigenvalues.push(Eig);
+    }
+  }
+
+  addLog('o-log', `Found ${eigenvalues.length} eigenvalues:`, 'log-ok');
+  eigenvalues.forEach((E, n) => addLog('o-log', `  E${n} = ${E.toPrecision(8)}`));
+
+  const colors = ['#00ff88','#ffb347','#00d4ff','#c678dd','#ff4560','#7ed4ad','#ff9f7e','#b8a4d4'];
+  const traces = [];
+
+  // Potential curve
+  const xs = linspace(xmin, xmax, 300);
+  const vs = xs.map(x => evalF(vFn, x));
+  const vMax = Math.min(Math.max(...vs.filter(isFinite)), eigenvalues[eigenvalues.length-1]*2 || 20);
+  traces.push({ x: xs, y: vs.map(v => Math.min(v, vMax)), type:'scatter', mode:'lines',
+    name:'V(x)', line:{color:'#3d5a72',width:1.5,dash:'dot'} });
+
+  eigenvalues.forEach((E, n) => {
+    const sol = numerovSolve(vFn, xmin, xmax, N, E);
+    // Scale psi for display: offset by energy level
+    const scale = 0.8;
+    const psiScaled = sol.psi.map(p => p * scale + E);
+    traces.push({
+      x: sol.xs, y: psiScaled, type:'scatter', mode:'lines',
+      name: `ψ${n} (E=${E.toFixed(4)})`,
+      line: { color: colors[n % colors.length], width: 1.8 }
+    });
+    // Energy level line
+    traces.push({ x:[xmin,xmax], y:[E,E], type:'scatter', mode:'lines',
+      line:{color:colors[n%colors.length],width:0.7,dash:'dot'}, showlegend:false });
+  });
+
+  Plotly.newPlot('ode-plot', traces,
+    mkLayout({ xaxis:{title:'x'}, yaxis:{title:'Energy / ψ(x)'},
+               title:{text:'Eigenstates',font:{size:11,color:'#7a9bb5'}} }), PLT_CFG);
+
+  // Eigenvalue bar chart
+  Plotly.newPlot('ode-error-plot', [{
+    x: eigenvalues.map((_,i) => `E${i}`),
+    y: eigenvalues,
+    type: 'bar',
+    marker: { color: colors.slice(0, eigenvalues.length) },
+    text: eigenvalues.map(e => e.toFixed(5)),
+    textposition: 'outside'
+  }], mkLayout({ yaxis:{title:'Energy'} }), PLT_CFG);
+
+  document.getElementById('ode-result-display').innerHTML =
+    `<div style="color:var(--phosphor)">Eigenvalues (Numerov)</div>
+     ${eigenvalues.map((E,n) => `<div>E${n} = <b>${E.toPrecision(8)}</b></div>`).join('')}`;
+
+  DATA.ode = {
+    header: `# Numerov Eigenvalues for V(x)=${vExpr}\n# n\tEnergy`,
+    rows: eigenvalues.map((E, n) => [n, E])
+  };
+}
+
+/* ====================================================================
+   INITIAL PLOT PLACEHOLDERS
+   ==================================================================== */
+function initPlot(id, msg='Run simulation to see plot') {
+  Plotly.newPlot(id, [{
+    x:[0], y:[0], mode:'markers', marker:{opacity:0}
+  }], mkLayout({
+    annotations:[{ text: msg, xref:'paper', yref:'paper',
+      x:0.5, y:0.5, showarrow:false,
+      font:{color:'#3d5a72',size:13,family:"'JetBrains Mono',monospace"} }]
+  }), PLT_CFG);
+}
+
+window.addEventListener('load', () => {
+  // Initialize all plot areas
+  ['roots-plot','roots-error-plot'].forEach(id => initPlot(id));
+  ['deriv-plot','deriv-error-plot','deriv-compare-plot'].forEach(id => initPlot(id));
+  ['integ-plot','integ-conv-plot','integ-compare-plot'].forEach(id => initPlot(id));
+  ['ode-plot','ode-error-plot'].forEach(id => initPlot(id));
+
+  // TypeSet any MathJax already in DOM
+  if (window.MathJax) MathJax.typesetPromise();
+});
+
+/* ====================================================================
+   PRESET FUNCTIONS
+   ==================================================================== */
+
+function applyRootPreset(val) {
+  if (!val) return;
+  const [fx, dfx, a, b] = val.split('|');
+  document.getElementById('r-fx').value = fx;
+  document.getElementById('r-dfx').value = dfx || '';
+  document.getElementById('r-a').value = a;
+  document.getElementById('r-b').value = b;
+}
+
+function applyDerivPreset(val) {
+  if (!val) return;
+  const [fx, dfx, x0, a, b] = val.split('|');
+  document.getElementById('d-fx').value = fx;
+  document.getElementById('d-dfx').value = dfx || '';
+  document.getElementById('d-x0').value = x0;
+  document.getElementById('d-a').value = a;
+  document.getElementById('d-b').value = b;
+}
+
+function applyIntegPreset(val) {
+  if (!val) return;
+  const [fx, exact, a, b] = val.split('|');
+  document.getElementById('i-fx').value = fx;
+  document.getElementById('i-exact').value = exact || '';
+  document.getElementById('i-a').value = a;
+  document.getElementById('i-b').value = b;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    const panel = e.target.closest('.tab-panel');
+    if (!panel) return;
+    if (panel.id === 'panel-roots') runRoots();
+    else if (panel.id === 'panel-deriv') runDeriv();
+    else if (panel.id === 'panel-integ') runInteg();
+    else if (panel.id === 'panel-ode') runODE();
+  }
+});
+</script>
+
+<!-- ═══════════════════════════ THEORY ═══════════════════════════ -->
+<div id="panel-theory">
+  <div class="theory-section-title">Root Finding Methods</div>
+  <div class="theory-grid">
+
+    <div class="theory-card">
+      <h3>Bisection Method <span class="badge">O(log₂ n)</span></h3>
+      <p>The bisection method is the simplest and most robust root-finding algorithm. Given a bracket <em>[a, b]</em> where <em>f(a)·f(b) &lt; 0</em>, the Intermediate Value Theorem guarantees a root exists. The algorithm repeatedly halves the interval.</p>
+      <div class="formula">$$x_{n+1} = \frac{a_n + b_n}{2}, \quad \text{update bracket based on sign of } f(x_{n+1})$$</div>
+      <p><strong style="color:var(--phosphor)">Error bound</strong> after n iterations:</p>
+      <div class="formula">$$|x_n - x^*| \leq \frac{b - a}{2^n}$$</div>
+      <ul>
+        <li><span class="tag">✓ Pro</span> Always converges if bracket is valid</li>
+        <li><span class="tag">✓ Pro</span> No derivative required</li>
+        <li><span class="tag amber">▲ Con</span> Slow — linear convergence only</li>
+        <li><span class="tag amber">▲ Con</span> Requires sign change in [a,b]</li>
+        <li><span class="tag cyan">Order</span> Linear — 1 bit of accuracy per step</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Newton-Raphson <span class="badge">O(n²) quadratic</span></h3>
+      <p>Newton's method uses the tangent line at the current iterate to find the next approximation. It is derived from the first-order Taylor expansion of <em>f</em> around <em>xₙ</em>:</p>
+      <div class="formula">$$f(x) \approx f(x_n) + f'(x_n)(x - x_n) = 0 \implies x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$$</div>
+      <p>Near the root, the error satisfies $|e_{n+1}| \approx \frac{|f''(x^*)|}{2|f'(x^*)|} e_n^2$, giving quadratic convergence.</p>
+      <ul>
+        <li><span class="tag">✓ Pro</span> Quadratic convergence near root</li>
+        <li><span class="tag">✓ Pro</span> Doubles correct digits each iteration</li>
+        <li><span class="tag red">✗ Con</span> Requires f'(x) — can use numerical diff</li>
+        <li><span class="tag red">✗ Con</span> May diverge if f'(xₙ) ≈ 0 or bad x₀</li>
+        <li><span class="tag cyan">Order</span> Quadratic (p = 2)</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Secant Method <span class="badge">O(φ) ≈ 1.618</span></h3>
+      <p>The secant method avoids computing derivatives by approximating f'(xₙ) using two previous iterates. It replaces the tangent with a secant line through (xₙ₋₁, f(xₙ₋₁)) and (xₙ, f(xₙ)):</p>
+      <div class="formula">$$x_{n+1} = x_n - f(x_n) \cdot \frac{x_n - x_{n-1}}{f(x_n) - f(x_{n-1})}$$</div>
+      <p>The convergence order is the golden ratio φ = (1+√5)/2 ≈ 1.618, giving superlinear but sub-quadratic convergence.</p>
+      <ul>
+        <li><span class="tag">✓ Pro</span> No derivative required</li>
+        <li><span class="tag">✓ Pro</span> Superlinear convergence — faster than bisection</li>
+        <li><span class="tag red">✗ Con</span> Needs two starting points x₀, x₁</li>
+        <li><span class="tag red">✗ Con</span> Can fail if f(xₙ) ≈ f(xₙ₋₁)</li>
+        <li><span class="tag cyan">Order</span> Superlinear (p ≈ 1.618)</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="theory-section-title">Numerical Differentiation</div>
+  <div class="theory-grid">
+
+    <div class="theory-card">
+      <h3>Finite Difference Formulas <span class="badge">Taylor Series</span></h3>
+      <p>All finite difference formulas are derived from Taylor expansions. Expanding f(x±h) and combining eliminates lower-order terms:</p>
+      <div class="formula">$$\text{Forward:}\quad f'(x) = \frac{f(x+h)-f(x)}{h} - \frac{h}{2}f''(\xi), \quad \xi \in (x,x+h)$$</div>
+      <div class="formula">$$\text{Backward:}\quad f'(x) = \frac{f(x)-f(x-h)}{h} + \frac{h}{2}f''(\xi)$$</div>
+      <div class="formula">$$\text{Central:}\quad f'(x) = \frac{f(x+h)-f(x-h)}{2h} - \frac{h^2}{6}f'''(\xi)$$</div>
+      <div class="formula">$$\text{2nd order:}\quad f''(x) = \frac{f(x+h)-2f(x)+f(x-h)}{h^2} - \frac{h^2}{12}f^{(4)}(\xi)$$</div>
+      <ul>
+        <li><span class="tag">Forward/Back</span> <span class="amber">O(h)</span> — error halves when h halves</li>
+        <li><span class="tag">Central</span> <span class="cyan">O(h²)</span> — error quarters when h halves</li>
+        <li><span class="tag red">Caution</span> Very small h causes catastrophic cancellation (floating-point)</li>
+        <li><span class="tag cyan">Optimal h</span> ≈ √ε for forward (ε = machine epsilon ≈ 10⁻¹⁶)</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="theory-section-title">Numerical Integration</div>
+  <div class="theory-grid">
+
+    <div class="theory-card">
+      <h3>Trapezoidal Rule <span class="badge">O(h²)</span></h3>
+      <p>Approximates the integral by summing the areas of trapezoids formed by adjacent function values. For uniform spacing h = (b−a)/n:</p>
+      <div class="formula">$$\int_a^b f(x)\,dx \approx \frac{h}{2}\left[f(x_0) + 2\sum_{i=1}^{n-1}f(x_i) + f(x_n)\right]$$</div>
+      <p>The global error is $E_T = -\frac{(b-a)^3}{12n^2}f''(\xi)$, so doubling N reduces error by factor 4.</p>
+      <ul>
+        <li><span class="tag cyan">Order</span> O(h²) — second order convergence</li>
+        <li><span class="tag">✓ Pro</span> Simple, robust, works for any continuous f</li>
+        <li><span class="tag amber">▲ Con</span> Slower convergence than Simpson</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Simpson's 1/3 Rule <span class="badge">O(h⁴)</span></h3>
+      <p>Fits a quadratic polynomial through each pair of subintervals (requires even n). Uses coefficients 1-4-2-4-2-…-4-1:</p>
+      <div class="formula">$$\int_a^b f(x)\,dx \approx \frac{h}{3}\left[f(x_0) + 4f(x_1) + 2f(x_2) + 4f(x_3) + \cdots + f(x_n)\right]$$</div>
+      <p>Global error: $E_S = -\frac{(b-a)^5}{180n^4}f^{(4)}(\xi)$ — fourth-order convergence. Simpson is exact for polynomials up to degree 3 (superconvergence).</p>
+      <ul>
+        <li><span class="tag cyan">Order</span> O(h⁴) — quartic convergence</li>
+        <li><span class="tag">✓ Pro</span> Much more accurate than Trapezoid for smooth f</li>
+        <li><span class="tag amber">▲ Con</span> N must be even; fails if f⁽⁴⁾ is large</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="theory-section-title">Differential Equations</div>
+  <div class="theory-grid">
+
+    <div class="theory-card">
+      <h3>Euler Method <span class="badge">O(h) global</span></h3>
+      <p>The simplest ODE solver. Derived from truncating the Taylor expansion after the first term. For dy/dt = f(t, y), y(t₀) = y₀:</p>
+      <div class="formula">$$y_{n+1} = y_n + h\,f(t_n, y_n)$$</div>
+      <p>Local truncation error is O(h²), giving O(h) global error. The method is conditionally stable: for the test equation y' = λy, stability requires |1 + hλ| ≤ 1.</p>
+      <ul>
+        <li><span class="tag cyan">Order</span> 1st order (global error O(h))</li>
+        <li><span class="tag">✓ Pro</span> Simplest possible; easy to understand</li>
+        <li><span class="tag red">✗ Con</span> Accumulates error rapidly; may be unstable</li>
+        <li><span class="tag amber">Stability</span> Conditionally stable — small h needed for stiff problems</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Runge-Kutta 4 (RK4) <span class="badge">O(h⁴) gold standard</span></h3>
+      <p>The workhorse of ODE integration. Computes four slope estimates k₁…k₄ and takes a weighted average. This cancels all error terms up to h⁴:</p>
+      <div class="formula">$$k_1 = f(t_n,y_n),\quad k_2 = f\!\left(t_n+\tfrac{h}{2}, y_n+\tfrac{h}{2}k_1\right)$$</div>
+      <div class="formula">$$k_3 = f\!\left(t_n+\tfrac{h}{2}, y_n+\tfrac{h}{2}k_2\right),\quad k_4 = f(t_n+h,\,y_n+hk_3)$$</div>
+      <div class="formula">$$y_{n+1} = y_n + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)$$</div>
+      <ul>
+        <li><span class="tag cyan">Order</span> 4th order (global error O(h⁴))</li>
+        <li><span class="tag">✓ Pro</span> Excellent accuracy-per-step tradeoff</li>
+        <li><span class="tag">✓ Pro</span> Self-starting (no previous steps needed)</li>
+        <li><span class="tag amber">▲ Con</span> 4 function evaluations per step</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Finite Difference Method (BVP) <span class="badge">Linear System</span></h3>
+      <p>For boundary value problems y'' + p(x)y' + q(x)y = r(x), replace derivatives with central differences at interior grid points xᵢ = a + ih:</p>
+      <div class="formula">$$y''_i \approx \frac{y_{i+1}-2y_i+y_{i-1}}{h^2}, \quad y'_i \approx \frac{y_{i+1}-y_{i-1}}{2h}$$</div>
+      <p>Substituting yields a tridiagonal linear system <strong>Ay = b</strong>, solved efficiently with the Thomas (TDMA) algorithm in O(N) operations.</p>
+      <ul>
+        <li><span class="tag cyan">Order</span> O(h²) — second order in grid spacing</li>
+        <li><span class="tag">✓ Pro</span> Converts BVP to linear algebra</li>
+        <li><span class="tag">✓ Pro</span> Thomas algorithm: O(N) — very fast</li>
+        <li><span class="tag red">✗ Con</span> Requires linear ODE for direct solve</li>
+      </ul>
+    </div>
+
+    <div class="theory-card">
+      <h3>Numerov Method <span class="badge">O(h⁴) eigenvalue</span></h3>
+      <p>Specialized for equations of the form ψ'' = f(x)ψ (Schrödinger, Bessel, etc.) with no first-derivative term. Uses a 3-point stencil that cancels the h² term:</p>
+      <div class="formula">$$\psi_{n+1}\!\left(1+\tfrac{h^2}{12}f_{n+1}\right) = 2\psi_n\!\left(1-\tfrac{5h^2}{12}f_n\right) - \psi_{n-1}\!\left(1+\tfrac{h^2}{12}f_{n-1}\right)$$</div>
+      <p>Eigenvalues are found via <strong>shooting</strong>: scan energy E until ψ(x_max) ≈ 0 (boundary condition), using bisection to isolate each eigenvalue bracket.</p>
+      <ul>
+        <li><span class="tag cyan">Order</span> O(h⁴) — more accurate than standard FDM</li>
+        <li><span class="tag">✓ Pro</span> Perfect for quantum mechanics problems</li>
+        <li><span class="tag">✓ Pro</span> Shooting + bisection finds all bound states</li>
+        <li><span class="tag amber">▲ Con</span> Only works for equations without y' term</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="theory-section-title">Convergence &amp; Error Summary</div>
+  <div class="theory-grid">
+    <div class="theory-card">
+      <h3>Convergence Orders at a Glance</h3>
+      <p>The order of convergence p means that when the step size h is halved, the error is reduced by a factor of 2ᵖ:</p>
+      <div class="formula">$$|e_{n+1}| \leq C \cdot |e_n|^p$$</div>
+      <ul>
+        <li><span class="tag amber">p = 1</span> Linear — Bisection, Euler, Forward/Back Diff</li>
+        <li><span class="tag cyan">p ≈ 1.6</span> Superlinear — Secant method</li>
+        <li><span class="tag">p = 2</span> Quadratic — Newton-Raphson, Trapezoid (in h), Central Diff (in h²)</li>
+        <li><span class="tag">p = 4</span> Quartic — RK4, Simpson, Numerov, 2nd Central Diff</li>
+        <li><span class="tag red">Stiffness</span> When λ-values of Jacobian span many orders — use implicit methods</li>
+        <li><span class="tag amber">Round-off</span> Too small h causes catastrophic cancellation in finite differences</li>
+        <li><span class="tag cyan">Optimal h</span> Balance truncation vs round-off: h ≈ ε^(1/p) where ε ≈ 10⁻¹⁶</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

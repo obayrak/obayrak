@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumeriSim – Numerical Methods Simulator</title>
+<script>
+try{var _t=localStorage.getItem('numerisim-theme');if(_t==='day'||_t==='night')document.documentElement.setAttribute('data-theme',_t);}catch(_){}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.js"></script>
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
+  svg:{fontCache:'global'},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']},
+  startup:{pageReady:()=>MathJax.startup.defaultPageReady().then(()=>{window.__mjReady=true;flushTypeset();})}
+};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --bg0:#070a12;--bg1:#0b1120;--bg2:#101830;--bg3:#16203d;
+  --panel:#0e1629;--panel2:#142040;
+  --b1:#233456;--b2:#34497a;--b3:#4a64a0;
+  --c0:#2fd6ff;--amber:#ffc83d;--green:#2eeaa8;--red:#ff6b86;--violet:#c4a2ff;--pink:#ff80d0;
+  --text:#d9e7f7;--text2:#a8c0dd;--text3:#85a0c4;
+  --on-c:#031018;--sel:rgba(47,214,255,.32);--hover:rgba(255,255,255,.05);
+  --mono:'JetBrains Mono','Consolas','Menlo',monospace;
+  --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  --disp:'Orbitron','Inter',sans-serif;
+  --r:5px;
+  --c-glow:color-mix(in srgb,var(--c0) 16%,transparent);
+  --amb-dim:color-mix(in srgb,var(--amber) 15%,transparent);
+  --grn-dim:color-mix(in srgb,var(--green) 15%,transparent);
+  --red-dim:color-mix(in srgb,var(--red) 14%,transparent);
+  --vio-dim:color-mix(in srgb,var(--violet) 15%,transparent);
+}
+:root[data-theme="day"]{
+  color-scheme:light;
+  --bg0:#e7edf5;--bg1:#f1f5fa;--bg2:#e9eff7;--bg3:#dde6f1;
+  --panel:#ffffff;--panel2:#f2f6fb;
+  --b1:#d3dce9;--b2:#b3c2d6;--b3:#8da1bc;
+  --c0:#0a62b8;--amber:#b06800;--green:#0b8a5a;--red:#d02a4c;--violet:#6f3fd0;--pink:#c2188a;
+  --text:#17222e;--text2:#3b4d62;--text3:#586b82;
+  --on-c:#ffffff;--sel:rgba(10,98,184,.25);--hover:rgba(10,98,184,.07);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+::selection{background:var(--sel);color:var(--text);}
+:focus-visible{outline:2px solid var(--c0);outline-offset:1px;}
+body{background:var(--bg0);color:var(--text);font-family:var(--ui);font-size:15px;transition:background .2s,color .2s;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:var(--b3);}
+
+#hdr{height:60px;background:var(--panel);border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:16px;padding:0 22px;position:relative;z-index:100;flex-shrink:0;}
+.hdr-logo{font-family:var(--disp);font-size:19px;font-weight:900;color:var(--c0);letter-spacing:3px;}
+.hdr-sub{font-size:12px;font-weight:500;color:var(--text2);letter-spacing:1.2px;margin-top:1px;}
+.hdr-pulse{width:9px;height:9px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite;margin-left:auto;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+.hdr-time{font-family:var(--mono);font-size:13px;color:var(--text2);}
+.themebtns{display:flex;border:1px solid var(--b3);border-radius:6px;overflow:hidden;}
+.thbtn{padding:8px 15px;background:var(--panel2);border:none;color:var(--text);cursor:pointer;font-family:var(--ui);font-size:14px;font-weight:600;transition:all .15s;}
+.thbtn+.thbtn{border-left:1px solid var(--b3);}
+.thbtn:hover{background:var(--hover);}
+.thbtn.active{background:var(--c0);color:var(--on-c);}
+
+#app{display:flex;flex-direction:column;height:calc(100vh - 60px);}
+#tabnav{display:flex;background:var(--panel2);border-bottom:1px solid var(--b1);padding:0 16px;overflow-x:auto;flex-shrink:0;}
+.tnb{background:none;border:none;border-bottom:3px solid transparent;color:var(--text2);font-family:var(--ui);font-size:13.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:14px 20px;cursor:pointer;transition:color .2s,border-color .2s,background .2s;white-space:nowrap;}
+.tnb:hover{color:var(--text);background:var(--hover);}
+.tnb.on{color:var(--c0);border-bottom-color:var(--c0);background:var(--panel);}
+
+.pane{display:none;flex:1;overflow:hidden;min-height:0;}
+.pane.on{display:flex;}
+.sidebar{width:410px;min-width:410px;background:var(--panel);border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
+.canvas{flex:1;background:var(--bg1);overflow:hidden;display:flex;flex-direction:column;min-width:0;}
+
+.sec{border-bottom:1px solid var(--b1);}
+.sech{background:var(--panel2);border-bottom:1px solid var(--b1);padding:10px 16px;font-size:12.5px;font-weight:700;color:var(--c0);letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.sech::before{content:'';width:7px;height:7px;border-radius:2px;background:currentColor;flex-shrink:0;}
+.sech.amb{color:var(--amber);}.sech.grn{color:var(--green);}.sech.vio{color:var(--violet);}.sech.param-hdr{color:var(--pink);}
+.secb{padding:14px 16px;}
+
+.fl{display:block;font-family:var(--ui);font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.6px;margin-bottom:5px;}
+.fi{width:100%;background:var(--bg0);border:1px solid var(--b2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:14px;padding:8px 11px;outline:none;transition:border-color .15s,box-shadow .15s;}
+.fi:focus{border-color:var(--c0);box-shadow:0 0 0 2px color-mix(in srgb,var(--c0) 25%,transparent);}
+.fi option{background:var(--panel);color:var(--text);}
+.fg{margin-bottom:12px;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+.preset-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.preset-btn{background:var(--bg2);border:1px solid var(--b2);border-radius:var(--r);color:var(--text);font-family:var(--ui);font-size:12.5px;font-weight:500;padding:5px 10px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.preset-btn:hover{border-color:var(--c0);color:var(--c0);}
+.preset-btn.active{background:var(--c-glow);border-color:var(--c0);color:var(--c0);font-weight:700;}
+
+.pills{display:flex;gap:6px;flex-wrap:wrap;}
+.pill{background:var(--bg0);border:1px solid var(--b2);border-radius:var(--r);color:var(--text2);font-family:var(--ui);font-size:12.5px;font-weight:600;padding:6px 12px;cursor:pointer;transition:all .15s;}
+.pill:hover{border-color:var(--b3);color:var(--text);}
+.pill.on{background:var(--c-glow);border-color:var(--c0);color:var(--c0);}
+.pill.on.amb{background:var(--amb-dim);border-color:var(--amber);color:var(--amber);}
+.pill.on.grn{background:var(--grn-dim);border-color:var(--green);color:var(--green);}
+.pill.on.vio{background:var(--vio-dim);border-color:var(--violet);color:var(--violet);}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:var(--r);font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:10px 16px;cursor:pointer;transition:all .18s;}
+.btn-c{background:var(--c0);color:var(--on-c);}
+.btn-a{background:var(--amber);color:var(--on-c);}
+.btn-g{background:var(--green);color:var(--on-c);}
+.btn-c:hover,.btn-a:hover,.btn-g:hover{filter:brightness(1.12);}
+.btn-o{background:transparent;color:var(--c0);border-color:var(--c0);}
+.btn-o:hover{background:var(--c-glow);}
+.btn-ov{background:transparent;color:var(--violet);border-color:var(--violet);}
+.btn-op{background:transparent;color:var(--pink);border-color:var(--pink);}
+.btn-op:hover{background:color-mix(in srgb,var(--pink) 12%,transparent);}
+.btn-row{display:flex;gap:8px;margin-top:8px;}
+.btn-row .btn{flex:1;}
+.btn-sm{padding:7px 11px;font-size:12px;}
+.btn-blk{width:100%;}
+
+.fmbox{background:var(--bg2);border:1px solid var(--b1);border-left:4px solid var(--c0);border-radius:var(--r);padding:11px 14px;margin-bottom:12px;font-size:15px;color:var(--text);text-align:center;min-height:48px;display:flex;align-items:center;justify-content:center;overflow-x:auto;}
+
+.resbox{background:var(--bg0);border:1px solid var(--b1);border-left:4px solid var(--green);border-radius:var(--r);padding:10px 14px;margin-top:8px;font-family:var(--mono);display:none;}
+.reslabel{font-size:11.5px;font-weight:600;color:var(--text2);letter-spacing:1px;text-transform:uppercase;font-family:var(--ui);}
+.resval{font-size:16px;font-weight:700;color:var(--green);margin-top:3px;word-break:break-word;}
+.resgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.rescard{background:var(--bg0);border:1px solid var(--b1);border-radius:var(--r);padding:9px 11px;font-family:var(--mono);}
+.rescard-label{font-size:11.5px;font-weight:600;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;font-family:var(--ui);}
+.rescard-val{font-size:14px;font-weight:700;color:var(--amber);margin-top:3px;word-break:break-all;}
+.rescard-err{font-size:12px;color:var(--text2);}
+
+.warn{background:var(--red-dim);border:1px solid var(--red);border-radius:var(--r);padding:8px 12px;font-family:var(--mono);font-size:12.5px;color:var(--red);margin-top:8px;display:none;}
+.info{background:var(--amb-dim);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;font-family:var(--mono);font-size:12.5px;color:var(--amber);margin-top:8px;display:none;}
+
+.iterwrap{border:1px solid var(--b1);border-radius:var(--r);overflow:hidden;margin-top:8px;}
+.iterscroll{max-height:220px;overflow-y:auto;}
+.itertbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;}
+.itertbl thead th{background:var(--panel2);color:var(--c0);padding:7px 9px;text-align:right;border-bottom:1px solid var(--b2);font-size:12px;font-weight:700;position:sticky;top:0;}
+.itertbl thead th:first-child{text-align:center;}
+.itertbl tbody td{padding:4px 9px;text-align:right;border-bottom:1px solid var(--b1);color:var(--text);}
+.itertbl tbody td:first-child{text-align:center;color:var(--amber);}
+.itertbl tbody tr:last-child td{color:var(--green);font-weight:700;}
+.itertbl tbody tr.hl td{background:var(--c-glow);}
+.itertbl.vio-hdr thead th{color:var(--violet);}
+
+.statbar{display:flex;align-items:center;gap:9px;padding:9px 16px;border-top:1px solid var(--b1);background:var(--panel2);font-family:var(--mono);font-size:12.5px;color:var(--text2);flex-shrink:0;}
+.sdot{width:9px;height:9px;border-radius:50%;background:var(--text3);flex-shrink:0;transition:all .3s;}
+.sdot.run{background:var(--amber);animation:pulse .8s infinite;}
+.sdot.ok{background:var(--green);}
+.sdot.err{background:var(--red);}
+
+.plotgrid{flex:1;display:grid;gap:1px;background:var(--b1);overflow:hidden;min-height:0;}
+.plotgrid.g12{grid-template-columns:1fr;grid-template-rows:2fr 1fr 1fr;}
+.plotgrid.g22{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+.plotgrid.g13{grid-template-columns:1fr;grid-template-rows:1.4fr 1fr 1fr;}
+.plotgrid.g_ode{grid-template-columns:1fr 1fr;grid-template-rows:1.4fr 1fr;}
+.pbox{background:var(--bg1);overflow:hidden;position:relative;min-width:0;}
+.pbox.span2{grid-column:span 2;}
+.pbox .pin{width:100%;height:100%;}
+
+.stabs{display:flex;border-bottom:1px solid var(--b1);flex-shrink:0;background:var(--panel2);}
+.stab{flex:1;background:none;border:none;border-bottom:3px solid transparent;color:var(--text2);font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;padding:11px 14px;cursor:pointer;transition:all .15s;}
+.stab:hover{color:var(--text);background:var(--hover);}
+.stab.on{color:var(--amber);border-bottom-color:var(--amber);background:var(--panel);}
+.scon{display:none;}
+.scon.on{display:block;}
+
+.dcard{background:var(--bg0);border:1px solid var(--b1);border-radius:var(--r);padding:11px 13px;margin-bottom:8px;}
+.dcard-hdr{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.dcard-row{display:flex;justify-content:space-between;align-items:center;margin:4px 0;gap:8px;}
+.dcard-label{font-size:13px;color:var(--text2);}
+.dcard-num{color:var(--c0);font-family:var(--mono);font-size:13px;font-weight:600;}
+.dcard-exact{color:var(--green);font-family:var(--mono);font-size:13px;font-weight:600;}
+.dcard-err{color:var(--amber);font-family:var(--mono);font-size:13px;font-weight:600;}
+
+.eigitem{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--b1);border-radius:var(--r);margin-bottom:6px;font-family:var(--mono);background:var(--bg0);}
+.eiglabel{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.8px;font-family:var(--ui);}
+.eigval{font-size:17px;font-weight:700;color:var(--violet);}
+
+.compare-chip{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:13px;}
+.cc-head{font-family:var(--ui);font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:7px;text-transform:uppercase;}
+.cc-row{display:flex;justify-content:space-between;align-items:center;margin:3px 0;gap:8px;}
+.cc-method{color:var(--text2);font-weight:600;}
+.cc-val{color:var(--amber);}
+.cc-best{color:var(--green);font-weight:700;}
+
+/* parameter sliders */
+input[type=range].pslider{-webkit-appearance:none;appearance:none;flex:1;height:5px;background:var(--b2);border-radius:3px;outline:none;cursor:pointer;min-width:0;}
+input[type=range].pslider:hover{background:var(--b3);}
+input[type=range].pslider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--pink);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--pink);cursor:pointer;}
+input[type=range].pslider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--pink);border:2px solid var(--panel);cursor:pointer;}
+.param-row{display:flex;align-items:center;gap:6px;margin-bottom:7px;background:var(--bg0);border:1px solid var(--b1);border-left:4px solid var(--pink);border-radius:var(--r);padding:8px 10px;transition:border-color .2s;}
+.param-row:hover{border-color:var(--pink);}
+.param-name{width:46px;flex-shrink:0;background:var(--bg2);border:1px solid var(--b2);border-radius:4px;color:var(--pink);font-family:var(--mono);font-size:13.5px;font-weight:700;padding:4px 5px;text-align:center;outline:none;}
+.param-name:focus{border-color:var(--pink);}
+.param-limit{width:46px;flex-shrink:0;background:var(--bg2);border:1px solid var(--b1);border-radius:4px;color:var(--text2);font-family:var(--mono);font-size:12px;padding:4px 4px;text-align:center;outline:none;}
+.param-limit:focus{border-color:var(--b3);color:var(--text);}
+.param-val-badge{width:56px;flex-shrink:0;text-align:right;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--pink);}
+.param-rm{background:none;border:none;color:var(--text2);font-size:19px;cursor:pointer;line-height:1;padding:0 3px;flex-shrink:0;transition:color .15s;}
+.param-rm:hover{color:var(--red);}
+.param-add-row{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.param-hint{font-size:12.5px;color:var(--text2);margin-top:12px;border-left:3px solid color-mix(in srgb,var(--pink) 45%,transparent);padding-left:10px;line-height:1.7;}
+.param-preview{background:var(--bg2);border:1px solid var(--b1);border-left:4px solid var(--pink);border-radius:var(--r);padding:9px 13px;margin-top:10px;font-family:var(--mono);font-size:13px;color:var(--text);min-height:36px;line-height:1.6;word-break:break-all;}
+.param-preview .pv-label{font-family:var(--ui);font-size:11.5px;font-weight:700;color:var(--pink);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:3px;}
+.param-preview .pv-expr{color:var(--c0);}
+.param-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.pp-btn{background:var(--bg2);border:1px solid color-mix(in srgb,var(--pink) 45%,transparent);border-radius:var(--r);color:var(--pink);font-family:var(--ui);font-size:12.5px;font-weight:600;padding:4px 10px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.pp-btn:hover{border-color:var(--pink);background:color-mix(in srgb,var(--pink) 10%,transparent);}
+@keyframes paramPulse{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--pink) 30%,transparent)}}
+.param-row.live{animation:paramPulse .3s ease;}
+
+/* theory */
+#pane-theory{overflow:hidden;}
+.theory-wrap{flex:1;overflow-y:auto;}
+.theory-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid var(--b1);}
+.th-card{background:var(--panel);border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);padding:26px 24px;transition:background .2s;}
+.th-card:hover{background:var(--panel2);}
+.th-title{font-size:15px;font-weight:700;color:var(--c0);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.th-title .badge{font-size:11px;padding:2px 8px;border-radius:3px;background:var(--c-glow);border:1px solid var(--c0);letter-spacing:1px;color:var(--c0);}
+.th-badge-a{background:var(--amb-dim)!important;border-color:var(--amber)!important;color:var(--amber)!important;}
+.th-badge-g{background:var(--grn-dim)!important;border-color:var(--green)!important;color:var(--green)!important;}
+.th-badge-v{background:var(--vio-dim)!important;border-color:var(--violet)!important;color:var(--violet)!important;}
+.th-badge-r{background:var(--red-dim)!important;border-color:var(--red)!important;color:var(--red)!important;}
+.th-eq{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 14px;margin:12px 0;text-align:center;font-size:16px;min-height:44px;display:flex;align-items:center;justify-content:center;overflow-x:auto;}
+.th-text{font-size:15px;color:var(--text);line-height:1.75;margin:9px 0;}
+.th-text b{color:var(--c0);font-weight:700;}
+.th-row{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap;}
+.th-chip{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--r);padding:7px 12px;font-family:var(--mono);font-size:13px;color:var(--text);display:flex;flex-direction:column;gap:3px;flex:1;min-width:120px;}
+.th-chip-label{font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--text2);letter-spacing:.8px;text-transform:uppercase;}
+.th-chip-val{color:var(--amber);font-weight:600;}
+.th-sep{border:none;border-top:1px solid var(--b1);margin:14px 0;}
+.order-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13.5px;margin-top:10px;}
+.order-table th{background:var(--bg2);color:var(--c0);padding:7px 10px;text-align:left;border:1px solid var(--b1);font-family:var(--ui);font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;}
+.order-table td{padding:7px 10px;border:1px solid var(--b1);color:var(--text);}
+.order-table td.hi{color:var(--green);font-weight:700;}
+.order-table td.med{color:var(--amber);font-weight:700;}
+.order-table td.lo{color:var(--red);font-weight:700;}
+.theory-header{background:var(--panel2);border-bottom:1px solid var(--b1);padding:20px 24px;}
+.theory-header h1{font-family:var(--disp);font-size:22px;color:var(--c0);letter-spacing:3px;}
+.theory-header p{font-size:15px;color:var(--text2);margin-top:6px;}
+
+mjx-container{color:inherit;}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;margin:.3em 0 !important;}
+.fmbox mjx-container,.th-eq mjx-container{margin:0 !important;}
+
+#loader{position:fixed;inset:0;background:var(--bg0);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s;}
+#loader .l-title{font-family:var(--disp);font-size:28px;color:var(--c0);letter-spacing:4px;margin-bottom:14px;}
+#loader .l-bar{width:220px;height:3px;background:var(--b1);border-radius:2px;overflow:hidden;}
+#loader .l-fill{height:100%;background:var(--c0);border-radius:2px;animation:fill 1.2s ease forwards;}
+@keyframes fill{from{width:0}to{width:100%}}
+#loader .l-sub{font-size:12px;font-weight:600;color:var(--text2);margin-top:12px;letter-spacing:2px;}
+</style>
+<base target="_blank">
+</head>
+<body>
+
+<div id="loader">
+  <div class="l-title">NUMERISIM</div>
+  <div class="l-bar"><div class="l-fill"></div></div>
+  <div class="l-sub">LOADING NUMERICAL ENGINE…</div>
+</div>
+
+<header id="hdr">
+  <div>
+    <div class="hdr-logo">NUMERISIM</div>
+    <div class="hdr-sub">Interactive Numerical Methods Laboratory</div>
+  </div>
+  <div class="hdr-pulse"></div>
+  <div class="hdr-time" id="clock"></div>
+  <div class="themebtns" role="group" aria-label="Theme">
+    <button class="thbtn" id="btn-night" onclick="setTheme('night')">☾ Night</button>
+    <button class="thbtn" id="btn-day" onclick="setTheme('day')">★ Day</button>
+  </div>
+</header>
+
+<div id="app">
+  <nav id="tabnav">
+    <button class="tnb on"  onclick="ST('roots',this)">⌀ Root Finding</button>
+    <button class="tnb"     onclick="ST('deriv',this)">∂ Derivatives</button>
+    <button class="tnb"     onclick="ST('integ',this)">∫ Integration</button>
+    <button class="tnb"     onclick="ST('odes',this)">⇌ Diff. Equations</button>
+    <button class="tnb"     onclick="ST('theory',this)">📖 Theory</button>
+  </nav>
+
+  <!-- ROOT FINDING -->
+  <div id="pane-roots" class="pane on">
+    <div class="sidebar">
+      <div class="sec">
+        <div class="sech">Physics Presets</div>
+        <div class="secb">
+          <div class="preset-bar" id="roots-presets">
+            <button class="preset-btn" onclick="setRootPreset('kepler',event)">Kepler Eqn</button>
+            <button class="preset-btn" onclick="setRootPreset('lj',event)">Lennard-Jones</button>
+            <button class="preset-btn" onclick="setRootPreset('dispersion',event)">Dispersion Rel.</button>
+            <button class="preset-btn" onclick="setRootPreset('fermi',event)">Fermi Energy</button>
+            <button class="preset-btn" onclick="setRootPreset('poly',event)">x³−x−2</button>
+            <button class="preset-btn" onclick="setRootPreset('trig',event)">Trig Equation</button>
+            <button class="preset-btn" onclick="setRootPreset('wien',event)">Wien Displ.</button>
+            <button class="preset-btn" onclick="setRootPreset('thermal',event)">Rad+Conv Equil.</button>
+            <button class="preset-btn" onclick="setRootPreset('mach',event)">Mach Nozzle</button>
+            <button class="preset-btn" onclick="setRootPreset('colebrook',event)">Colebrook Pipe</button>
+            <button class="preset-btn" onclick="setRootPreset('vdw',event)">Van der Waals</button>
+            <button class="preset-btn" onclick="setRootPreset('squarewell',event)">QM Square Well</button>
+            <button class="preset-btn" onclick="setRootPreset('lambertw',event)">Lambert W</button>
+            <button class="preset-btn" onclick="setRootPreset('brewster',event)">Brewster Angle</button>
+            <button class="preset-btn" onclick="setRootPreset('diffraction',event)">Slit Diffraction</button>
+            <button class="preset-btn" onclick="setRootPreset('transient',event)">Transient Heat</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech">Function</div>
+        <div class="secb">
+          <div class="fmbox" id="roots-fmbox">\(f(x) = x^3 - x - 2\)</div>
+          <div class="fg"><label class="fl">f(x) *</label><input class="fi" id="r-fx" value="x^3-x-2"></div>
+          <div class="fg"><label class="fl">f '(x) for Newton</label><input class="fi" id="r-dfx" value="3*x^2-1" placeholder="auto-numerical if blank"></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech">Methods (select multiple to compare)</div>
+        <div class="secb">
+          <div class="pills" id="roots-pills">
+            <button class="pill on"      data-m="bisection" onclick="toggleRootMethod(this)">Bisection</button>
+            <button class="pill on amb"  data-m="newton"    onclick="toggleRootMethod(this)">Newton-Raphson</button>
+            <button class="pill on grn"  data-m="secant"    onclick="toggleRootMethod(this)">Secant</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech">Parameters</div>
+        <div class="secb">
+          <div class="fr fg">
+            <div><label class="fl">a (left)</label><input class="fi" id="r-a" type="number" value="1" step="any"></div>
+            <div><label class="fl">b (right)</label><input class="fi" id="r-b" type="number" value="2" step="any"></div>
+          </div>
+          <div class="fg"><label class="fl">x₀ initial guess (Newton/Secant)</label><input class="fi" id="r-x0" type="number" value="1.5" step="any"></div>
+          <div class="fr fg">
+            <div><label class="fl">Tolerance</label><input class="fi" id="r-tol" value="1e-8"></div>
+            <div><label class="fl">Max Iter</label><input class="fi" id="r-max" type="number" value="60"></div>
+          </div>
+          <div class="fr fg">
+            <div><label class="fl">Plot x min</label><input class="fi" id="r-xmin" type="number" value="-1" step="any"></div>
+            <div><label class="fl">Plot x max</label><input class="fi" id="r-xmax" type="number" value="3" step="any"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-c" onclick="runRoots()">▶ Run</button>
+            <button class="btn btn-o btn-sm" onclick="animRoots()">⚡ Animate</button>
+          </div>
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn btn-a btn-sm" onclick="exportRoots()">⬇ Export .dat</button>
+            <button class="btn btn-o btn-sm" onclick="stopAnim()">■ Stop</button>
+          </div>
+          <div class="warn" id="r-warn"></div>
+          <div class="info" id="r-info"></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech grn">Method Comparison</div>
+        <div class="secb"><div id="roots-compare"></div></div>
+      </div>
+      <div class="sec" style="flex:1">
+        <div class="sech">Iteration Log (Bisection)</div>
+        <div class="secb">
+          <div class="resbox" id="r-res"><div class="reslabel">Converged Root</div><div class="resval" id="r-res-val">—</div></div>
+          <div class="iterwrap">
+            <div class="iterscroll">
+              <table class="itertbl"><thead><tr><th>#</th><th>x</th><th>f(x)</th><th>Error</th></tr></thead>
+              <tbody id="r-tbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="statbar"><div class="sdot" id="r-dot"></div><span id="r-stat">Ready</span></div>
+    </div>
+    <div class="canvas">
+      <div class="plotgrid g12">
+        <div class="pbox"><div class="pin" id="plt-r-func"></div></div>
+        <div class="pbox"><div class="pin" id="plt-r-conv"></div></div>
+        <div class="pbox"><div class="pin" id="plt-r-err"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DERIVATIVES -->
+  <div id="pane-deriv" class="pane">
+    <div class="sidebar">
+      <div class="sec">
+        <div class="sech amb">Physics Presets</div>
+        <div class="secb">
+          <div class="preset-bar">
+            <button class="preset-btn" onclick="setDerivPreset('gaussian')">Gaussian</button>
+            <button class="preset-btn" onclick="setDerivPreset('wavefunction')">Wave Fn</button>
+            <button class="preset-btn" onclick="setDerivPreset('planck')">Planck</button>
+            <button class="preset-btn" onclick="setDerivPreset('lorentz')">Lorentzian</button>
+            <button class="preset-btn" onclick="setDerivPreset('sinc')">sinc(x)</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech amb">Function</div>
+        <div class="secb">
+          <div class="fmbox" id="deriv-fmbox">\(f(x) = e^{-x^2/2}\)</div>
+          <div class="fg"><label class="fl">f(x) *</label><input class="fi" id="d-fx" value="exp(-x^2/2)"></div>
+          <div class="fg"><label class="fl">Exact f '(x)</label><input class="fi" id="d-dfx" value="-x*exp(-x^2/2)" placeholder="for error comparison"></div>
+          <div class="fg"><label class="fl">Exact f ''(x)</label><input class="fi" id="d-d2fx" value="(x^2-1)*exp(-x^2/2)" placeholder="optional"></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech amb">Parameters</div>
+        <div class="secb">
+          <div class="fg"><label class="fl">Point x₀</label><input class="fi" id="d-x0" type="number" value="1.0" step="any"></div>
+          <div class="fg"><label class="fl">Step size h</label><input class="fi" id="d-h" type="number" value="0.1" step="any"></div>
+          <div class="fr fg">
+            <div><label class="fl">x min</label><input class="fi" id="d-xmin" type="number" value="-4" step="any"></div>
+            <div><label class="fl">x max</label><input class="fi" id="d-xmax" type="number" value="4" step="any"></div>
+          </div>
+          <button class="btn btn-a btn-blk" onclick="runDeriv()">▶ Compute All Methods</button>
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn btn-o btn-sm" onclick="runDerivConv()">≈ h-convergence</button>
+            <button class="btn btn-a btn-sm" onclick="exportDeriv()">⬇ .dat</button>
+          </div>
+          <div class="warn" id="d-warn"></div>
+        </div>
+      </div>
+      <div class="sec" style="flex:1">
+        <div class="sech amb">Results at x₀</div>
+        <div class="secb"><div id="deriv-results"></div></div>
+      </div>
+      <div class="statbar"><div class="sdot" id="d-dot"></div><span id="d-stat">Ready</span></div>
+    </div>
+    <div class="canvas">
+      <div class="plotgrid g22">
+        <div class="pbox span2"><div class="pin" id="plt-d-func"></div></div>
+        <div class="pbox"><div class="pin" id="plt-d-err"></div></div>
+        <div class="pbox"><div class="pin" id="plt-d-hconv"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTEGRATION -->
+  <div id="pane-integ" class="pane">
+    <div class="sidebar">
+      <div class="sec">
+        <div class="sech grn">Physics Presets</div>
+        <div class="secb">
+          <div class="preset-bar">
+            <button class="preset-btn" onclick="setIntegPreset('planck')">Planck BB</button>
+            <button class="preset-btn" onclick="setIntegPreset('bose')">Bose-Einstein</button>
+            <button class="preset-btn" onclick="setIntegPreset('fermi')">Fermi-Dirac</button>
+            <button class="preset-btn" onclick="setIntegPreset('gaussian')">Gaussian</button>
+            <button class="preset-btn" onclick="setIntegPreset('maxwell')">Maxwell-Boltz.</button>
+            <button class="preset-btn" onclick="setIntegPreset('lorentz')">Lorentzian</button>
+            <button class="preset-btn" onclick="setIntegPreset('sinx')">sin(x)/x</button>
+            <button class="preset-btn" onclick="setIntegPreset('fresnel_s')">Fresnel S</button>
+            <button class="preset-btn" onclick="setIntegPreset('gamma32')">Γ(3/2)</button>
+            <button class="preset-btn" onclick="setIntegPreset('elliptic')">Elliptic K</button>
+            <button class="preset-btn" onclick="setIntegPreset('normal')">Normal PDF</button>
+            <button class="preset-btn" onclick="setIntegPreset('erf_int')">erf(2)</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech grn">Function</div>
+        <div class="secb">
+          <div class="fmbox" id="integ-fmbox">\(\displaystyle\int_0^\infty \frac{x^3}{e^x-1}\,dx = \frac{\pi^4}{15}\)</div>
+          <div class="fg"><label class="fl">f(x) *</label><input class="fi" id="i-fx" value="exp(-x^2)"></div>
+          <div class="fg"><label class="fl">Exact value</label><input class="fi" id="i-exact" value="" placeholder="optional, for error calc"></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech grn">Methods (Compare)</div>
+        <div class="secb">
+          <div class="pills" id="integ-pills">
+            <button class="pill on grn" data-m="trap" onclick="toggleIntegMethod(this)">Trapezoidal</button>
+            <button class="pill on amb" data-m="simp" onclick="toggleIntegMethod(this)">Simpson's</button>
+            <button class="pill on vio" data-m="romb" onclick="toggleIntegMethod(this)">Romberg</button>
+          </div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sech grn">Parameters</div>
+        <div class="secb">
+          <div class="fr fg">
+            <div><label class="fl">a</label><input class="fi" id="i-a" type="number" value="0" step="any"></div>
+            <div><label class="fl">b</label><input class="fi" id="i-b" type="number" value="1" step="any"></div>
+          </div>
+          <div class="fg"><label class="fl">Number of intervals n</label><input class="fi" id="i-n" type="number" value="10" min="2" step="2"></div>
+          <div class="btn-row">
+            <button class="btn btn-g" onclick="runInteg()">▶ Integrate</button>
+            <button class="btn btn-o btn-sm" onclick="runIntegConv()">≈ Convergence</button>
+          </div>
+          <div class="btn-row" style="margin-top:6px">
+            <button class="btn btn-a btn-sm" onclick="exportInteg()">⬇ .dat</button>
+          </div>
+          <div class="warn" id="i-warn"></div>
+        </div>
+      </div>
+      <div class="sec" style="flex:1">
+        <div class="sech grn">Results</div>
+        <div class="secb"><div id="integ-results"></div></div>
+      </div>
+      <div class="statbar"><div class="sdot" id="i-dot"></div><span id="i-stat">Ready</span></div>
+    </div>
+    <div class="canvas">
+      <div class="plotgrid g13">
+        <div class="pbox"><div class="pin" id="plt-i-area"></div></div>
+        <div class="pbox"><div class="pin" id="plt-i-parts"></div></div>
+        <div class="pbox"><div class="pin" id="plt-i-conv"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ODE -->
+  <div id="pane-odes" class="pane">
+    <div class="sidebar" style="overflow:hidden;flex-direction:column;">
+      <div class="stabs" id="ode-stabs">
+        <button class="stab on" onclick="setODETab('ivp',this)">IVP</button>
+        <button class="stab"    onclick="setODETab('bvp',this)">BVP</button>
+        <button class="stab"    onclick="setODETab('eigen',this)">Eigenvalue</button>
+      </div>
+
+      <!-- IVP -->
+      <div id="scon-ivp" class="scon on" style="display:flex;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden;">
+        <div class="sec">
+          <div class="sech">Equation Order</div>
+          <div class="secb">
+            <div class="pills">
+              <button class="pill on ivp-ord" id="ord-1st" onclick="setIVPOrder(1,this)">1st Order  y'=f(t,y)</button>
+              <button class="pill ivp-ord"    id="ord-2nd" onclick="setIVPOrder(2,this)">2nd Order  y''=g(t,y,y')</button>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech" id="ivp-preset-hdr">Physics Presets — 1st Order</div>
+          <div class="secb">
+            <div id="ivp-presets-1" class="preset-bar">
+              <button class="preset-btn" onclick="setIVPPreset('decay',event)">Radioactive Decay</button>
+              <button class="preset-btn" onclick="setIVPPreset('rc',event)">RC Charging</button>
+              <button class="preset-btn" onclick="setIVPPreset('cooling',event)">Newton Cooling</button>
+              <button class="preset-btn" onclick="setIVPPreset('logistic',event)">Logistic Growth</button>
+              <button class="preset-btn" onclick="setIVPPreset('terminal',event)">Terminal Velocity</button>
+              <button class="preset-btn" onclick="setIVPPreset('drug',event)">Drug PK</button>
+              <button class="preset-btn" onclick="setIVPPreset('si_epidemic',event)">SI Epidemic</button>
+              <button class="preset-btn" onclick="setIVPPreset('mixing',event)">Salt Mixing</button>
+            </div>
+            <div id="ivp-presets-2" class="preset-bar" style="display:none">
+              <button class="preset-btn" onclick="setIVPPreset('sho',event)">SHO</button>
+              <button class="preset-btn" onclick="setIVPPreset('underdamped',event)">Underdamped</button>
+              <button class="preset-btn" onclick="setIVPPreset('critically',event)">Critically Damped</button>
+              <button class="preset-btn" onclick="setIVPPreset('overdamped',event)">Overdamped</button>
+              <button class="preset-btn" onclick="setIVPPreset('pendulum',event)">Nonlinear Pendulum</button>
+              <button class="preset-btn" onclick="setIVPPreset('vanderpol',event)">Van der Pol</button>
+              <button class="preset-btn" onclick="setIVPPreset('resonance',event)">Near Resonance</button>
+              <button class="preset-btn" onclick="setIVPPreset('duffing',event)">Duffing</button>
+              <button class="preset-btn" onclick="setIVPPreset('rlc',event)">RLC Circuit</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec" id="ivp-coeff-sec">
+          <div class="sech param-hdr">⚙ Equation Coefficients</div>
+          <div class="secb">
+            <div class="param-presets">
+              <button class="pp-btn" onclick="loadParamTemplate('damped')">Damped Osc.</button>
+              <button class="pp-btn" onclick="loadParamTemplate('forced')">Forced Osc.</button>
+              <button class="pp-btn" onclick="loadParamTemplate('decay')">Decay</button>
+              <button class="pp-btn" onclick="loadParamTemplate('growth')">Growth</button>
+              <button class="pp-btn" onclick="loadParamTemplate('van')">Van der Pol</button>
+            </div>
+            <div id="param-rows-container"></div>
+            <div class="param-add-row">
+              <button class="btn btn-op btn-sm" onclick="addParamSlider()">+ Add</button>
+              <button class="btn btn-op btn-sm" onclick="resetParamSliders()">↺ Defaults</button>
+            </div>
+            <div class="param-preview" id="param-preview-box">
+              <span class="pv-label">Live Expression Preview</span>
+              <span class="pv-expr" id="param-preview-expr">—</span>
+            </div>
+            <div class="param-hint">
+              Names available inside <span style="color:var(--c0)">f(t,y)</span> &amp; <span style="color:var(--c0)">g(t,y,v)</span><br>
+              Example: type <span style="color:var(--amber)">-k*y - z*v + A*cos(w*t)</span><br>
+              then tune k, z, A, w with sliders live →
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sech" id="ivp-eq-hdr">IVP: y' = f(t, y)</div>
+          <div class="secb">
+            <div class="fmbox" id="ivp-fmbox">\(y'=f(t,y),\;y(t_0)=y_0\)</div>
+            <div id="ivp-1st-fields">
+              <div class="fg"><label class="fl">f(t, y) — use t, y, and param names *</label><input class="fi" id="iv-fty" value="-k*y" oninput="scheduleParamPreview()"></div>
+              <div class="fg"><label class="fl">Exact y(t) — optional, use t</label><input class="fi" id="iv-exact" value="" placeholder="for analytical comparison"></div>
+            </div>
+            <div id="ivp-2nd-fields" style="display:none">
+              <div class="fg"><label class="fl">g(t, y, v) — use t, y, v where v=y' *</label><input class="fi" id="iv-g2" value="-z*v-k*y" oninput="scheduleParamPreview()"></div>
+              <div class="fg"><label class="fl">Exact y(t) — optional, use t</label><input class="fi" id="iv-exact2" value="" placeholder="for analytical comparison"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech">Initial Conditions &amp; Time</div>
+          <div class="secb">
+            <div class="fr fg">
+              <div><label class="fl">t₀</label><input class="fi" id="iv-t0" type="number" value="0" step="any"></div>
+              <div><label class="fl">y(t₀) = y₀</label><input class="fi" id="iv-y0" type="number" value="1" step="any"></div>
+            </div>
+            <div id="ivp-v0-row" class="fg" style="display:none">
+              <label class="fl">y'(t₀) = v₀ (initial velocity)</label>
+              <input class="fi" id="iv-v0" type="number" value="0" step="any">
+            </div>
+            <div class="fr fg">
+              <div><label class="fl">t final</label><input class="fi" id="iv-tf" type="number" value="20" step="any"></div>
+              <div><label class="fl">h step</label><input class="fi" id="iv-h" type="number" value="0.1" step="any"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-c" onclick="runIVP()">▶ Solve</button>
+              <button class="btn btn-a btn-sm" onclick="exportIVP()">⬇ .dat</button>
+            </div>
+            <div class="warn" id="iv-warn"></div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech grn">Euler vs RK4 Comparison</div>
+          <div class="secb"><div id="ivp-compare"></div></div>
+        </div>
+        <div class="sec" style="flex:1">
+          <div class="sech">Solution Table</div>
+          <div class="secb">
+            <div class="resbox" id="iv-res"><div class="reslabel">y at t_final</div><div class="resval" id="iv-res-val">—</div></div>
+            <div class="iterwrap">
+              <div class="iterscroll">
+                <table class="itertbl"><thead><tr><th>#</th><th>t</th><th>Euler</th><th>RK4</th><th>Exact</th></tr></thead>
+                <tbody id="iv-tbody"></tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="statbar"><div class="sdot" id="iv-dot"></div><span id="iv-stat">Ready</span></div>
+      </div>
+
+      <!-- BVP -->
+      <div id="scon-bvp" class="scon" style="display:none;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden;">
+        <div class="sec">
+          <div class="sech">Physics Presets — BVP</div>
+          <div class="secb">
+            <div class="preset-bar">
+              <button class="preset-btn" onclick="setBVPPreset('heat')">Heat Equation</button>
+              <button class="preset-btn" onclick="setBVPPreset('poisson')">Poisson Eq.</button>
+              <button class="preset-btn" onclick="setBVPPreset('beam')">Euler Beam</button>
+              <button class="preset-btn" onclick="setBVPPreset('fin_convection')">Fin Convection</button>
+              <button class="preset-btn" onclick="setBVPPreset('couette')">Couette Flow</button>
+              <button class="preset-btn" onclick="setBVPPreset('advection_diffusion')">Advection-Diffusion</button>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech">BVP: y'' = P(x)y' + Q(x)y + R(x)</div>
+          <div class="secb">
+            <div class="fmbox" id="bvp-fmbox">\(y'' = P(x)y' + Q(x)y + R(x)\)</div>
+            <div class="fg"><label class="fl">P(x) — coeff of y'</label><input class="fi" id="bv-P" value="0"></div>
+            <div class="fg"><label class="fl">Q(x) — coeff of y</label><input class="fi" id="bv-Q" value="-1"></div>
+            <div class="fg"><label class="fl">R(x) — source</label><input class="fi" id="bv-R" value="-sin(x)"></div>
+            <div class="fg"><label class="fl">Exact y(x)</label><input class="fi" id="bv-exact" value="" placeholder="optional"></div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech">Parameters</div>
+          <div class="secb">
+            <div class="fr fg">
+              <div><label class="fl">a</label><input class="fi" id="bv-a" type="number" value="0" step="any"></div>
+              <div><label class="fl">b</label><input class="fi" id="bv-b" type="number" value="3.14159" step="any"></div>
+            </div>
+            <div class="fr fg">
+              <div><label class="fl">y(a) = α</label><input class="fi" id="bv-alpha" type="number" value="0" step="any"></div>
+              <div><label class="fl">y(b) = β</label><input class="fi" id="bv-beta" type="number" value="0" step="any"></div>
+            </div>
+            <div class="fg"><label class="fl">N mesh points</label><input class="fi" id="bv-n" type="number" value="80"></div>
+            <div class="btn-row">
+              <button class="btn btn-c" onclick="runBVP()">▶ Solve FD</button>
+              <button class="btn btn-a btn-sm" onclick="exportBVP()">⬇ .dat</button>
+            </div>
+            <div class="warn" id="bv-warn"></div>
+          </div>
+        </div>
+        <div class="sec" style="flex:1">
+          <div class="sech">Solution Table</div>
+          <div class="secb">
+            <div class="resbox" id="bv-res">
+              <div class="reslabel">y at midpoint x = (a+b)/2</div>
+              <div class="resval" id="bv-res-val">—</div>
+            </div>
+            <div class="iterwrap">
+              <div class="iterscroll">
+                <table class="itertbl">
+                  <thead><tr><th>#</th><th>x</th><th>y_FD</th><th>y_exact</th><th>|Error|</th></tr></thead>
+                  <tbody id="bv-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="statbar"><div class="sdot" id="bv-dot"></div><span id="bv-stat">Ready</span></div>
+      </div>
+
+      <!-- EIGENVALUE -->
+      <div id="scon-eigen" class="scon" style="display:none;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden;">
+        <div class="sec">
+          <div class="sech vio">Physics Presets — Eigenvalue</div>
+          <div class="secb">
+            <div class="preset-bar">
+              <button class="preset-btn" onclick="setEigenPreset('harmonic')">QM Harmonic Osc.</button>
+              <button class="preset-btn" onclick="setEigenPreset('box')">Particle in Box</button>
+              <button class="preset-btn" onclick="setEigenPreset('morse')">Morse Potential</button>
+              <button class="preset-btn" onclick="setEigenPreset('dwell')">Double Well</button>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech vio">Schrödinger: -ψ'' + V(x)ψ = Eψ</div>
+          <div class="secb">
+            <div class="fmbox" id="eigen-fmbox">\(-\psi'' + V(x)\psi = E\psi\)</div>
+            <div class="fg"><label class="fl">V(x) potential</label><input class="fi" id="eg-V" value="x^2/2"></div>
+            <div class="fr fg">
+              <div><label class="fl">E min</label><input class="fi" id="eg-emin" type="number" value="0" step="any"></div>
+              <div><label class="fl">E max</label><input class="fi" id="eg-emax" type="number" value="8" step="any"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech vio">Parameters</div>
+          <div class="secb">
+            <div class="fr fg">
+              <div><label class="fl">Domain a</label><input class="fi" id="eg-a" type="number" value="-6" step="any"></div>
+              <div><label class="fl">Domain b</label><input class="fi" id="eg-b" type="number" value="6" step="any"></div>
+            </div>
+            <div class="fr fg">
+              <div><label class="fl">N steps</label><input class="fi" id="eg-n" type="number" value="1200"></div>
+              <div><label class="fl">Modes n</label><input class="fi" id="eg-modes" type="number" value="4" min="1" max="6"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-c btn-blk" onclick="runEigen()">▶ Find Eigenvalues</button>
+            </div>
+            <div class="warn" id="eg-warn"></div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="sech vio">Eigenvalues</div>
+          <div class="secb"><div id="eigen-list"></div></div>
+        </div>
+        <div class="sec" style="flex:1">
+          <div class="sech vio">Eigenvalue Table</div>
+          <div class="secb">
+            <div class="iterwrap">
+              <div class="iterscroll">
+                <table class="itertbl vio-hdr">
+                  <thead><tr><th>n</th><th>\(E_n\) (Numerov)</th><th>\(\Delta E_n\)</th><th>\(E_{n+1}/E_n\)</th></tr></thead>
+                  <tbody id="eg-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="statbar"><div class="sdot" id="eg-dot"></div><span id="eg-stat">Ready</span></div>
+      </div>
+    </div>
+
+    <div class="canvas">
+      <div class="plotgrid g_ode">
+        <div class="pbox span2"><div class="pin" id="plt-ode-main"></div></div>
+        <div class="pbox"><div class="pin" id="plt-ode-err"></div></div>
+        <div class="pbox"><div class="pin" id="plt-ode-aux"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEORY -->
+  <div id="pane-theory" class="pane">
+    <div class="theory-wrap" style="overflow-y:auto;width:100%;">
+      <div class="theory-header">
+        <h1>Theory Reference</h1>
+        <p>Mathematical foundations, convergence orders, and error analysis for all implemented methods</p>
+      </div>
+      <div class="theory-grid">
+        <div class="th-card">
+          <div class="th-title"><span>⌀ Root Finding</span><span class="badge">CHAPTER 1</span></div>
+          <p class="th-text">Given \(f(x)\), find \(x^*\) such that \(f(x^*) = 0\).</p>
+          <hr class="th-sep">
+          <p class="th-text"><b>Bisection Method</b></p>
+          <div class="th-eq">\[c_n = \frac{a_n + b_n}{2}, \quad e_n \le \frac{b-a}{2^n}\]</div>
+          <div class="th-row">
+            <div class="th-chip"><div class="th-chip-label">Convergence</div><div class="th-chip-val">Linear \(O(1/2^n)\)</div></div>
+            <div class="th-chip"><div class="th-chip-label">Derivative needed</div><div class="th-chip-val">No</div></div>
+          </div>
+          <hr class="th-sep">
+          <p class="th-text"><b>Newton-Raphson</b></p>
+          <div class="th-eq">\[x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}\]</div>
+          <div class="th-row">
+            <div class="th-chip"><div class="th-chip-label">Convergence</div><div class="th-chip-val">Quadratic \(O(e_n^2)\)</div></div>
+          </div>
+          <hr class="th-sep">
+          <p class="th-text"><b>Secant Method</b></p>
+          <div class="th-eq">\[x_{n+1} = x_n - f(x_n)\frac{x_n - x_{n-1}}{f(x_n)-f(x_{n-1})}\]</div>
+          <p class="th-text">Superlinear convergence \(p=\phi\approx 1.618\).</p>
+        </div>
+        <div class="th-card">
+          <div class="th-title"><span>∂ Finite Differences</span><span class="badge th-badge-a">CHAPTER 2</span></div>
+          <div class="th-eq">\[f'_{cen}(x) = \frac{f(x+h)-f(x-h)}{2h} + O(h^2)\]</div>
+          <div class="th-eq">\[f''_{cen}(x) = \frac{f(x+h)-2f(x)+f(x-h)}{h^2} + O(h^2)\]</div>
+          <table class="order-table">
+            <tr><th>Method</th><th>Points</th><th>Order</th></tr>
+            <tr><td>Forward/Backward</td><td>2</td><td class="lo">\(O(h)\)</td></tr>
+            <tr><td>Central 1st</td><td>2</td><td class="med">\(O(h^2)\)</td></tr>
+            <tr><td>Central 2nd</td><td>3</td><td class="med">\(O(h^2)\)</td></tr>
+          </table>
+        </div>
+        <div class="th-card">
+          <div class="th-title"><span>∫ Quadrature</span><span class="badge th-badge-g">CHAPTER 3</span></div>
+          <div class="th-eq">\[T_n = \tfrac{h}{2}\!\left[f_0+2\sum_{i=1}^{n-1}f_i+f_n\right],\;E_T=O(h^2)\]</div>
+          <div class="th-eq">\[S_n = \tfrac{h}{3}\!\left[f_0+4f_1+2f_2+\cdots+f_n\right],\;E_S=O(h^4)\]</div>
+          <table class="order-table">
+            <tr><th>Rule</th><th>Error</th></tr>
+            <tr><td>Trapezoidal</td><td class="lo">\(O(h^2)\)</td></tr>
+            <tr><td>Simpson's 1/3</td><td class="hi">\(O(h^4)\)</td></tr>
+            <tr><td>Romberg</td><td class="hi">\(O(h^{2k+2})\)</td></tr>
+          </table>
+        </div>
+        <div class="th-card">
+          <div class="th-title"><span>⇌ 1st-Order IVP</span><span class="badge th-badge-v">CHAPTER 4</span></div>
+          <p class="th-text"><b>Forward Euler</b></p>
+          <div class="th-eq">\[y_{n+1} = y_n + h\,f(t_n,y_n)\]</div>
+          <div class="th-row"><div class="th-chip"><div class="th-chip-label">Global error</div><div class="th-chip-val">\(O(h)\) — 1st order</div></div></div>
+          <hr class="th-sep">
+          <p class="th-text"><b>RK4</b></p>
+          <div class="th-eq">\[y_{n+1}=y_n+\tfrac{1}{6}(k_1+2k_2+2k_3+k_4)\]</div>
+          <div class="th-row"><div class="th-chip"><div class="th-chip-label">Global error</div><div class="th-chip-val">\(O(h^4)\) — 4th order</div></div></div>
+        </div>
+        <div class="th-card">
+          <div class="th-title"><span>⇌ BVP / Eigenvalue</span><span class="badge th-badge-v">CHAPTER 5</span></div>
+          <p class="th-text">BVP finite difference: tridiagonal system, error \(O(h^2)\).</p>
+          <div class="th-eq">\[\frac{y_{i-1}-2y_i+y_{i+1}}{h^2}=P_iy_i'+Q_iy_i+R_i\]</div>
+          <hr class="th-sep">
+          <p class="th-text"><b>Numerov method</b> for eigenvalue problems:</p>
+          <div class="th-eq">\[\psi_{n+1}=\frac{2\psi_n(1-\tfrac{5h^2}{12}g_n)-\psi_{n-1}(1+\tfrac{h^2}{12}g_{n-1})}{1+\tfrac{h^2}{12}g_{n+1}}\]</div>
+          <div class="th-row">
+            <div class="th-chip"><div class="th-chip-label">BVP error</div><div class="th-chip-val">\(O(h^2)\)</div></div>
+            <div class="th-chip"><div class="th-chip-label">Numerov error</div><div class="th-chip-val">\(O(h^4)\)</div></div>
+          </div>
+        </div>
+        <div class="th-card">
+          <div class="th-title"><span>📊 Convergence Summary</span><span class="badge th-badge-r">REFERENCE</span></div>
+          <table class="order-table">
+            <tr><th>Method</th><th>Rate</th><th>p</th></tr>
+            <tr><td>Bisection</td><td>Linear</td><td class="lo">1.0</td></tr>
+            <tr><td>Newton-Raphson</td><td>Quadratic</td><td class="hi">2.0</td></tr>
+            <tr><td>Secant</td><td>Superlinear</td><td class="med">1.618</td></tr>
+            <tr><td>Trapezoidal</td><td>Quadratic in n</td><td class="lo">2</td></tr>
+            <tr><td>Simpson's</td><td>Quartic in n</td><td class="hi">4</td></tr>
+            <tr><td>Euler (IVP)</td><td>Linear in h</td><td class="lo">1</td></tr>
+            <tr><td>RK4 (IVP)</td><td>Quartic in h</td><td class="hi">4</td></tr>
+            <tr><td>Numerov</td><td>Quartic in h</td><td class="hi">4</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════
+//  THEME + MATHJAX HELPERS
+// ════════════════════════════════════════════════════════
+const PALS={
+  night:{paper:'#0b1120',plot:'#0e1629',grid:'#22345a',zero:'#3a5086',text:'#d9e7f7',font2:'#a8c0dd',func:'#d4e4f6',
+         c:'#2fd6ff',a:'#ffc83d',g:'#2eeaa8',r:'#ff6b86',v:'#c4a2ff',p:'#ff80d0',hover:'#16203d'},
+  day:  {paper:'#ffffff',plot:'#f6f9fd',grid:'#d9e2ee',zero:'#9fb0c6',text:'#17222e',font2:'#3b4d62',func:'#1b2b3d',
+         c:'#0a62b8',a:'#b06800',g:'#0b8a5a',r:'#d02a4c',v:'#6f3fd0',p:'#c2188a',hover:'#ffffff'}
+};
+let theme=document.documentElement.getAttribute('data-theme')==='day'?'day':'night';
+let PAL=PALS[theme];
+function hexA(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`;}
+
+const pendingTypeset=new Set();let typesetScheduled=false,mjQueue=Promise.resolve();
+function flushTypeset(){
+  typesetScheduled=false;
+  if(!window.__mjReady||!window.MathJax||!MathJax.typesetPromise)return;
+  const els=Array.from(pendingTypeset);pendingTypeset.clear();
+  if(!els.length)return;
+  mjQueue=mjQueue.then(()=>MathJax.typesetPromise(els)).catch(()=>{});
+}
+function typeset(el){
+  if(!el)return;
+  pendingTypeset.add(el);
+  if(!typesetScheduled){typesetScheduled=true;requestAnimationFrame(flushTypeset);}
+}
+function setFormula(id,latex){
+  const el=document.getElementById(id); if(!el)return;
+  try{if(window.MathJax&&MathJax.typesetClear)MathJax.typesetClear([el]);}catch(_){}
+  el.innerHTML='\\('+latex+'\\)'; typeset(el);
+}
+// plain expression -> LaTeX (for display only)
+function exprToTeX(s){
+  return s.replace(/\*\*/g,'^').replace(/\^\(([^()]*)\)/g,'^{$1}')
+    .replace(/\b(sin|cos|tan|sinh|cosh|tanh|exp|log)\b/g,'\\$1')
+    .replace(/\bpi\b/g,'\\pi').replace(/\*/g,'\\cdot ');
+}
+
+// ════════════════════════════════════════════════════════
+//  UTILITY
+// ════════════════════════════════════════════════════════
+function plotlyReady(){ return typeof Plotly !== 'undefined'; }
+function processExpr(expr){
+  return expr.trim()
+    .replace(/\^/g,'**')
+    .replace(/\bpi\b/gi,'Math.PI')
+    .replace(/\be\b(?![a-zA-Z0-9_])/g,'Math.E')
+    .replace(/\b(sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|exp|log|log2|log10|sqrt|abs|ceil|floor|round|sign|pow|hypot|min|max|cbrt)\b/g,'Math.$1')
+    .replace(/(?<![a-zA-Z0-9_$])-([a-zA-Z_$][\w$]*)\*\*(\d[\d.]*)/g, '-($1**$2)');
+}
+const MATH_HEADER = `"use strict";
+const {sin,cos,tan,asin,acos,atan,atan2,sinh,cosh,tanh,exp,log,log2,log10,
+       sqrt,abs,ceil,floor,round,sign,pow,hypot,min,max,cbrt,PI,E}=Math;
+const pi=Math.PI;`;
+
+// ════════════════════════════════════════════════════════
+//  PARAMETER SLIDERS SYSTEM
+// ════════════════════════════════════════════════════════
+let paramSliders = [
+  {name:'k', val:1.0,  min:0,   max:5,   step:0.05},
+  {name:'z', val:0.1,  min:0,   max:2,   step:0.01},
+  {name:'A', val:1.0,  min:0,   max:10,  step:0.1 },
+  {name:'w', val:2.0,  min:0,   max:10,  step:0.1 },
+];
+
+const PARAM_TEMPLATES = {
+  damped: {
+    params:[{name:'k', val:4,   min:0, max:20,  step:0.1},{name:'z', val:0.3, min:0, max:2,   step:0.01}],
+    expr1:'-z*y', expr2:'-z*v - k*y', label:'Damped Oscillator: -ζy\' - ky',
+  },
+  forced: {
+    params:[{name:'k', val:9,    min:0, max:25,  step:0.5},{name:'z', val:0.2,  min:0, max:2,   step:0.01},
+            {name:'A', val:1.0,  min:0, max:5,   step:0.1},{name:'w', val:3.0,  min:0, max:10,  step:0.1}],
+    expr1:'-z*y + A*cos(w*t)', expr2:'-z*v - k*y + A*cos(w*t)', label:'Forced: -ζy\' - ky + A·cos(ωt)',
+  },
+  decay: {
+    params:[{name:'k', val:0.3, min:0, max:3,  step:0.01},{name:'A', val:100, min:0, max:500, step:1}],
+    expr1:'-k*y', expr2:'-k*v - k*y', label:'Exponential Decay: y\'=-ky',
+  },
+  growth: {
+    params:[{name:'r', val:0.5, min:0,  max:3,   step:0.01},{name:'K', val:100, min:10, max:1000, step:5}],
+    expr1:'r*y*(1 - y/K)', expr2:'r*v', label:'Logistic: y\'=ry(1-y/K)',
+  },
+  van: {
+    params:[{name:'m', val:1.0, min:0.1, max:5,  step:0.1},{name:'A', val:0.5, min:0,   max:5,  step:0.1},{name:'w', val:1.0, min:0.5, max:5,  step:0.1}],
+    expr1:'m*(1-y*y)*y', expr2:'m*(1-y*y)*v - y + A*cos(w*t)', label:'Van der Pol: μ(1-y²)y\'-y+Acos(ωt)',
+  },
+};
+
+let paramDebounce = null;
+let previewDebounce = null;
+
+function getParamPreamble(){
+  return paramSliders.map(p=>`const ${p.name}=${p.val};`).join('');
+}
+function fmtP(v){
+  if(v===0) return '0';
+  if(Math.abs(v)>=1000||Math.abs(v)<0.001&&v!==0) return v.toExponential(2);
+  return parseFloat(v.toFixed(4)).toString();
+}
+
+function renderParamSliders(){
+  const container = document.getElementById('param-rows-container');
+  if(!container) return;
+  container.innerHTML = '';
+  paramSliders.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'param-row';
+    row.id = 'pr-'+i;
+    const val = Math.max(p.min, Math.min(p.max, p.val));
+    paramSliders[i].val = val;
+    row.innerHTML = `
+      <input class="param-name" value="${p.name}" maxlength="8" title="Parameter name"
+        onchange="paramSliders[${i}].name=this.value.replace(/[^a-zA-Z_$][^\\w$]*/g,'').slice(0,8)||'p${i}';renderParamSliders();scheduleParamPreview();">
+      <input class="param-limit" type="number" value="${p.min}" step="any" title="Minimum"
+        onchange="paramSliders[${i}].min=+this.value;paramSliders[${i}].val=Math.max(+this.value,paramSliders[${i}].val);renderParamSliders();">
+      <input type="range" class="pslider" min="${p.min}" max="${p.max}" step="${p.step}" value="${val}"
+        oninput="onParamSlide(${i}, +this.value)">
+      <input class="param-limit" type="number" value="${p.max}" step="any" title="Maximum"
+        onchange="paramSliders[${i}].max=+this.value;paramSliders[${i}].val=Math.min(+this.value,paramSliders[${i}].val);renderParamSliders();">
+      <span class="param-val-badge" id="pv-${i}">${fmtP(val)}</span>
+      <button class="param-rm" onclick="removeParamSlider(${i})" title="Remove parameter">×</button>
+    `;
+    container.appendChild(row);
+  });
+  scheduleParamPreview();
+}
+
+function onParamSlide(i, v){
+  paramSliders[i].val = v;
+  const badge = document.getElementById('pv-'+i);
+  if(badge) badge.textContent = fmtP(v);
+  const row = document.getElementById('pr-'+i);
+  if(row){ row.classList.remove('live'); void row.offsetWidth; row.classList.add('live'); }
+  scheduleParamPreview();
+  scheduleIVPRun();
+}
+function addParamSlider(){
+  const reserved = ['t','y','v','x'];
+  const common = ['k','z','A','w','m','b','c','r','F','n','p','q'];
+  const used = paramSliders.map(p=>p.name);
+  const next = common.find(n=>!used.includes(n)&&!reserved.includes(n)) || 'p'+paramSliders.length;
+  paramSliders.push({name:next, val:1.0, min:0, max:10, step:0.1});
+  renderParamSliders();
+}
+function removeParamSlider(i){
+  paramSliders.splice(i,1);
+  renderParamSliders();
+  scheduleIVPRun();
+}
+function resetParamSliders(){
+  paramSliders = [
+    {name:'k', val:1.0,  min:0,   max:5,   step:0.05},
+    {name:'z', val:0.1,  min:0,   max:2,   step:0.01},
+    {name:'A', val:1.0,  min:0,   max:10,  step:0.1 },
+    {name:'w', val:2.0,  min:0,   max:10,  step:0.1 },
+  ];
+  renderParamSliders();
+  scheduleIVPRun();
+}
+function loadParamTemplate(key){
+  const t = PARAM_TEMPLATES[key]; if(!t) return;
+  paramSliders = t.params.map(p=>({...p}));
+  renderParamSliders();
+  if(ivpOrder===1){ document.getElementById('iv-fty').value = t.expr1; }
+  else { document.getElementById('iv-g2').value = t.expr2; }
+  scheduleParamPreview();
+  scheduleIVPRun();
+}
+function scheduleIVPRun(){
+  if(paramDebounce) clearTimeout(paramDebounce);
+  paramDebounce = setTimeout(()=>{ try{runIVP();}catch(e){} }, 80);
+}
+function scheduleParamPreview(){
+  if(previewDebounce) clearTimeout(previewDebounce);
+  previewDebounce = setTimeout(updateParamPreview, 40);
+}
+function updateParamPreview(){
+  const box = document.getElementById('param-preview-expr');
+  if(!box) return;
+  const expr = ivpOrder===1
+    ? (document.getElementById('iv-fty')?.value||'')
+    : (document.getElementById('iv-g2')?.value||'');
+  if(!expr){box.textContent='—';return;}
+  let preview = expr;
+  const sorted = [...paramSliders].sort((a,b)=>b.name.length-a.name.length);
+  sorted.forEach(p=>{
+    const re = new RegExp(`\\b${p.name}\\b`,'g');
+    preview = preview.replace(re, `<span style="color:var(--pink);font-weight:700">${fmtP(p.val)}</span>`);
+  });
+  box.innerHTML = preview;
+}
+
+// ════════════════════════════════════════════════════════
+//  CORE UTILITIES (CONTINUED)
+// ════════════════════════════════════════════════════════
+function makeFn(expr){
+  if(!expr||!expr.trim()) return null;
+  const e=processExpr(expr);
+  const fn=new Function('x','t','y',MATH_HEADER+getParamPreamble()+`\nreturn +(${e});`);
+  fn(0,0,0); return fn;
+}
+function makeODE1Fn(expr){
+  const e=processExpr(expr);
+  const fn=new Function('t','y',MATH_HEADER+getParamPreamble()+`\nreturn +(${e});`);
+  fn(0,1); return fn;
+}
+function makeODE2Fn(expr){
+  const e=processExpr(expr);
+  const fn=new Function('t','y','v',MATH_HEADER+getParamPreamble()+`\nreturn +(${e});`);
+  fn(0,1,0); return fn;
+}
+function makeExactFn(expr){
+  if(!expr||!expr.trim()) return null;
+  const e=processExpr(expr);
+  const fn=new Function('t',MATH_HEADER+getParamPreamble()+`\nreturn +(${e});`);
+  fn(0); return fn;
+}
+function makeBVPFn(expr){
+  if(!expr||!expr.trim()) return x=>0;
+  const e=processExpr(expr);
+  const fn=new Function('x','t','y',MATH_HEADER+`\nreturn +(${e});`);
+  fn(0,0,0); return fn;
+}
+function linspace(a,b,n){
+  const arr=[],step=(b-a)/(n-1);
+  for(let i=0;i<n;i++) arr.push(a+i*step);
+  return arr;
+}
+function fmt(v,d=8){
+  if(v===null||v===undefined||isNaN(v)) return 'NaN';
+  if(!isFinite(v)) return v>0?'+∞':'-∞';
+  if(Math.abs(v)<1e-4||Math.abs(v)>1e5) return v.toExponential(4);
+  return parseFloat(v.toFixed(d)).toString();
+}
+function showEl(id,msg){const el=document.getElementById(id);if(el){el.style.display='block';el.textContent='⚠  '+msg;el.className='warn';}}
+function hideEl(id){const el=document.getElementById(id);if(el)el.style.display='none';}
+function setStat(prefix,state,text){
+  const dot=document.getElementById(prefix+'-dot');
+  const txt=document.getElementById(prefix+'-stat');
+  if(dot)dot.className='sdot '+(state||'');
+  if(txt)txt.textContent=text;
+}
+function downloadDat(name,headerLines,colNames,rows){
+  const lines=[
+    '# NumeriSim Export — '+new Date().toISOString(),
+    ...headerLines.map(l=>'# '+l),
+    '# '+colNames.join('\t')
+  ];
+  for(const r of rows) lines.push(r.map(v=>typeof v==='number'?v.toExponential(12):String(v)).join('\t'));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain'}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// Plotly layout (theme-aware); extra.xaxis / extra.yaxis are MERGED into the base axes
+function DL(title,xl,yl,extra){
+  extra=extra||{};
+  const ax=(t)=>({title:{text:t,font:{size:12,color:PAL.font2}},gridcolor:PAL.grid,linecolor:PAL.zero,zerolinecolor:PAL.zero,
+                  tickfont:{size:11,color:PAL.font2},showgrid:true});
+  const base={
+    title:{text:title,font:{family:'Inter, sans-serif',size:14,color:PAL.text},x:0.04},
+    paper_bgcolor:PAL.paper,plot_bgcolor:PAL.plot,
+    font:{family:'JetBrains Mono, monospace',color:PAL.font2,size:11},
+    xaxis:Object.assign(ax(xl),extra.xaxis||{}),
+    yaxis:Object.assign(ax(yl),extra.yaxis||{}),
+    legend:{bgcolor:hexA(PAL.paper,.85),bordercolor:PAL.grid,borderwidth:1,font:{size:11,color:PAL.text}},
+    margin:{l:62,r:18,t:40,b:48},
+    hovermode:'closest',
+    hoverlabel:{bgcolor:PAL.hover,bordercolor:PAL.zero,font:{family:'JetBrains Mono, monospace',size:11,color:PAL.text}},
+  };
+  Object.keys(extra).forEach(k=>{if(k!=='xaxis'&&k!=='yaxis')base[k]=extra[k];});
+  return base;
+}
+const PC={displayModeBar:true,displaylogo:false,responsive:true,modeBarButtonsToRemove:['lasso2d','select2d','toImage']};
+function plot(id,traces,layout){
+  if(!plotlyReady())return;
+  const el=document.getElementById(id); if(!el)return;
+  try{Plotly.react(id,traces,layout,PC);}catch(e){console.error(e);}
+}
+function ST(name,btn){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tnb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+  btn.classList.add('on');
+  setTimeout(()=>window.dispatchEvent(new Event('resize')),60);
+  if(name==='theory')typeset(document.getElementById('pane-theory'));
+}
+
+// theme switch: restyle page and redraw every plot with the new palette
+let derivConvDrawn=false;
+function setTheme(t){
+  theme=t==='day'?'day':'night'; PAL=PALS[theme];
+  document.documentElement.setAttribute('data-theme',theme);
+  try{localStorage.setItem('numerisim-theme',theme);}catch(_){}
+  document.getElementById('btn-night').classList.toggle('active',theme==='night');
+  document.getElementById('btn-day').classList.toggle('active',theme==='day');
+  if(!plotlyReady())return;
+  try{stopAnim();}catch(e){}
+  try{runRoots();}catch(e){}
+  try{runDeriv();}catch(e){}
+  try{if(derivConvDrawn)runDerivConv();}catch(e){}
+  try{runInteg();runIntegConv();}catch(e){}
+  try{
+    if(currentODETab==='bvp'&&bvpData)runBVP();
+    else if(currentODETab==='eigen'&&eigenData)runEigen();
+    else runIVP();
+  }catch(e){}
+}
+
+// ════════════════════════════════════════════════════════
+//  ROOT FINDING
+// ════════════════════════════════════════════════════════
+const ROOT_PRESETS={
+  kepler:{fx:"x - 0.6*sin(x) - 0.8",dfx:"1 - 0.6*cos(x)",a:"0",b:"2",x0:"1.0",xmin:"-0.5",xmax:"3",formula:"x - e\\sin(x) = M"},
+  lj:{fx:"4*(x^(-12)-x^(-6))+1",dfx:"4*(-12*x^(-13)+6*x^(-7))",a:"0.9",b:"1.5",x0:"1.1",xmin:"0.8",xmax:"2.5",formula:"4\\varepsilon[(\\sigma/r)^{12}-(\\sigma/r)^{6}]=0"},
+  dispersion:{fx:"x*sin(x)-cos(x)",dfx:"sin(x)+x*cos(x)+sin(x)",a:"0.5",b:"1.5",x0:"0.9",xmin:"-1",xmax:"5",formula:"x\\tan(x)=1"},
+  fermi:{fx:"x^3 - 3*x - 1",dfx:"3*x^2 - 3",a:"1.5",b:"2.5",x0:"2",xmin:"-3",xmax:"3",formula:"x^3 - 3x - 1 = 0"},
+  poly:{fx:"x^3-x-2",dfx:"3*x^2-1",a:"1",b:"2",x0:"1.5",xmin:"-2",xmax:"3",formula:"x^3 - x - 2 = 0"},
+  trig:{fx:"cos(x)-x",dfx:"-sin(x)-1",a:"0",b:"1",x0:"0.7",xmin:"-0.5",xmax:"2",formula:"\\cos(x) - x = 0"},
+  wien:{fx:"x - 5 + 5*exp(-x)",dfx:"1 - 5*exp(-x)",a:"4",b:"6",x0:"5",xmin:"3",xmax:"7",formula:"x-5+5e^{-x}=0"},
+  thermal:{fx:"0.1*x^4 + x - 1.5",dfx:"0.4*x^3 + 1",a:"1.0",b:"1.5",x0:"1.25",xmin:"0.5",xmax:"2.0",formula:"0.1x^4+x=1.5"},
+  mach:{fx:"(1+0.2*x^2)^3/(1.728*x) - 1.5",dfx:"(1+0.2*x^2)^2*(x^2-1)/(1.728*x^2)",a:"1.5",b:"2.5",x0:"2.0",xmin:"1.0",xmax:"3.0",formula:"\\frac{(1+0.2M^2)^3}{1.728M}=1.5"},
+  colebrook:{fx:"1/x + 2*log10(2.51/(10000*x))",dfx:"-1/x^2 - 2/(x*log(10))",a:"0.10",b:"0.30",x0:"0.18",xmin:"0.08",xmax:"0.35",formula:"\\text{Colebrook–White}"},
+  vdw:{fx:"x^3 - 2.505*x^2 + 0.364*x - 0.01553",dfx:"3*x^2 - 5.01*x + 0.364",a:"2.2",b:"2.5",x0:"2.35",xmin:"2.0",xmax:"2.7",formula:"\\text{Van der Waals, CO}_2"},
+  squarewell:{fx:"x*tan(x) - sqrt(10 - x^2)",dfx:"tan(x) + x/cos(x)^2 + x/sqrt(10-x^2)",a:"0.5",b:"1.45",x0:"1.2",xmin:"0.0",xmax:"1.6",formula:"k\\tan k=\\sqrt{10-k^2}"},
+  lambertw:{fx:"x*exp(x) - 1",dfx:"(1+x)*exp(x)",a:"0.3",b:"0.9",x0:"0.5",xmin:"0.0",xmax:"1.5",formula:"xe^x = 1"},
+  brewster:{fx:"sin(x) - 1.5*cos(x)",dfx:"cos(x) + 1.5*sin(x)",a:"0.7",b:"1.2",x0:"1.0",xmin:"0.0",xmax:"1.57",formula:"\\tan\\theta_B = n = 1.5"},
+  diffraction:{fx:"tan(x) - x",dfx:"1/cos(x)^2 - 1",a:"4.0",b:"4.9",x0:"4.5",xmin:"3.8",xmax:"5.0",formula:"\\tan\\alpha=\\alpha"},
+  transient:{fx:"x*tan(x) - 2",dfx:"tan(x) + x/cos(x)^2",a:"0.5",b:"1.4",x0:"1.1",xmin:"0.0",xmax:"1.5",formula:"x\\tan x = \\mathrm{Bi} = 2"}
+};
+
+function setRootPreset(key,ev){
+  const p=ROOT_PRESETS[key]; if(!p)return;
+  document.getElementById('r-fx').value=p.fx;
+  document.getElementById('r-dfx').value=p.dfx||'';
+  document.getElementById('r-a').value=p.a;
+  document.getElementById('r-b').value=p.b;
+  document.getElementById('r-x0').value=p.x0;
+  document.getElementById('r-xmin').value=p.xmin;
+  document.getElementById('r-xmax').value=p.xmax;
+  document.querySelectorAll('#roots-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  if(ev)ev.currentTarget.classList.add('active');
+  setFormula('roots-fmbox',p.formula||'f(x)='+exprToTeX(p.fx));
+  runRoots();
+}
+
+function bisection(f,a,b,tol,maxI){
+  const its=[]; let fa=f(a,0,0);
+  if(fa*f(b,0,0)>0) throw new Error('f(a)·f(b) > 0: no sign change.');
+  for(let i=1;i<=maxI;i++){
+    const c=(a+b)/2,fc=f(c,0,0),err=(b-a)/2;
+    its.push({iter:i,x:c,fx:fc,error:err});
+    if(Math.abs(fc)<1e-15||err<tol)break;
+    fa*fc<0?(b=c):(a=c,fa=fc);
+  }
+  return its;
+}
+function cenD(f,x,h){return (f(x+h,0,0)-f(x-h,0,0))/(2*h);}
+function newton(f,df,x0,tol,maxI){
+  const its=[]; let x=x0;
+  for(let i=1;i<=maxI;i++){
+    const fx=f(x,0,0),dfx=df?df(x,0,0):cenD(f,x,1e-7);
+    if(Math.abs(dfx)<1e-15)throw new Error('Derivative ≈ 0.');
+    const xn=x-fx/dfx,err=Math.abs(xn-x);
+    if(!isFinite(xn))throw new Error('Divergence at iter '+i+'.');
+    its.push({iter:i,x:xn,fx:f(xn,0,0),error:err});
+    if(err<tol)break;
+    x=xn;
+  }
+  return its;
+}
+function secant(f,x0,x1,tol,maxI){
+  const its=[];
+  for(let i=1;i<=maxI;i++){
+    const f0=f(x0,0,0),f1=f(x1,0,0),d=f1-f0;
+    if(Math.abs(d)<1e-15)throw new Error('f(x₁)-f(x₀) ≈ 0.');
+    const x2=x1-f1*(x1-x0)/d,err=Math.abs(x2-x1);
+    if(!isFinite(x2))throw new Error('Divergence.');
+    its.push({iter:i,x:x2,fx:f(x2,0,0),error:err});
+    if(err<tol)break;
+    x0=x1; x1=x2;
+  }
+  return its;
+}
+
+let rootMethods={bisection:true,newton:true,secant:true};
+function toggleRootMethod(btn){const m=btn.dataset.m;rootMethods[m]=!rootMethods[m];btn.classList.toggle('on');}
+let rootResults={},animTimer=null,animIdx=0;
+
+function rootColors(){return {bisection:PAL.c,newton:PAL.a,secant:PAL.g};}
+
+function runRoots(){
+  hideEl('r-warn'); setStat('r','run','Computing…');
+  try{
+    const fx=document.getElementById('r-fx').value;
+    const dfx=document.getElementById('r-dfx').value;
+    const a=parseFloat(document.getElementById('r-a').value);
+    const b=parseFloat(document.getElementById('r-b').value);
+    const x0=parseFloat(document.getElementById('r-x0').value);
+    const tol=parseFloat(document.getElementById('r-tol').value);
+    const maxI=parseInt(document.getElementById('r-max').value);
+    const xmin=parseFloat(document.getElementById('r-xmin').value);
+    const xmax=parseFloat(document.getElementById('r-xmax').value);
+    const f=makeFn(fx),df=dfx?makeFn(dfx):null;
+    rootResults={}; const errors={};
+    if(rootMethods.bisection){try{rootResults.bisection=bisection(f,a,b,tol,maxI);}catch(e){errors.bisection=e.message;}}
+    if(rootMethods.newton){try{rootResults.newton=newton(f,df,x0,tol,maxI);}catch(e){errors.newton=e.message;}}
+    if(rootMethods.secant){try{rootResults.secant=secant(f,x0<b?x0:a,x0<b?Math.min(x0+0.5,b):b,tol,maxI);}catch(e){errors.secant=e.message;}}
+    const successes=Object.keys(rootResults);
+    if(!successes.length){showEl('r-warn',Object.values(errors).join(' | '));setStat('r','err','All methods failed');return;}
+    buildRootCompare(rootResults);
+    const logKey=rootResults.bisection?'bisection':successes[0];
+    populateRootTable(rootResults[logKey],-1);
+    const bestIts=rootResults[logKey],root=bestIts[bestIts.length-1].x;
+    const rr=document.getElementById('r-res');rr.style.display='block';
+    document.getElementById('r-res-val').textContent=fmt(root)+' ('+bestIts.length+' iters)';
+    plotRoots(f,rootResults,xmin,xmax,-1);
+    if(Object.keys(errors).length)showEl('r-warn',Object.entries(errors).map(([k,v])=>k+': '+v).join(' | '));
+    else setStat('r','ok','Done — '+successes.join(', ')+' converged');
+  }catch(e){setStat('r','err',e.message);showEl('r-warn',e.message);}
+}
+function buildRootCompare(res){
+  const el=document.getElementById('roots-compare');
+  const colors=rootColors();
+  const names={bisection:'Bisection',newton:'Newton-Raphson',secant:'Secant'};
+  let best=null,bestIter=Infinity;
+  Object.entries(res).forEach(([k,its])=>{if(its.length<bestIter){bestIter=its.length;best=k;}});
+  el.innerHTML=`<div class="compare-chip"><div class="cc-head">Iterations to Convergence</div>`+
+    Object.entries(res).map(([k,its])=>{const r=its[its.length-1];return`<div class="cc-row"><span class="cc-method" style="color:${colors[k]}">${names[k]}</span><span class="${k===best?'cc-best':'cc-val'}">${its.length} iters → x=${fmt(r.x,6)}</span></div>`;}).join('')+'</div>';
+}
+function populateRootTable(its,hlIdx){
+  const tb=document.getElementById('r-tbody');tb.innerHTML='';
+  its.forEach((it,i)=>{
+    const tr=document.createElement('tr');
+    if(i===hlIdx)tr.classList.add('hl');
+    tr.innerHTML=`<td>${it.iter}</td><td>${fmt(it.x,8)}</td><td>${fmt(it.fx,6)}</td><td>${fmt(it.error,6)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function plotRoots(f,res,xmin,xmax,animIdx){
+  if(!plotlyReady())return;
+  const xs=linspace(xmin,xmax,600);
+  const ys=xs.map(x=>{try{return f(x,0,0);}catch{return NaN;}});
+  const colors=rootColors();
+  const dashes={bisection:'solid',newton:'dot',secant:'dash'};
+  const traces=[
+    {x:xs,y:ys,name:'f(x)',type:'scatter',mode:'lines',line:{color:PAL.func,width:2}},
+    {x:[xmin,xmax],y:[0,0],mode:'lines',line:{color:PAL.zero,dash:'dash',width:1},showlegend:false}
+  ];
+  Object.entries(res).forEach(([m,its])=>{
+    const show=animIdx>=0?its.slice(0,animIdx+1):its;
+    if(!show.length)return;
+    traces.push({x:show.map(it=>it.x),y:show.map(it=>it.fx),name:m,mode:'markers',marker:{color:colors[m],size:8},type:'scatter'});
+    const last=show[show.length-1];
+    traces.push({x:[last.x],y:[last.fx],mode:'markers',marker:{color:colors[m],size:14,symbol:'star'},showlegend:false,type:'scatter'});
+  });
+  plot('plt-r-func',traces,DL('f(x) — Root Convergence','x','f(x)'));
+  const t2=[];
+  Object.entries(res).forEach(([m,its])=>{
+    const show=animIdx>=0?its.slice(0,animIdx+1):its;
+    if(show.length<2)return;
+    t2.push({x:show.map(it=>it.iter),y:show.map(it=>it.x),name:m,mode:'lines+markers',line:{color:colors[m],width:2,dash:dashes[m]},marker:{size:5}});
+  });
+  if(t2.length)plot('plt-r-conv',t2,DL('Convergence of xₙ','Iteration','xₙ'));
+  const t3=[];
+  Object.entries(res).forEach(([m,its])=>{
+    const show=animIdx>=0?its.slice(0,animIdx+1):its;
+    if(show.length<2)return;
+    t3.push({x:show.map(it=>it.iter),y:show.map(it=>Math.max(it.error,1e-18)),name:m+' error',mode:'lines+markers',line:{color:colors[m],width:2,dash:dashes[m]},marker:{size:5}});
+  });
+  if(t3.length)plot('plt-r-err',t3,DL('Error vs Iteration (log)','Iteration','|eₙ|',{yaxis:{type:'log'}}));
+}
+function animRoots(){
+  if(!Object.keys(rootResults).length){runRoots();return;}
+  stopAnim(); animIdx=0;
+  const kepler=Object.entries(rootResults);
+  const maxL=Math.max(...kepler.map(([,its])=>its.length));
+  const f=makeFn(document.getElementById('r-fx').value);
+  const xmin=parseFloat(document.getElementById('r-xmin').value);
+  const xmax=parseFloat(document.getElementById('r-xmax').value);
+  setStat('r','run','Animating…');
+  animTimer=setInterval(()=>{
+    if(animIdx>=maxL){stopAnim();return;}
+    const snap={};
+    kepler.forEach(([m,its])=>{snap[m]=its.slice(0,animIdx+1);});
+    const logKey=snap.bisection&&snap.bisection.length?'bisection':Object.keys(snap)[0];
+    if(snap[logKey]&&snap[logKey].length)populateRootTable(rootResults[logKey],animIdx);
+    plotRoots(f,snap,xmin,xmax,animIdx); animIdx++;
+  },350);
+}
+function stopAnim(){if(animTimer){clearInterval(animTimer);animTimer=null;}setStat('r','ok','Done');}
+function exportRoots(){
+  const rows=[];
+  Object.entries(rootResults).forEach(([m,its])=>its.forEach(it=>rows.push([m,it.iter,it.x,it.fx,it.error])));
+  if(!rows.length){alert('Run first!');return;}
+  downloadDat('roots.dat',['f(x) = '+document.getElementById('r-fx').value],['Method','Iter','x','f(x)','Error'],rows);
+}
+
+// ════════════════════════════════════════════════════════
+//  DERIVATIVES
+// ════════════════════════════════════════════════════════
+const DERIV_PRESETS={
+  gaussian:{fx:"exp(-x^2/2)",dfx:"-x*exp(-x^2/2)",d2fx:"(x^2-1)*exp(-x^2/2)",x0:"1",xmin:"-4",xmax:"4",formula:"f(x)=e^{-x^2/2}"},
+  wavefunction:{fx:"sin(3*x)*exp(-x^2/4)",dfx:"3*cos(3*x)*exp(-x^2/4)-x/2*sin(3*x)*exp(-x^2/4)",d2fx:"",x0:"0.5",xmin:"-4",xmax:"4",formula:"\\psi(x)=\\sin(3x)e^{-x^2/4}"},
+  planck:{fx:"x^3/(exp(x)-1)",dfx:"3*x^2/(exp(x)-1)-x^3*exp(x)/(exp(x)-1)^2",d2fx:"",x0:"2",xmin:"0.1",xmax:"10",formula:"B(x)=x^3/(e^x-1)"},
+  lorentz:{fx:"1/(1+x^2)",dfx:"-2*x/(1+x^2)^2",d2fx:"(6*x^2-2)/(1+x^2)^3",x0:"0.5",xmin:"-5",xmax:"5",formula:"L(x)=\\frac{1}{1+x^2}"},
+  sinc:{fx:"sin(x)/x",dfx:"cos(x)/x-sin(x)/x^2",d2fx:"",x0:"1",xmin:"-8",xmax:"8",formula:"\\text{sinc}(x)=\\sin(x)/x"}
+};
+function setDerivPreset(key){
+  const p=DERIV_PRESETS[key];if(!p)return;
+  document.getElementById('d-fx').value=p.fx;
+  document.getElementById('d-dfx').value=p.dfx||'';
+  document.getElementById('d-d2fx').value=p.d2fx||'';
+  document.getElementById('d-x0').value=p.x0||'1';
+  document.getElementById('d-xmin').value=p.xmin||'-4';
+  document.getElementById('d-xmax').value=p.xmax||'4';
+  setFormula('deriv-fmbox',p.formula||'f(x)='+exprToTeX(p.fx));
+  runDeriv();
+}
+function fwdD(f,x,h){return (f(x+h,0,0)-f(x,0,0))/h;}
+function bwdD(f,x,h){return (f(x,0,0)-f(x-h,0,0))/h;}
+function cenD1(f,x,h){return (f(x+h,0,0)-f(x-h,0,0))/(2*h);}
+function cenD2(f,x,h){return (f(x+h,0,0)-2*f(x,0,0)+f(x-h,0,0))/(h*h);}
+
+let derivData=null;
+function runDeriv(){
+  hideEl('d-warn');setStat('d','run','Computing…');
+  try{
+    const fx=document.getElementById('d-fx').value;
+    const dfx=document.getElementById('d-dfx').value;
+    const d2fx=document.getElementById('d-d2fx').value;
+    const x0=parseFloat(document.getElementById('d-x0').value);
+    const h=parseFloat(document.getElementById('d-h').value);
+    const xmin=parseFloat(document.getElementById('d-xmin').value);
+    const xmax=parseFloat(document.getElementById('d-xmax').value);
+    const f=makeFn(fx),df=dfx?makeFn(dfx):null,d2f=d2fx?makeFn(d2fx):null;
+    const vF=fwdD(f,x0,h),vB=bwdD(f,x0,h),vC=cenD1(f,x0,h),vC2=cenD2(f,x0,h);
+    const vEx1=df?df(x0,0,0):null,vEx2=d2f?d2f(x0,0,0):null;
+    derivData={f,df,d2f,x0,h,xmin,xmax};
+    const eF=vEx1!==null?Math.abs(vF-vEx1):null,eB=vEx1!==null?Math.abs(vB-vEx1):null,eC=vEx1!==null?Math.abs(vC-vEx1):null,eC2=vEx2!==null?Math.abs(vC2-vEx2):null;
+    document.getElementById('deriv-results').innerHTML=`
+    <div class="dcard">
+      <div class="dcard-hdr">1st Derivative at x₀=${x0}, h=${h}</div>
+      <div class="dcard-row"><span class="dcard-label">Forward  [O(h)]</span><span class="dcard-num">${fmt(vF,8)}</span></div>
+      <div class="dcard-row"><span class="dcard-label">Backward [O(h)]</span><span class="dcard-num">${fmt(vB,8)}</span></div>
+      <div class="dcard-row"><span class="dcard-label">Central  [O(h²)]</span><span class="dcard-num">${fmt(vC,8)}</span></div>
+      ${vEx1!==null?`<div class="dcard-row"><span class="dcard-label">Exact</span><span class="dcard-exact">${fmt(vEx1,8)}</span></div>`:''}
+      ${eF!==null?`<div class="dcard-row"><span class="dcard-label">Errors fwd/bwd/cen</span><span class="dcard-err">${fmt(eF,2)}/${fmt(eB,2)}/${fmt(eC,2)}</span></div>`:''}
+    </div>
+    <div class="dcard">
+      <div class="dcard-hdr">2nd Derivative at x₀=${x0}</div>
+      <div class="dcard-row"><span class="dcard-label">Central 2nd [O(h²)]</span><span class="dcard-num">${fmt(vC2,8)}</span></div>
+      ${vEx2!==null?`<div class="dcard-row"><span class="dcard-label">Exact</span><span class="dcard-exact">${fmt(vEx2,8)}</span></div>`:''}
+      ${eC2!==null?`<div class="dcard-row"><span class="dcard-label">Error</span><span class="dcard-err">${fmt(eC2,2)}</span></div>`:''}
+    </div>`;
+    plotDeriv(f,df,d2f,x0,h,xmin,xmax);
+    setStat('d','ok','Done x₀='+x0+', h='+h);
+  }catch(e){setStat('d','err',e.message);showEl('d-warn',e.message);}
+}
+function plotDeriv(f,df,d2f,x0,h,xmin,xmax){
+  if(!plotlyReady())return;
+  const xs=linspace(xmin,xmax,500);
+  const ys=xs.map(x=>{try{return f(x,0,0);}catch{return NaN;}});
+  const slope=cenD1(f,x0,h);
+  const tang=xs.map(x=>f(x0,0,0)+slope*(x-x0));
+  const traces=[
+    {x:xs,y:ys,name:'f(x)',mode:'lines',line:{color:PAL.c,width:2.5}},
+    {x:xs,y:tang,name:'Tangent (central)',mode:'lines',line:{color:PAL.a,width:2,dash:'dash'}},
+    {x:[x0],y:[f(x0,0,0)],name:'x₀',mode:'markers',marker:{size:11,color:PAL.g}},
+    {x:[x0,x0+h],y:[f(x0,0,0),f(x0+h,0,0)],name:'Forward Δ',mode:'lines+markers',line:{color:PAL.r,width:2,dash:'dot'},marker:{size:7,color:PAL.r}},
+    {x:[x0-h,x0],y:[f(x0-h,0,0),f(x0,0,0)],name:'Backward Δ',mode:'lines+markers',line:{color:PAL.v,width:2,dash:'dot'},marker:{size:7,color:PAL.v}},
+  ];
+  if(df){const dys=xs.map(x=>{try{return df(x,0,0);}catch{return NaN;}});traces.push({x:xs,y:dys,name:"f'(x) exact",mode:'lines',line:{color:PAL.g,width:2,dash:'dash'}});}
+  plot('plt-d-func',traces,DL("f(x) and Derivative Approximations",'x','f(x)'));
+  if(df){
+    const eF=xs.map(x=>{try{return Math.abs(fwdD(f,x,h)-df(x,0,0));}catch{return NaN;}});
+    const eC=xs.map(x=>{try{return Math.abs(cenD1(f,x,h)-df(x,0,0));}catch{return NaN;}});
+    const t2=[{x:xs,y:eF,name:'|Error| Forward',mode:'lines',line:{color:PAL.r,width:2}},{x:xs,y:eC,name:'|Error| Central',mode:'lines',line:{color:PAL.a,width:2}}];
+    if(d2f){const e2=xs.map(x=>{try{return Math.abs(cenD2(f,x,h)-d2f(x,0,0));}catch{return NaN;}});t2.push({x:xs,y:e2,name:'|Error| 2nd Deriv',mode:'lines',line:{color:PAL.v,width:2}});}
+    plot('plt-d-err',t2,DL('Absolute Error vs x','x','|Error|',{yaxis:{type:'log'}}));
+  }
+}
+function runDerivConv(){
+  setStat('d','run','h-study…');
+  try{
+    const fx=document.getElementById('d-fx').value;
+    const dfx=document.getElementById('d-dfx').value;
+    const x0=parseFloat(document.getElementById('d-x0').value);
+    if(!dfx){showEl('d-warn',"Exact f'(x) required.");return;}
+    const f=makeFn(fx),df=makeFn(dfx);
+    const hs=[],ef=[],ec=[];
+    for(let k=-1;k>=-14;k--){const hk=Math.pow(10,k);hs.push(hk);ef.push(Math.abs(fwdD(f,x0,hk)-df(x0,0,0)));ec.push(Math.abs(cenD1(f,x0,hk)-df(x0,0,0)));}
+    plot('plt-d-hconv',[
+      {x:hs,y:ef,name:'Forward O(h)',mode:'lines+markers',line:{color:PAL.r,width:2.5},marker:{size:6}},
+      {x:hs,y:ec,name:'Central O(h²)',mode:'lines+markers',line:{color:PAL.c,width:2.5},marker:{size:6}}
+    ],DL('h-Convergence Study','h (step size)','|Error|',{xaxis:{type:'log'},yaxis:{type:'log'}}));
+    derivConvDrawn=true;
+    setStat('d','ok','h-study done');
+  }catch(e){setStat('d','err',e.message);showEl('d-warn',e.message);}
+}
+function exportDeriv(){
+  if(!derivData){alert('Run first!');return;}
+  const{f,df,d2f,x0,h,xmin,xmax}=derivData;
+  const xs=linspace(xmin,xmax,200);
+  const rows=xs.map(x=>[x,f(x,0,0),fwdD(f,x,h),bwdD(f,x,h),cenD1(f,x,h),cenD2(f,x,h),df?df(x,0,0):'',d2f?d2f(x,0,0):'']);
+  downloadDat('derivatives.dat',['f(x)='+document.getElementById('d-fx').value],['x','f(x)','f_fwd','f_bwd','f_cen','f2_cen','f_exact','f2_exact'],rows);
+}
+
+// ════════════════════════════════════════════════════════
+//  INTEGRATION
+// ════════════════════════════════════════════════════════
+const INTEG_PRESETS={
+  planck:{fx:"x^3/(exp(x)-1)",a:"0.001",b:"20",exact:"6.49394",n:"200",formula:"\\displaystyle\\int_0^\\infty\\frac{x^3}{e^x-1}dx=\\frac{\\pi^4}{15}"},
+  bose:{fx:"x^2/(exp(x)-1)",a:"0.001",b:"20",exact:"2.40411",n:"200",formula:"\\displaystyle\\int_0^\\infty\\frac{x^2}{e^x-1}dx=2\\zeta(3)"},
+  fermi:{fx:"1/(exp(x-2)+1)",a:"0",b:"6",exact:"",n:"60",formula:"n(\\varepsilon)=\\frac{1}{e^{(\\varepsilon-\\mu)/kT}+1}"},
+  gaussian:{fx:"exp(-x^2)",a:"-5",b:"5",exact:"1.77245385",n:"50",formula:"\\displaystyle\\int_{-\\infty}^{\\infty}e^{-x^2}dx=\\sqrt{\\pi}"},
+  maxwell:{fx:"x^2*exp(-x^2/2)",a:"0",b:"8",exact:"1.25331",n:"50",formula:"\\displaystyle\\int_0^\\infty v^2 e^{-v^2/2}dv"},
+  lorentz:{fx:"1/(1+x^2)",a:"-10",b:"10",exact:"2.94220",n:"100",formula:"\\displaystyle\\int\\frac{dx}{1+x^2}=\\pi"},
+  sinx:{fx:"sin(x)/x",a:"0.001",b:"50",exact:"1.57080",n:"500",formula:"\\displaystyle\\int_0^\\infty\\frac{\\sin x}{x}dx=\\frac{\\pi}{2}"},
+  fresnel_s:{fx:"sin(x^2)",a:"0",b:"5",exact:"0.62665",n:"500",formula:"S(\\infty)=\\displaystyle\\int_0^\\infty\\sin(x^2)dx"},
+  gamma32:{fx:"sqrt(x)*exp(-x)",a:"0",b:"15",exact:"0.88623",n:"100",formula:"\\Gamma(3/2)=\\frac{\\sqrt{\\pi}}{2}"},
+  elliptic:{fx:"1/sqrt(1-0.5*sin(x)^2)",a:"0",b:"1.5708",exact:"1.85407",n:"100",formula:"K(1/\\sqrt{2})"},
+  normal:{fx:"exp(-x^2/2)/2.50663",a:"-4",b:"4",exact:"0.99994",n:"100",formula:"\\displaystyle\\int\\frac{e^{-x^2/2}}{\\sqrt{2\\pi}}dx=1"},
+  erf_int:{fx:"exp(-x^2)",a:"0",b:"2",exact:"0.88208",n:"80",formula:"\\text{erf}(2)"}
+};
+function setIntegPreset(key){
+  const p=INTEG_PRESETS[key];if(!p)return;
+  document.getElementById('i-fx').value=p.fx;
+  document.getElementById('i-a').value=p.a;
+  document.getElementById('i-b').value=p.b;
+  document.getElementById('i-exact').value=p.exact||'';
+  document.getElementById('i-n').value=p.n;
+  setFormula('integ-fmbox',p.formula);
+  runInteg(); runIntegConv();
+}
+function trapz(f,a,b,n){const h=(b-a)/n;let s=f(a,0,0)+f(b,0,0);for(let i=1;i<n;i++)s+=2*f(a+i*h,0,0);return h/2*s;}
+function simps(f,a,b,n){if(n%2!==0)n++;const h=(b-a)/n;let s=f(a,0,0)+f(b,0,0);for(let i=1;i<n;i++)s+=(i%2===0?2:4)*f(a+i*h,0,0);return h/3*s;}
+function romberg(f,a,b,maxK){
+  const R=[];const h0=b-a;
+  let sum=0.5*(f(a,0,0)+f(b,0,0));
+  R.push([h0*sum]);
+  for(let k=1;k<=maxK;k++){
+    const hk=h0/Math.pow(2,k);let pointSum=0;
+    const steps=Math.pow(2,k-1);
+    for(let i=1;i<=steps;i++) pointSum+=f(a+(2*i-1)*hk,0,0);
+    sum+=pointSum; R.push([hk*sum]);
+    for(let m=1;m<=k;m++) R[k][m]=R[k][m-1]+(R[k][m-1]-R[k-1][m-1])/(Math.pow(4,m)-1);
+  }
+  return{value:R[maxK][maxK],table:R};
+}
+let integMethods={trap:true,simp:true,romb:true};
+function toggleIntegMethod(btn){const m=btn.dataset.m;integMethods[m]=!integMethods[m];btn.classList.toggle('on');}
+let integData=null;
+function runInteg(){
+  hideEl('i-warn');setStat('i','run','Integrating…');
+  try{
+    const fx=document.getElementById('i-fx').value;
+    const exactS=document.getElementById('i-exact').value;
+    const a=parseFloat(document.getElementById('i-a').value);
+    const b=parseFloat(document.getElementById('i-b').value);
+    const n=parseInt(document.getElementById('i-n').value);
+    if(a>=b)throw new Error('Need a < b.');
+    const f=makeFn(fx),exact=exactS?parseFloat(exactS):null;
+    const tv=integMethods.trap?trapz(f,a,b,n):null;
+    const sv=integMethods.simp?simps(f,a,b,n):null;
+    const rv=integMethods.romb?romberg(f,a,b,Math.min(8,Math.max(2,Math.floor(Math.log2(n))))).value:null;
+    integData={f,a,b,n,tv,sv,rv,exact};
+    let html='<div class="resgrid">';
+    if(tv!==null)html+=`<div class="rescard"><div class="rescard-label">Trapezoidal</div><div class="rescard-val" style="color:var(--c0)">${fmt(tv,10)}</div>${exact!==null?`<div class="rescard-err">error: ${fmt(Math.abs(tv-exact),3)}</div>`:''}</div>`;
+    if(sv!==null)html+=`<div class="rescard"><div class="rescard-label">Simpson's</div><div class="rescard-val" style="color:var(--amber)">${fmt(sv,10)}</div>${exact!==null?`<div class="rescard-err">error: ${fmt(Math.abs(sv-exact),3)}</div>`:''}</div>`;
+    if(rv!==null)html+=`<div class="rescard"><div class="rescard-label">Romberg</div><div class="rescard-val" style="color:var(--violet)">${fmt(rv,10)}</div>${exact!==null?`<div class="rescard-err">error: ${fmt(Math.abs(rv-exact),3)}</div>`:''}</div>`;
+    if(exact!==null)html+=`<div class="rescard"><div class="rescard-label">Exact</div><div class="rescard-val" style="color:var(--green)">${fmt(exact,10)}</div></div>`;
+    html+='</div>';
+    document.getElementById('integ-results').innerHTML=html;
+    plotInteg(f,a,b,n,tv,sv);
+    setStat('i','ok','Done n='+n);
+  }catch(e){setStat('i','err',e.message);showEl('i-warn',e.message);}
+}
+function plotInteg(f,a,b,n,tv,sv){
+  if(!plotlyReady())return;
+  const xs=linspace(a,b,600);
+  const ys=xs.map(x=>{try{return f(x,0,0);}catch{return NaN;}});
+  const fillX=[...xs,b,a],fillY=[...ys,0,0];
+  const traces=[
+    {x:fillX,y:fillY,fill:'toself',fillcolor:hexA(PAL.c,0.16),line:{color:'rgba(0,0,0,0)'},name:'Area',type:'scatter',mode:'none'},
+    {x:xs,y:ys,name:'f(x)',mode:'lines',line:{color:PAL.c,width:2.5}},
+  ];
+  if(tv!==null&&n<=100){const h=(b-a)/n;for(let i=0;i<=n;i++){const xi=a+i*h;traces.push({x:[xi,xi],y:[0,f(xi,0,0)],mode:'lines',line:{color:hexA(PAL.c,0.4),width:1},showlegend:false});}}
+  plot('plt-i-area',traces,DL('Numerical Integration — Shaded Area','x','f(x)'));
+  const h=(b-a)/Math.min(n,80);
+  const nodeX=[],nodeY=[];
+  for(let i=0;i<=Math.min(n,80);i++){const xi=a+i*h;nodeX.push(xi);nodeY.push(f(xi,0,0));}
+  plot('plt-i-parts',[
+    {x:nodeX,y:nodeY,name:'Nodes',mode:'markers+lines',marker:{size:6,color:PAL.a},line:{color:hexA(PAL.a,0.45),width:1}},
+    {x:xs,y:ys,name:'f(x)',mode:'lines',line:{color:hexA(PAL.c,0.6),width:1.5,dash:'dot'}}
+  ],DL('Partition Visualization','x','f(x)'));
+}
+function runIntegConv(){
+  setStat('i','run','Convergence…');
+  try{
+    const fx=document.getElementById('i-fx').value;
+    const a=parseFloat(document.getElementById('i-a').value);
+    const b=parseFloat(document.getElementById('i-b').value);
+    const exactS=document.getElementById('i-exact').value;
+    const f=makeFn(fx),exact=exactS?parseFloat(exactS):null;
+    const ns=[],tv=[],sv=[],rombVals=[],rombNs=[];
+    for(let n=2;n<=200;n+=2){ns.push(n);tv.push(trapz(f,a,b,n));sv.push(simps(f,a,b,n));}
+    for(let k=1;k<=8;k++){rombNs.push(Math.pow(2,k));rombVals.push(romberg(f,a,b,k).value);}
+    const traces=[];
+    if(exact!==null){
+      if(integMethods.trap)traces.push({x:ns,y:tv.map(v=>Math.max(Math.abs(v-exact),1e-18)),name:'|Error| Trap.',mode:'lines',line:{color:PAL.c,width:2.5}});
+      if(integMethods.simp)traces.push({x:ns,y:sv.map(v=>Math.max(Math.abs(v-exact),1e-18)),name:'|Error| Simp.',mode:'lines',line:{color:PAL.a,width:2.5}});
+      if(integMethods.romb)traces.push({x:rombNs,y:rombVals.map(v=>Math.max(Math.abs(v-exact),1e-18)),name:'|Error| Romberg',mode:'lines+markers',line:{color:PAL.v,width:2.5},marker:{size:6}});
+    }else{
+      if(integMethods.trap)traces.push({x:ns,y:tv,name:'Trap. value',mode:'lines',line:{color:PAL.c,width:2.5}});
+      if(integMethods.simp)traces.push({x:ns,y:sv,name:'Simp. value',mode:'lines',line:{color:PAL.a,width:2.5}});
+      if(integMethods.romb)traces.push({x:rombNs,y:rombVals,name:'Romberg',mode:'lines+markers',line:{color:PAL.v,width:2.5},marker:{size:6}});
+    }
+    plot('plt-i-conv',traces,DL('Convergence with n','n (intervals)',exact!==null?'|Error|':'Integral',exact!==null?{yaxis:{type:'log'}}:{}));
+    setStat('i','ok','Convergence done');
+  }catch(e){setStat('i','err',e.message);showEl('i-warn',e.message);}
+}
+function exportInteg(){
+  if(!integData){alert('Run first!');return;}
+  const{f,a,b,n}=integData;
+  const h=(b-a)/n;
+  const rows=[];
+  for(let i=0;i<=n;i++){const xi=a+i*h;rows.push([i,xi,f(xi,0,0)]);}
+  downloadDat('integration.dat',['f(x)='+document.getElementById('i-fx').value,'a='+a+' b='+b+' n='+n],['i','x','f(x)'],rows);
+}
+
+// ════════════════════════════════════════════════════════
+//  ODE TAB SWITCHING
+// ════════════════════════════════════════════════════════
+let currentODETab='ivp';
+function setODETab(tab,btn){
+  currentODETab=tab;
+  document.querySelectorAll('#ode-stabs .stab').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.scon').forEach(c=>{c.classList.remove('on');c.style.display='none';});
+  btn.classList.add('on');
+  const el=document.getElementById('scon-'+tab);
+  el.classList.add('on'); el.style.display='flex';
+}
+
+// ════════════════════════════════════════════════════════
+//  IVP — ORDER SWITCHING
+// ════════════════════════════════════════════════════════
+let ivpOrder=1;
+function setIVPOrder(n,btn){
+  ivpOrder=n;
+  document.querySelectorAll('.ivp-ord').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('ivp-1st-fields').style.display=n===1?'block':'none';
+  document.getElementById('ivp-2nd-fields').style.display=n===2?'block':'none';
+  document.getElementById('ivp-v0-row').style.display=n===2?'block':'none';
+  document.getElementById('ivp-presets-1').style.display=n===1?'flex':'none';
+  document.getElementById('ivp-presets-2').style.display=n===2?'flex':'none';
+  document.getElementById('ivp-preset-hdr').textContent=n===1?'Physics Presets — 1st Order':'Physics Presets — 2nd Order';
+  document.getElementById('ivp-eq-hdr').textContent=n===1?"IVP: y' = f(t, y)":"IVP: y'' = g(t, y, y')";
+  scheduleParamPreview();
+}
+
+// ════════════════════════════════════════════════════════
+//  IVP PRESETS
+// ════════════════════════════════════════════════════════
+const IVP_PRESETS={
+  decay:{order:1,fty:"-k*y",t0:0,y0:100,tf:20,h:0.2,exact:"",formula:"N'=-kN,\\;k=0.3",
+    pCfg:[{name:'k',val:0.3,min:0,max:3,step:0.01}]},
+  rc:{order:1,fty:"(A-y)/k",t0:0,y0:0,tf:15,h:0.1,exact:"",formula:"RC\\dot{V}+V=V_s",
+    pCfg:[{name:'A',val:5,min:0,max:20,step:0.5},{name:'k',val:2,min:0.1,max:10,step:0.1}]},
+  cooling:{order:1,fty:"-k*(y-20)",t0:0,y0:100,tf:20,h:0.2,exact:"",formula:"\\dot{T}=-k(T-T_\\infty)",
+    pCfg:[{name:'k',val:0.3,min:0,max:3,step:0.01}]},
+  logistic:{order:1,fty:"r*y*(1-y/K)",t0:0,y0:5,tf:25,h:0.1,exact:"",formula:"\\dot{N}=rN(1-N/K)",
+    pCfg:[{name:'r',val:0.5,min:0,max:3,step:0.05},{name:'K',val:100,min:10,max:500,step:5}]},
+  terminal:{order:1,fty:"9.8-k*y",t0:0,y0:0,tf:60,h:0.3,exact:"",formula:"m\\dot{v}=mg-bv",
+    pCfg:[{name:'k',val:0.1,min:0,max:2,step:0.01}]},
+  drug:{order:1,fty:"-k*y+A",t0:0,y0:0,tf:25,h:0.2,exact:"",formula:"\\dot{C}=-k_e C+R_0/V",
+    pCfg:[{name:'k',val:0.4,min:0,max:3,step:0.05},{name:'A',val:3,min:0,max:20,step:0.5}]},
+  si_epidemic:{order:1,fty:"k*y*(1000-y)",t0:0,y0:5,tf:15,h:0.05,exact:"",formula:"\\dot{I}=\\beta I(N-I),\\;N=1000",
+    pCfg:[{name:'k',val:0.004,min:0,max:0.02,step:0.0005}]},
+  mixing:{order:1,fty:"A-y/k",t0:0,y0:0,tf:120,h:0.5,exact:"",formula:"\\dot{S}=r_{in}c_{in}-r_{out}S/V",
+    pCfg:[{name:'A',val:2,min:0,max:10,step:0.2},{name:'k',val:50,min:5,max:200,step:5}]},
+  sho:{order:2,g:"-k*y",t0:0,y0:1,v0:0,tf:10,h:0.02,exact:"",formula:"\\ddot{y}+ky=0",
+    pCfg:[{name:'k',val:4,min:0.1,max:25,step:0.5}]},
+  underdamped:{order:2,g:"-z*v-k*y",t0:0,y0:1,v0:0,tf:30,h:0.02,exact:"",formula:"\\ddot{y}+z\\dot{y}+ky=0,\\;\\text{underdamped}",
+    pCfg:[{name:'k',val:4,min:0.5,max:20,step:0.5},{name:'z',val:0.5,min:0,max:2,step:0.05}]},
+  critically:{order:2,g:"-z*v-k*y",t0:0,y0:1,v0:0,tf:8,h:0.02,exact:"",formula:"\\ddot{y}+z\\dot{y}+ky=0,\\;\\text{critically damped}",
+    pCfg:[{name:'k',val:4,min:0.5,max:20,step:0.5},{name:'z',val:4,min:0,max:10,step:0.1}]},
+  overdamped:{order:2,g:"-z*v-k*y",t0:0,y0:1,v0:0,tf:6,h:0.02,exact:"",formula:"\\ddot{y}+z\\dot{y}+ky=0,\\;\\text{overdamped}",
+    pCfg:[{name:'k',val:4,min:0.5,max:20,step:0.5},{name:'z',val:5,min:0,max:15,step:0.1}]},
+  pendulum:{order:2,g:"-k*sin(y)",t0:0,y0:1.0,v0:0,tf:15,h:0.01,exact:"",formula:"\\ddot{\\theta}=-(g/L)\\sin\\theta",
+    pCfg:[{name:'k',val:9.81,min:1,max:20,step:0.5}]},
+  vanderpol:{order:2,g:"m*(1-y*y)*v-y",t0:0,y0:2,v0:0,tf:40,h:0.01,exact:"",formula:"\\ddot{y}-\\mu(1-y^2)\\dot{y}+y=0",
+    pCfg:[{name:'m',val:1,min:0.1,max:5,step:0.1}]},
+  resonance:{order:2,g:"-z*v-k*y+A*cos(w*t)",t0:0,y0:0,v0:0,tf:80,h:0.01,exact:"",formula:"\\ddot{y}+z\\dot{y}+ky=A\\cos(\\Omega t)",
+    pCfg:[{name:'k',val:4,min:0.5,max:20,step:0.5},{name:'z',val:0.1,min:0,max:2,step:0.01},{name:'A',val:1.5,min:0,max:10,step:0.1},{name:'w',val:2.1,min:0.5,max:6,step:0.05}]},
+  duffing:{order:2,g:"-z*v+y-y*y*y+A*cos(w*t)",t0:0,y0:1,v0:0,tf:100,h:0.005,exact:"",formula:"\\ddot{y}+z\\dot{y}-y+y^3=A\\cos(wt)",
+    pCfg:[{name:'z',val:0.3,min:0,max:2,step:0.01},{name:'A',val:0.5,min:0,max:5,step:0.1},{name:'w',val:1.2,min:0.5,max:5,step:0.05}]},
+  rlc:{order:2,g:"-z*v-k*y",t0:0,y0:1,v0:0,tf:12,h:0.01,exact:"",formula:"L\\ddot{Q}+R\\dot{Q}+Q/C=0",
+    pCfg:[{name:'k',val:9,min:1,max:50,step:1},{name:'z',val:0.2,min:0,max:5,step:0.05}]},
+};
+
+function setIVPPreset(key,ev){
+  const p=IVP_PRESETS[key]; if(!p)return;
+  if(p.order!==ivpOrder){const btn=document.getElementById(p.order===1?'ord-1st':'ord-2nd');setIVPOrder(p.order,btn);}
+  document.getElementById('iv-t0').value=p.t0;
+  document.getElementById('iv-y0').value=p.y0;
+  document.getElementById('iv-tf').value=p.tf;
+  document.getElementById('iv-h').value=p.h;
+  if(p.order===1){
+    document.getElementById('iv-fty').value=p.fty;
+    document.getElementById('iv-exact').value=p.exact||'';
+  }else{
+    document.getElementById('iv-g2').value=p.g;
+    document.getElementById('iv-v0').value=p.v0!==undefined?p.v0:0;
+    document.getElementById('iv-exact2').value=p.exact||'';
+  }
+  if(p.pCfg&&p.pCfg.length){
+    paramSliders=p.pCfg.map(pc=>({
+      name:pc.name, val:pc.val,
+      min:pc.min!==undefined?pc.min:0,
+      max:pc.max!==undefined?pc.max:Math.max(10,pc.val*3),
+      step:pc.step!==undefined?pc.step:0.05
+    }));
+    renderParamSliders();
+  }
+  setFormula('ivp-fmbox',p.formula||(p.order===1?"y'=f(t,y)":"y''=g(t,y,v)"));
+  document.querySelectorAll('#ivp-presets-1 .preset-btn, #ivp-presets-2 .preset-btn').forEach(b=>b.classList.remove('active'));
+  if(ev)ev.currentTarget.classList.add('active');
+  scheduleParamPreview();
+  runIVP();
+}
+
+// ════════════════════════════════════════════════════════
+//  IVP SOLVERS
+// ════════════════════════════════════════════════════════
+function euler1(f,t0,y0,tf,h){
+  const pts=[{t:t0,y:y0}]; let t=t0,y=y0;
+  while(t<tf-h*1e-9){const dt=Math.min(h,tf-t);y=y+dt*f(t,y);t+=dt;if(!isFinite(y)||Math.abs(y)>1e12){pts.push({t,y:NaN,div:true});break;}pts.push({t,y});}
+  return pts;
+}
+function rk4_1(f,t0,y0,tf,h){
+  const pts=[{t:t0,y:y0}]; let t=t0,y=y0;
+  while(t<tf-h*1e-9){
+    const dt=Math.min(h,tf-t);
+    const k1=f(t,y),k2=f(t+dt/2,y+dt/2*k1),k3=f(t+dt/2,y+dt/2*k2),k4=f(t+dt,y+dt*k3);
+    y+=(dt/6)*(k1+2*k2+2*k3+k4); t+=dt;
+    if(!isFinite(y)||Math.abs(y)>1e12){pts.push({t,y:NaN,div:true});break;}
+    pts.push({t,y});
+  }
+  return pts;
+}
+function euler2(g,t0,y0,v0,tf,h){
+  const pts=[{t:t0,y:y0,v:v0}]; let t=t0,y=y0,v=v0;
+  while(t<tf-h*1e-9){
+    const dt=Math.min(h,tf-t),dy=v,dv=g(t,y,v);
+    y+=dt*dy; v+=dt*dv; t+=dt;
+    if(!isFinite(y)||!isFinite(v)||Math.abs(y)>1e10){pts.push({t,y:NaN,v:NaN,div:true});break;}
+    pts.push({t,y,v});
+  }
+  return pts;
+}
+function rk4_2(g,t0,y0,v0,tf,h){
+  const pts=[{t:t0,y:y0,v:v0}]; let t=t0,y=y0,v=v0;
+  while(t<tf-h*1e-9){
+    const dt=Math.min(h,tf-t);
+    const k1y=v,k1v=g(t,y,v);
+    const k2y=v+0.5*dt*k1v,k2v=g(t+0.5*dt,y+0.5*dt*k1y,v+0.5*dt*k1v);
+    const k3y=v+0.5*dt*k2v,k3v=g(t+0.5*dt,y+0.5*dt*k2y,v+0.5*dt*k2v);
+    const k4y=v+dt*k3v,k4v=g(t+dt,y+dt*k3y,v+dt*k3v);
+    y+=(dt/6)*(k1y+2*k2y+2*k3y+k4y); v+=(dt/6)*(k1v+2*k2v+2*k3v+k4v); t+=dt;
+    if(!isFinite(y)||!isFinite(v)||Math.abs(y)>1e10){pts.push({t,y:NaN,v:NaN,div:true});break;}
+    pts.push({t,y,v});
+  }
+  return pts;
+}
+
+let ivpData=null;
+function runIVP(){
+  hideEl('iv-warn'); setStat('iv','run','Solving…');
+  try{
+    const t0=parseFloat(document.getElementById('iv-t0').value);
+    const y0=parseFloat(document.getElementById('iv-y0').value);
+    const tf=parseFloat(document.getElementById('iv-tf').value);
+    const h=parseFloat(document.getElementById('iv-h').value);
+    if(tf<=t0)throw new Error('t_final must be > t₀');
+    if(h<=0)throw new Error('h must be > 0');
+    let epPts,rkPts,exactFn;
+    const paramTeX=()=>paramSliders.map(p=>`${p.name}=${fmtP(p.val)}`).join(',\\ ');
+    if(ivpOrder===1){
+      const ftyExpr=document.getElementById('iv-fty').value;
+      const exactExpr=document.getElementById('iv-exact').value;
+      const f=makeODE1Fn(ftyExpr);
+      exactFn=makeExactFn(exactExpr);
+      epPts=euler1(f,t0,y0,tf,h); rkPts=rk4_1(f,t0,y0,tf,h);
+      const ps=paramTeX();
+      setFormula('ivp-fmbox',"y'="+exprToTeX(ftyExpr)+(ps?`\\;\\left[${ps}\\right]`:''));
+    }else{
+      const gExpr=document.getElementById('iv-g2').value;
+      const v0=parseFloat(document.getElementById('iv-v0').value||'0');
+      const exactExpr=document.getElementById('iv-exact2').value;
+      const g=makeODE2Fn(gExpr);
+      exactFn=makeExactFn(exactExpr);
+      epPts=euler2(g,t0,y0,v0,tf,h); rkPts=rk4_2(g,t0,y0,v0,tf,h);
+      const ps=paramTeX();
+      setFormula('ivp-fmbox',"y''="+exprToTeX(gExpr)+(ps?`\\;\\left[${ps}\\right]`:''));
+    }
+    const epDiv=epPts[epPts.length-1]?.div,rkDiv=rkPts[rkPts.length-1]?.div;
+    if(epDiv||rkDiv)showEl('iv-warn','Divergence detected — try smaller h or shorter tf.');
+    ivpData={epPts,rkPts,exactFn,t0,tf,order:ivpOrder};
+    buildIVPCompare(epPts,rkPts,exactFn,tf);
+    buildIVPTable(epPts,rkPts,exactFn);
+    plotIVP(epPts,rkPts,exactFn,t0,tf,ivpOrder);
+    const finalPts=rkPts.length?rkPts:epPts;
+    const rv=document.getElementById('iv-res');rv.style.display='block';
+    const lastY=finalPts[finalPts.length-1]?.y;
+    const lastExact=exactFn?exactFn(tf):null;
+    document.getElementById('iv-res-val').textContent=fmt(lastY)+(lastExact!==null?' (exact: '+fmt(lastExact,6)+',  err: '+fmt(Math.abs(lastY-lastExact),3)+')':'  (t='+fmt(tf,2)+')');
+    const paramStr=paramSliders.map(p=>`${p.name}=${fmtP(p.val)}`).join(' · ');
+    setStat('iv','ok','Done — '+rkPts.length+' steps'+( paramStr?' | '+paramStr:''));
+  }catch(e){setStat('iv','err',e.message);showEl('iv-warn',e.message);}
+}
+function buildIVPCompare(ep,rk,exactFn,tf){
+  const lastE=ep[ep.length-1],lastR=rk[rk.length-1];
+  const ref=exactFn?exactFn(tf):null;
+  const fmtErr=(v,exact)=>exact!==null?` (err: ${fmt(Math.abs(v-exact),3)})`:'';
+  document.getElementById('ivp-compare').innerHTML=`<div class="compare-chip">
+    <div class="cc-head">At t = ${fmt(tf,3)}</div>
+    <div class="cc-row"><span class="cc-method" style="color:var(--red)">Euler</span><span class="cc-val">y=${fmt(lastE?.y,6)}${fmtErr(lastE?.y,ref)}</span></div>
+    <div class="cc-row"><span class="cc-method" style="color:var(--green)">RK4</span><span class="cc-best">y=${fmt(lastR?.y,6)}${fmtErr(lastR?.y,ref)}</span></div>
+    ${ref!==null?`<div class="cc-row"><span class="cc-method" style="color:var(--c0)">Exact</span><span class="cc-val">y=${fmt(ref,6)}</span></div>`:''}
+    ${ref!==null?`<div class="cc-row"><span class="cc-method" style="color:var(--amber)">RK4 / Euler ratio</span><span class="cc-best">× ${(Math.abs(lastE?.y-ref)/(Math.abs(lastR?.y-ref)+1e-30)).toExponential(1)}</span></div>`:''}
+  </div>`;
+}
+function buildIVPTable(ep,rk,exactFn){
+  const tb=document.getElementById('iv-tbody');tb.innerHTML='';
+  const N=Math.max(ep.length,rk.length);
+  for(let i=0;i<Math.min(N,50);i++){
+    const e=ep[i]||{},r=rk[i]||{};
+    const t=e.t??r.t;
+    const ex=exactFn&&t!==undefined?exactFn(t):null;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i}</td><td>${fmt(t,3)}</td><td>${e.y!==undefined?fmt(e.y,5):'—'}</td><td>${r.y!==undefined?fmt(r.y,5):'—'}</td><td>${ex!==null?fmt(ex,5):'—'}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function plotIVP(ep,rk,exactFn,t0,tf,order){
+  if(!plotlyReady())return;
+  const traces_main=[];
+  if(ep.length)traces_main.push({x:ep.map(p=>p.t),y:ep.map(p=>p.y),name:'Euler',mode:'lines',line:{color:PAL.r,width:2,dash:'dot'}});
+  if(rk.length)traces_main.push({x:rk.map(p=>p.t),y:rk.map(p=>p.y),name:'RK4',mode:'lines',line:{color:PAL.g,width:2.5}});
+  if(exactFn){const ts=linspace(t0,tf,800);const ys=ts.map(t=>{try{return exactFn(t);}catch{return NaN;}});traces_main.push({x:ts,y:ys,name:'Exact',mode:'lines',line:{color:PAL.c,width:2.5,dash:'dash'}});}
+  const pLabel=paramSliders.map(p=>`${p.name}=${fmtP(p.val)}`).join('  ');
+  plot('plt-ode-main',traces_main,DL('Solution y(t) — '+pLabel,'t','y(t)'));
+  if(exactFn){
+    const errTraces=[];
+    if(ep.length)errTraces.push({x:ep.map(p=>p.t),y:ep.map(p=>{try{return Math.max(Math.abs(p.y-exactFn(p.t)),1e-18);}catch{return 1e-18;}}),name:'|Error| Euler',mode:'lines',line:{color:PAL.r,width:2}});
+    if(rk.length)errTraces.push({x:rk.map(p=>p.t),y:rk.map(p=>{try{return Math.max(Math.abs(p.y-exactFn(p.t)),1e-18);}catch{return 1e-18;}}),name:'|Error| RK4',mode:'lines',line:{color:PAL.g,width:2}});
+    plot('plt-ode-err',errTraces,DL('Global Error |y_num − y_exact|','t','|error|',{yaxis:{type:'log'}}));
+  }else if(order===2){
+    const vTraces=[];
+    if(ep.length)vTraces.push({x:ep.map(p=>p.t),y:ep.map(p=>p.v),name:"Euler y'",mode:'lines',line:{color:PAL.r,width:2,dash:'dot'}});
+    if(rk.length)vTraces.push({x:rk.map(p=>p.t),y:rk.map(p=>p.v),name:"RK4 y'",mode:'lines',line:{color:PAL.g,width:2.5}});
+    plot('plt-ode-err',vTraces,DL("Velocity y'(t)",'t',"y'(t)"));
+  }else{
+    const pts=rk.length?rk:ep;
+    if(pts.length>2){const dy=pts.slice(1).map((p,i)=>({y:p.y,d:(p.y-pts[i].y)/(p.t-pts[i].t)}));plot('plt-ode-err',[{x:dy.map(d=>d.y),y:dy.map(d=>d.d),mode:'lines',name:"Phase",line:{color:PAL.v,width:2}}],DL("Phase Portrait",'y',"y'"));}
+  }
+  const pts=rk.length?rk:ep;
+  if(order===2&&pts.length>2){
+    const phaseTraces=[];
+    if(rk.length)phaseTraces.push({x:rk.map(p=>p.y),y:rk.map(p=>p.v),mode:'lines',name:"RK4 phase",line:{color:PAL.v,width:2},fill:'tozeroy',fillcolor:hexA(PAL.v,0.06)});
+    if(ep.length)phaseTraces.push({x:ep.map(p=>p.y),y:ep.map(p=>p.v),mode:'lines',name:"Euler phase",line:{color:PAL.r,width:1.5,dash:'dot'}});
+    phaseTraces.push({x:[rk[0]?.y??ep[0]?.y],y:[rk[0]?.v??ep[0]?.v],mode:'markers',marker:{size:11,color:PAL.g},name:'Start'});
+    plot('plt-ode-aux',phaseTraces,DL("Phase Portrait: y vs y'",'y',"y'"));
+  }else if(pts.length>2){
+    const dy=pts.slice(1).map((p,i)=>({y:p.y,d:(p.y-pts[i].y)/(p.t-pts[i].t)}));
+    plot('plt-ode-aux',[{x:dy.map(d=>d.y),y:dy.map(d=>d.d),mode:'lines',name:"Phase portrait",line:{color:PAL.v,width:2},fill:'tozeroy',fillcolor:hexA(PAL.v,0.08)}],DL("Phase Portrait",'y',"y'"));
+  }
+}
+function exportIVP(){
+  if(!ivpData){alert('Run first!');return;}
+  const{epPts,rkPts,exactFn,t0,tf,order}=ivpData;
+  const N=Math.max(epPts.length,rkPts.length);
+  const rows=[];
+  for(let i=0;i<N;i++){
+    const e=epPts[i]||{},r=rkPts[i]||{};
+    const t=e.t??r.t;
+    const ex=exactFn&&t!==undefined?exactFn(t):'';
+    rows.push([i,t,e.y??'',r.y??'',ex,e.v??'',r.v??'']);
+  }
+  const isOrd1=order===1;
+  const params=[
+    'Type: IVP  Order: '+order,
+    isOrd1?("f(t,y) = "+document.getElementById('iv-fty').value):("g(t,y,v) = "+document.getElementById('iv-g2').value),
+    't0 = '+t0+'  t_final = '+tf+'  h = '+document.getElementById('iv-h').value,
+    'Parameters: '+paramSliders.map(p=>p.name+'='+p.val).join('  '),
+    'Steps: '+rkPts.length,
+  ];
+  downloadDat('ivp.dat',params,['i','t','y_Euler','y_RK4','y_exact','v_Euler','v_RK4'],rows);
+}
+
+// ════════════════════════════════════════════════════════
+//  BVP
+// ════════════════════════════════════════════════════════
+const BVP_PRESETS={
+  heat:{P:"0",Q:"0",R:"-1",a:"0",b:"1",alpha:"0",beta:"0",exact:"x*(1-x)/2",formula:"y''=-1,\\;y(0)=y(1)=0"},
+  poisson:{P:"0",Q:"0",R:"-sin(x)",a:"0",b:"3.14159",alpha:"0",beta:"0",exact:"sin(x)",formula:"y''=-\\sin(x)"},
+  beam:{P:"0",Q:"-0.5",R:"1",a:"0",b:"1",alpha:"0",beta:"0",exact:"",formula:"y''-0.5y=-1"},
+  fin_convection:{P:"0",Q:"4",R:"0",a:"0",b:"1",alpha:"1",beta:"0",exact:"sinh(2*(1-x))/sinh(2)",formula:"y''-4y=0"},
+  couette:{P:"0",Q:"0",R:"-6",a:"0",b:"1",alpha:"0",beta:"0",exact:"3*x*(1-x)",formula:"\\mu u''=-G"},
+  advection_diffusion:{P:"10",Q:"0",R:"-10",a:"0",b:"1",alpha:"0",beta:"0",exact:"x + (exp(10*x)-1)/(1-exp(10))",formula:"\\varepsilon y''-y'=-1"},
+};
+function setBVPPreset(key){
+  const p=BVP_PRESETS[key];if(!p)return;
+  ['P','Q','R','a','b','alpha','beta','exact'].forEach(k=>{document.getElementById('bv-'+k).value=p[k]||'';});
+  setFormula('bvp-fmbox',p.formula||"y''=Py'+Qy+R");
+  runBVP();
+}
+function solvefdBVP(P,Q,R,a,b,alpha,beta,n){
+  const h=(b-a)/n,N2=n-1;
+  const xs=Array.from({length:n+1},(_,i)=>a+i*h);
+  const lo=[],di=[],up=[],rhs=[];
+  for(let i=0;i<N2;i++){
+    const xi=xs[i+1];
+    const Pi=P(xi,0,0),Qi=Q(xi,0,0),Ri=R(xi,0,0);
+    const ai=1/h/h+Pi/(2*h),bi=-2/h/h-Qi,ci=1/h/h-Pi/(2*h);
+    di.push(bi);lo.push(ai);up.push(ci);
+    let ri=Ri;
+    if(i===0)ri-=ai*alpha;
+    if(i===N2-1)ri-=ci*beta;
+    rhs.push(ri);
+  }
+  const c2=[...up],d2=[...rhs],dm=[...di];
+  for(let i=1;i<N2;i++){const m=lo[i]/dm[i-1];dm[i]-=m*c2[i-1];d2[i]-=m*d2[i-1];}
+  const y=new Array(N2);
+  y[N2-1]=d2[N2-1]/dm[N2-1];
+  for(let i=N2-2;i>=0;i--)y[i]=(d2[i]-c2[i]*y[i+1])/dm[i];
+  const sol=[{x:xs[0],y:alpha}];
+  for(let i=0;i<N2;i++)sol.push({x:xs[i+1],y:y[i]});
+  sol.push({x:xs[n],y:beta});
+  return sol;
+}
+
+let bvpData=null;
+function runBVP(){
+  hideEl('bv-warn');setStat('bv','run','Solving FD…');
+  try{
+    const P=makeBVPFn(document.getElementById('bv-P').value||'0');
+    const Q=makeBVPFn(document.getElementById('bv-Q').value||'0');
+    const R=makeBVPFn(document.getElementById('bv-R').value||'0');
+    const a=parseFloat(document.getElementById('bv-a').value);
+    const b=parseFloat(document.getElementById('bv-b').value);
+    const alpha=parseFloat(document.getElementById('bv-alpha').value);
+    const beta=parseFloat(document.getElementById('bv-beta').value);
+    const n=parseInt(document.getElementById('bv-n').value);
+    const exactExpr=document.getElementById('bv-exact').value;
+    const exact=exactExpr?makeBVPFn(exactExpr):null;
+    if(a>=b)throw new Error('Need a < b.');
+    const sol=solvefdBVP(P,Q,R,a,b,alpha,beta,n);
+    bvpData={sol,exact,a,b,n};
+    populateBVPTable(sol,exact);
+    plotBVP(sol,exact,a,b);
+    setStat('bv','ok','Done N='+n+' nodes');
+  }catch(e){setStat('bv','err',e.message);showEl('bv-warn',e.message);}
+}
+function populateBVPTable(sol,exact){
+  const tb=document.getElementById('bv-tbody');if(!tb)return;
+  tb.innerHTML='';
+  const mid=Math.floor(sol.length/2);
+  const midPt=sol[mid];
+  const rv=document.getElementById('bv-res'),rvVal=document.getElementById('bv-res-val');
+  if(rv&&rvVal){
+    rv.style.display='block';
+    const exMid=exact?exact(midPt.x,0,0):null;
+    rvVal.textContent=fmt(midPt.y,6)+(exMid!==null?' (exact: '+fmt(exMid,6)+', err: '+fmt(Math.abs(midPt.y-exMid),3)+')':'')+'  at x='+fmt(midPt.x,4);
+  }
+  const total=sol.length,maxRows=60,stride=Math.max(1,Math.floor(total/maxRows));
+  const indices=[];
+  for(let i=0;i<total;i+=stride)indices.push(i);
+  if(indices[indices.length-1]!==total-1)indices.push(total-1);
+  indices.forEach(i=>{
+    const p=sol[i];
+    const ex=exact?exact(p.x,0,0):null;
+    const err=ex!==null?Math.abs(p.y-ex):null;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i}</td><td>${fmt(p.x,5)}</td><td>${fmt(p.y,7)}</td><td>${ex!==null?fmt(ex,7):'—'}</td><td>${err!==null?fmt(err,3):'—'}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function plotBVP(sol,exact,a,b){
+  if(!plotlyReady())return;
+  const traces=[{x:sol.map(p=>p.x),y:sol.map(p=>p.y),name:'FD Solution',mode:'lines+markers',line:{color:PAL.c,width:2.5},marker:{size:4,opacity:.6}}];
+  if(exact){
+    const xs=linspace(a,b,600);
+    traces.push({x:xs,y:xs.map(x=>{try{return exact(x,0,0);}catch{return NaN;}}),name:'Exact',mode:'lines',line:{color:PAL.g,width:2,dash:'dash'}});
+  }
+  plot('plt-ode-main',traces,DL('BVP — Finite Difference Solution','x','y(x)'));
+  if(exact){
+    plot('plt-ode-err',[{x:sol.map(p=>p.x),y:sol.map(p=>{try{return Math.abs(p.y-exact(p.x,0,0));}catch{return NaN;}}),name:'|Error|',mode:'lines+markers',line:{color:PAL.r,width:2},marker:{size:5}}],
+      DL('Pointwise Error','x','|y_FD−y_exact|',{yaxis:{type:'log'}}));
+  }
+  plot('plt-ode-aux',[{x:sol.map(p=>p.x),y:sol.map(p=>p.y),name:'y(x)',mode:'lines',line:{color:PAL.v,width:2.5},fill:'tozeroy',fillcolor:hexA(PAL.v,0.1)}],DL('BVP Profile','x','y(x)'));
+}
+function exportBVP(){
+  if(!bvpData){alert('Run first!');return;}
+  downloadDat('bvp.dat',['BVP Finite Difference'],['i','x','y_FD','y_exact','abs_error'],
+    bvpData.sol.map((p,i)=>{
+      const ex=bvpData.exact?bvpData.exact(p.x,0,0):'';
+      const err=bvpData.exact?Math.abs(p.y-(bvpData.exact(p.x,0,0))):'';
+      return[i,p.x,p.y,ex,err];
+    })
+  );
+}
+
+// ════════════════════════════════════════════════════════
+//  EIGENVALUE (Numerov)
+// ════════════════════════════════════════════════════════
+const EIGEN_PRESETS={
+  harmonic:{V:"x^2/4",emin:"0",emax:"10",a:"-6",b:"6",n:"1200",modes:"4",formula:"-\\psi''+\\tfrac{x^2}{4}\\psi=E\\psi"},
+  box:{V:"0",emin:"0",emax:"200",a:"0",b:"1",n:"800",modes:"4",formula:"-\\psi''=E\\psi,\\;E_n=(n\\pi)^2"},
+  morse:{V:"(1-exp(-0.8*x))^2",emin:"0",emax:"1",a:"-2",b:"6",n:"1200",modes:"3",formula:"V(x)=D(1-e^{-ax})^2"},
+  dwell:{V:"x^4-4*x^2",emin:"-5",emax:"10",a:"-4",b:"4",n:"1200",modes:"4",formula:"V(x)=x^4-4x^2"}
+};
+function setEigenPreset(key){
+  const p=EIGEN_PRESETS[key];if(!p)return;
+  ['V','emin','emax','a','b','n','modes'].forEach(k=>{document.getElementById('eg-'+k).value=p[k];});
+  setFormula('eigen-fmbox',p.formula||"-\\psi''+V\\psi=E\\psi");
+  runEigen();
+}
+function numerov(V,E,a,b,n){
+  const h=(b-a)/n;
+  const x=Array.from({length:n+1},(_,i)=>a+i*h);
+  const g=x.map(xi=>E-V(xi,0,0));
+  const psi=new Array(n+1).fill(0);
+  psi[0]=0; psi[1]=h;
+  for(let i=1;i<n;i++){
+    const num=2*psi[i]*(1-5*h*h*g[i]/12)-psi[i-1]*(1+h*h*g[i-1]/12);
+    const den=1+h*h*g[i+1]/12;
+    if(Math.abs(den)<1e-20){psi[i+1]=0;continue;}
+    psi[i+1]=num/den;
+    if(!isFinite(psi[i+1])||Math.abs(psi[i+1])>1e8){for(let j=i+1;j<=n;j++)psi[j]=0;break;}
+  }
+  return{x,psi};
+}
+function findEigenvals(V,a,b,Emin,Emax,n,modes){
+  const nsc=600,dE=(Emax-Emin)/nsc;
+  let prev=Math.sign(numerov(V,Emin,a,b,n).psi[n]);
+  const brackets=[];
+  for(let k=1;k<=nsc&&brackets.length<modes;k++){
+    const E=Emin+k*dE;
+    const s=Math.sign(numerov(V,E,a,b,n).psi[n]);
+    if(s!==prev&&s!==0)brackets.push([E-dE,E]);
+    prev=s;
+  }
+  return brackets.map(([lo,hi])=>{
+    let l=lo,h2=hi;
+    for(let i=0;i<80;i++){
+      const m=(l+h2)/2;
+      const fl=numerov(V,l,a,b,n).psi[n],fm=numerov(V,m,a,b,n).psi[n];
+      fl*fm<0?h2=m:l=m;
+      if(h2-l<1e-12)break;
+    }
+    return(l+h2)/2;
+  });
+}
+function eigenCols(){return [PAL.c,PAL.a,PAL.g,PAL.v,PAL.r,PAL.p];}
+let eigenData=null;
+function runEigen(){
+  hideEl('eg-warn');setStat('eg','run','Scanning…');
+  try{
+    const Vexpr=document.getElementById('eg-V').value;
+    const Emin=parseFloat(document.getElementById('eg-emin').value);
+    const Emax=parseFloat(document.getElementById('eg-emax').value);
+    const a=parseFloat(document.getElementById('eg-a').value);
+    const b=parseFloat(document.getElementById('eg-b').value);
+    const n=parseInt(document.getElementById('eg-n').value);
+    const modes=Math.min(parseInt(document.getElementById('eg-modes').value),6);
+    if(a>=b)throw new Error('a < b required');
+    const V=makeFn(Vexpr);
+    const evals=findEigenvals(V,a,b,Emin,Emax,n,modes);
+    eigenData={V,evals,a,b,n,Vexpr,Emin,Emax};
+    const COLS=eigenCols();
+    document.getElementById('eigen-list').innerHTML=evals.map((E,i)=>`
+      <div class="eigitem">
+        <div><div class="eiglabel">Mode n = ${i}</div><div class="eigval" style="color:${COLS[i]}">${fmt(E,6)}</div></div>
+      </div>`).join('');
+    populateEigenTable(evals,COLS);
+    plotEigen(V,evals,a,b,n,COLS);
+    setStat('eg','ok','Found '+evals.length+' eigenvalues');
+  }catch(e){setStat('eg','err',e.message);showEl('eg-warn',e.message);}
+}
+function populateEigenTable(evals,COLS){
+  const tb=document.getElementById('eg-tbody');if(!tb)return;
+  tb.innerHTML='';
+  evals.forEach((E,i)=>{
+    const dE=i<evals.length-1?evals[i+1]-E:null;
+    const ratio=i<evals.length-1&&Math.abs(E)>1e-12?evals[i+1]/E:null;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--amber)">${i}</td><td style="color:${COLS[i]||'var(--text)'}">${fmt(E,8)}</td><td style="color:var(--text2)">${dE!==null?fmt(dE,6):'—'}</td><td style="color:var(--text2)">${ratio!==null?fmt(ratio,5):'—'}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function exportEigen(){
+  if(!eigenData){alert('Run first!');return;}
+  const{evals,a,b,n,Vexpr}=eigenData;
+  const rows=evals.map((E,i)=>{
+    const dE=i<evals.length-1?evals[i+1]-E:'';
+    const ratio=i<evals.length-1&&Math.abs(E)>1e-12?evals[i+1]/E:'';
+    return[i,E,dE,ratio];
+  });
+  downloadDat('eigenvalues.dat',['V(x)='+Vexpr,'Domain=['+a+','+b+']'],['n','E_n','delta_E','ratio'],rows);
+}
+function plotEigen(V,evals,a,b,n,COLS){
+  if(!plotlyReady())return;
+  const xs=linspace(a,b,500);
+  const Vv=xs.map(x=>{try{return V(x,0,0);}catch{return NaN;}});
+  const traces=[{x:xs,y:Vv,name:'V(x)',mode:'lines',line:{color:PAL.font2,width:2,dash:'dot'},yaxis:'y2'}];
+  evals.forEach((E,i)=>{
+    const{x,psi}=numerov(V,E,a,b,n);
+    const ma=Math.max(...psi.map(Math.abs));
+    const pn=ma>1e-15?psi.map(v=>v/ma):psi;
+    traces.push({x,y:pn.map(v=>v*0.7+E),name:`ψ${i} E=${fmt(E,3)}`,mode:'lines',line:{color:COLS[i],width:2.5},yaxis:'y2'});
+    traces.push({x:[a,b],y:[E,E],mode:'lines',line:{color:COLS[i],width:1,dash:'dot'},showlegend:false,yaxis:'y2'});
+  });
+  const lay=DL('Schrödinger Eigenfunctions','x','E / ψ');
+  lay.yaxis2={overlaying:'y',side:'right',title:{text:'V(x)',font:{size:12,color:PAL.font2}},showgrid:false,linecolor:PAL.zero,tickfont:{size:11,color:PAL.font2}};
+  plot('plt-ode-main',traces,lay);
+  const densTraces=evals.map((E,i)=>{
+    const{x,psi}=numerov(V,E,a,b,n);
+    const ma=Math.max(...psi.map(Math.abs));
+    const den=ma>1e-15?psi.map(v=>(v/ma)**2):psi.map(v=>v**2);
+    return{x,y:den,name:`|ψ${i}|²`,mode:'lines',line:{color:COLS[i],width:2},fill:'tozeroy',fillcolor:COLS[i]+'33'};
+  });
+  plot('plt-ode-err',densTraces,DL('Probability Density |ψ(x)|²','x','|ψ|²'));
+  plot('plt-ode-aux',evals.map((E,i)=>({x:[0,1],y:[E,E],name:`E${i}=${fmt(E,3)}`,mode:'lines',line:{color:COLS[i],width:5}})),DL('Energy Level Diagram','','Energy E',{xaxis:{showticklabels:false,range:[0,1]}}));
+}
+
+// ════════════════════════════════════════════════════════
+//  CLOCK / RESIZE / INIT
+// ════════════════════════════════════════════════════════
+function updateClock(){const n=new Date();const el=document.getElementById('clock');if(el)el.textContent=n.toLocaleTimeString('en-US',{hour12:false});}
+setInterval(updateClock,1000); updateClock();
+
+window.addEventListener('resize',()=>{
+  ['plt-r-func','plt-r-conv','plt-r-err','plt-d-func','plt-d-err','plt-d-hconv','plt-i-area','plt-i-parts','plt-i-conv','plt-ode-main','plt-ode-err','plt-ode-aux'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&el._fullLayout)try{Plotly.relayout(id,{autosize:true});}catch(e){}
+  });
+});
+
+window.addEventListener('load',()=>{
+  document.getElementById('btn-night').classList.toggle('active',theme==='night');
+  document.getElementById('btn-day').classList.toggle('active',theme==='day');
+  setTimeout(()=>{
+    const ld=document.getElementById('loader');
+    if(ld){ld.style.opacity='0';setTimeout(()=>ld.remove(),500);}
+  },1300);
+  const tryInit=()=>{
+    if(!plotlyReady()){setTimeout(tryInit,100);return;}
+    renderParamSliders();
+    setTimeout(()=>{
+      try{runRoots();}catch(e){console.error('Root:',e);}
+      try{runDeriv();}catch(e){console.error('Deriv:',e);}
+      try{runInteg();runIntegConv();}catch(e){console.error('Integ:',e);}
+      try{setIVPPreset('sho',null);}catch(e){console.error('IVP:',e);}
+    },200);
+  };
+  tryInit();
+});
+</script>
+</body>
+</html>

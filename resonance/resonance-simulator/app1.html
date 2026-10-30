@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resonance Physics Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060a12; --surf:#0d1525; --surf2:#111d35;
+  --bord:#1a2d50; --acc:#00c8ff; --acc2:#ff6b35; --acc3:#7cff84;
+  --txt:#b8ccee; --dim:#4a6a9a;
+  --hi:#ffd700; --bad:#ff3366;
+  --mono:'Space Mono',monospace; --disp:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--txt);font-family:var(--mono);min-height:100vh;
+  background-image:linear-gradient(rgba(0,200,255,.022) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,200,255,.022) 1px,transparent 1px);
+  background-size:40px 40px;}
+.wrap{max-width:1360px;margin:0 auto;padding:14px 18px 40px;}
+header{text-align:center;padding:24px 0 14px;border-bottom:1px solid var(--bord);margin-bottom:18px;}
+h1{font-family:var(--disp);font-size:2.5rem;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(120deg,var(--acc) 0%,#d8eeff 45%,var(--acc2) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+header p{color:var(--dim);font-size:.65rem;margin-top:5px;letter-spacing:.16em;text-transform:uppercase;}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
+.tab{padding:6px 12px;background:var(--surf);border:1px solid var(--bord);border-radius:3px;
+  cursor:pointer;font-family:var(--mono);font-size:.6rem;color:var(--dim);
+  transition:all .15s;text-transform:uppercase;letter-spacing:.07em;position:relative;}
+.tab:hover{border-color:var(--acc);color:var(--acc);}
+.tab.active{background:var(--acc);border-color:var(--acc);color:#000;font-weight:700;}
+.tab .badge{position:absolute;top:-5px;right:-4px;background:var(--acc3);color:#000;
+  font-size:.42rem;font-weight:700;padding:1px 4px;border-radius:2px;}
+.grid{display:grid;grid-template-columns:1fr 305px;gap:13px;}
+.card{background:var(--surf);border:1px solid var(--bord);border-radius:6px;padding:13px;}
+.ctitle{font-family:var(--disp);font-size:.6rem;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--acc);border-bottom:1px solid var(--bord);
+  padding-bottom:7px;margin-bottom:11px;}
+#simCanvas{display:block;width:100%;border-radius:3px;}
+#chartCanvas{display:block;width:100%;}
+.sbar{display:flex;gap:12px;align-items:center;margin-top:7px;font-size:.58rem;color:var(--dim);flex-wrap:wrap;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--acc3);
+  animation:pulse 1.2s ease-in-out infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.warn{color:var(--bad);font-weight:700;display:none;}
+.warn.on{display:block;animation:blnk .6s step-end infinite;}
+@keyframes blnk{0%,100%{opacity:1}50%{opacity:0}}
+.params{display:flex;flex-direction:column;gap:9px;}
+.param{display:flex;flex-direction:column;gap:4px;}
+.plabel{display:flex;justify-content:space-between;font-size:.58rem;}
+.plabel span:first-child{color:var(--dim);}
+.plabel span:last-child{color:var(--acc);font-weight:700;}
+input[type=range]{-webkit-appearance:none;width:100%;height:2px;background:var(--bord);border-radius:1px;outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+  background:var(--acc);border-radius:50%;cursor:pointer;box-shadow:0 0 6px var(--acc);}
+.presets{display:flex;flex-direction:column;gap:4px;margin-top:9px;}
+.preset{padding:6px 9px;background:var(--surf2);border:1px solid var(--bord);border-radius:3px;
+  cursor:pointer;font-family:var(--mono);font-size:.57rem;color:var(--dim);
+  text-align:left;transition:all .15s;line-height:1.3;}
+.preset:hover{border-color:var(--acc2);color:var(--acc2);}
+.preset.on{border-color:var(--acc2);background:rgba(255,107,53,.08);color:var(--acc2);}
+.exts{display:flex;flex-direction:column;margin-top:9px;}
+.ext{display:flex;justify-content:space-between;align-items:center;
+  padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.57rem;}
+.ext:last-child{border-bottom:none;}
+.ek{color:var(--dim);}
+.ev{font-weight:700;}
+.ev.hi{color:var(--hi);}
+.ev.ok{color:var(--acc3);}
+.ev.bad{color:var(--bad);}
+.infopanel{margin-top:13px;background:var(--surf);border:1px solid var(--bord);border-radius:6px;padding:14px;}
+.mname{font-family:var(--disp);font-size:1.05rem;font-weight:800;color:var(--txt);margin-bottom:3px;}
+.msub{color:var(--dim);font-size:.58rem;margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em;}
+.itext{font-size:.64rem;line-height:1.8;color:var(--dim);max-width:980px;}
+.itext strong{color:var(--txt);}
+.fblock{display:inline-block;background:rgba(0,200,255,.07);border:1px solid rgba(0,200,255,.18);
+  border-radius:4px;padding:7px 14px;margin:8px 0;font-size:.68rem;color:var(--acc);letter-spacing:.04em;}
+.chartspan{grid-column:1;}
+.chartspan canvas{min-height:190px;}
+.cpanel{display:flex;flex-direction:column;gap:11px;}
+
+/* ── READABILITY + DAY/NIGHT THEME ─────────────────────────────── */
+:root{
+  --base-font:16px;
+  --ui-font:0.88rem;
+}
+html{font-size:16px;}
+body{font-size:var(--base-font);line-height:1.55;}
+.wrap{padding-top:18px;}
+header{position:relative;padding:30px 90px 18px;}
+h1{font-size:2.65rem;}
+header p{font-size:.82rem;letter-spacing:.12em;line-height:1.5;}
+.tab{padding:9px 14px;font-size:.78rem;line-height:1.35;}
+.tab .badge{font-size:.56rem;padding:2px 5px;}
+.card{padding:16px;}
+.ctitle{font-size:.82rem;line-height:1.4;letter-spacing:.14em;padding-bottom:9px;margin-bottom:13px;}
+.sbar{font-size:.78rem;line-height:1.5;}
+.params{gap:12px;}
+.param{gap:6px;}
+.plabel{font-size:.78rem;line-height:1.4;}
+input[type=range]{height:4px;}
+input[type=range]::-webkit-slider-thumb{width:15px;height:15px;}
+input[type=range]::-moz-range-track{height:4px;}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;}
+.presets{gap:6px;margin-top:11px;}
+.preset{padding:8px 11px;font-size:.76rem;line-height:1.45;}
+.exts{margin-top:11px;}
+.ext{padding:6px 0;font-size:.76rem;line-height:1.45;}
+.infopanel{padding:17px;}
+.mname{font-size:1.18rem;}
+.msub{font-size:.76rem;line-height:1.45;margin-bottom:14px;}
+.itext{font-size:.84rem;line-height:1.85;}
+.fblock{padding:9px 16px;margin:10px 0;font-size:.88rem;line-height:1.55;}
+.theme-toggle{
+  position:absolute;right:12px;top:12px;
+  display:flex;gap:5px;align-items:center;
+  padding:4px;background:var(--surf);
+  border:1px solid var(--bord);border-radius:7px;
+  z-index:5;
+}
+.theme-btn{
+  width:42px;height:38px;border:1px solid transparent;border-radius:5px;
+  background:transparent;color:var(--dim);cursor:pointer;
+  font-size:1.35rem;line-height:1;
+  display:grid;place-items:center;
+  transition:all .15s;
+}
+.theme-btn:hover{border-color:var(--acc);color:var(--acc);}
+.theme-btn.active{background:var(--acc);color:#000;border-color:var(--acc);}
+body.light{
+  --bg:#f4f7fb;--surf:#ffffff;--surf2:#eef3f9;
+  --bord:#c8d5e5;--acc:#0077aa;--acc2:#c94f1c;--acc3:#167a31;
+  --txt:#172438;--dim:#53657d;--hi:#9a7100;--bad:#c51d4e;
+  background-image:linear-gradient(rgba(0,100,160,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,100,160,.045) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+body.light .tab.active{color:#fff;}
+body.light .preset.on{background:rgba(201,79,28,.08);}
+body.light .fblock{background:rgba(0,119,170,.06);border-color:rgba(0,119,170,.2);}
+body.light .theme-toggle{box-shadow:0 2px 10px rgba(0,0,0,.08);}
+@media(max-width:760px){
+  header{padding-left:10px;padding-right:10px;}
+  h1{font-size:2.1rem;}
+  header p{font-size:.72rem;}
+  .theme-toggle{right:8px;top:8px;}
+  .theme-btn{width:36px;height:34px;font-size:1.2rem;}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>RESONANCE SIMULATOR</h1>
+  <p>9 Physical Models · Frequency Response Curves · Extreme Points · Real-Time Dynamics</p>
+  <div class="theme-toggle" aria-label="Theme controls">
+    <button class="theme-btn" id="nightBtn" type="button" title="Night mode" aria-label="Night mode">☾</button>
+    <button class="theme-btn" id="dayBtn" type="button" title="Day mode" aria-label="Day mode">★</button>
+  </div>
+</header>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-m="spring">Mass-Spring</div>
+  <div class="tab" data-m="rlc">RLC Circuit</div>
+  <div class="tab" data-m="pendulum">Pendulum</div>
+  <div class="tab" data-m="tacoma">Tacoma Bridge</div>
+  <div class="tab" data-m="seismic">Seismic</div>
+  <div class="tab" data-m="helmholtz">Helmholtz</div>
+  <div class="tab" data-m="coupled">Coupled Osc.<span class="badge">NEW</span></div>
+  <div class="tab" data-m="string">String Modes<span class="badge">NEW</span></div>
+  <div class="tab" data-m="fabry">Fabry-Pérot<span class="badge">NEW</span></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="ctitle" id="ctitle">Driven Mass-Spring System</div>
+    <canvas id="simCanvas" width="780" height="300"></canvas>
+    <div class="sbar">
+      <div class="dot"></div>
+      <span id="sd1">ω = –</span>
+      <span id="sd2">A = –</span>
+      <span id="sd3">φ = –</span>
+      <span id="sd4">Q = –</span>
+      <div class="warn" id="wn">⚠ RESONANCE</div>
+    </div>
+  </div>
+  <div class="card cpanel">
+    <div>
+      <div class="ctitle">Parameters</div>
+      <div class="params" id="paramcont"></div>
+    </div>
+    <div>
+      <div class="ctitle">Presets</div>
+      <div class="presets" id="presetcont"></div>
+    </div>
+    <div style="margin-top:auto">
+      <div class="ctitle">Extreme Points</div>
+      <div class="exts" id="extcont"></div>
+    </div>
+  </div>
+  <div class="card chartspan">
+    <div class="ctitle">Frequency Response — Amplitude A(ω) vs Driving Frequency ω</div>
+    <canvas id="chartCanvas" width="1100" height="175"></canvas>
+  </div>
+</div>
+
+<div class="infopanel">
+  <div class="ctitle">Physics Explanation</div>
+  <div class="mname" id="iname">–</div>
+  <div class="msub" id="isub">–</div>
+  <div class="itext" id="itxt"></div>
+</div>
+</div>
+
+<script>
+const TAU=Math.PI*2;
+const $=id=>document.getElementById(id);
+
+// ── Drawing helpers ──────────────────────────────────────────────
+function drawSpring(ctx,x1,y1,x2,y2,coils=8,r=6){
+  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+  const nx=dx/len,ny=dy/len,px=-ny,py=nx;
+  const sf=0.1,ef=0.9;
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  ctx.lineTo(x1+nx*len*sf,y1+ny*len*sf);
+  const n=coils*2;
+  for(let i=0;i<=n;i++){
+    const t=i/n,s=i%2===0?1:-1;
+    ctx.lineTo(x1+nx*len*(sf+t*(ef-sf))+px*r*s,y1+ny*len*(sf+t*(ef-sf))+py*r*s);
+  }
+  ctx.lineTo(x2,y2);ctx.stroke();
+}
+
+function drawWall(ctx,x,y,w,h){
+  ctx.save();ctx.fillStyle='#12223a';
+  ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle='#1e3a60';ctx.lineWidth=1;
+  for(let i=0;i<h+w;i+=9){
+    ctx.beginPath();ctx.moveTo(x,y+i);ctx.lineTo(x+Math.min(w,i),y+Math.max(0,i-h));ctx.stroke();
+  }
+  ctx.strokeStyle='#2a4a7a';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x+w,y);ctx.lineTo(x+w,y+h);ctx.stroke();
+  ctx.restore();
+}
+
+function drawArrow(ctx,x1,y1,x2,y2,col,lbl=''){
+  const dx=x2-x1,dy=y2-y1,l=Math.sqrt(dx*dx+dy*dy)||1;
+  const nx=dx/l,ny=dy/l,as=9;
+  ctx.save();ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-nx*as-ny*as*.5,y2-ny*as+nx*as*.5);
+  ctx.lineTo(x2-nx*as+ny*as*.5,y2-ny*as-nx*as*.5);
+  ctx.closePath();ctx.fill();
+  if(lbl){ctx.font='bold 10px Space Mono';ctx.fillText(lbl,x2+4,y2-4);}
+  ctx.restore();
+}
+
+function sdofAmp(omega,omega0,gamma,F0=1){
+  const d=Math.sqrt((omega0*omega0-omega*omega)**2+(gamma*omega)**2);
+  return d<1e-9?999:F0/d;
+}
+function sdofPhase(omega,omega0,gamma){
+  return Math.atan2(gamma*omega,omega0*omega0-omega*omega);
+}
+function sdofQ(omega0,gamma){return omega0/Math.max(gamma,.001);}
+
+function bgGrid(ctx,W,H){
+  ctx.fillStyle='#060a12';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(26,45,80,.35)';ctx.lineWidth=.5;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+}
+
+function label(ctx,x,y,txt,col='#4a6a9a',sz=9,align='left'){
+  ctx.save();ctx.font=sz+'px Space Mono';ctx.fillStyle=col;ctx.textAlign=align;
+  ctx.fillText(txt,x,y);ctx.restore();
+}
+
+// ── MODELS ──────────────────────────────────────────────────────
+const MODELS = {
+
+// ───── 1. Mass-Spring ─────
+spring:{
+  title:"Driven Mass-Spring System",
+  sub:"Forced harmonic oscillator — prototype of linear resonance",
+  params:[
+    {id:'omega',label:'Driving Frequency ω',min:.1,max:5,step:.05,def:.8,unit:'rad/s'},
+    {id:'omega0',label:'Natural Freq. ω₀',min:.5,max:4,step:.05,def:2.0,unit:'rad/s'},
+    {id:'gamma',label:'Damping γ',min:.02,max:2.5,step:.02,def:.3,unit:''},
+    {id:'F0',label:'Force Amplitude F₀',min:.2,max:5,step:.1,def:1,unit:'N'},
+  ],
+  presets:[
+    {name:'Perfect Resonance  (ω = ω₀)',v:{omega:2,omega0:2,gamma:.2,F0:1}},
+    {name:'Underdamped – slow drive',v:{omega:.6,omega0:2,gamma:.15,F0:1}},
+    {name:'Underdamped – fast drive',v:{omega:3.5,omega0:2,gamma:.15,F0:1}},
+    {name:'Very high Q  (nearly infinite A)',v:{omega:2,omega0:2,gamma:.04,F0:1}},
+    {name:'Overdamped  (no resonance)',v:{omega:2,omega0:2,gamma:2.2,F0:1}},
+  ],
+  amp:(p,w)=>sdofAmp(w,p.omega0,p.gamma,p.F0),
+  extremes(p){
+    const g=p.gamma,w0=p.omega0;
+    const wr=g>=Math.sqrt(2)*w0?0:Math.sqrt(Math.max(0,w0*w0-g*g/2));
+    const Ar=wr>0?sdofAmp(wr,w0,g,p.F0):null;
+    const Q=sdofQ(w0,g);
+    const Ac=Math.min(sdofAmp(p.omega,w0,g,p.F0),999);
+    const ph=sdofPhase(p.omega,w0,g)*180/Math.PI;
+    return[
+      {k:'Resonance ω_res',v:wr>0?wr.toFixed(3)+' rad/s':'No peak (overdamped)',cl:'hi'},
+      {k:'Peak Amplitude A_max',v:Ar?Math.min(Ar,999).toFixed(3)+' m':'—',cl:'bad'},
+      {k:'Current Amplitude A',v:Ac.toFixed(3)+' m',cl:'hi'},
+      {k:'Phase Shift φ',v:ph.toFixed(1)+'°',cl:''},
+      {k:'Quality Factor Q',v:Q.toFixed(2),cl:Q>10?'bad':Q>3?'hi':'ok'},
+      {k:'Bandwidth Δω ≈ γ',v:g.toFixed(3)+' rad/s',cl:''},
+      {k:'½-power freq.',v:(w0-g/2).toFixed(2)+' & '+(w0+g/2).toFixed(2),cl:''},
+    ];
+  },
+  info:`<strong>The driven mass-spring system</strong> is the canonical model of mechanical resonance. Mass <em>m</em>, spring constant <em>k</em>, viscous damping <em>b</em>, and a periodic force F₀cos(ωt).<br><br>
+<span class="fblock">x(t) = A(ω)·cos(ωt − φ), &nbsp; A(ω) = F₀ / √[(ω₀²−ω²)² + (γω)²]</span><br>
+ω₀ = √(k/m) is the natural frequency; γ = b/m is the damping rate. At ω = ω₀ the denominator is minimised and amplitude peaks — this is resonance. The <strong>quality factor Q = ω₀/γ</strong> measures peak sharpness; higher Q means more energy storage and higher peak amplitude. At resonance the response lags the force by exactly <strong>90°</strong>. The ½-power (−3 dB) bandwidth is Δω = γ = ω₀/Q.`,
+  draw(ctx,t,p,W,H){
+    const{omega,omega0,gamma,F0}=p;
+    bgGrid(ctx,W,H);
+    const A=Math.min(sdofAmp(omega,omega0,gamma,F0),4);
+    const phi=sdofPhase(omega,omega0,gamma);
+    const x=A*Math.cos(omega*t-phi);
+    const cx=W*.38,cy=H*.5,sc=W*.07,ww=18,mw=44,mh=42;
+    // Equilibrium line
+    ctx.setLineDash([4,6]);ctx.strokeStyle='rgba(26,45,80,.7)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();
+    ctx.setLineDash([]);
+    label(ctx,W*.62,cy-5,'equilibrium','#2a4a7a',8);
+    // Wall
+    drawWall(ctx,0,cy-65,ww,130);
+    // Spring
+    const mx=cx+x*sc;
+    ctx.save();ctx.shadowColor='#00c8ff';ctx.shadowBlur=5;
+    ctx.strokeStyle='#00c8ff';ctx.lineWidth=2;
+    drawSpring(ctx,ww,cy,mx,cy,9,7);
+    ctx.restore();
+    // Driving force
+    const fx=Math.min(mx+mw/2+4,W-10);
+    const flen=F0*18*Math.cos(omega*t);
+    if(Math.abs(flen)>3){
+      const fc=flen>0?'#ff6b35':'#ff3366';
+      drawArrow(ctx,fx,cy,Math.max(ww+5,Math.min(W-10,fx+flen)),cy,fc,'F');
+    }
+    // Mass
+    const bx=mx-mw/2,by=cy-mh/2;
+    ctx.save();
+    const g2=ctx.createLinearGradient(bx,by,bx+mw,by+mh);
+    g2.addColorStop(0,'#0d2040');g2.addColorStop(.5,'#1a3a6a');g2.addColorStop(1,'#0d2040');
+    ctx.shadowColor='#00c8ff';ctx.shadowBlur=22;
+    ctx.fillStyle=g2;ctx.strokeStyle='#00c8ff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(bx,by,mw,mh,4);ctx.fill();ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#00c8ff';ctx.font='bold 11px Space Mono';ctx.textAlign='center';
+    ctx.fillText('m',mx,cy+4);
+    ctx.restore();
+    // Amplitude bracket
+    const Ad=A*sc;
+    ctx.save();ctx.strokeStyle='rgba(255,215,0,.35)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(cx-Ad,by-8);ctx.lineTo(cx+Ad,by-8);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,215,0,.75)';ctx.font='8px Space Mono';ctx.textAlign='center';
+    ctx.fillText('A='+Math.min(A,99).toFixed(2),cx,by-16);
+    ctx.restore();
+    label(ctx,8,H-10,'ω='+omega.toFixed(2)+' ω₀='+omega0.toFixed(2)+' Q='+sdofQ(omega0,gamma).toFixed(1));
+  }
+},
+
+// ───── 2. RLC Circuit ─────
+rlc:{
+  title:"RLC Series Circuit",
+  sub:"Electrical resonance — analogue of the mass-spring system",
+  params:[
+    {id:'omega',label:'Driving Frequency ω',min:.1,max:5,step:.05,def:.8,unit:'rad/s'},
+    {id:'omega0',label:'Resonance Freq. ω₀',min:.5,max:4,step:.05,def:2,unit:'rad/s'},
+    {id:'R',label:'Resistance R',min:.05,max:5,step:.05,def:.6,unit:'Ω'},
+    {id:'V0',label:'Source Voltage V₀',min:1,max:10,step:.5,def:5,unit:'V'},
+  ],
+  presets:[
+    {name:'Radio tuning (at resonance)',v:{omega:2,omega0:2,R:.2,V0:5}},
+    {name:'High-Q bandpass filter',v:{omega:2,omega0:2,R:.1,V0:5}},
+    {name:'Low-Q (broadband)',v:{omega:2,omega0:2,R:2.5,V0:5}},
+    {name:'Above resonance (inductive)',v:{omega:3.5,omega0:2,R:.6,V0:5}},
+    {name:'Below resonance (capacitive)',v:{omega:.5,omega0:2,R:.6,V0:5}},
+  ],
+  amp(p,omega){
+    const{omega0,R,V0}=p;
+    const L=1,C=1/(omega0*omega0);
+    const Z=Math.sqrt(R*R+(omega*L-1/(omega*C))**2);
+    return V0/Z/omega0;
+  },
+  extremes(p){
+    const{omega,omega0,R,V0}=p;
+    const L=1,C=1/(omega0*omega0);
+    const XL=omega*L,XC=1/(omega*C);
+    const Z=Math.sqrt(R*R+(XL-XC)**2);
+    const I=V0/Z,VC=I/(omega*C);
+    const Q=omega0*L/R;
+    return[
+      {k:'Resonance ω₀',v:omega0.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Quality Factor Q',v:Q.toFixed(2),cl:Q>10?'bad':Q>3?'hi':'ok'},
+      {k:'Bandwidth Δω = ω₀/Q',v:(omega0/Q).toFixed(3)+' rad/s',cl:''},
+      {k:'Max V_C = Q·V₀',v:(V0*Q).toFixed(2)+' V',cl:'bad'},
+      {k:'Peak current I_max',v:(V0/R).toFixed(3)+' A',cl:'hi'},
+      {k:'Impedance |Z| now',v:Z.toFixed(3)+' Ω',cl:''},
+      {k:'V_C now',v:Math.min(VC,9999).toFixed(2)+' V',cl:'hi'},
+    ];
+  },
+  info:`<strong>The series RLC circuit</strong> is the electrical analogue of the mass-spring system. Inductance L → mass, capacitance C⁻¹ → spring, resistance R → damping. The source V₀cos(ωt) drives current through all three components in series.<br><br>
+<span class="fblock">ω₀ = 1/√(LC), &nbsp; Z(ω) = √[R² + (ωL − 1/ωC)²], &nbsp; Q = ω₀L/R</span><br>
+At resonance ωL = 1/ωC exactly, so Z = R (minimum) and I = V₀/R (maximum). The voltage across the capacitor or inductor is <strong>Q times the source voltage</strong> — this voltage magnification is why high-Q circuits can destroy components. Underlies AM/FM <strong>radio tuning</strong>, notch filters, and Tesla coils.`,
+  draw(ctx,t,p,W,H){
+    const{omega,omega0,R,V0}=p;
+    bgGrid(ctx,W,H);
+    const L=1,C=1/(omega0*omega0);
+    const XL=omega*L,XC=1/(omega*C);
+    const Z=Math.sqrt(R*R+(XL-XC)**2);
+    const I=V0/Z,phi=Math.atan2(XL-XC,R);
+    const Q=omega0/R;
+    // Circuit layout
+    const cx=W/2,cy=H/2,bw=260,bh=140;
+    const x0=cx-bw/2,y0=cy-bh/2;
+    // Background
+    ctx.fillStyle='rgba(13,21,37,.6)';
+    ctx.beginPath();ctx.roundRect(x0-16,y0-16,bw+32,bh+32,8);ctx.fill();
+    // Wires
+    ctx.strokeStyle='#1e3a6a';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x0+bw,y0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0+bw,y0);ctx.lineTo(x0+bw,y0+bh);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0+bw,y0+bh);ctx.lineTo(x0,y0+bh);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,y0+bh);ctx.lineTo(x0,y0);ctx.stroke();
+    // Animated current dots
+    const speed=Math.min(I*.6,.8)*20;
+    const totalP=2*(bw+bh);
+    function pathPt(f){
+      f=((f%1)+1)%1;const d=f*totalP;
+      if(d<=bw)return[x0+d,y0];
+      if(d<=bw+bh)return[x0+bw,y0+(d-bw)];
+      if(d<=2*bw+bh)return[x0+bw-(d-bw-bh),y0+bh];
+      return[x0,y0+bh-(d-2*bw-bh)];
+    }
+    const Inorm=Math.min(I/V0*R,.95);
+    for(let i=0;i<10;i++){
+      const f=(i/10+t*speed/totalP)%1;
+      const[px,py]=pathPt(f);
+      ctx.save();ctx.shadowColor='#00c8ff';ctx.shadowBlur=8;
+      ctx.fillStyle=`rgba(0,200,255,${.25+Inorm*.7})`;
+      ctx.beginPath();ctx.arc(px,py,3,0,TAU);ctx.fill();
+      ctx.restore();
+    }
+    // Resistor (top-left)
+    drawRLC_R(ctx,x0+bw*.15,y0,x0+bw*.4,y0,'#ff6b35');
+    label(ctx,x0+bw*.275,y0-14,'R='+R+'Ω','#ff6b35',9,'center');
+    // Inductor (top-right)
+    drawRLC_L(ctx,x0+bw*.6,y0,x0+bw*.9,y0,'#a8ff3e');
+    label(ctx,x0+bw*.75,y0-14,'L=1H','#a8ff3e',9,'center');
+    // Capacitor (right side)
+    drawRLC_C(ctx,x0+bw,y0+bh*.35,x0+bw,y0+bh*.65,'#00c8ff');
+    label(ctx,x0+bw+28,cy,'C='+(C*1000).toFixed(0)+'mF','#00c8ff',8,'left');
+    // Source (left side)
+    const Vs=V0*Math.cos(omega*t);
+    drawRLC_V(ctx,x0,y0+bh*.65,x0,y0+bh*.35,Vs,'#ffd700');
+    label(ctx,x0-30,cy,'V₀','#ffd700',9,'center');
+    // Voltmeter across C
+    const VCnow=(I*(1/(omega*C)))*Math.abs(Math.cos(omega*t-phi-Math.PI/2));
+    label(ctx,cx,H-20,'V_C = '+Math.min(VCnow,9999).toFixed(1)+'V    I = '+(I*Math.abs(Math.cos(omega*t-phi))).toFixed(2)+'A    Q = '+Q.toFixed(1),'#00c8ff',10,'center');
+  }
+},
+
+// ───── 3. Pendulum ─────
+pendulum:{
+  title:"Driven Pendulum",
+  sub:"Nonlinear oscillator — linear resonance for small angles",
+  params:[
+    {id:'omega',label:'Driving Frequency ω',min:.1,max:5,step:.05,def:.8,unit:'rad/s'},
+    {id:'L',label:'Pendulum Length L',min:.2,max:4,step:.05,def:1,unit:'m'},
+    {id:'gamma',label:'Damping γ',min:.02,max:2,step:.02,def:.3,unit:''},
+    {id:'tau0',label:'Torque Amplitude τ₀',min:.1,max:3,step:.1,def:.5,unit:'N·m'},
+  ],
+  presets:[
+    {name:'Resonance (ω = √g/L)',v:{omega:3.13,L:1,gamma:.2,tau0:.5}},
+    {name:'Short pendulum L=0.3m',v:{omega:5.72,L:.3,gamma:.2,tau0:.5}},
+    {name:'Tall pendulum L=4m',v:{omega:1.57,L:4,gamma:.2,tau0:.5}},
+    {name:'High damping (overdamped)',v:{omega:3.13,L:1,gamma:1.8,tau0:.5}},
+    {name:'Large driving torque',v:{omega:3.13,L:1,gamma:.2,tau0:2.5}},
+  ],
+  amp(p,omega){
+    const omega0=Math.sqrt(9.81/p.L);
+    return sdofAmp(omega,omega0,p.gamma,p.tau0);
+  },
+  extremes(p){
+    const omega0=Math.sqrt(9.81/p.L);
+    const g=p.gamma;
+    const wr=g>=Math.sqrt(2)*omega0?0:Math.sqrt(Math.max(0,omega0*omega0-g*g/2));
+    const Ar=wr>0?sdofAmp(wr,omega0,g,p.tau0):null;
+    const Ac=Math.min(sdofAmp(p.omega,omega0,g,p.tau0),6.28);
+    const Q=sdofQ(omega0,g);
+    return[
+      {k:'Natural Freq. ω₀ = √(g/L)',v:omega0.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Period T₀ = 2π/ω₀',v:(TAU/omega0).toFixed(3)+' s',cl:''},
+      {k:'Resonance ω_res',v:wr>0?wr.toFixed(3)+' rad/s':'overdamped',cl:'hi'},
+      {k:'Peak Angle A_max',v:Ar?Math.min(Ar,360).toFixed(3)+' rad':'—',cl:'bad'},
+      {k:'Current Amplitude',v:Ac.toFixed(3)+' rad',cl:'hi'},
+      {k:'Quality Factor Q',v:Q.toFixed(2),cl:Q>10?'bad':Q>3?'hi':'ok'},
+    ];
+  },
+  info:`<strong>The driven pendulum</strong> has natural frequency ω₀ = √(g/L). For small angles (θ ≪ 1), sin(θ)≈θ and the equation is identical to the mass-spring — a driven SDOF oscillator. Resonance occurs when the driving frequency matches ω₀, and the amplitude can grow until nonlinearity or damping limits it.<br><br>
+<span class="fblock">θ'' + γθ' + ω₀²θ = (τ₀/mL²)cos(ωt), &nbsp; ω₀ = √(g/L)</span><br>
+At large amplitudes the <strong>nonlinear term sin(θ)</strong> makes the effective restoring force weaker, shifting the resonance to lower frequencies (the <em>backbone curve</em>). A sufficiently driven pendulum can exhibit <strong>chaos and period doubling</strong> — one of the simplest routes to chaotic motion in physics.`,
+  draw(ctx,t,p,W,H){
+    const{omega,L,gamma,tau0}=p;
+    bgGrid(ctx,W,H);
+    const omega0=Math.sqrt(9.81/p.L);
+    const A=Math.min(sdofAmp(omega,omega0,gamma,tau0),1.4);
+    const phi=sdofPhase(omega,omega0,gamma);
+    const theta=A*Math.cos(omega*t-phi);
+    const px=W*.5,py=50;
+    const pxLen=Math.min(L*80,H*.75);
+    const bx=px+Math.sin(theta)*pxLen;
+    const by=py+Math.cos(theta)*pxLen;
+    // Pivot mount
+    drawWall(ctx,px-30,0,60,18,'top');
+    // Trail
+    ctx.save();ctx.strokeStyle='rgba(0,200,255,.15)';ctx.lineWidth=2;ctx.beginPath();
+    for(let i=0;i<80;i++){
+      const ti=t-i*.016;
+      const th=A*Math.cos(omega*ti-phi);
+      const bxi=px+Math.sin(th)*pxLen,byi=py+Math.cos(th)*pxLen;
+      i===0?ctx.moveTo(bxi,byi):ctx.lineTo(bxi,byi);
+    }
+    ctx.stroke();ctx.restore();
+    // Rod
+    ctx.save();ctx.strokeStyle='#2a4a7a';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(bx,by);ctx.stroke();ctx.restore();
+    // Driving torque arc
+    const tc=tau0*Math.cos(omega*t);
+    if(Math.abs(tc)>.02){
+      const col=tc>0?'#ff6b35':'#ff3366';
+      const r2=pxLen*.35,da=tc*.6;
+      ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;ctx.shadowColor=col;ctx.shadowBlur=6;
+      ctx.beginPath();ctx.arc(px,py,r2,-Math.PI/2,-Math.PI/2+da,da<0);ctx.stroke();
+      // Arrow tip on arc
+      const ang=-Math.PI/2+da;
+      const ax=px+r2*Math.cos(ang),ay=py+r2*Math.sin(ang);
+      const tang=ang+(da>0?Math.PI/2:-Math.PI/2);
+      ctx.fillStyle=col;ctx.beginPath();
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(ax+Math.cos(tang-0.4)*7,ay+Math.sin(tang-0.4)*7);
+      ctx.lineTo(ax+Math.cos(tang+0.4)*7,ay+Math.sin(tang+0.4)*7);
+      ctx.fill();ctx.restore();
+    }
+    // Bob
+    ctx.save();ctx.shadowColor='#00c8ff';ctx.shadowBlur=24;
+    ctx.fillStyle='#1a4080';ctx.strokeStyle='#00c8ff';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(bx,by,14,0,TAU);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#00c8ff';ctx.font='bold 10px Space Mono';ctx.textAlign='center';
+    ctx.fillText('m',bx,by+4);ctx.restore();
+    // Angle indicator
+    label(ctx,px+5,py+40,'θ='+(theta*180/Math.PI).toFixed(1)+'°','#ffd700',9);
+    label(ctx,8,H-10,'ω₀='+omega0.toFixed(2)+'  ω='+omega.toFixed(2)+'  Q='+sdofQ(omega0,gamma).toFixed(1));
+  }
+},
+
+// ───── 4. Tacoma Narrows ─────
+tacoma:{
+  title:"Tacoma Narrows Bridge — Aeroelastic Flutter",
+  sub:"Torsional structural resonance driven by wind vortex shedding",
+  params:[
+    {id:'windSpeed',label:'Wind Speed v',min:0,max:20,step:.2,def:8,unit:'m/s'},
+    {id:'omega0',label:'Torsional Nat. Freq. ω₀',min:.5,max:3,step:.05,def:1.2,unit:'rad/s'},
+    {id:'gamma',label:'Structural Damping γ',min:.02,max:1,step:.02,def:.15,unit:''},
+    {id:'span',label:'Bridge Span',min:100,max:900,step:10,def:600,unit:'m'},
+  ],
+  presets:[
+    {name:'Tacoma 1940 (critical wind)',v:{windSpeed:19,omega0:1.2,gamma:.05,span:600}},
+    {name:'Safe wind (no resonance)',v:{windSpeed:5,omega0:1.2,gamma:.15,span:600}},
+    {name:'Well-damped modern bridge',v:{windSpeed:19,omega0:1.2,gamma:.5,span:600}},
+    {name:'Slender span (low ω₀)',v:{windSpeed:10,omega0:.7,gamma:.1,span:850}},
+    {name:'Short stiff span',v:{windSpeed:15,omega0:2.5,gamma:.2,span:200}},
+  ],
+  amp(p,omega){
+    const vs=p.windSpeed,f_vortex=vs*0.2;
+    const omega_v=f_vortex*TAU;
+    return sdofAmp(omega_v,omega,p.gamma,.5);
+  },
+  extremes(p){
+    const vs=p.windSpeed,w0=p.omega0,g=p.gamma;
+    const f_critical=w0/(TAU*.2);
+    const omega_v=vs*.2*TAU;
+    const A=Math.min(sdofAmp(omega_v,w0,g,.5),99);
+    const Q=sdofQ(w0,g);
+    return[
+      {k:'Torsional Freq. ω₀',v:w0.toFixed(2)+' rad/s',cl:'hi'},
+      {k:'Critical wind speed',v:f_critical.toFixed(1)+' m/s',cl:'bad'},
+      {k:'Current wind',v:vs.toFixed(1)+' m/s',cl:vs>f_critical*.9?'bad':'ok'},
+      {k:'Vortex shedding freq.',v:(vs*.2).toFixed(3)+' Hz',cl:'hi'},
+      {k:'Torsional amplitude',v:A.toFixed(3)+' rad',cl:A>0.3?'bad':''},
+      {k:'Structural Q',v:Q.toFixed(2),cl:Q>10?'bad':'ok'},
+      {k:'Damping ratio ζ',v:(g/(2*w0)).toFixed(3),cl:''},
+    ];
+  },
+  info:`<strong>The Tacoma Narrows Bridge</strong> collapsed on 7 November 1940 after wind-induced torsional oscillations reached catastrophic amplitude. The mechanism was <em>aeroelastic flutter</em>: vortices shed alternately above and below the deck at a frequency determined by the Strouhal relation <strong>f_v ≈ 0.2 v/d</strong>.<br><br>
+<span class="fblock">ω_vortex = 0.2v · 2π, &nbsp; resonance when ω_vortex = ω₀_torsional</span><br>
+When the vortex shedding frequency locks onto the bridge's natural torsional mode, energy is pumped in faster than damping can dissipate it. The low structural damping (ζ ≈ 0.5%) and high Q of the original design made it especially vulnerable. Modern suspension bridges use <strong>aerodynamic deck sections, tuned mass dampers, and open trusses</strong> to prevent flutter.`,
+  draw(ctx,t,p,W,H){
+    const{windSpeed,omega0,gamma,span}=p;
+    bgGrid(ctx,W,H);
+    const omega_v=windSpeed*.2*TAU;
+    const A=Math.min(sdofAmp(omega_v,omega0,gamma,.5),1.2);
+    const phi=sdofPhase(omega_v,omega0,gamma);
+    const torsion=A*Math.cos(omega_v*t-phi);
+    const cx=W/2,cy=H*.52,bw=Math.min(span/2.5,320),bh=30;
+    // Sky gradient
+    ctx.save();
+    const sky=ctx.createLinearGradient(0,0,0,H*.6);
+    sky.addColorStop(0,'#060a12');sky.addColorStop(1,'rgba(0,10,30,.5)');
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*.6);ctx.restore();
+    // Water
+    ctx.save();
+    for(let i=0;i<5;i++){
+      const wy=cy+bh+20+i*15;
+      const wave=Math.sin(t*.5+i*.7)*3;
+      ctx.strokeStyle=`rgba(0,100,180,${.15-i*.02})`;ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(0,wy+wave);
+      for(let x=0;x<W;x+=10){ctx.lineTo(x,wy+Math.sin(t*.5+x*.05+i*.7)*4);}
+      ctx.stroke();
+    }
+    ctx.restore();
+    // Towers
+    const tw=14,th=H*.55;
+    const t1x=cx-bw/2,t2x=cx+bw/2;
+    [[t1x],[t2x]].forEach(([tx])=>{
+      const tg=ctx.createLinearGradient(tx-tw/2,0,tx+tw/2,0);
+      tg.addColorStop(0,'#1a3a6a');tg.addColorStop(.5,'#2a5a9a');tg.addColorStop(1,'#1a3a6a');
+      ctx.fillStyle=tg;ctx.fillRect(tx-tw/2,H-th,tw,th);
+      ctx.strokeStyle='#3a6aaa';ctx.lineWidth=1;ctx.strokeRect(tx-tw/2,H-th,tw,th);
+    });
+    // Cables
+    ctx.strokeStyle='#4a7aaa';ctx.lineWidth=1.5;
+    [[t1x,t2x]].forEach(([ax,bx])=>{
+      ctx.beginPath();ctx.moveTo(ax,H-th);
+      for(let x=ax;x<=bx;x+=3){
+        const f=(x-ax)/(bx-ax),sag=50*4*f*(1-f);
+        ctx.lineTo(x,H-th+sag);
+      }
+      ctx.stroke();
+    });
+    // Hangers
+    const sagAt=x=>{const f=(x-(cx-bw/2))/bw;return H-th+50*4*f*(1-f);};
+    for(let i=0;i<=8;i++){
+      const hx=cx-bw/2+i*(bw/8);
+      const hy=sagAt(hx);
+      ctx.strokeStyle='rgba(74,122,170,.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(hx,cy-bh/2-Math.abs(torsion)*20);ctx.stroke();
+    }
+    // Bridge deck with torsion
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(torsion*.4);
+    // Deck gradient
+    const dg=ctx.createLinearGradient(-bw/2,-bh/2,bw/2,bh/2);
+    const stress=Math.min(Math.abs(torsion)/1.2,1);
+    dg.addColorStop(0,`hsl(${210-stress*150},60%,${20+stress*15}%)`);
+    dg.addColorStop(1,`hsl(${210-stress*150},40%,${15+stress*10}%)`);
+    ctx.fillStyle=dg;ctx.strokeStyle=`hsl(${210-stress*150},70%,${40+stress*20}%)`;ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(-bw/2,-bh/2,bw,bh,3);ctx.fill();ctx.stroke();
+    // Deck detail lines
+    ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+    for(let i=-bw/2+30;i<bw/2;i+=30){
+      ctx.beginPath();ctx.moveTo(i,-bh/2);ctx.lineTo(i,bh/2);ctx.stroke();
+    }
+    ctx.restore();
+    // Wind arrows
+    for(let i=0;i<4;i++){
+      const wy=H*.15+i*H*.15;
+      const wlen=Math.min(windSpeed*4,60);
+      const flutter=Math.sin(omega_v*t+i*.8)*.3;
+      ctx.save();ctx.globalAlpha=.5+flutter*.3;
+      drawArrow(ctx,20+i*5,wy,20+i*5+wlen,wy,'#4a8aaa');
+      ctx.restore();
+    }
+    label(ctx,8,H-10,'v_wind='+windSpeed.toFixed(1)+'m/s  f_vortex='+(windSpeed*.2).toFixed(2)+'Hz  A='+A.toFixed(3)+'rad',windSpeed*.2>omega0/(TAU)*.9?'#ff3366':'#4a6a9a');
+    if(A>0.3){
+      ctx.save();ctx.font='bold 11px Space Mono';ctx.textAlign='center';
+      ctx.fillStyle=`rgba(255,51,102,${.7+.3*Math.sin(t*5)})`;
+      ctx.fillText('⚠ STRUCTURAL FAILURE IMMINENT',cx,30);ctx.restore();
+    }
+  }
+},
+
+// ───── 5. Seismic Building ─────
+seismic:{
+  title:"Seismic Building Resonance",
+  sub:"Structural resonance under ground-motion excitation",
+  params:[
+    {id:'omega',label:'Seismic Frequency ω',min:.1,max:6,step:.05,def:1,unit:'rad/s'},
+    {id:'floors',label:'Number of Floors N',min:2,max:50,step:1,def:12,unit:''},
+    {id:'gamma',label:'Structural Damping γ',min:.02,max:1,step:.02,def:.2,unit:''},
+    {id:'aground',label:'Ground Accel. A_g',min:.05,max:2,step:.05,def:.5,unit:'g'},
+  ],
+  presets:[
+    {name:'Mexico City 1985 (resonance)',v:{omega:2,floors:20,gamma:.05,aground:1.5}},
+    {name:'Short stiff building',v:{omega:3,floors:4,gamma:.2,aground:.5}},
+    {name:'Tall flexible tower',v:{omega:.5,floors:40,gamma:.1,aground:.5}},
+    {name:'Modern base-isolated',v:{omega:1.5,floors:20,gamma:.4,aground:.5}},
+    {name:'Critical resonance',v:{omega:2,floors:20,gamma:.05,aground:1}},
+  ],
+  amp(p,omega){
+    const omega0=TAU/(0.1*p.floors);
+    return sdofAmp(omega,omega0,p.gamma,p.aground);
+  },
+  extremes(p){
+    const omega0=TAU/(0.1*p.floors);
+    const g=p.gamma,ag=p.aground;
+    const wr=g>=Math.sqrt(2)*omega0?0:Math.sqrt(Math.max(0,omega0*omega0-g*g/2));
+    const Ar=wr>0?sdofAmp(wr,omega0,g,ag):null;
+    const Ac=Math.min(sdofAmp(p.omega,omega0,g,ag),99);
+    const Q=sdofQ(omega0,g);
+    return[
+      {k:'Nat. Period T = 0.1N (s)',v:(0.1*p.floors).toFixed(2)+'s',cl:'hi'},
+      {k:'Nat. Freq. ω₀',v:omega0.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Current seismic freq.',v:p.omega.toFixed(3)+' rad/s',cl:''},
+      {k:'Peak displacement',v:Ar?Math.min(Ar,99).toFixed(3)+'g':'—',cl:'bad'},
+      {k:'Current displ.',v:Ac.toFixed(3)+'g',cl:Ac>2?'bad':'hi'},
+      {k:'Building Q',v:Q.toFixed(2),cl:Q>10?'bad':'ok'},
+      {k:'Damping ratio ζ',v:(g/(2*omega0)).toFixed(3),cl:''},
+    ];
+  },
+  info:`<strong>Building seismic resonance</strong> occurs when earthquake ground motion frequency matches the building's natural frequency. The empirical rule for reinforced-concrete frames is <strong>T₀ ≈ 0.1N seconds</strong> where N is the number of floors, giving ω₀ = 2π/T₀.<br><br>
+<span class="fblock">ω₀ = 2π / (0.1N), &nbsp; Relative displacement ∝ A_g / |ω₀² − ω² + iγω|</span><br>
+The 1985 Mexico City earthquake (M8.1) produced unusual long-period ground motion (~2 s) that matched mid-rise buildings of 8–18 floors, causing collapse while shorter and taller buildings survived. Modern skyscrapers use <strong>tuned mass dampers (TMDs)</strong> — enormous pendulums or fluid tanks — to detune the building from seismic frequencies.`,
+  draw(ctx,t,p,W,H){
+    const{omega,floors,gamma,aground}=p;
+    bgGrid(ctx,W,H);
+    const omega0=TAU/(0.1*floors);
+    const A=Math.min(sdofAmp(omega,omega0,gamma,aground),3);
+    const phi=sdofPhase(omega,omega0,gamma);
+    const disp=A*Math.cos(omega*t-phi)*18;
+    const gdisp=aground*18*Math.cos(omega*t);
+    // Ground platform
+    const gy=H-50,px2=W/2;
+    ctx.save();
+    ctx.translate(gdisp,0);
+    ctx.fillStyle='#1a3a6a';ctx.fillRect(px2-120,gy,240,20);
+    ctx.strokeStyle='#2a5a9a';ctx.lineWidth=1;ctx.strokeRect(px2-120,gy,240,20);
+    // Seismic arrows
+    for(let i=0;i<3;i++){
+      const ah=Math.cos(omega*t)>0?30:-30;
+      ctx.globalAlpha=.4;
+      drawArrow(ctx,px2-110+i*80,gy+10,px2-110+i*80+ah,gy+10,'#ffd700');
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+    // Building floors
+    const floorH=Math.min((H-80)/floors,14);
+    const bw=70;
+    const stress=Math.min(Math.abs(disp)/18,1);
+    for(let f=0;f<floors;f++){
+      const fy=gy-f*floorH-floorH;
+      const frac=f/floors;
+      const fdx=gdisp+disp*frac;
+      ctx.save();ctx.translate(fdx,0);
+      const col=`hsl(${220-stress*frac*120},${50+stress*frac*20}%,${18+frac*10+stress*frac*12}%)`;
+      ctx.fillStyle=col;ctx.strokeStyle=`hsl(${220-stress*frac*100},60%,${35+frac*10}%)`;ctx.lineWidth=1;
+      ctx.beginPath();ctx.roundRect(px2-bw/2,fy,bw,floorH-1,1);ctx.fill();ctx.stroke();
+      // Windows
+      if(floorH>5){
+        ctx.fillStyle='rgba(0,200,255,.12)';
+        for(let w=0;w<4;w++){ctx.beginPath();ctx.roundRect(px2-bw/2+5+w*17,fy+2,12,floorH-4,1);ctx.fill();}
+      }
+      ctx.restore();
+    }
+    // Roof (top floor with extra sway)
+    const roofY=gy-floors*floorH;
+    const roofDx=gdisp+disp;
+    ctx.save();ctx.translate(roofDx,0);
+    ctx.shadowColor=stress>0.5?'#ff3366':'#00c8ff';ctx.shadowBlur=18;
+    ctx.fillStyle=stress>0.5?'#3a1020':'#0d2040';
+    ctx.strokeStyle=stress>0.5?'#ff3366':'#00c8ff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(px2-bw/2,roofY-10,bw,12,3);ctx.fill();ctx.stroke();
+    ctx.restore();
+    // Displacement indicator
+    ctx.save();ctx.setLineDash([3,4]);ctx.strokeStyle='rgba(255,215,0,.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(px2,roofY);ctx.lineTo(px2+roofDx-px2,roofY);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    label(ctx,8,H-10,'ω='+omega.toFixed(2)+' ω₀='+omega0.toFixed(2)+' disp='+Math.abs(disp).toFixed(1)+'px',stress>0.5?'#ff3366':'#4a6a9a');
+  }
+},
+
+// ───── 6. Helmholtz Resonator ─────
+helmholtz:{
+  title:"Helmholtz Resonator",
+  sub:"Acoustic cavity resonance — the 'bottle resonance'",
+  params:[
+    {id:'omega',label:'Driving Frequency ω',min:.1,max:5,step:.05,def:.8,unit:'rad/s'},
+    {id:'omega0',label:'Resonance Freq. ω₀',min:.3,max:4,step:.05,def:2,unit:'rad/s'},
+    {id:'gamma',label:'Damping γ',min:.02,max:1,step:.02,def:.25,unit:''},
+    {id:'V',label:'Cavity Size (visual)',min:.5,max:3,step:.1,def:1.5,unit:''},
+  ],
+  presets:[
+    {name:'At resonance (wine bottle)',v:{omega:2,omega0:2,gamma:.2,V:1.5}},
+    {name:'Below resonance',v:{omega:.8,omega0:2,gamma:.2,V:1.5}},
+    {name:'Above resonance',v:{omega:3.5,omega0:2,gamma:.2,V:1.5}},
+    {name:'High-Q cavity (sharp peak)',v:{omega:2,omega0:2,gamma:.05,V:1.5}},
+    {name:'Bass port (low ω₀)',v:{omega:.5,omega0:.5,gamma:.15,V:3}},
+  ],
+  amp:(p,omega)=>sdofAmp(omega,p.omega0,p.gamma,1),
+  extremes(p){
+    const{omega0,gamma}=p;
+    const Q=sdofQ(omega0,gamma);
+    const wr=gamma>=Math.sqrt(2)*omega0?0:Math.sqrt(Math.max(0,omega0*omega0-gamma*gamma/2));
+    const Ar=wr>0?sdofAmp(wr,omega0,gamma,1):null;
+    const Ac=Math.min(sdofAmp(p.omega,omega0,gamma,1),999);
+    return[
+      {k:'Resonance ω₀',v:omega0.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Quality Factor Q',v:Q.toFixed(2),cl:Q>10?'bad':Q>3?'hi':'ok'},
+      {k:'Bandwidth Δω = γ',v:gamma.toFixed(3)+' rad/s',cl:''},
+      {k:'Peak Amplitude A_max',v:Ar?Math.min(Ar,999).toFixed(3):'—',cl:'bad'},
+      {k:'Current Amplitude',v:Ac.toFixed(3),cl:'hi'},
+      {k:'Pressure Gain Q×',v:Q.toFixed(1)+'×',cl:Q>10?'bad':'hi'},
+    ];
+  },
+  info:`<strong>The Helmholtz resonator</strong> is an acoustic system consisting of a rigid-walled cavity (volume V) connected to the atmosphere through a narrow neck (area A, effective length L_eff). The air in the neck acts as a <em>mass piston</em>; the air in the cavity acts as a <em>spring</em>.<br><br>
+<span class="fblock">ω₀ = c√(A / V·L_eff), &nbsp; L_eff = L + 0.3√(A/π)</span><br>
+where c = 343 m/s (speed of sound). The end correction 0.3√(A/π) accounts for radiation from the neck opening. Applications include <strong>guitar/violin bodies</strong>, <strong>bass reflex speaker ports</strong>, <strong>muffler design</strong>, and <strong>architectural acoustics</strong>. Blowing across a bottle excites this mode; the pitch rises as you drink (V decreases, ω₀ increases).`,
+  draw(ctx,t,p,W,H){
+    const{omega,omega0,gamma,V}=p;
+    bgGrid(ctx,W,H);
+    const A=Math.min(sdofAmp(omega,omega0,gamma,1),3);
+    const phi=sdofPhase(omega,omega0,gamma);
+    const piston=A*Math.cos(omega*t-phi)*15;
+    const cx=W*.42,cy=H*.45;
+    const bh=Math.min(V*50+40,160),bw=bh*.75;
+    const neckW=28,neckH=45;
+    // Cavity body
+    ctx.save();
+    const bg=ctx.createRadialGradient(cx,cy+30,10,cx,cy+30,bw*.7);
+    bg.addColorStop(0,'#1a3060');bg.addColorStop(1,'#0d1e40');
+    ctx.fillStyle=bg;ctx.strokeStyle='#2a5aaa';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(cx,cy+bh*.3,bw/2,bh/2,0,0,TAU);ctx.fill();ctx.stroke();
+    ctx.restore();
+    // Neck
+    const nx=cx-neckW/2,ny=cy-bh/2-neckH;
+    ctx.save();
+    ctx.fillStyle='#1a3060';ctx.strokeStyle='#2a5aaa';ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(nx,ny,neckW,neckH,2);ctx.fill();ctx.stroke();
+    ctx.restore();
+    // Air piston in neck
+    const pistonY=ny+neckH*.5+piston;
+    ctx.save();ctx.shadowColor='#00c8ff';ctx.shadowBlur=15;
+    ctx.fillStyle='rgba(0,180,255,.35)';ctx.strokeStyle='#00c8ff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(nx+2,pistonY-6,neckW-4,12,2);ctx.fill();ctx.stroke();
+    ctx.restore();
+    // Pressure waves inside cavity
+    const nWaves=6;
+    for(let i=0;i<nWaves;i++){
+      const wr=bw/2*(0.3+i*.12);
+      const wamp=Math.abs(A)*.2/(i+1);
+      const wphi=i*.8;
+      const ws=wamp*Math.cos(omega*t-phi+wphi);
+      ctx.save();
+      ctx.strokeStyle=`rgba(0,200,255,${.5/(i+1)})`;ctx.lineWidth=1;
+      ctx.globalAlpha=.3+ws*.15;
+      ctx.beginPath();ctx.ellipse(cx,cy+bh*.3,wr*(1+ws*.05),wr*.6*(1+ws*.05),0,0,TAU);ctx.stroke();
+      ctx.restore();
+    }
+    // Labels
+    label(ctx,cx+bw/2+10,cy+bh*.3,'V='+V,'#4a8aaa',9);
+    label(ctx,cx+neckW/2+8,ny+neckH/2,'neck','#4a8aaa',9);
+    label(ctx,8,H-10,'ω₀='+omega0.toFixed(2)+'  ω='+omega.toFixed(2)+'  Q='+sdofQ(omega0,gamma).toFixed(1)+'  piston='+piston.toFixed(1));
+    // Sound pressure waveform outside
+    ctx.save();ctx.strokeStyle='rgba(0,200,255,.4)';ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let x=nx+neckW;x<W-10;x+=2){
+      const d=x-(nx+neckW);
+      const pw=A*.3*Math.cos(omega*t-d*.15-phi);
+      x===Math.ceil(nx+neckW)?ctx.moveTo(x,ny-20+pw*20):ctx.lineTo(x,ny-20+pw*20);
+    }
+    ctx.stroke();ctx.restore();
+  }
+},
+
+// ───── 7. Coupled Oscillators (NEW) ─────
+coupled:{
+  title:"Coupled Oscillators — Normal Modes",
+  sub:"Two masses coupled by a spring — symmetric & antisymmetric resonance modes",
+  params:[
+    {id:'omega_d',label:'Driving Frequency ω',min:.1,max:5,step:.05,def:.8,unit:'rad/s'},
+    {id:'k',label:'Individual Spring k',min:.5,max:8,step:.1,def:4,unit:'N/m'},
+    {id:'kc',label:'Coupling Spring κ',min:0,max:4,step:.05,def:1,unit:'N/m'},
+    {id:'gamma',label:'Damping γ',min:.02,max:1.5,step:.02,def:.25,unit:''},
+  ],
+  presets:[
+    {name:'Drive at symmetric mode ω₋',v:{omega_d:2,k:4,kc:1,gamma:.2}},
+    {name:'Drive at antisymmetric mode ω₊',v:{omega_d:2.45,k:4,kc:1.5,gamma:.2}},
+    {name:'Beating (ω₋ ≈ ω₊)',v:{omega_d:2,k:4,kc:.05,gamma:.05}},
+    {name:'Strong coupling (large split)',v:{omega_d:2,k:4,kc:3,gamma:.2}},
+    {name:'No coupling (degenerate)',v:{omega_d:2,k:4,kc:0,gamma:.2}},
+  ],
+  amp(p,omega){
+    const w_minus=Math.sqrt(p.k),w_plus=Math.sqrt(p.k+2*p.kc);
+    const A1=sdofAmp(omega,w_minus,p.gamma,.5);
+    const A2=sdofAmp(omega,w_plus,p.gamma,.5);
+    return Math.max(A1,A2);
+  },
+  extremes(p){
+    const wm=Math.sqrt(p.k),wp=Math.sqrt(p.k+2*p.kc);
+    const split=wp-wm;
+    const Q=wm/p.gamma;
+    return[
+      {k:'Symmetric mode ω₋ = √k',v:wm.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Antisymmetric ω₊ = √(k+2κ)',v:wp.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Mode splitting Δω',v:split.toFixed(3)+' rad/s',cl:split<p.gamma?.2:'bad'},
+      {k:'Resolved? (Δω > γ)',v:split>p.gamma?'YES — modes resolved':'NO — modes overlap',cl:split>p.gamma?'ok':'bad'},
+      {k:'Quality Factor Q',v:Q.toFixed(2),cl:'hi'},
+      {k:'Beat period T_beat',v:split>0.001?(TAU/split).toFixed(2)+'s':'∞',cl:''},
+    ];
+  },
+  info:`<strong>Coupled oscillators</strong> arise when two (or more) resonators exchange energy. Two identical masses m on springs k, connected by a coupling spring κ, have <strong>two normal modes</strong>.<br><br>
+<span class="fblock">ω₋ = √(k/m) [symmetric], &nbsp; ω₊ = √((k+2κ)/m) [antisymmetric]</span><br>
+In the <strong>symmetric mode</strong> both masses move in phase; in the <strong>antisymmetric mode</strong> they move out of phase, stretching the coupling spring. When the drive frequency sweeps through ω₋ and ω₊ you see <em>two resonance peaks</em> (an "avoided crossing"). If κ → 0 the peaks merge into a single degenerate resonance; strong coupling splits them widely. This model underlies <strong>coupled pendulum clocks</strong>, <strong>optical resonators</strong>, <strong>phonons in crystals</strong>, and <strong>EIT (electromagnetically induced transparency)</strong>.`,
+  draw(ctx,t,p,W,H){
+    const{omega_d,k,kc,gamma}=p;
+    bgGrid(ctx,W,H);
+    const wm=Math.sqrt(k),wp=Math.sqrt(k+2*kc);
+    const A1m=sdofAmp(omega_d,wm,gamma,.5),phi1m=sdofPhase(omega_d,wm,gamma);
+    const A1p=sdofAmp(omega_d,wp,gamma,.5),phi1p=sdofPhase(omega_d,wp,gamma);
+    // Superposition of normal modes for mass 1 and 2
+    const x1=(A1m*Math.cos(omega_d*t-phi1m)+A1p*Math.cos(omega_d*t-phi1p))*15;
+    const x2=(A1m*Math.cos(omega_d*t-phi1m)-A1p*Math.cos(omega_d*t-phi1p))*15;
+    const cy=H*.5,sc=50;
+    const m1x=W*.3+x1,m2x=W*.7+x2,mh=38;
+    // Walls
+    drawWall(ctx,0,cy-55,18,110);
+    drawWall(ctx,W-18,cy-55,18,110);
+    // Springs
+    ctx.save();ctx.strokeStyle='#00c8ff';ctx.lineWidth=2;ctx.shadowColor='#00c8ff';ctx.shadowBlur=4;
+    drawSpring(ctx,18,cy,m1x-mh/2,cy,7,6);
+    drawSpring(ctx,m2x+mh/2,cy,W-18,cy,7,6);
+    ctx.restore();
+    // Coupling spring
+    ctx.save();ctx.strokeStyle='#a8ff3e';ctx.lineWidth=2;ctx.shadowColor='#a8ff3e';ctx.shadowBlur=4;
+    drawSpring(ctx,m1x+mh/2,cy,m2x-mh/2,cy,7,6);
+    ctx.restore();
+    // Masses
+    [{x:m1x,lbl:'m₁',col:'#00c8ff'},{x:m2x,lbl:'m₂',col:'#00c8ff'}].forEach(({x,lbl,col})=>{
+      ctx.save();ctx.shadowColor=col;ctx.shadowBlur=20;
+      const g2=ctx.createLinearGradient(x-mh/2,cy-mh/2,x+mh/2,cy+mh/2);
+      g2.addColorStop(0,'#0d2040');g2.addColorStop(.5,'#1a3a6a');g2.addColorStop(1,'#0d2040');
+      ctx.fillStyle=g2;ctx.strokeStyle=col;ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(x-mh/2,cy-mh/2,mh,mh,4);ctx.fill();ctx.stroke();
+      ctx.shadowBlur=0;ctx.fillStyle=col;ctx.font='bold 10px Space Mono';ctx.textAlign='center';
+      ctx.fillText(lbl,x,cy+4);ctx.restore();
+    });
+    // Mode labels
+    label(ctx,W/2,cy-55,'ω₋ = '+wm.toFixed(2)+'  ω₊ = '+wp.toFixed(2),'#ffd700',9,'center');
+    label(ctx,W*.3,cy+mh/2+14,'x₁ = '+x1.toFixed(1),'#00c8ff',8,'center');
+    label(ctx,W*.7,cy+mh/2+14,'x₂ = '+x2.toFixed(1),'#00c8ff',8,'center');
+    label(ctx,W/2,cy+mh/2+14,'κ = '+kc,'#a8ff3e',8,'center');
+    label(ctx,8,H-10,'ω_drive='+omega_d.toFixed(2)+'  ω₋='+wm.toFixed(2)+'  ω₊='+wp.toFixed(2));
+  }
+},
+
+// ───── 8. String Standing Waves (NEW) ─────
+string:{
+  title:"String Standing Waves — Harmonic Modes",
+  sub:"Transverse resonances of a fixed-fixed string under tension",
+  params:[
+    {id:'omega',label:'Driving Frequency ω',min:.1,max:20,step:.1,def:3.14,unit:'rad/s'},
+    {id:'T',label:'String Tension T',min:.1,max:10,step:.1,def:1,unit:'N'},
+    {id:'mu',label:'Linear Density μ',min:.1,max:5,step:.05,def:1,unit:'kg/m'},
+    {id:'gamma',label:'Damping γ',min:.02,max:2,step:.02,def:.3,unit:''},
+  ],
+  presets:[
+    {name:'1st harmonic (fundamental)',v:{omega:3.14,T:1,mu:1,gamma:.15}},
+    {name:'2nd harmonic (first overtone)',v:{omega:6.28,T:1,mu:1,gamma:.15}},
+    {name:'3rd harmonic',v:{omega:9.42,T:1,mu:1,gamma:.15}},
+    {name:'5th harmonic',v:{omega:15.7,T:1,mu:1,gamma:.15}},
+    {name:'Off resonance',v:{omega:4.5,T:1,mu:1,gamma:.15}},
+  ],
+  amp(p,omega){
+    const v=Math.sqrt(p.T/p.mu),f1=v/2;
+    const omega1=f1*TAU;
+    let Atot=0;
+    for(let n=1;n<=8;n++){
+      const wn=n*omega1;
+      Atot+=sdofAmp(omega,wn,p.gamma,.5)/n;
+    }
+    return Atot;
+  },
+  extremes(p){
+    const v=Math.sqrt(p.T/p.mu),f1=v/2;
+    const omega1=f1*TAU;
+    const n=Math.round(p.omega/omega1)||1;
+    const Ac=sdofAmp(p.omega,n*omega1,p.gamma,.5);
+    return[
+      {k:'Wave speed v = √(T/μ)',v:v.toFixed(2)+' m/s',cl:'hi'},
+      {k:'Fundamental ω₁ = πv/L',v:omega1.toFixed(3)+' rad/s',cl:'hi'},
+      {k:'Nearest mode n',v:n+'th harmonic ('+n+'×ω₁)',cl:'hi'},
+      {k:'Mode freq. ωₙ = n·ω₁',v:(n*omega1).toFixed(3)+' rad/s',cl:''},
+      {k:'Amplitude at ωₙ',v:Ac.toFixed(3),cl:Ac>3?'bad':'hi'},
+      {k:'Wavelength λ_n = 2L/n',v:(2/n).toFixed(3)+' m (L=1m)',cl:''},
+    ];
+  },
+  info:`<strong>A string fixed at both ends</strong> supports standing-wave resonances only at harmonic frequencies. For string length L, tension T, and linear density μ, the wave speed is v = √(T/μ) and the <em>n</em>-th harmonic is:<br><br>
+<span class="fblock">fₙ = nv/2L = n·f₁, &nbsp; λₙ = 2L/n, &nbsp; v = √(T/μ)</span><br>
+Between harmonics the string responds with very small amplitude. At each harmonic the string displays <strong>n anti-nodes</strong> and <strong>n+1 nodes</strong> (including the fixed ends). This principle underlies all <strong>stringed instruments</strong>: guitar, violin, piano. Tuning increases T; stopping shortens effective L; both raise all harmonics proportionally. The <em>timbre</em> (tone colour) depends on the mixture of harmonic amplitudes.`,
+  draw(ctx,t,p,W,H){
+    const{omega,T,mu,gamma}=p;
+    bgGrid(ctx,W,H);
+    const v=Math.sqrt(T/mu),f1=v/2,omega1=f1*TAU;
+    const cy=H*.45,sx=40,ex=W-40,L=ex-sx;
+    // Draw string for each contributing harmonic
+    for(let n=1;n<=10;n++){
+      const wn=n*omega1;
+      const An=sdofAmp(omega,wn,gamma,.5)/n*.6;
+      const phiN=sdofPhase(omega,wn,gamma);
+      if(An<0.01) continue;
+      const alpha=Math.min(An*.3,0.25);
+      ctx.save();ctx.strokeStyle=`rgba(0,200,255,${alpha})`;ctx.lineWidth=1;
+      ctx.beginPath();
+      for(let i=0;i<=200;i++){
+        const fx=sx+i/200*L;
+        const fy=cy+An*40*Math.sin(n*Math.PI*(fx-sx)/L)*Math.cos(omega*t-phiN);
+        i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
+      }
+      ctx.stroke();ctx.restore();
+    }
+    // Draw dominant mode brightly
+    const ndom=Math.round(omega/omega1)||1;
+    const Adom=sdofAmp(omega,ndom*omega1,gamma,.5);
+    const phiDom=sdofPhase(omega,ndom*omega1,gamma);
+    ctx.save();ctx.strokeStyle='#00c8ff';ctx.lineWidth=2.5;ctx.shadowColor='#00c8ff';ctx.shadowBlur=12;
+    ctx.beginPath();
+    for(let i=0;i<=300;i++){
+      const fx=sx+i/300*L;
+      const fy=cy+Math.min(Adom,.8)*35*Math.sin(ndom*Math.PI*(fx-sx)/L)*Math.cos(omega*t-phiDom);
+      i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
+    }
+    ctx.stroke();ctx.restore();
+    // Fixed ends
+    [[sx,cy],[ex,cy]].forEach(([ex2,ey])=>{
+      ctx.save();ctx.fillStyle='#2a5a9a';ctx.strokeStyle='#00c8ff';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(ex2,ey,6,0,TAU);ctx.fill();ctx.stroke();ctx.restore();
+    });
+    // Nodes for dominant mode
+    ctx.save();ctx.fillStyle='rgba(255,215,0,.6)';
+    for(let i=0;i<=ndom;i++){
+      const nx=sx+i*L/ndom;
+      ctx.beginPath();ctx.arc(nx,cy,3,0,TAU);ctx.fill();
+    }
+    ctx.restore();
+    // Labels
+    label(ctx,W/2,cy-60,'n = '+ndom+'  f = '+(omega/TAU).toFixed(2)+'Hz  f₁ = '+f1.toFixed(2)+'Hz','#ffd700',9,'center');
+    label(ctx,8,H-10,'v='+v.toFixed(1)+'m/s  ω₁='+omega1.toFixed(2)+'  ωₙ='+(ndom*omega1).toFixed(2)+'  n='+ndom);
+    // Antinodes label
+    for(let i=0;i<ndom;i++){
+      const ax=sx+(i+.5)*L/ndom;
+      label(ctx,ax,cy+45,'AN','rgba(0,200,255,.4)',7,'center');
+    }
+  }
+},
+
+// ───── 9. Fabry-Pérot Optical Cavity (NEW) ─────
+fabry:{
+  title:"Fabry-Pérot Optical Cavity",
+  sub:"Interference-based spectral filter — sharp resonant transmission peaks",
+  params:[
+    {id:'R',label:'Mirror Reflectivity R',min:.1,max:.999,step:.001,def:.9,unit:''},
+    {id:'L',label:'Cavity Length L',min:.1,max:2,step:.01,def:1,unit:'m'},
+    {id:'n',label:'Refractive Index n',min:1,max:3,step:.01,def:1,unit:''},
+    {id:'lambda',label:'Wavelength λ (×10⁻⁶)',min:.3,max:1.5,step:.01,def:.63,unit:'μm'},
+  ],
+  presets:[
+    {name:'High-reflectivity etalon (R=0.99)',v:{R:.99,L:1,n:1,lambda:.63}},
+    {name:'Moderate finesse (R=0.9)',v:{R:.9,L:1,n:1,lambda:.63}},
+    {name:'Short cavity (large FSR)',v:{R:.95,L:.1,n:1,lambda:.63}},
+    {name:'Glass etalon n=1.5',v:{R:.95,L:.5,n:1.5,lambda:.63}},
+    {name:'Laser resonator (R→1)',v:{R:.999,L:1,n:1,lambda:.63}},
+  ],
+  amp(p,omega){
+    // Treat omega as wave number proxy; plot vs wavelength offset
+    const F=4*p.R/(1-p.R)**2;
+    const delta=omega*p.n*p.L*2; // phase roundtrip
+    return 1/(1+F*Math.sin(delta/2)**2);
+  },
+  extremes(p){
+    const R=p.R,L=p.L,n=p.n;
+    const F=4*R/(1-R)**2;
+    const finesse=Math.PI*Math.sqrt(R)/(1-R);
+    const FSR=(3e8)/(2*n*L);
+    const delta_nu=FSR/finesse;
+    const Tmax=1,Tmin=1/(1+F);
+    const lambda_res=2*n*L/Math.round(2*n*L/(p.lambda*1e-6))*1e6;
+    return[
+      {k:'Finesse ℱ = π√R/(1−R)',v:finesse.toFixed(1),cl:finesse>50?'bad':'hi'},
+      {k:'FSR = c/2nL',v:(FSR/1e9).toFixed(3)+' GHz',cl:'hi'},
+      {k:'Linewidth δν = FSR/ℱ',v:(delta_nu/1e6).toFixed(2)+' MHz',cl:'hi'},
+      {k:'Transmission T_max',v:Tmax.toFixed(3),cl:'ok'},
+      {k:'Transmission T_min',v:Tmin.toFixed(5),cl:'bad'},
+      {k:'Contrast ratio T_max/T_min',v:(1+F).toFixed(1),cl:R>.9?'bad':'hi'},
+      {k:'λ_res (nearest)',v:lambda_res.toFixed(4)+' μm',cl:'hi'},
+    ];
+  },
+  info:`<strong>The Fabry-Pérot etalon</strong> consists of two parallel partially-reflecting mirrors (reflectivity R) separated by distance L with refractive index n. Light undergoes multiple reflections and interferes constructively only when the round-trip phase is a multiple of 2π.<br><br>
+<span class="fblock">T(ν) = 1 / [1 + F·sin²(δ/2)], &nbsp; F = 4R/(1−R)², &nbsp; δ = 4πnLν/c</span><br>
+The <strong>finesse ℱ = π√R/(1−R)</strong> determines the ratio of peak spacing (Free Spectral Range = c/2nL) to peak width. High-finesse cavities (ℱ > 1000) are used in <strong>optical frequency combs</strong>, <strong>laser stabilisation</strong>, <strong>LIGO gravitational-wave detectors</strong>, and <strong>VHFS spectral filters</strong>. At each resonance the intra-cavity intensity is enhanced by ℱ/π relative to the input.`,
+  draw(ctx,t,p,W,H){
+    const{R,L,n,lambda}=p;
+    bgGrid(ctx,W,H);
+    const F=4*R/(1-R)**2;
+    const finesse=Math.PI*Math.sqrt(R)/(1-R);
+    // Mirror positions
+    const mx1=W*.28,mx2=W*.68,my=H*.15,mh=H*.7,mw=10;
+    const cavW=mx2-mx1;
+    // Background cavity
+    ctx.save();
+    const cg=ctx.createLinearGradient(mx1,0,mx2,0);
+    cg.addColorStop(0,'rgba(0,40,80,.3)');cg.addColorStop(.5,'rgba(0,80,160,.15)');cg.addColorStop(1,'rgba(0,40,80,.3)');
+    ctx.fillStyle=cg;ctx.fillRect(mx1,my,cavW,mh);ctx.restore();
+    // Wavelength color
+    const wl=lambda;
+    let hue=wl<.45?250:wl<.50?280:wl<.56?120:wl<.59?60:wl<.63?30:wl<.75?0:330;
+    const wcolor=`hsl(${hue},90%,60%)`;
+    // Standing wave inside
+    const kk=TAU*n/(lambda*1e-6);
+    const numRes=2*n*L/(lambda*1e-6);
+    const q=Math.round(numRes);
+    const delta=TAU*(numRes-q);
+    const T=1/(1+F*Math.sin(delta/2)**2);
+    const cavAmp=Math.sqrt(T)*(1+R)/(1-R);
+    // Draw bouncing beam
+    for(let i=0;i<8;i++){
+      const ht=my+mh*.15+i*(mh*.7/8);
+      const alpha=Math.pow(.9,i)*Math.pow(R,i)*.6*T;
+      if(alpha<.01) break;
+      ctx.save();ctx.strokeStyle=wcolor;ctx.lineWidth=2;ctx.globalAlpha=alpha;
+      ctx.shadowColor=wcolor;ctx.shadowBlur=8;
+      ctx.beginPath();ctx.moveTo(mx1+mw/2,ht);ctx.lineTo(mx2-mw/2,ht);ctx.stroke();
+      ctx.restore();
+    }
+    // Standing wave pattern
+    ctx.save();ctx.strokeStyle=wcolor;ctx.lineWidth=2;ctx.shadowColor=wcolor;ctx.shadowBlur=10;
+    ctx.globalAlpha=.7*T;
+    ctx.beginPath();
+    for(let i=0;i<=300;i++){
+      const fx=mx1+mw/2+i/300*(cavW-mw);
+      const xfrac=(fx-mx1-mw/2)/(cavW-mw);
+      const amp=Math.sin(q*Math.PI*xfrac);
+      const fy=H*.5+amp*Math.min(cavAmp,3)*mh*.18*Math.cos(omega2*t);
+      i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
+    }
+    ctx.stroke();ctx.restore();
+    // Mirrors
+    for(const[mx,side] of [[mx1,'left'],[mx2,'right']]){
+      const mg=ctx.createLinearGradient(mx-(side==='left'?mw:0),my,mx+(side==='left'?0:mw),my+mh);
+      mg.addColorStop(0,'#1a3a6a');mg.addColorStop(.5,'#2a5a9a');mg.addColorStop(1,'#1a3a6a');
+      ctx.save();ctx.fillStyle=mg;ctx.strokeStyle='#5a9adf';ctx.lineWidth=2;
+      ctx.beginPath();
+      if(side==='left') ctx.roundRect(mx-mw,my,mw,mh,3);
+      else ctx.roundRect(mx,my,mw,mh,3);
+      ctx.fill();ctx.stroke();
+      // Mirror reflectance label
+      label(ctx,side==='left'?mx-mw-28:mx+mw+4,my+mh*.5,'R='+R.toFixed(3),'#5a9adf',8,side==='left'?'right':'left');
+      ctx.restore();
+    }
+    // Incoming beam
+    ctx.save();ctx.strokeStyle=wcolor;ctx.lineWidth=3;ctx.globalAlpha=.8;
+    ctx.shadowColor=wcolor;ctx.shadowBlur=10;
+    ctx.beginPath();ctx.moveTo(20,H*.5);ctx.lineTo(mx1,H*.5);ctx.stroke();
+    // Transmitted beam
+    ctx.beginPath();ctx.globalAlpha=T*.8;ctx.moveTo(mx2+mw,H*.5);ctx.lineTo(W-20,H*.5);ctx.stroke();
+    ctx.restore();
+    // Arrows showing direction
+    drawArrow(ctx,40,H*.5,mx1-5,H*.5,wcolor);
+    if(T>0.05) drawArrow(ctx,mx2+mw+5,H*.5,W-25,H*.5,wcolor);
+    // Transmission label
+    const col=T>0.5?'#7cff84':T>0.1?'#ffd700':'#ff3366';
+    ctx.save();ctx.font='bold 12px Space Mono';ctx.textAlign='center';
+    ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=8;
+    ctx.fillText('T = '+T.toFixed(4)+'  Finesse = '+finesse.toFixed(1),W*.5,H-15);
+    ctx.restore();
+    label(ctx,8,H-10,'λ='+lambda+'μm  n='+n+'  L='+L+'m  R='+R+' F='+F.toFixed(1));
+    // Cavity length indicator
+    ctx.save();ctx.strokeStyle='rgba(255,215,0,.3)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+    ctx.beginPath();ctx.moveTo(mx1,my-8);ctx.lineTo(mx2,my-8);ctx.stroke();
+    ctx.setLineDash([]);
+    label(ctx,(mx1+mx2)/2,my-14,'L = '+L+'m  ('+q+' half-wavelengths)','rgba(255,215,0,.6)',8,'center');
+    ctx.restore();
+  }
+},
+
+};// end MODELS
+
+// Hack: omega2 for fabry draw
+let omega2=0;
+
+// ── STATE ────────────────────────────────────────────────────────
+let curModel='spring';
+let paramVals={};
+let simTime=0;
+let raf=null;
+
+// ── UI SETUP ─────────────────────────────────────────────────────
+function buildUI(){
+  const M=MODELS[curModel];
+  $('ctitle').textContent=M.title;
+  $('iname').textContent=M.title;
+  $('isub').textContent=M.sub;
+  $('itxt').innerHTML=M.info;
+  // Params
+  const pc=$('paramcont');pc.innerHTML='';
+  paramVals={};
+  M.params.forEach(pm=>{
+    const v=pm.def;
+    paramVals[pm.id]=v;
+    const div=document.createElement('div');div.className='param';
+    div.innerHTML=`<div class="plabel"><span>${pm.label}</span><span id="pv_${pm.id}">${v}${pm.unit}</span></div>
+    <input type="range" min="${pm.min}" max="${pm.max}" step="${pm.step}" value="${v}" id="pr_${pm.id}">`;
+    pc.appendChild(div);
+    div.querySelector('input').addEventListener('input',function(){
+      paramVals[pm.id]=+this.value;
+      $('pv_'+pm.id).textContent=this.value+pm.unit;
+      updateExtremes();drawChart();
+    });
+  });
+  // Presets
+  const prc=$('presetcont');prc.innerHTML='';
+  M.presets.forEach((pr,i)=>{
+    const btn=document.createElement('button');btn.className='preset';
+    btn.textContent=pr.name;
+    btn.addEventListener('click',()=>{
+      prc.querySelectorAll('.preset').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      Object.entries(pr.v).forEach(([k,vv])=>{
+        paramVals[k]=vv;
+        const inp=$('pr_'+k);if(inp){inp.value=vv;}
+        const lbl=$('pv_'+k);if(lbl){const pm=M.params.find(p=>p.id===k);lbl.textContent=vv+(pm?pm.unit:'');}
+      });
+      updateExtremes();drawChart();
+    });
+    prc.appendChild(btn);
+  });
+  updateExtremes();drawChart();
+}
+
+function updateExtremes(){
+  const M=MODELS[curModel];
+  if(!M.extremes) return;
+  const exts=M.extremes(paramVals);
+  const ec=$('extcont');ec.innerHTML='';
+  exts.forEach(e=>{
+    const div=document.createElement('div');div.className='ext';
+    div.innerHTML=`<span class="ek">${e.k}</span><span class="ev ${e.cl||''}">${e.v}</span>`;
+    ec.appendChild(div);
+  });
+}
+
+// ── STATUS BAR ───────────────────────────────────────────────────
+function updateStatus(){
+  const M=MODELS[curModel];
+  const p=paramVals;
+  const omega=p.omega||p.omega_d||p.windSpeed||1;
+  const omega0ref=p.omega0||p.L&&Math.sqrt(9.81/p.L)||1;
+  const gamma=p.gamma||p.R&&(1-p.R)||.3;
+  const A=M.amp?Math.min(M.amp(p,omega),999):0;
+  const phi=sdofPhase(omega,omega0ref,gamma)*180/Math.PI;
+  const Q=sdofQ(omega0ref,gamma);
+  $('sd1').textContent='ω = '+(omega||0).toFixed(2)+' rad/s';
+  $('sd2').textContent='A = '+A.toFixed(3);
+  $('sd3').textContent='φ = '+phi.toFixed(1)+'°';
+  $('sd4').textContent='Q = '+Q.toFixed(1);
+  const atRes=Math.abs(omega-(omega0ref||omega))<(gamma||.3)*.7;
+  const wn=$('wn');wn.classList.toggle('on',atRes&&Q>5);
+}
+
+// ── CHART ────────────────────────────────────────────────────────
+function drawChart(){
+  const M=MODELS[curModel];
+  if(!M.amp) return;
+  const canvas=$('chartCanvas');
+  canvas.width=canvas.offsetWidth||1100;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const pad={l:50,r:20,t:15,b:30};
+  const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  // BG
+  ctx.fillStyle='#060a12';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(26,45,80,.3)';ctx.lineWidth=.5;
+  for(let i=0;i<=5;i++){ctx.beginPath();ctx.moveTo(pad.l,pad.t+i*ch/5);ctx.lineTo(pad.l+cw,pad.t+i*ch/5);ctx.stroke();}
+  // Compute spectrum
+  const p=paramVals;
+  let omega0ref;
+  if(curModel==='string') omega0ref=Math.PI*Math.sqrt(p.T/p.mu);
+  else omega0ref=p.omega0||p.L&&Math.sqrt(9.81/p.L)||p.k&&Math.sqrt(p.k)||2;
+  const maxOmega=curModel==='string'?Math.max(omega0ref*6,20):Math.max(omega0ref*3,6);
+  const pts=400;
+  const amps=[];
+  let maxA=0;
+  for(let i=0;i<=pts;i++){
+    const w=.001+i/pts*maxOmega;
+    const a=M.amp(p,w);
+    amps.push(a);if(a>maxA) maxA=a;
+  }
+  maxA=Math.min(maxA*1.1,50)||5;
+  // Axis labels
+  ctx.fillStyle='#4a6a9a';ctx.font='8px Space Mono';ctx.textAlign='center';
+  for(let i=0;i<=5;i++){
+    const w=i*maxOmega/5;
+    const x=pad.l+i*cw/5;
+    ctx.fillText(w.toFixed(1),x,H-8);
+  }
+  ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const a=maxA*(1-i/4);
+    ctx.fillText(a.toFixed(1),pad.l-4,pad.t+i*ch/4+3);
+  }
+  // Axis line
+  ctx.strokeStyle='#1a2d50';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+ch);ctx.lineTo(pad.l+cw,pad.t+ch);ctx.stroke();
+  // Axis labels text
+  ctx.fillStyle='#4a6a9a';ctx.font='8px Space Mono';ctx.textAlign='center';
+  ctx.fillText('ω (rad/s)',pad.l+cw/2,H-1);
+  ctx.save();ctx.translate(10,pad.t+ch/2);ctx.rotate(-Math.PI/2);ctx.fillText('Amplitude',0,0);ctx.restore();
+  // Curve
+  ctx.save();ctx.strokeStyle='#00c8ff';ctx.lineWidth=2;
+  ctx.shadowColor='#00c8ff';ctx.shadowBlur=6;
+  ctx.beginPath();
+  amps.forEach((a,i)=>{
+    const x=pad.l+i/pts*cw;
+    const y=pad.t+ch*(1-Math.min(a,maxA)/maxA);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();ctx.restore();
+  // Current frequency marker
+  const curOmega=p.omega||p.omega_d||1;
+  const curX=pad.l+(curOmega/maxOmega)*cw;
+  ctx.save();ctx.strokeStyle='#ff6b35';ctx.lineWidth=2;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(curX,pad.t);ctx.lineTo(curX,pad.t+ch);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#ff6b35';ctx.font='bold 9px Space Mono';ctx.textAlign='center';
+  ctx.fillText('ω='+curOmega.toFixed(2),curX,pad.t-2);ctx.restore();
+  // Resonance frequency marker
+  const wr=omega0ref;
+  const wrX=pad.l+(wr/maxOmega)*cw;
+  ctx.save();ctx.strokeStyle='rgba(255,215,0,.5)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);
+  ctx.beginPath();ctx.moveTo(wrX,pad.t);ctx.lineTo(wrX,pad.t+ch);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,215,0,.8)';ctx.font='8px Space Mono';ctx.textAlign='center';
+  ctx.fillText('ω₀='+wr.toFixed(2),wrX,pad.t+8);ctx.restore();
+  // Half-power bandwidth
+  const gamma=p.gamma||.3;
+  const w1=Math.max(0,wr-gamma/2),w2=wr+gamma/2;
+  const bx1=pad.l+(w1/maxOmega)*cw,bx2=pad.l+(w2/maxOmega)*cw;
+  const peakA=M.amp(p,wr);
+  const hpY=pad.t+ch*(1-Math.min(peakA*.707,maxA)/maxA);
+  ctx.save();ctx.strokeStyle='rgba(168,255,62,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(bx1,hpY);ctx.lineTo(bx2,hpY);ctx.stroke();
+  ctx.fillStyle='rgba(168,255,62,.6)';ctx.font='8px Space Mono';ctx.textAlign='center';
+  ctx.fillText('−3dB BW = γ',((bx1+bx2)/2),hpY-4);ctx.restore();
+  // Q factor annotation at peak
+  const pkY=pad.t+ch*(1-Math.min(peakA,maxA)/maxA)+4;
+  ctx.save();ctx.fillStyle='rgba(255,215,0,.7)';ctx.font='bold 9px Space Mono';
+  ctx.textAlign='left';
+  ctx.fillText('Q = '+sdofQ(wr,gamma).toFixed(1),wrX+4,pkY+12);ctx.restore();
+}
+
+// ── ANIMATION ────────────────────────────────────────────────────
+function animate(){
+  const canvas=$('simCanvas');
+  canvas.width=canvas.offsetWidth||780;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  omega2=simTime; // used by fabry draw
+  MODELS[curModel].draw(ctx,simTime,paramVals,W,H);
+  updateStatus();
+  simTime+=.016;
+  raf=requestAnimationFrame(animate);
+}
+
+// ── TABS ─────────────────────────────────────────────────────────
+$('tabs').querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    $('tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    curModel=tab.dataset.m;
+    simTime=0;
+    buildUI();
+  });
+});
+
+// ── HELPERS for RLC draw ──────────────────────────────────────────
+function drawRLC_R(ctx,x1,y1,x2,y2,col){
+  const dx=x2-x1,steps=6,sw=dx/steps;
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  for(let i=0;i<steps;i++){
+    const bx=x1+i*sw,ex=x1+(i+1)*sw;
+    ctx.lineTo(bx+sw*.1,y1-6);ctx.lineTo(ex-sw*.1,y1+6);
+  }
+  ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();
+}
+function drawRLC_L(ctx,x1,y1,x2,y2,col){
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x1,y1);
+  const loops=5,lw=(x2-x1)/loops;
+  for(let i=0;i<loops;i++){
+    ctx.arc(x1+(i+.5)*lw,y1,lw/2,Math.PI,0,false);
+  }
+  ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();
+}
+function drawRLC_C(ctx,x1,y1,x2,y2,col){
+  const cy=(y1+y2)/2;
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1,cy-8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1-14,cy-8);ctx.lineTo(x1+14,cy-8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1-14,cy+8);ctx.lineTo(x1+14,cy+8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,cy+8);ctx.lineTo(x1,y2);ctx.stroke();
+  ctx.restore();
+}
+function drawRLC_V(ctx,x1,y1,x2,y2,Vs,col){
+  const cy=(y1+y2)/2;
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1,cy+10);ctx.stroke();
+  ctx.beginPath();ctx.arc(x1,cy,10,0,TAU);ctx.stroke();
+  ctx.fillStyle=col;ctx.font='8px Space Mono';ctx.textAlign='center';
+  ctx.fillText(Vs>0?'~':'~',x1,cy+4);
+  ctx.beginPath();ctx.moveTo(x1,cy-10);ctx.lineTo(x1,y2);ctx.stroke();
+  ctx.restore();
+}
+
+// ── THEME ────────────────────────────────────────────────────────
+const savedTheme=localStorage.getItem('resonance-theme')||'night';
+function setTheme(theme){
+  const light=theme==='day';
+  document.body.classList.toggle('light',light);
+  $('nightBtn').classList.toggle('active',!light);
+  $('dayBtn').classList.toggle('active',light);
+  localStorage.setItem('resonance-theme',theme);
+}
+$('nightBtn').addEventListener('click',()=>setTheme('night'));
+$('dayBtn').addEventListener('click',()=>setTheme('day'));
+setTheme(savedTheme);
+
+// ── INIT ─────────────────────────────────────────────────────────
+buildUI();
+animate();
+
+window.addEventListener('resize',()=>{drawChart();});
+</script>
+</body>
+</html> 

@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuantaLab — Scientific Data Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Exo+2:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06091a;--bgp:#0a0f1e;--bgc:#0f1628;--bgi:#080c18;--bd:#182040;--bdb:#243060;
+  --cy:#00d4ff;--gr:#00ff9d;--or:#ff7043;--pu:#b06ef3;--ye:#fbbf24;--re:#ff4560;
+  --tp:#ddeeff;--ts:#6a8ab0;--tm:#304060;--ui:'Exo 2',sans-serif;--mo:'JetBrains Mono',monospace;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tp);font-family:var(--ui);display:flex;flex-direction:column;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,.022)1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.022)1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0;}
+#hdr{z-index:10;background:linear-gradient(135deg,#090e20,#0f1628);border-bottom:1px solid var(--bdb);padding:0 18px;display:flex;align-items:center;justify-content:space-between;height:50px;flex-shrink:0;position:relative;}
+.lhex{width:30px;height:30px;background:conic-gradient(var(--cy),var(--pu),var(--gr),var(--cy));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);animation:hs 9s linear infinite;}
+@keyframes hs{to{filter:hue-rotate(360deg);}}
+.lname{font-size:17px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,var(--cy),var(--pu));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.lver{font-size:9px;letter-spacing:2px;color:var(--ts);text-transform:uppercase;margin-top:-3px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.hstats{display:flex;gap:18px;}
+.hs{text-align:right;}.hsv{font-family:var(--mo);font-size:12px;color:var(--cy);}.hsl{font-size:9px;color:var(--ts);text-transform:uppercase;letter-spacing:1px;}
+#tabnav{z-index:10;background:var(--bgp);border-bottom:1px solid var(--bd);display:flex;padding:0 10px;gap:2px;flex-shrink:0;position:relative;}
+.tbtn{padding:11px 18px;background:none;border:none;color:var(--ts);font-family:var(--ui);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.tbtn:hover{color:var(--tp);}.tbtn.active{color:var(--cy);border-bottom-color:var(--cy);}
+#app{position:relative;z-index:1;flex:1;overflow:hidden;}
+.tpanel{display:none;height:100%;overflow-y:auto;padding:14px;gap:11px;flex-direction:column;}
+.tpanel.active{display:flex;}
+#tp-plot.active{flex-direction:row;overflow:hidden;padding:12px;}
+#tp-plot.active #psb{overflow-y:auto;}
+.row{display:flex;gap:11px;}.col{display:flex;flex-direction:column;gap:9px;}.f1{flex:1;min-width:0;}
+.card{background:var(--bgc);border:1px solid var(--bd);border-radius:7px;padding:13px;position:relative;overflow:hidden;}
+.card::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,.012),transparent 55%);pointer-events:none;border-radius:7px;}
+.ct{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ts);margin-bottom:9px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.ct::before{content:'';width:2px;height:11px;background:var(--cy);border-radius:1px;flex-shrink:0;}
+select,input[type=text],input[type=number],textarea{background:var(--bgi);border:1px solid var(--bd);color:var(--tp);font-family:var(--mo);font-size:11px;padding:5px 8px;border-radius:4px;outline:none;transition:border-color .2s;width:100%;}
+select:focus,input:focus,textarea:focus{border-color:var(--cy);box-shadow:0 0 0 2px rgba(0,212,255,.1);}
+label{font-size:10px;color:var(--ts);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:3px;}
+.fg{display:flex;flex-direction:column;gap:3px;}.fr{display:flex;gap:8px;align-items:flex-end;}.fr .fg{flex:1;}
+.btn{padding:6px 13px;border:none;border-radius:4px;font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.bc{background:rgba(0,100,130,.35);color:var(--cy);border:1px solid rgba(0,212,255,.28);}
+.bc:hover{background:rgba(0,150,180,.45);border-color:var(--cy);box-shadow:0 0 8px rgba(0,212,255,.2);}
+.bg{background:rgba(0,60,40,.35);color:var(--gr);border:1px solid rgba(0,255,157,.28);}
+.bg:hover{border-color:var(--gr);box-shadow:0 0 8px rgba(0,255,157,.15);}
+.bo{background:rgba(80,30,10,.35);color:var(--or);border:1px solid rgba(255,112,67,.28);}
+.bo:hover{border-color:var(--or);}
+.br{background:rgba(80,10,20,.35);color:var(--re);border:1px solid rgba(255,69,96,.28);}
+.br:hover{border-color:var(--re);}
+.bp{background:rgba(50,20,90,.35);color:var(--pu);border:1px solid rgba(176,110,243,.28);}
+.bp:hover{border-color:var(--pu);box-shadow:0 0 8px rgba(176,110,243,.15);}
+.by{background:rgba(70,50,10,.35);color:var(--ye);border:1px solid rgba(251,191,36,.28);}
+.bgrp{display:flex;gap:5px;flex-wrap:wrap;}
+.tog{width:32px;height:16px;background:var(--bgi);border:1px solid var(--bd);border-radius:8px;position:relative;cursor:pointer;transition:all .2s;flex-shrink:0;}
+.tog::after{content:'';position:absolute;width:10px;height:10px;background:var(--tm);border-radius:50%;top:2px;left:2px;transition:all .2s;}
+.tog.on{background:rgba(0,212,255,.13);border-color:var(--cy);}
+.tog.on::after{background:var(--cy);left:18px;}
+.trow{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ts);}
+.dtw{overflow:auto;border:1px solid var(--bd);border-radius:5px;background:var(--bgi);}
+.dt{width:100%;border-collapse:collapse;font-family:var(--mo);font-size:11px;}
+.dt th{background:#0d1630;color:var(--cy);padding:6px 9px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--bdb);position:sticky;top:0;z-index:2;}
+.dt td{padding:4px 9px;border-bottom:1px solid rgba(24,32,64,.45);color:var(--tp);}
+.dt tr:hover td{background:rgba(0,212,255,.03);}
+.dt td:first-child{color:var(--ts);}
+.dt td[contenteditable]:focus{background:rgba(0,212,255,.07);color:var(--cy);outline:none;}
+.mv{color:var(--gr)!important;}.rv{color:var(--ye)!important;}
+#psb{width:262px;min-width:240px;display:flex;flex-direction:column;gap:9px;flex-shrink:0;}
+#pma{flex:1;display:flex;flex-direction:column;gap:9px;min-width:0;}
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px;}
+.si{background:var(--bgi);border:1px solid var(--bd);border-radius:5px;padding:7px 9px;}
+.sl{font-size:9px;color:var(--ts);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
+.sv{font-family:var(--mo);font-size:13px;color:var(--cy);font-weight:500;}
+.sv.g{color:var(--gr);}.sv.o{color:var(--or);}.sv.p{color:var(--pu);}.sv.y{color:var(--ye);}
+.ftbl{width:100%;font-family:var(--mo);font-size:11px;border-collapse:collapse;}
+.ftbl th{color:var(--ts);font-size:9px;text-transform:uppercase;letter-spacing:1px;padding:5px 8px;text-align:left;border-bottom:1px solid var(--bd);}
+.ftbl td{padding:6px 8px;border-bottom:1px solid rgba(24,32,64,.35);}
+.ftbl td:first-child{color:var(--cy);}
+.qbw{flex:1;height:5px;background:var(--bg);border-radius:3px;overflow:hidden;}
+.qb{height:100%;border-radius:3px;transition:width .5s;}
+.formula{font-family:var(--mo);font-size:12px;color:var(--cy);background:var(--bgi);border:1px solid var(--bd);border-radius:4px;padding:6px 9px;font-style:italic;margin:5px 0;}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;}
+.pbtn{background:var(--bgi);border:1px solid var(--bd);border-radius:5px;padding:8px 9px;color:var(--tp);font-family:var(--ui);font-size:11px;cursor:pointer;text-align:left;transition:all .2s;}
+.pbtn:hover{border-color:var(--cy);background:rgba(0,212,255,.04);color:var(--cy);}
+.pname{font-weight:700;margin-bottom:1px;}.pdesc{font-size:9px;color:var(--ts);}
+.badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.bac{background:rgba(0,212,255,.1);color:var(--cy);border:1px solid rgba(0,212,255,.2);}
+.bao{background:rgba(255,112,67,.1);color:var(--or);border:1px solid rgba(255,112,67,.2);}
+#toast{position:fixed;bottom:16px;right:16px;background:var(--bgc);border:1px solid var(--cy);border-radius:5px;padding:8px 13px;font-size:11px;color:var(--cy);z-index:9999;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;font-family:var(--mo);}
+#toast.show{opacity:1;transform:translateY(0);}
+hr.dv{border:none;border-top:1px solid var(--bd);margin:7px 0;}
+::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--bdb);border-radius:3px;}::-webkit-scrollbar-thumb:hover{background:var(--cy);}
+</style></head><body>
+
+<div id="hdr">
+  <div class="logo"><div class="lhex"></div><div><div class="lname">QUANTALAB</div><div class="lver">Scientific Data Analyzer v2.1</div></div></div>
+  <div class="hstats">
+    <div class="hs"><div class="hsv" id="h-n">0</div><div class="hsl">Points</div></div>
+    <div class="hs"><div class="hsv" id="h-xr">—</div><div class="hsl">X Range</div></div>
+    <div class="hs"><div class="hsv" id="h-chi2">—</div><div class="hsl">χ²/dof</div></div>
+    <div class="hs"><div class="hsv" id="h-r2">—</div><div class="hsl">R²</div></div>
+  </div>
+</div>
+
+<div id="tabnav">
+  <button class="tbtn active" data-tab="data" onclick="switchTab('data',this)">⊞ Data</button>
+  <button class="tbtn" data-tab="plot" onclick="switchTab('plot',this)">◈ Plot</button>
+  <button class="tbtn" data-tab="fit" onclick="switchTab('fit',this)">⌖ Fit</button>
+  <button class="tbtn" data-tab="stats" onclick="switchTab('stats',this)">∑ Statistics</button>
+  <button class="tbtn" data-tab="fft" onclick="switchTab('fft',this)">∿ FFT</button>
+</div>
+
+<div id="app">
+
+<!-- DATA TAB -->
+<div class="tpanel active" id="tp-data">
+  <div class="row">
+    <div class="card f1">
+      <div class="ct">Experimental Presets <span class="badge bac" style="margin-left:4px">Physics Lab</span></div>
+      <div class="pgrid" id="presetgrid"></div>
+    </div>
+    <div class="card" style="width:230px">
+      <div class="ct">Model Overlay</div>
+      <div class="fg" style="margin-bottom:7px"><label>Model</label>
+        <select id="msel" onchange="buildModelUI();updateModel()">
+          <option value="none">— None —</option><option value="linear">Linear</option>
+          <option value="gaussian">Gaussian</option><option value="lorentzian">Lorentzian</option>
+          <option value="exponential">Exponential decay</option><option value="sine">Sine</option>
+          <option value="power">Power law</option><option value="planck">Planck spectrum</option>
+        </select>
+      </div>
+      <div id="mparui"></div>
+      <button class="btn bc" style="margin-top:7px;width:100%" onclick="updateModel()">↻ Compute</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Preprocessing Pipeline</div>
+    <div class="fr" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <div class="fg"><label>σ-clip</label><input type="number" id="sig-clip" value="3" min="1" max="10" step=".5" style="width:65px"></div>
+      <div class="fg"><label>Smooth window</label><input type="number" id="smw" value="3" min="1" max="51" step="2" style="width:65px"></div>
+      <div class="fg"><label>Baseline</label><select id="bsel" style="width:100px"><option value="min">Min</option><option value="mean">Mean</option><option value="first">First pt</option></select></div>
+      <div class="bgrp">
+        <button class="btn bc" onclick="doClean()">🧹 Clean</button>
+        <button class="btn bc" onclick="doSubtract()">⊖ Subtract</button>
+        <button class="btn bc" onclick="doNorm()">⊘ Normalize</button>
+        <button class="btn bc" onclick="doSmooth()">〜 Smooth</button>
+        <button class="btn bo" onclick="resetData()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="card f1">
+    <div class="ct">Data Table <span class="badge bac" id="cbadge">0 pts</span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div class="trow"><div class="tog" id="smtog" onclick="toggleTog(this);toggleMCol()"></div><span>Model col</span></div>
+      </span>
+    </div>
+    <div class="fr" style="margin-bottom:9px;flex-wrap:wrap;gap:8px">
+<div class="fg">
+  <label>Paste data (x y σy per line)</label>
+  <textarea id="din" rows="3" placeholder="0.1  0.95  0.05&#10;0.2  1.82  0.08" style="width:340px;resize:vertical"></textarea>
+</div>
+<div class="col" style="justify-content:flex-end;gap:4px">
+  <input type="file" id="fileinp" accept=".txt,.dat,.csv,.tsv,.asc,.xy" style="display:none" onchange="handleFileImport(this)">
+  <button class="btn bc" onclick="parseText()">⊕ Paste Import</button>
+  <button class="btn bc" onclick="document.getElementById('fileinp').click()">📂 Open File</button>
+  <button class="btn bg" onclick="addRow()">+ Row</button>
+  <button class="btn br" onclick="clearAll()">✕ Clear</button>
+</div>
+      <div class="fg"><label>Column labels</label>
+        <div style="display:flex;gap:4px">
+          <input type="text" id="col-x" value="x" style="width:60px">
+          <input type="text" id="col-y" value="y" style="width:60px">
+          <input type="text" id="col-e" value="σy" style="width:60px">
+        </div>
+      </div>
+    </div>
+    <div class="dtw" style="max-height:260px">
+      <table class="dt" id="dtbl">
+        <thead><tr>
+          <th>#</th><th id="thx">x</th><th id="thy">y</th><th id="the">σy</th>
+          <th id="thm" style="display:none">Model</th><th id="thr" style="display:none">Residual</th><th>Del</th>
+        </tr></thead>
+        <tbody id="dtbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:9px"><div class="sg" id="qsgrid"></div></div>
+  </div>
+</div>
+
+<!-- PLOT TAB -->
+<div class="tpanel" id="tp-plot">
+  <div id="psb">
+    <div class="card">
+      <div class="ct">Plot Type</div>
+      <div class="fg"><label>Dimension</label><select id="pdim" onchange="updatePlot()"><option value="2d">2D</option><option value="3d">3D Scatter</option></select></div>
+      <div class="fg" style="margin-top:6px"><label>Trace style</label>
+        <select id="ptype" onchange="updatePlot()">
+          <option value="markers">Scatter</option><option value="lines">Line</option>
+          <option value="lines+markers">Line + Scatter</option><option value="bar">Bar</option><option value="step">Step</option>
+        </select>
+      </div>
+      <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px">
+        <div class="trow"><div class="tog" id="tog-err" onclick="toggleTog(this);updatePlot()"></div><span>Error bars</span></div>
+        <div class="trow"><div class="tog on" id="tog-grd" onclick="toggleTog(this);updatePlot()"></div><span>Grid</span></div>
+        <div class="trow"><div class="tog on" id="tog-mod" onclick="toggleTog(this);updatePlot()"></div><span>Model overlay</span></div>
+        <div class="trow"><div class="tog" id="tog-fit" onclick="toggleTog(this);updatePlot()"></div><span>Fit overlay</span></div>
+        <div class="trow"><div class="tog" id="tog-fil" onclick="toggleTog(this);updatePlot()"></div><span>Fill to zero</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Scales</div>
+      <div class="fg"><label>X axis</label><select id="xscl" onchange="updatePlot()"><option value="linear">Linear</option><option value="log">Log₁₀</option></select></div>
+      <div class="fg" style="margin-top:6px"><label>Y axis</label><select id="yscl" onchange="updatePlot()"><option value="linear">Linear</option><option value="log">Log₁₀</option></select></div>
+    </div>
+    <div class="card">
+      <div class="ct">Labels</div>
+      <div class="fg"><label>Title</label><input type="text" id="ptitle" value="Data Analysis" oninput="updatePlot()"></div>
+      <div class="fg" style="margin-top:5px"><label>X Axis</label><input type="text" id="xlbl" value="x" oninput="updatePlot()"></div>
+      <div class="fg" style="margin-top:5px"><label>Y Axis</label><input type="text" id="ylbl" value="y" oninput="updatePlot()"></div>
+    </div>
+    <div class="card"><div class="ct">Quick Stats</div><div id="pqs" style="font-family:var(--mo);font-size:11px;color:var(--ts)">Load data first.</div></div>
+    <div class="col" style="gap:5px">
+      <button class="btn bc" style="width:100%" onclick="updatePlot()">↻ Refresh</button>
+      <div class="bgrp">
+        <button class="btn bg" onclick="exportPlt('png')" style="flex:1">⤓ PNG</button>
+        <button class="btn bg" onclick="exportPlt('svg')" style="flex:1">⤓ SVG</button>
+        <button class="btn bg" onclick="exportPlt('jpeg')" style="flex:1">⤓ JPEG</button>
+      </div>
+    </div>
+  </div>
+  <div id="pma">
+    <div class="card f1" style="padding:0;overflow:hidden">
+      <div id="mainplot" style="width:100%;height:100%;min-height:440px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FIT TAB -->
+<div class="tpanel" id="tp-fit">
+  <div class="row">
+    <div class="card" style="width:275px;min-width:250px">
+      <div class="ct">Fitting Model</div>
+      <div class="fg"><label>Model</label>
+<select id="fitmod" onchange="onFitMod()">
+  <optgroup label="─ Polynomial">
+    <option value="linear">Linear: y = a + b·x</option>
+    <option value="quadratic">Quadratic</option>
+    <option value="cubic">Cubic</option>
+    <option value="poly4">Quartic</option>
+    <option value="poly5">Quintic</option>
+  </optgroup>
+  <optgroup label="─ Exponential / Decay">
+    <option value="exp_decay">Exp. Decay: A·e^−bx + C</option>
+    <option value="exp_growth">Exp. Growth: A·e^bx</option>
+    <option value="double_exp">Double Exponential</option>
+    <option value="stretched_exp">Stretched Exponential (KWW)</option>
+    <option value="exp_decay_bg">Exp. Decay + Linear BG</option>
+  </optgroup>
+  <optgroup label="─ Peaks / Spectroscopy">
+    <option value="gaussian">Gaussian</option>
+    <option value="double_gaussian">Double Gaussian</option>
+    <option value="lorentzian">Lorentzian / Cauchy</option>
+    <option value="pseudo_voigt">Pseudo-Voigt (XRD)</option>
+    <option value="breit_wigner">Breit-Wigner (Nuclear)</option>
+    <option value="sinc2">Sinc² (Diffraction)</option>
+  </optgroup>
+  <optgroup label="─ Oscillations">
+    <option value="sine">Sine Wave</option>
+    <option value="cosine">Cosine Wave</option>
+    <option value="damped_sine">Damped Sine</option>
+    <option value="damped_cosine">Damped Cosine</option>
+  </optgroup>
+  <optgroup label="─ Power / Scaling">
+    <option value="power">Power Law: A·x^b</option>
+    <option value="power_offset">Power Law + Offset</option>
+    <option value="sqrt">Square Root: A·√x + C</option>
+    <option value="log_func">Logarithm: A·ln(x) + C</option>
+    <option value="hyperbolic">Hyperbolic: A/(x+B) + C</option>
+  </optgroup>
+  <optgroup label="─ Growth / Sigmoid">
+    <option value="logistic">Logistic (Sigmoid)</option>
+    <option value="gompertz">Gompertz</option>
+    <option value="richards">Richards (Generalized Logistic)</option>
+  </optgroup>
+  <optgroup label="─ Chemistry / Physics">
+    <option value="arrhenius">Arrhenius: ln(k) vs 1/T</option>
+    <option value="michaelis_menten">Michaelis-Menten (Enzyme)</option>
+    <option value="hill">Hill Equation (Cooperative)</option>
+    <option value="langmuir">Langmuir Isotherm</option>
+    <option value="freundlich">Freundlich Isotherm</option>
+    <option value="planck">Planck Blackbody</option>
+    <option value="fermi_dirac">Fermi-Dirac</option>
+  </optgroup>
+  <optgroup label="─ Special">
+    <option value="pendulum">Pendulum T=f(L) → extract g</option>
+    <option value="coulomb">Rutherford / Coulomb Scattering</option>
+  </optgroup>
+</select>
+      </div>
+      <div class="formula" id="fitform">y = a + b·x</div>
+      <hr class="dv">
+      <div class="ct" style="margin-bottom:5px">Initial Parameters</div>
+      <div id="fitpinp" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"></div>
+      <hr class="dv">
+      <div class="fr">
+        <div class="fg"><label>Max iter</label><input type="number" id="fiter" value="800" min="50" max="5000" step="100" style="width:75px"></div>
+        <div class="fg"><label>Tolerance</label><input type="text" id="ftol" value="1e-9" style="width:75px"></div>
+      </div>
+      <div class="bgrp" style="margin-top:9px">
+        <button class="btn bp" onclick="runFit()" style="flex:1">⌖ Run Fit</button>
+        <button class="btn bc" onclick="autoGuess()">✦ Auto</button>
+      </div>
+    </div>
+    <div class="card f1">
+      <div class="ct">Fit Results</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <div class="si"><div class="sl">χ²</div><div class="sv p" id="rchi2">—</div></div>
+        <div class="si"><div class="sl">χ²/dof</div><div class="sv" id="rrchi2">—</div></div>
+        <div class="si"><div class="sl">R²</div><div class="sv g" id="rr2">—</div></div>
+        <div class="si"><div class="sl">RMSE</div><div class="sv o" id="rrmse">—</div></div>
+        <div class="si"><div class="sl">AIC</div><div class="sv y" id="raic">—</div></div>
+        <div class="si"><div class="sl">BIC</div><div class="sv" id="rbic">—</div></div>
+        <div class="si"><div class="sl">DOF</div><div class="sv" id="rdof">—</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;padding:7px 10px;background:var(--bgi);border:1px solid var(--bd);border-radius:4px">
+        <span style="font-size:10px;color:var(--ts)">Quality:</span>
+        <div class="qbw"><div class="qb" id="qbar" style="width:0%"></div></div>
+        <span id="qlbl" style="font-size:11px;color:var(--ts);width:55px;text-align:right">—</span>
+      </div>
+      <div class="ct">Parameters &amp; Uncertainties</div>
+      <table class="ftbl"><thead><tr><th>Param</th><th>Value</th><th>Std Error</th><th>95% CI</th></tr></thead>
+        <tbody id="fitptbl"></tbody></table>
+      <hr class="dv">
+      <div class="ct" style="margin-top:3px">Residuals</div>
+      <div id="residplot" style="height:150px;border:1px solid var(--bd);border-radius:5px"></div>
+    </div>
+    <div class="card" style="width:230px">
+      <div class="ct">Auto Model Selection</div>
+      <p style="font-size:11px;color:var(--ts);margin-bottom:9px;line-height:1.5">Tries all models, ranks by AIC &amp; χ², selects best automatically.</p>
+      <button class="btn bp" onclick="autoSelect()" style="width:100%;margin-bottom:10px">✦ Find Best Model</button>
+      <div id="mrank" style="font-family:var(--mo);font-size:10px"></div>
+    </div>
+  </div>
+  <div class="card" style="min-height:240px">
+    <div class="ct">Fit Visualization</div>
+    <div id="fitplot" style="height:220px"></div>
+  </div>
+</div>
+
+<!-- STATS TAB -->
+<div class="tpanel" id="tp-stats">
+  <div class="row">
+    <div class="card f1">
+      <div class="ct">Descriptive Statistics</div>
+      <div class="row" style="gap:12px">
+        <div class="f1"><div style="font-size:9px;color:var(--cy);margin-bottom:5px;letter-spacing:1px">X VARIABLE</div><div class="sg" id="sxg"></div></div>
+        <div class="f1"><div style="font-size:9px;color:var(--or);margin-bottom:5px;letter-spacing:1px">Y VARIABLE</div><div class="sg" id="syg"></div></div>
+      </div>
+    </div>
+    <div class="card" style="width:210px">
+      <div class="ct">Normality Tests</div>
+      <div id="normres" style="font-family:var(--mo);font-size:11px;color:var(--ts)">Compute stats first.</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="card" style="width:240px">
+      <div class="ct">Correlation</div>
+      <div id="corrres" style="font-family:var(--mo);font-size:11px"></div>
+    </div>
+    <div class="card f1">
+      <div class="ct">Bayesian Analysis</div>
+      <div class="fr" style="margin-bottom:9px">
+        <div class="fg"><label>Prior</label><select id="bprior" style="width:150px"><option value="uniform">Uniform (non-informative)</option><option value="jeffreys">Jeffreys</option></select></div>
+        <button class="btn bp" onclick="runBayes()" style="align-self:flex-end">⟁ Run</button>
+      </div>
+      <div id="bayres" style="font-family:var(--mo);font-size:11px;color:var(--ts)">Run Bayesian analysis.</div>
+    </div>
+    <div class="card" style="width:215px">
+      <div class="ct">Bootstrap</div>
+      <div class="fg"><label>N resamples</label><input type="number" id="bootn" value="2000" min="100" max="20000" step="200" style="width:90px"></div>
+      <button class="btn bc" onclick="runBoot()" style="margin-top:7px;margin-bottom:9px">⟳ Bootstrap</button>
+      <div id="bootres" style="font-family:var(--mo);font-size:11px;color:var(--ts)">Run bootstrap first.</div>
+    </div>
+  </div>
+  <div class="row f1">
+    <div class="card f1"><div class="ct">Distribution <select id="histvar" style="width:80px;margin-left:4px"><option value="y">Y</option><option value="x">X</option></select></div><div id="histplot" style="height:210px"></div></div>
+    <div class="card f1"><div class="ct">Q-Q Plot (Normality)</div><div id="qqplot" style="height:230px"></div></div>
+  </div>
+  <div><button class="btn bc" onclick="runAllStats()">∑ Compute All Statistics</button></div>
+</div>
+
+<!-- FFT TAB -->
+<div class="tpanel" id="tp-fft">
+  <div class="row">
+    <div class="card" style="width:245px">
+      <div class="ct">FFT Settings</div>
+      <div class="fg"><label>Window function</label>
+        <select id="fftwin"><option value="none">Rectangular</option><option value="hann">Hann</option><option value="hamming">Hamming</option><option value="blackman">Blackman</option><option value="flattop">Flat-top</option></select>
+      </div>
+      <div class="fg" style="margin-top:6px"><label>Output</label>
+        <select id="fftout"><option value="mag">Magnitude</option><option value="psd">Power (PSD)</option><option value="db">Power (dB)</option><option value="phase">Phase (rad)</option></select>
+      </div>
+      <div class="fg" style="margin-top:6px"><label>X Axis</label>
+        <select id="fftxax"><option value="freq">Frequency</option><option value="period">Period</option><option value="bin">Bin index</option></select>
+      </div>
+      <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px">
+        <div class="trow"><div class="tog on" id="fftptog" onclick="toggleTog(this)"></div><span>Detect peaks</span></div>
+      </div>
+      <div class="fg" style="margin-top:6px"><label>Peak threshold %</label><input type="number" id="fftthresh" value="10" min="1" max="99" style="width:75px"></div>
+      <button class="btn bc" onclick="runFFT()" style="margin-top:11px;width:100%">∿ Compute FFT</button>
+    </div>
+    <div class="card" style="width:205px">
+      <div class="ct">Detected Peaks</div>
+      <div id="fftplist" style="font-family:var(--mo);font-size:10px;color:var(--ts)">Run FFT first.</div>
+      <hr class="dv"><div class="ct">FFT Info</div>
+      <div id="fftinfo" style="font-family:var(--mo);font-size:10px;color:var(--ts)"></div>
+    </div>
+    <div class="card f1"><div class="ct">Frequency Stats</div><div class="sg" id="fftsg"></div></div>
+  </div>
+  <div class="card f1" style="min-height:240px"><div class="ct">Spectrum</div><div id="fftspec" style="height:220px"></div></div>
+  <div class="card" style="min-height:160px"><div class="ct">Signal (Time Domain)</div><div id="ffttime" style="height:140px"></div></div>
+</div>
+
+</div><!-- /app -->
+<div id="toast"></div>
+
+
+<script>
+
+// ═══════ ROBUST PARSER (handles .txt .dat .csv .tsv .asc .xy) ═══════
+function parseRawText(txt) {
+  const lines = txt.split(/\r?\n/);
+  const pts = [];
+
+  for (let raw of lines) {
+    const line = raw.trim();
+
+    // Skip blank lines and comment lines (# % // ! ;)
+    if (!line || /^[#%!;\/]/.test(line)) continue;
+
+    // Detect delimiter: tab > comma > semicolon > whitespace
+    let cols;
+    if (line.includes('\t'))       cols = line.split('\t');
+    else if (line.includes(','))   cols = line.split(',');
+    else if (line.includes(';'))   cols = line.split(';');
+    else                           cols = line.split(/\s+/);
+
+    cols = cols.map(c => c.trim()).filter(c => c !== '');
+
+    // Skip header rows (any col that isn't a valid number)
+    const nums = cols.map(Number);
+    if (cols.length < 2 || nums.some(isNaN)) continue;
+
+    pts.push({ x: nums[0], y: nums[1], yerr: nums[2] || 0 });
+  }
+  return pts;
+}
+
+function parseText() {
+  const txt = document.getElementById('din').value.trim();
+  if (!txt) return;
+  const pts = parseRawText(txt);
+  if (pts.length) {
+    setData(pts);
+    document.getElementById('din').value = '';
+  } else {
+    toast('No valid data found — check format');
+  }
+}
+
+function handleFileImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Guard: reject obviously wrong file types
+  const ok = /\.(txt|dat|csv|tsv|asc|xy|prn|out|tab)$/i.test(file.name);
+  if (!ok && file.size > 5_000_000) {
+    toast('File too large or unsupported type');
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = e => {
+    const txt = e.target.result;
+    const pts = parseRawText(txt);
+
+    if (pts.length) {
+      // Try to use filename (without extension) as plot title
+      const title = file.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ');
+      setData(pts, { title });
+      toast(`✓ Loaded "${file.name}" — ${pts.length} points`);
+    } else {
+      toast(`No numeric data found in "${file.name}"`);
+    }
+    input.value = ''; // allow re-importing same file
+  };
+
+  reader.onerror = () => toast('File read error');
+  reader.readAsText(file);
+}
+
+// ═══════ STATE ═══════
+const S={raw:[],data:[],model:[],fit:null,fitCurve:[],showModel:false};
+
+// ═══════ MATH ═══════
+const sum=a=>a.reduce((s,v)=>s+v,0);
+const mean=a=>a.length?sum(a)/a.length:0;
+const variance=a=>{if(a.length<2)return 0;const m=mean(a);return mean(a.map(v=>(v-m)*(v-m)));};
+const std=a=>Math.sqrt(variance(a));
+const median=a=>{const s=[...a].sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+const cov=(a,b)=>{const ma=mean(a),mb=mean(b);return mean(a.map((v,i)=>(v-ma)*(b[i]-mb)));};
+const pearsonR=(a,b)=>{const d=std(a)*std(b);return d?cov(a,b)/d:0;};
+const skewness=a=>{const m=mean(a),s=std(a)||1;return mean(a.map(v=>Math.pow((v-m)/s,3)));};
+const kurtosis=a=>{const m=mean(a),s=std(a)||1;return mean(a.map(v=>Math.pow((v-m)/s,4)))-3;};
+const iqr=a=>{const s=[...a].sort((x,y)=>x-y);return s[Math.floor(.75*s.length)]-s[Math.floor(.25*s.length)];};
+function rankArr(arr){const s=[...arr].sort((a,b)=>a-b);return arr.map(v=>s.indexOf(v)+1);}
+const spearman=(a,b)=>pearsonR(rankArr(a),rankArr(b));
+
+// ═══════ MATRIX ═══════
+function matMul(A,B){return Array.from({length:A.length},(_,i)=>Array.from({length:B[0].length},(_,j)=>A[i].reduce((s,_,k)=>s+A[i][k]*B[k][j],0)));}
+function matT(A){return A[0].map((_,i)=>A.map(r=>r[i]));}
+function solveGE(A,b){
+  const n=A.length,M=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){
+    let mx=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[mx][c]))mx=r;
+    [M[c],M[mx]]=[M[mx],M[c]];
+    if(Math.abs(M[c][c])<1e-15)continue;
+    for(let r=c+1;r<n;r++){const f=M[r][c]/M[c][c];for(let k=c;k<=n;k++)M[r][k]-=f*M[c][k];}
+  }
+  const x=new Array(n).fill(0);
+  for(let i=n-1;i>=0;i--){x[i]=M[i][n]/(M[i][i]||1e-15);for(let j=i-1;j>=0;j--)M[j][n]-=M[j][i]*x[i];}
+  return x;
+}
+function invertGJ(M){
+  const n=M.length,A=M.map((r,i)=>{const row=[...r];for(let j=0;j<n;j++)row.push(i===j?1:0);return row;});
+  for(let c=0;c<n;c++){
+    let mx=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[mx][c]))mx=r;
+    [A[c],A[mx]]=[A[mx],A[c]];const d=A[c][c];if(Math.abs(d)<1e-15)continue;
+    for(let k=0;k<2*n;k++)A[c][k]/=d;
+    for(let r=0;r<n;r++)if(r!==c){const f=A[r][c];for(let k=0;k<2*n;k++)A[r][k]-=f*A[c][k];}
+  }
+  return A.map(r=>r.slice(n));
+}
+function diagSE(inv,s2){return Array.from({length:inv.length},(_,i)=>Math.sqrt(Math.abs(inv[i][i]*s2)));}
+
+// ═══════ POLYNOMIAL LS ═══════
+function polyLS(xs,ys,deg,errs){
+  const n=xs.length,p=deg+1;
+  const w=errs&&errs.some(e=>e>0)?errs.map(e=>e>0?1/(e*e):1):new Array(n).fill(1);
+  const X=xs.map(x=>Array.from({length:p},(_,j)=>Math.pow(x,j)));
+  const Xw=X.map((r,i)=>r.map(v=>v*w[i]));
+  const XtX=matMul(matT(Xw),X);
+  const Xty=matT(Xw).map(row=>row.reduce((s,v,i)=>s+v*ys[i],0));
+  const params=solveGE(XtX,Xty);
+  const resid=ys.map((y,i)=>y-params.reduce((s,pk,j)=>s+pk*Math.pow(xs[i],j),0));
+  const chi2=resid.reduce((s,r,i)=>s+r*r*w[i],0);
+  const dof=Math.max(n-p,1);
+  const errors=diagSE(invertGJ(XtX),chi2/dof);
+  return{params,errors,chi2,dof};
+}
+
+// ═══════ LEVENBERG-MARQUARDT ═══════
+function lmFit(xs,ys,errs,fn,p0,maxIter=800,tol=1e-9){
+  const n=xs.length,m=p0.length;
+  const w=errs&&errs.some(e=>e>0)?errs.map(e=>e>0?1/(e*e):1):new Array(n).fill(1);
+  let p=[...p0],lam=0.01;
+  const eps=1e-6;
+  const res=p=>ys.map((y,i)=>y-fn(xs[i],p));
+  const chi2=r=>r.reduce((s,ri,i)=>s+ri*ri*w[i],0);
+  const jac=p=>xs.map((x,i)=>p.map((_,j)=>{const dp=[...p];dp[j]+=eps;return(fn(x,dp)-fn(x,p))/eps;}));
+  let r=res(p),c=chi2(r);
+  for(let it=0;it<maxIter;it++){
+    const J=jac(p);
+    const JtWJ=Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>J.reduce((s,row,k)=>s+row[i]*w[k]*row[j],0)));
+    const JtWr=Array.from({length:m},(_,i)=>J.reduce((s,row,k)=>s+row[i]*w[k]*r[k],0));
+    const A=JtWJ.map((row,i)=>row.map((v,j)=>i===j?v*(1+lam):v));
+    let dp;try{dp=solveGE(A,JtWr);}catch(e){break;}
+    const pn=p.map((v,i)=>v+dp[i]);
+    const rn=res(pn),cn=chi2(rn);
+    if(cn<c){p=pn;r=rn;c=cn;lam*=0.25;if(Math.max(...dp.map(Math.abs))<tol)break;}
+    else{lam*=4;if(lam>1e12)break;}
+  }
+  const J=jac(p);
+  const JtWJ=Array.from({length:m},(_,i)=>Array.from({length:m},(_,j)=>J.reduce((s,row,k)=>s+row[i]*w[k]*row[j],0)));
+  const dof=Math.max(n-m,1);
+  const errors=diagSE(invertGJ(JtWJ),c/dof);
+  return{params:p,errors,chi2:c,dof};
+}
+
+// ═══════ FIT METRICS ═══════
+function fitMetrics(xs,ys,fn,params,dof,chi2){
+  let yhat;
+  try{
+    yhat=xs.map(x=>fn(x,params));
+  } catch(e){
+    // fallback: polynomial eval from params array
+    yhat=xs.map(x=>params.reduce((s,pk,j)=>s+pk*Math.pow(x,j),0));
+  }
+  if(yhat.some(v=>!isFinite(v))){
+    return{r2:0,rmse:Infinity,rchi2:Infinity,aic:Infinity,bic:Infinity};
+  }
+  const ym=mean(ys);
+  const ssTot=ys.reduce((s,y)=>s+(y-ym)*(y-ym),0)||1;
+  const ssRes=ys.reduce((s,y,i)=>s+(y-yhat[i])*(y-yhat[i]),0);
+  const r2=1-ssRes/ssTot,n=xs.length,k=params.length;
+  const rmse=Math.sqrt(ssRes/Math.max(n,1));
+  const lnL=-n/2*Math.log(ssRes/n+1e-300)-n/2*(1+Math.log(2*Math.PI));
+  return{r2,rmse,rchi2:chi2/Math.max(dof,1),aic:2*k-2*lnL,bic:k*Math.log(n)-2*lnL};
+}
+
+
+// ═══════ FFT ═══════
+function nextPow2(n){let p=1;while(p<n)p<<=1;return p;}
+function fftCT(re,im){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}
+  for(let len=2;len<=n;len<<=1){
+    const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){let pr=1,pi=0;
+      for(let j=0;j<len/2;j++){
+        const ur=re[i+j],ui=im[i+j],vr=re[i+j+len/2]*pr-im[i+j+len/2]*pi,vi=re[i+j+len/2]*pi+im[i+j+len/2]*pr;
+        re[i+j]=ur+vr;im[i+j]=ui+vi;re[i+j+len/2]=ur-vr;im[i+j+len/2]=ui-vi;
+        const nr=pr*wr-pi*wi;pi=pr*wi+pi*wr;pr=nr;
+      }
+    }
+  }
+}
+const WINS={
+  none:(n,i)=>1,hann:(n,i)=>.5*(1-Math.cos(2*Math.PI*i/(n-1))),
+  hamming:(n,i)=>.54-.46*Math.cos(2*Math.PI*i/(n-1)),
+  blackman:(n,i)=>.42-.5*Math.cos(2*Math.PI*i/(n-1))+.08*Math.cos(4*Math.PI*i/(n-1)),
+  flattop:(n,i)=>{const a=[.21557895,.41663158,.277263158,.083578947,.006947368];
+    return a[0]-a[1]*Math.cos(2*Math.PI*i/n)+a[2]*Math.cos(4*Math.PI*i/n)-a[3]*Math.cos(6*Math.PI*i/n)+a[4]*Math.cos(8*Math.PI*i/n);}
+};
+
+// ═══════ MODELS ═══════
+const MODS={
+  // ── LINEAR / POLYNOMIAL ───────────────────────
+  linear:{name:'Linear',formula:'y = a + b·x',params:['a','b'],linear:true,
+    f:(x,p)=>p[0]+p[1]*x,
+    init:d=>{const xm=mean(d.map(r=>r.x)),ym=mean(d.map(r=>r.y));const vx=variance(d.map(r=>r.x))||1;const b=cov(d.map(r=>r.x),d.map(r=>r.y))/vx;return[ym-b*xm,b];}},
+  quadratic:{name:'Quadratic',formula:'y = a + b·x + c·x²',params:['a','b','c'],linear:true,
+    f:(x,p)=>p[0]+p[1]*x+p[2]*x*x,init:()=>[0,1,0]},
+  cubic:{name:'Cubic',formula:'y = a + bx + cx² + dx³',params:['a','b','c','d'],linear:true,
+    f:(x,p)=>p[0]+p[1]*x+p[2]*x*x+p[3]*x*x*x,init:()=>[0,1,0,0]},
+  poly4:{name:'Quartic',formula:'y = Σ aᵢxⁱ (i=0..4)',params:['a₀','a₁','a₂','a₃','a₄'],linear:true,
+    f:(x,p)=>p[0]+p[1]*x+p[2]*x*x+p[3]*x*x*x+p[4]*x*x*x*x,init:()=>[0,1,0,0,0]},
+  poly5:{name:'Quintic',formula:'y = Σ aᵢxⁱ (i=0..5)',params:['a₀','a₁','a₂','a₃','a₄','a₅'],linear:true,
+    f:(x,p)=>p[0]+p[1]*x+p[2]*x*x+p[3]*x*x*x+p[4]*x*x*x*x+p[5]*x*x*x*x*x,init:()=>[0,1,0,0,0,0]},
+  // ── EXPONENTIAL / DECAY ───────────────────────
+  exp_decay:{name:'Exp. Decay',formula:'y = A·e^(−b·x) + C',params:['A','b','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-p[1]*x)+p[2],
+    init:d=>[Math.max(...d.map(r=>r.y)),0.2,Math.min(...d.map(r=>r.y))]},
+  exp_growth:{name:'Exp. Growth',formula:'y = A·e^(b·x)',params:['A','b'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(p[1]*x),
+    init:d=>[(d[0]||{y:1}).y,0.1]},
+  double_exp:{name:'Double Exp.',formula:'y = A·e^(−b₁x) + B·e^(−b₂x)',params:['A','b₁','B','b₂'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-p[1]*x)+p[2]*Math.exp(-p[3]*x),
+    init:d=>{const ym=Math.max(...d.map(r=>r.y));return[ym/2,0.1,ym/2,0.5];}},
+  stretched_exp:{name:'Stretched Exp.',formula:'y = A·exp(−(x/τ)^β) + C',params:['A','τ','β','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-Math.pow(Math.max(x,0)/Math.abs(p[1]),Math.abs(p[2])))+p[3],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),mn=Math.min(...d.map(r=>r.y));const xr=Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x));return[ym-mn,xr/2,0.7,mn];}},
+  exp_decay_bg:{name:'Exp. Decay + BG',formula:'y = A·e^(−x/τ) + m·x + C',params:['A','τ','m','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-x/Math.abs(p[1]))+p[2]*x+p[3],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y));const xr=Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x));return[ym,xr/3,0,Math.min(...d.map(r=>r.y))];}},
+  // ── PEAKS / SPECTROSCOPY ─────────────────────
+  gaussian:{name:'Gaussian',formula:'y = A·exp(−(x−μ)²/2σ²) + C',params:['A','μ','σ','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-((x-p[1])*(x-p[1]))/(2*(p[2]||1e-10)*(p[2]||1e-10)))+p[3],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xp=(d.find(r=>r.y===ym)||d[0]).x,sp=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))/6||1;return[ym,xp,sp,Math.min(...d.map(r=>r.y))];}},
+  double_gaussian:{name:'Double Gaussian',formula:'y = A₁·G(μ₁,σ₁) + A₂·G(μ₂,σ₂) + C',params:['A₁','μ₁','σ₁','A₂','μ₂','σ₂','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-((x-p[1])*(x-p[1]))/(2*p[2]*p[2]||1e-10))+p[3]*Math.exp(-((x-p[4])*(x-p[4]))/(2*p[5]*p[5]||1e-10))+p[6],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xm=mean(d.map(r=>r.x)),xr=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))/6||1;return[ym,xm-xr,xr,ym/2,xm+xr,xr,Math.min(...d.map(r=>r.y))];}},
+  lorentzian:{name:'Lorentzian',formula:'y = A·γ²/((x−x₀)²+γ²) + C',params:['A','x₀','γ','C'],linear:false,
+    f:(x,p)=>p[0]*(p[2]*p[2])/((x-p[1])*(x-p[1])+(p[2]||1e-10)*(p[2]||1e-10))+p[3],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xp=(d.find(r=>r.y===ym)||d[0]).x;const xr=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))/10||1;return[ym,xp,xr,Math.min(...d.map(r=>r.y))];}},
+  pseudo_voigt:{name:'Pseudo-Voigt',formula:'y = A·[η·L + (1-η)·G] + C',params:['A','x₀','σ','η','C'],linear:false,
+    f:(x,p)=>{const G=Math.exp(-((x-p[1])*(x-p[1]))/(2*(p[2]||1e-10)*(p[2]||1e-10)));const L=(p[2]*p[2])/((x-p[1])*(x-p[1])+(p[2]||1e-10)*(p[2]||1e-10));const eta=Math.max(0,Math.min(1,p[3]));return p[0]*(eta*L+(1-eta)*G)+p[4];},
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xp=(d.find(r=>r.y===ym)||d[0]).x,xr=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))/8||1;return[ym,xp,xr,0.5,Math.min(...d.map(r=>r.y))];}},
+  breit_wigner:{name:'Breit-Wigner',formula:'σ = A·(Γ/2)²/((E−E₀)²+(Γ/2)²)',params:['A','E₀','Γ'],linear:false,
+    f:(x,p)=>p[0]*(p[2]/2)*(p[2]/2)/((x-p[1])*(x-p[1])+(p[2]/2)*(p[2]/2)),
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xp=(d.find(r=>r.y===ym)||d[0]).x,xr=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))/8||1;return[ym,xp,xr];}},
+  sinc2:{name:'Sinc² (Diffraction)',formula:'y = A·sinc²(b·(x−x₀)) + C',params:['A','b','x₀','C'],linear:false,
+    f:(x,p)=>{const u=Math.PI*p[1]*(x-p[2]);return p[0]*(Math.abs(u)<1e-10?1:(Math.sin(u)/u)*(Math.sin(u)/u))+p[3];},
+    init:d=>{const ym=Math.max(...d.map(r=>r.y)),xm=mean(d.map(r=>r.x)),xr=(Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x)))||1;return[ym,2/xr,xm,Math.min(...d.map(r=>r.y))];}},
+  // ── OSCILLATIONS ─────────────────────────────
+  sine:{name:'Sine',formula:'y = A·sin(ω·x + φ) + C',params:['A','ω','φ','C'],linear:false,
+    f:(x,p)=>p[0]*Math.sin(p[1]*x+p[2])+p[3],
+    init:d=>{const a=(Math.max(...d.map(r=>r.y))-Math.min(...d.map(r=>r.y)))/2;return[a,1,0,mean(d.map(r=>r.y))];}},
+  cosine:{name:'Cosine',formula:'y = A·cos(ω·x + φ) + C',params:['A','ω','φ','C'],linear:false,
+    f:(x,p)=>p[0]*Math.cos(p[1]*x+p[2])+p[3],
+    init:d=>{const a=(Math.max(...d.map(r=>r.y))-Math.min(...d.map(r=>r.y)))/2;return[a,1,0,mean(d.map(r=>r.y))];}},
+  damped_sine:{name:'Damped Sine',formula:'y = A·e^(−γx)·sin(ωx + φ) + C',params:['A','γ','ω','φ','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-p[1]*x)*Math.sin(p[2]*x+p[3])+p[4],
+    init:d=>{const a=(Math.max(...d.map(r=>r.y))-Math.min(...d.map(r=>r.y)))/2;const xr=Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x))||1;return[a,2/xr,2*Math.PI/xr,0,mean(d.map(r=>r.y))];}},
+  damped_cosine:{name:'Damped Cosine',formula:'y = A·e^(−γx)·cos(ωx + φ) + C',params:['A','γ','ω','φ','C'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-p[1]*x)*Math.cos(p[2]*x+p[3])+p[4],
+    init:d=>{const a=(Math.max(...d.map(r=>r.y))-Math.min(...d.map(r=>r.y)))/2;const xr=Math.max(...d.map(r=>r.x))-Math.min(...d.map(r=>r.x))||1;return[a,2/xr,2*Math.PI/xr,0,mean(d.map(r=>r.y))];}},
+  // ── POWER / SCALING ──────────────────────────
+  power:{name:'Power Law',formula:'y = A·x^b',params:['A','b'],linear:false,
+    f:(x,p)=>p[0]*Math.pow(Math.abs(x)+1e-300,p[1]),init:()=>[1,2]},
+  power_offset:{name:'Power Law + Offset',formula:'y = A·x^b + C',params:['A','b','C'],linear:false,
+    f:(x,p)=>p[0]*Math.pow(Math.abs(x)+1e-300,p[1])+p[2],
+    init:d=>[1,1,Math.min(...d.map(r=>r.y))]},
+  sqrt:{name:'Square Root',formula:'y = A·√x + C',params:['A','C'],linear:false,
+    f:(x,p)=>p[0]*Math.sqrt(Math.abs(x))+p[1],init:()=>[1,0]},
+  log_func:{name:'Logarithm',formula:'y = A·ln(x) + C',params:['A','C'],linear:false,
+    f:(x,p)=>p[0]*Math.log(Math.abs(x)+1e-300)+p[1],init:()=>[1,0]},
+  hyperbolic:{name:'Hyperbolic',formula:'y = A/(x + B) + C',params:['A','B','C'],linear:false,
+    f:(x,p)=>p[0]/(x+p[1])+p[2],
+    init:d=>{const ym=mean(d.map(r=>r.y)),xm=mean(d.map(r=>r.x));return[ym*xm,xm*0.1,0];}},
+  // ── GROWTH / SIGMOID ─────────────────────────
+  logistic:{name:'Logistic (Sigmoid)',formula:'y = L/(1+e^(−k(x−x₀)))',params:['L','k','x₀'],linear:false,
+    f:(x,p)=>p[0]/(1+Math.exp(-p[1]*(x-p[2]))),
+    init:d=>[Math.max(...d.map(r=>r.y)),1,mean(d.map(r=>r.x))]},
+  gompertz:{name:'Gompertz',formula:'y = A·exp(−b·e^(−c·x))',params:['A','b','c'],linear:false,
+    f:(x,p)=>p[0]*Math.exp(-p[1]*Math.exp(-p[2]*x)),
+    init:d=>[Math.max(...d.map(r=>r.y)),2,0.3]},
+  richards:{name:'Richards (Gen. Logistic)',formula:'y = A/(1+ν·e^(−k(x−x₀)))^(1/ν)',params:['A','k','x₀','ν'],linear:false,
+    f:(x,p)=>p[0]/Math.pow(1+Math.abs(p[3])*Math.exp(-p[1]*(x-p[2])),1/Math.max(Math.abs(p[3]),1e-10)),
+    init:d=>[Math.max(...d.map(r=>r.y)),0.3,mean(d.map(r=>r.x)),1]},
+  // ── CHEMISTRY / PHYSICS ──────────────────────
+  arrhenius:{name:'Arrhenius',formula:'ln(k) = ln(A) − Ea/(R·T)',params:['lnA','Ea/R'],linear:true,
+    f:(x,p)=>p[0]-p[1]*x,init:()=>[18,5000]},
+  michaelis_menten:{name:'Michaelis-Menten',formula:'y = Vmax·x/(Km + x)',params:['Vmax','Km'],linear:false,
+    f:(x,p)=>p[0]*Math.max(x,0)/(p[1]+Math.max(x,0)),
+    init:d=>[Math.max(...d.map(r=>r.y)),mean(d.map(r=>r.x))]},
+  hill:{name:'Hill Equation',formula:'y = Vmax·xⁿ/(Kd + xⁿ)',params:['Vmax','Kd','n'],linear:false,
+    f:(x,p)=>p[0]*Math.pow(Math.max(x,0),p[2])/(p[1]+Math.pow(Math.max(x,0),p[2])),
+    init:d=>[Math.max(...d.map(r=>r.y)),mean(d.map(r=>r.x)),2]},
+  langmuir:{name:'Langmuir Isotherm',formula:'y = Q·K·x/(1 + K·x)',params:['Q','K'],linear:false,
+    f:(x,p)=>p[0]*p[1]*Math.max(x,0)/(1+p[1]*Math.max(x,0)),
+    init:d=>[Math.max(...d.map(r=>r.y)),1]},
+  freundlich:{name:'Freundlich Isotherm',formula:'y = K·x^(1/n)',params:['K','n'],linear:false,
+    f:(x,p)=>p[0]*Math.pow(Math.max(x,0)+1e-300,1/Math.abs(p[1])),
+    init:()=>[1,2]},
+  planck:{name:'Planck Blackbody',formula:'B(λ)=scale·2hc²λ⁻⁵·[e^(hc/λkT)−1]⁻¹',params:['T','scale'],linear:false,
+    f:(x,p)=>{const h=6.626e-34,c=3e8,k=1.38e-23,lam=x*1e-9;
+      if(lam<=0)return 0;const ex=Math.exp((h*c)/(lam*k*Math.abs(p[0])));
+      return isFinite(ex)?p[1]*(2*h*c*c)/(lam*lam*lam*lam*lam*(ex-1)):0;},
+    init:()=>[5000,1]},
+  fermi_dirac:{name:'Fermi-Dirac',formula:'y = A/(exp((x−μ)/kT)+1) + C',params:['A','μ','kT','C'],linear:false,
+    f:(x,p)=>p[0]/(Math.exp((x-p[1])/Math.abs(p[2]))+1)+p[3],
+    init:d=>{const ym=Math.max(...d.map(r=>r.y));return[ym,mean(d.map(r=>r.x)),1,0];}},
+  // ── SPECIAL ──────────────────────────────────
+  pendulum:{name:'Pendulum T=f(L)',formula:'T = 2π·√(L/g)',params:['g'],linear:false,
+    f:(x,p)=>2*Math.PI*Math.sqrt(Math.abs(x)/Math.abs(p[0])),
+    init:()=>[9.81]},
+  coulomb:{name:'Rutherford / Coulomb',formula:'dσ/dΩ = A/sin⁴(x/2)',params:['A'],linear:false,
+    f:(x,p)=>p[0]/Math.pow(Math.sin(x*Math.PI/360)||1e-10,4),
+    init:d=>[Math.max(...d.map(r=>r.y))*Math.pow(Math.sin((d[0]||{x:30}).x*Math.PI/360),4)]},
+};
+
+// ═══════ PRESETS ═══════
+const PRESETS=[
+  {id:'pendulum',name:'Pendulum',desc:'T vs length',
+    g(){const G=9.81,pts=[];for(let i=1;i<=20;i++){const L=i*.05,T=2*Math.PI*Math.sqrt(L/G),n=T*.03*(Math.random()-.5);pts.push({x:+L.toFixed(3),y:+(T+n).toFixed(5),yerr:+(T*.015).toFixed(5)});}
+    return{data:pts,xlbl:'Length L (m)',ylbl:'Period T (s)',title:'Pendulum Period vs Length'};}},
+  {id:'decay',name:'Radioactive Decay',desc:'N₀·e^−λt',
+    g(){const N0=1000,lam=0.15,pts=[];for(let t=0;t<=30;t+=1.5){const N=N0*Math.exp(-lam*t),n=Math.sqrt(N)*(Math.random()-.5);pts.push({x:+t.toFixed(2),y:+Math.max(1,N+n).toFixed(2),yerr:+Math.sqrt(N).toFixed(2)});}
+    return{data:pts,xlbl:'Time t (s)',ylbl:'Counts N',title:'Radioactive Decay'};}},
+  {id:'blackbody',name:'Blackbody',desc:'Planck spectrum',
+    g(){const h=6.626e-34,c=3e8,k=1.38e-23,T=5000,pts=[];for(let lam=200e-9;lam<=2500e-9;lam+=80e-9){const B=(2*h*c*c)/(lam*lam*lam*lam*lam*(Math.exp((h*c)/(lam*k*T))-1));pts.push({x:+(lam*1e9).toFixed(1),y:+B.toExponential(4)*1,yerr:+(B*.01).toFixed(6)*1});}
+    return{data:pts,xlbl:'Wavelength λ (nm)',ylbl:'Spectral radiance',title:'Blackbody Radiation T=5000K'};}},
+  {id:'rc',name:'RC Circuit',desc:'Charging V(t)',
+    g(){const V0=5,RC=2,pts=[];for(let t=0;t<=10;t+=.4){const V=V0*(1-Math.exp(-t/RC)),n=.04*(Math.random()-.5);pts.push({x:+t.toFixed(2),y:+(V+n).toFixed(4),yerr:.02});}
+    return{data:pts,xlbl:'Time t (s)',ylbl:'Voltage V (V)',title:'RC Circuit Charging'};}},
+  {id:'hooke',name:"Hooke's Law",desc:'F = kx',
+    g(){const k=12.5,pts=[];for(let x=0;x<=.2;x+=.01){const F=k*x,n=.08*(Math.random()-.5);pts.push({x:+x.toFixed(3),y:+(F+n).toFixed(4),yerr:.04});}
+    return{data:pts,xlbl:'Extension x (m)',ylbl:'Force F (N)',title:"Hooke's Law"};}},
+  {id:'projectile',name:'Projectile',desc:'Height vs time',
+    g(){const v0=20,g=9.81,pts=[];for(let t=0;t<=4.1;t+=.2){const h=v0*t-.5*g*t*t,n=.3*(Math.random()-.5);pts.push({x:+t.toFixed(2),y:+Math.max(0,h+n).toFixed(3),yerr:.15});}
+    return{data:pts,xlbl:'Time t (s)',ylbl:'Height h (m)',title:'Projectile Motion'};}},
+  {id:'diffraction',name:'Diffraction',desc:'Single-slit',
+    g(){const pts=[];for(let th=-0.05;th<=0.051;th+=.002){const arg=Math.PI*2e-4*Math.sin(th)/550e-9,I=Math.abs(arg)<1e-10?1:(Math.sin(arg)/arg)*(Math.sin(arg)/arg),n=.01*(Math.random()-.5);pts.push({x:+th.toFixed(4),y:+Math.max(0,I+n).toFixed(5),yerr:.005});}
+    return{data:pts,xlbl:'Angle θ (rad)',ylbl:'Intensity I/I₀',title:'Single-Slit Diffraction'};}},
+  {id:'damped',name:'Damped Osc.',desc:'Spring-mass decay',
+    g(){const A=5,g=.2,w=2.5,ph=.3,pts=[];for(let t=0;t<=20;t+=.4){const y=A*Math.exp(-g*t)*Math.sin(w*t+ph),n=.1*(Math.random()-.5);pts.push({x:+t.toFixed(2),y:+(y+n).toFixed(4),yerr:.05});}
+    return{data:pts,xlbl:'Time t (s)',ylbl:'Position x (cm)',title:'Damped Harmonic Oscillator'};}},
+  {id:'hubble',name:'Hubble Law',desc:'v vs distance',
+    g(){const H0=70,pts=[];for(let d=20;d<=500;d+=30){const v=H0*d,n=H0*d*.07*(Math.random()-.5);pts.push({x:d,y:+(v+n).toFixed(1),yerr:+(H0*d*.035).toFixed(1)});}
+    return{data:pts,xlbl:'Distance (Mpc)',ylbl:'Velocity (km/s)',title:"Hubble's Law"};}},
+  {id:'gauss_peak',name:'Spectral Peak',desc:'Gaussian line',
+    g(){const A=800,mu=0,sig=2.5,C=30,pts=[];for(let x=-12;x<=12.1;x+=.5){const y=A*Math.exp(-((x-mu)*(x-mu))/(2*sig*sig))+C,n=Math.sqrt(y)*(Math.random()-.5);pts.push({x:+x.toFixed(2),y:+Math.max(0,y+n).toFixed(2),yerr:+Math.sqrt(y).toFixed(2)});}
+    return{data:pts,xlbl:'Energy (eV)',ylbl:'Counts',title:'Spectral Peak (Gaussian)'};}},
+  {id:'sine_wave',name:'Sine Wave',desc:'Periodic signal',
+    g(){const A=3.5,w=.8,ph=.5,pts=[];for(let t=0;t<=20;t+=.3){const y=A*Math.sin(w*t+ph)+.2*Math.sin(3*w*t),n=.15*(Math.random()-.5);pts.push({x:+t.toFixed(2),y:+(y+n).toFixed(4),yerr:.1});}
+    return{data:pts,xlbl:'Time t (s)',ylbl:'Amplitude',title:'Periodic Signal'};}},
+  {id:'logistic_growth',name:'Logistic Growth',desc:'Population model',
+    g(){const L=1000,k=0.3,x0=15,pts=[];for(let t=0;t<=40;t+=2){const y=L/(1+Math.exp(-k*(t-x0))),n=y*.03*(Math.random()-.5);pts.push({x:+t.toFixed(1),y:+Math.max(0,y+n).toFixed(2),yerr:+(y*.015).toFixed(2)});}
+    return{data:pts,xlbl:'Time t (days)',ylbl:'Population N',title:'Logistic Population Growth'};}},
+];
+
+// ═══════ PLOTLY THEME ═══════
+const PLB={
+  paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(6,9,26,.88)',
+  font:{family:'JetBrains Mono, monospace',color:'#8aa8c8',size:10},
+  xaxis:{gridcolor:'#182040',zerolinecolor:'#243060',color:'#5a7a9a',tickcolor:'#5a7a9a'},
+  yaxis:{gridcolor:'#182040',zerolinecolor:'#243060',color:'#5a7a9a',tickcolor:'#5a7a9a'},
+  legend:{bgcolor:'rgba(8,12,26,.9)',bordercolor:'#243060',borderwidth:1,font:{size:10}},
+  margin:{t:34,r:16,b:44,l:56},
+};
+function plyL(title,xl,yl,xt='linear',yt='linear',grid=true){
+  return{...PLB,title:{text:title,font:{color:'#ddeeff',size:12},x:.5},
+    xaxis:{...PLB.xaxis,title:{text:xl,font:{size:10}},type:xt,showgrid:grid},
+    yaxis:{...PLB.yaxis,title:{text:yl,font:{size:10}},type:yt,showgrid:grid}};
+}
+const CC={exp:'#ff7043',model:'#00ff9d',fit:'#b06ef3',res:'#fbbf24'};
+
+// ═══════ TOGGLE HELPER ═══════
+function toggleTog(el){el.classList.toggle('on');}
+function isTog(id){return (document.getElementById(id) && document.getElementById(id).classList.contains('on'));}
+
+// ═══════ DATA MANAGEMENT ═══════
+function setData(pts,info={}){
+  S.raw=pts.map(p=>({...p}));S.data=pts.map(p=>({...p}));S.model=[];S.fit=null;S.fitCurve=[];
+  if(info.xlbl){document.getElementById('xlbl').value=info.xlbl;document.getElementById('col-x').value=info.xlbl.split(' ')[0];}
+  if(info.ylbl){document.getElementById('ylbl').value=info.ylbl;document.getElementById('col-y').value=info.ylbl.split(' ')[0];}
+  if(info.title)document.getElementById('ptitle').value=info.title;
+  renderTable();updateHdr();updateQS();
+  toast(`Loaded ${pts.length} data points`);
+}
+function renderTable(){
+  const sm=S.showModel&&S.model.length===S.data.length;
+  ['thm','thr'].forEach(id=>document.getElementById(id).style.display=sm?'':'none');
+  document.getElementById('thx').textContent=document.getElementById('col-x').value||'x';
+  document.getElementById('thy').textContent=document.getElementById('col-y').value||'y';
+  document.getElementById('the').textContent=document.getElementById('col-e').value||'σy';
+  document.getElementById('dtbody').innerHTML=S.data.map((row,i)=>{
+    const mv=sm?(S.model[i] !== undefined ? S.model[i].y : ''):'',rv=sm&&mv!==''?(row.y-mv).toFixed(5):'';
+    return`<tr>
+      <td>${i+1}</td>
+      <td contenteditable="true" onblur="editCell(${i},'x',this.textContent)">${row.x}</td>
+      <td contenteditable="true" onblur="editCell(${i},'y',this.textContent)">${row.y}</td>
+      <td contenteditable="true" onblur="editCell(${i},'yerr',this.textContent)">${(row.yerr !== undefined ? row.yerr : 0)}</td>
+      ${sm?`<td class="mv">${typeof mv==='number'?mv.toFixed(4):mv}</td><td class="rv">${rv}</td>`:``}
+      <td><button onclick="delRow(${i})" style="background:none;border:none;color:#ff4560;cursor:pointer;font-size:12px;padding:0 3px">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function editCell(i,k,v){const n=parseFloat(v);if(!isNaN(n)){S.data[i][k]=n;updateHdr();updateQS();}}
+function delRow(i){S.data.splice(i,1);renderTable();updateHdr();updateQS();}
+function addRow(){S.data.push({x:0,y:0,yerr:0});renderTable();}
+function clearAll(){S.data=[];S.raw=[];S.model=[];renderTable();updateHdr();}
+function parseText() {
+  const txt = document.getElementById('din').value.trim();
+  if (!txt) return;
+  const pts = parseRawText(txt);
+  if (pts.length) {
+    setData(pts);
+    document.getElementById('din').value = '';
+  } else {
+    toast('No valid data found — check format');
+  }
+}
+function toggleMCol(){S.showModel=document.getElementById('smtog').classList.contains('on');renderTable();}
+function updateHdr(){
+  const n=S.data.length;document.getElementById('h-n').textContent=n;
+  document.getElementById('cbadge').textContent=`${n} pts`;
+  if(n>0){const xs=S.data.map(r=>r.x);document.getElementById('h-xr').textContent=`${Math.min(...xs).toFixed(2)}–${Math.max(...xs).toFixed(2)}`;}
+  else document.getElementById('h-xr').textContent='—';
+}
+function updateQS(){
+  if(!S.data.length){document.getElementById('qsgrid').innerHTML='';return;}
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y);
+  const its=[['N',S.data.length,''],['x̄',mean(xs).toFixed(4),''],['ȳ',mean(ys).toFixed(4),''],['σy',std(ys).toFixed(4),'o'],['min y',Math.min(...ys).toFixed(4),''],['max y',Math.max(...ys).toFixed(4),''],['r',pearsonR(xs,ys).toFixed(4),'g'],['SEM',(std(ys)/Math.sqrt(ys.length)).toFixed(4),'']];
+  document.getElementById('qsgrid').innerHTML=its.map(([l,v,c])=>`<div class="si"><div class="sl">${l}</div><div class="sv ${c}" style="font-size:12px">${v}</div></div>`).join('');
+}
+
+// ═══════ PREPROCESSING ═══════
+function doClean(){
+  if(!S.data.length)return;
+  const sig=parseFloat(document.getElementById('sig-clip').value)||3;
+  const ys=S.data.map(r=>r.y),m=mean(ys),s=std(ys),b4=S.data.length;
+  S.data=S.data.filter(r=>Math.abs(r.y-m)<=sig*s);
+  renderTable();updateHdr();updateQS();toast(`Removed ${b4-S.data.length} outliers (${sig}σ)`);
+}
+function doSubtract(){
+  if(!S.data.length)return;
+  const t=document.getElementById('bsel').value,ys=S.data.map(r=>r.y);
+  const base=t==='min'?Math.min(...ys):t==='mean'?mean(ys):S.data[0].y;
+  S.data=S.data.map(r=>({...r,y:+(r.y-base).toFixed(6)}));
+  renderTable();updateHdr();updateQS();toast(`Subtracted baseline: ${base.toFixed(4)}`);
+}
+function doNorm(){
+  if(!S.data.length)return;
+  const ys=S.data.map(r=>r.y),mn=Math.min(...ys),mx=Math.max(...ys),rng=mx-mn||1;
+  S.data=S.data.map(r=>({...r,y:+((r.y-mn)/rng).toFixed(6),yerr:+((r.yerr||0)/rng).toFixed(6)}));
+  renderTable();updateHdr();updateQS();toast('Normalized to [0, 1]');
+}
+function doSmooth(){
+  if(!S.data.length)return;
+  let w=parseInt(document.getElementById('smw').value)||3;if(w%2===0)w++;
+  const hw=Math.floor(w/2);
+  S.data=S.data.map((r,i,arr)=>({...r,y:+mean(arr.slice(Math.max(0,i-hw),i+hw+1).map(s=>s.y)).toFixed(6)}));
+  renderTable();updateHdr();updateQS();toast(`Smoothed (window=${w})`);
+}
+function resetData(){S.data=S.raw.map(p=>({...p}));renderTable();updateHdr();updateQS();toast('Reset to original');}
+
+// ═══════ MODEL OVERLAY ═══════
+const MCFG={
+  none:[],linear:[{l:'a (intercept)',v:0},{l:'b (slope)',v:1}],
+  gaussian:[{l:'A',v:1},{l:'μ (center)',v:0},{l:'σ (width)',v:1},{l:'C (offset)',v:0}],
+  lorentzian:[{l:'A',v:1},{l:'x₀ (center)',v:0},{l:'γ (HWHM)',v:1},{l:'C',v:0}],
+  exponential:[{l:'A',v:1},{l:'b (decay)',v:0.1},{l:'C',v:0}],
+  sine:[{l:'A',v:1},{l:'ω (freq)',v:1},{l:'φ (phase)',v:0},{l:'C',v:0}],
+  power:[{l:'A',v:1},{l:'b (exp)',v:2}],
+  planck:[{l:'T (K)',v:5000},{l:'scale',v:1}],
+};
+function buildModelUI(){
+  const t=document.getElementById('msel').value,cfg=MCFG[t]||[];
+  document.getElementById('mparui').innerHTML=cfg.map((p,i)=>`
+    <div class="fg" style="margin-bottom:5px"><label>${p.l}</label>
+      <input type="number" class="mpar" data-i="${i}" value="${p.v}" step="any" style="width:110px" oninput="updateModel()">
+    </div>`).join('');
+}
+function evalMod(type,x,p){
+  switch(type){
+    case 'linear':return p[0]+p[1]*x;
+    case 'gaussian':return p[0]*Math.exp(-((x-p[1])*(x-p[1]))/(2*(p[2]||1)*(p[2]||1)))+p[3];
+    case 'lorentzian':return p[0]/(1+((x-p[1])/(p[2]||1))*((x-p[1])/(p[2]||1)))+p[3];
+    case 'exponential':return p[0]*Math.exp(-p[1]*x)+p[2];
+    case 'sine':return p[0]*Math.sin(p[1]*x+p[2])+p[3];
+    case 'power':return p[0]*Math.pow(Math.abs(x)+1e-300,p[1]);
+    case 'planck':{const h=6.626e-34,c=3e8,k=1.38e-23,lam=x*1e-9;return p[1]*(2*h*c*c)/(lam*lam*lam*lam*lam*(Math.exp((h*c)/(lam*k*p[0]))-1));}
+    default:return 0;
+  }
+}
+function updateModel(){
+  const t=document.getElementById('msel').value;
+  if(!S.data.length||t==='none'){S.model=[];renderTable();return;}
+  const params=Array.from(document.querySelectorAll('.mpar')).map(el=>parseFloat(el.value)||0);
+  S.model=S.data.map(r=>({x:r.x,y:evalMod(t,r.x,params)}));
+  renderTable();
+}
+
+// ═══════ PRESETS INIT ═══════
+function initPresets(){
+  document.getElementById('presetgrid').innerHTML=PRESETS.map(p=>`
+    <button class="pbtn" onclick="loadPreset('${p.id}')"><div class="pname">${p.name}</div><div class="pdesc">${p.desc}</div></button>`).join('');
+}
+function loadPreset(id){const pr=PRESETS.find(p=>p.id===id);if(!pr)return;const res=pr.g();setData(res.data,res);}
+
+// ═══════ PLOT ═══════
+function updatePlot(){
+  if(!S.data.length){Plotly.purge('mainplot');updatePltQS();return;}
+  const dim=document.getElementById('pdim').value,
+    ptype=document.getElementById('ptype').value,
+    xs=document.getElementById('xscl').value,ys=document.getElementById('yscl').value,
+    title=document.getElementById('ptitle').value,xl=document.getElementById('xlbl').value,yl=document.getElementById('ylbl').value,
+    showErr=isTog('tog-err'),showGrid=isTog('tog-grd'),showMod=isTog('tog-mod'),showFit=isTog('tog-fit'),showFill=isTog('tog-fil');
+  const dx=S.data.map(r=>r.x),dy=S.data.map(r=>r.y),de=S.data.map(r=>r.yerr||0);
+  let traces=[];
+  if(dim==='2d'){
+    const mode=ptype==='step'?'lines':ptype;
+    const et={type:'scatter',name:'Experimental',x:dx,y:dy,mode,
+      line:{color:CC.exp,width:2,shape:ptype==='step'?'hvh':'linear'},
+      marker:{color:CC.exp,size:5,symbol:'circle'},
+      fill:showFill?'tozeroy':'none',fillcolor:'rgba(255,112,67,.08)',
+    };
+    if(ptype==='bar'){et.type='bar';et.marker={color:'rgba(255,112,67,.6)'};delete et.mode;delete et.line;delete et.fill;}
+    if(showErr)et.error_y={type:'data',array:de,visible:true,color:'rgba(255,112,67,.45)',thickness:1.5,width:4};
+    traces.push(et);
+    if(showMod&&S.model.length){traces.push({x:S.model.map(r=>r.x),y:S.model.map(r=>r.y),name:'Model',type:'scatter',mode:'lines',line:{color:CC.model,width:2,dash:'dash'}});}
+    if(showFit&&S.fitCurve.length){traces.push({x:S.fitCurve.map(r=>r.x),y:S.fitCurve.map(r=>r.y),name:'Fit',type:'scatter',mode:'lines',line:{color:CC.fit,width:2.5}});}
+    const layout=plyL(title,xl,yl,xs,ys,showGrid);
+    Plotly.react('mainplot',traces,layout,{responsive:true,displayModeBar:true,modeBarButtonsToRemove:['sendDataToCloud']});
+  } else {
+    const zs=S.model.length===S.data.length?S.model.map(r=>r.y):dx.map((_,i)=>i);
+    Plotly.react('mainplot',[{x:dx,y:dy,z:zs,mode:'markers',type:'scatter3d',name:'Data',
+      marker:{color:dy,colorscale:'Viridis',size:5,opacity:.85,showscale:true}}],
+      {...PLB,scene:{xaxis:{title:xl,gridcolor:'#182040',color:'#5a7a9a'},yaxis:{title:yl,gridcolor:'#182040',color:'#5a7a9a'},zaxis:{title:'z',gridcolor:'#182040',color:'#5a7a9a'},bgcolor:'rgba(6,9,26,.9)'},title:{text:title,font:{color:'#ddeeff',size:12},x:.5},margin:{t:40,r:10,b:10,l:10}},
+      {responsive:true});
+  }
+  updatePltQS();
+}
+function updatePltQS(){
+  if(!S.data.length){document.getElementById('pqs').innerHTML='Load data first.';return;}
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y);
+  document.getElementById('pqs').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">`+
+    [['N',S.data.length],['x̄',mean(xs).toFixed(3)],['ȳ',mean(ys).toFixed(3)],['σy',std(ys).toFixed(3)],['min',Math.min(...ys).toFixed(3)],['max',Math.max(...ys).toFixed(3)]].map(([l,v])=>`<div><span style="color:var(--ts);font-size:9px">${l}: </span><span style="color:var(--cy)">${v}</span></div>`).join('')+`</div>`;
+}
+function exportPlt(fmt){Plotly.downloadImage('mainplot',{format:fmt,filename:'quantalab-plot',width:1400,height:900});toast(`Exporting ${fmt.toUpperCase()}…`);}
+
+// ═══════ FIT TAB ═══════
+function onFitMod(){
+  const k=document.getElementById('fitmod').value,m=MODS[k];if(!m)return;
+  document.getElementById('fitform').textContent=m.formula;
+  const init=S.data.length?m.init(S.data):m.params.map(()=>1);
+  document.getElementById('fitpinp').innerHTML=m.params.map((p,i)=>`
+    <div class="fg"><label>${p} (init)</label>
+      <input type="number" id="fp${i}" value="${+(init[i]||0).toFixed(4)}" step="any" style="width:110px">
+    </div>`).join('');
+}
+function autoGuess(){
+  const k=document.getElementById('fitmod').value,m=MODS[k];if(!m||!S.data.length)return;
+  const init=m.init(S.data);
+  m.params.forEach((_,i)=>{const el=document.getElementById(`fp${i}`);if(el)el.value=+(init[i]||0).toFixed(4);});
+  toast('Auto-guessed parameters');
+}
+function fmt(v){if(isNaN(v)||!isFinite(v))return'N/A';return Math.abs(v)<0.001||Math.abs(v)>1e5?v.toExponential(4):v.toFixed(6);}
+
+function runFit(){
+  if(S.data.length<2){toast('Need ≥ 2 data points');return;}
+  const k=document.getElementById('fitmod').value,m=MODS[k];
+  if(!m){toast('Select a model first');return;}
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y),errs=S.data.map(r=>r.yerr||0);
+  const p0=m.params.map((_,i)=>{
+    const el=document.getElementById('fp'+i);
+    return el?parseFloat(el.value)||0:0;
+  });
+  if(p0.some(isNaN)){toast('Fix parameter values first');return;}
+  const maxIter=parseInt(document.getElementById('fiter').value)||800;
+  const tol=parseFloat(document.getElementById('ftol').value)||1e-9;
+  let res;
+  try{
+    if(m.linear){
+      res=polyLS(xs,ys,m.params.length-1,errs);
+    } else {
+      // test model evaluates before passing to LM
+      try{ m.f(xs[0],p0); } catch(e){ toast('Model eval error: '+e.message); return; }
+      res=lmFit(xs,ys,errs,m.f,p0,maxIter,tol);
+    }
+  } catch(e){ toast('Fit failed: '+e.message); console.error(e); return; }
+  if(!res||!res.params){ toast('Fit returned no result'); return; }
+  // check for NaN params
+  if(res.params.some(v=>!isFinite(v))){
+    toast('Fit diverged — try better initial parameters or Auto');
+    return;
+  }
+  const met=fitMetrics(xs,ys,m.f,res.params,res.dof,res.chi2);
+  S.fit={...res,...met,model:k,mobj:m};
+  document.getElementById('h-chi2').textContent=(met.rchi2||0).toFixed(3);
+  document.getElementById('h-r2').textContent=(met.r2||0).toFixed(4);
+  const xmn=Math.min(...xs),xmx=Math.max(...xs);
+  S.fitCurve=Array.from({length:300},(_,i)=>{
+    const x=xmn+i*(xmx-xmn)/299;
+    try{ return{x,y:m.f(x,res.params)}; } catch(e){ return{x,y:NaN}; }
+  }).filter(p=>isFinite(p.y));
+  showFitResults();plotFit();plotResids();
+  toast(`Fit done — R²=${met.r2.toFixed(4)}, χ²/dof=${met.rchi2.toFixed(3)}`);
+}
+
+function showFitResults(){
+  const f=S.fit;if(!f)return;
+  document.getElementById('rchi2').textContent=fmt(f.chi2);
+  document.getElementById('rrchi2').textContent=fmt(f.rchi2);
+  document.getElementById('rr2').textContent=fmt(f.r2);
+  document.getElementById('rrmse').textContent=fmt(f.rmse);
+  document.getElementById('raic').textContent=fmt(f.aic);
+  document.getElementById('rbic').textContent=fmt(f.bic);
+  document.getElementById('rdof').textContent=f.dof;
+  const q=Math.max(0,Math.min(100,f.r2*100));
+  document.getElementById('qbar').style.cssText=`width:${q}%;background:${q>90?'#00ff9d':q>70?'#fbbf24':'#ff4560'}`;
+  document.getElementById('qlbl').textContent=q>90?'Excellent':q>70?'Good':q>50?'Fair':'Poor';
+  document.getElementById('fitptbl').innerHTML=f.mobj.params.map((name,i)=>{
+    const v=f.params[i],e=f.errors[i]||0;
+    return`<tr><td>${name}</td><td>${fmt(v)}</td><td>±${fmt(e)}</td><td style="font-size:10px;color:var(--ts)">[${fmt(v-1.96*e)}, ${fmt(v+1.96*e)}]</td></tr>`;
+  }).join('');
+}
+function plotFit(){
+  if(!S.fit||!S.data.length)return;
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y),errs=S.data.map(r=>r.yerr||0);
+  const showErr=errs.some(e=>e>0);
+  const et={x:xs,y:ys,name:'Data',type:'scatter',mode:'markers',marker:{color:CC.exp,size:7}};
+  if(showErr)et.error_y={type:'data',array:errs,visible:true,color:'rgba(255,112,67,.4)',thickness:1.5,width:3};
+  Plotly.react('fitplot',[et,
+    {x:S.fitCurve.map(r=>r.x),y:S.fitCurve.map(r=>r.y),name:'Fit',type:'scatter',mode:'lines',line:{color:CC.fit,width:2.5}}],
+    {...plyL('Fit Result',document.getElementById('xlbl').value,document.getElementById('ylbl').value),margin:{t:26,r:14,b:38,l:52}},
+    {responsive:true,displayModeBar:false});
+}
+function plotResids(){
+  if(!S.fit||!S.data.length)return;
+  const xs=S.data.map(r=>r.x);
+  const rs=S.data.map(r=>r.y-S.fit.mobj.f(r.x,S.fit.params));
+  Plotly.react('residplot',[
+    {x:xs,y:rs,name:'Residuals',type:'scatter',mode:'markers',marker:{color:CC.res,size:6}},
+    {x:[Math.min(...xs),Math.max(...xs)],y:[0,0],type:'scatter',mode:'lines',line:{color:'#5a7a9a',dash:'dash',width:1},showlegend:false}],
+    {...plyL('',document.getElementById('xlbl').value,'Residuals'),margin:{t:8,r:14,b:36,l:52}},
+    {responsive:true,displayModeBar:false});
+}
+async function autoSelect(){
+  if(S.data.length<3){toast('Need ≥ 3 points');return;}
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y),errs=S.data.map(r=>r.yerr||0);
+  // skip models that need domain-specific x ranges
+  const skip=new Set(['planck','coulomb','pendulum']);
+  const keys=Object.keys(MODS).filter(k=>!skip.has(k));
+  const res=[];
+  for(const k of keys){
+    const m=MODS[k];if(!m)continue;
+    try{
+      const p0=m.init(S.data);
+      if(p0.some(v=>!isFinite(v)))continue;
+      // quick sanity check
+      const testY=m.f(xs[Math.floor(xs.length/2)],p0);
+      if(!isFinite(testY))continue;
+      let r=m.linear
+        ?polyLS(xs,ys,m.params.length-1,errs)
+        :lmFit(xs,ys,errs,m.f,p0,400,1e-7);
+      if(!r||r.params.some(v=>!isFinite(v)))continue;
+      const met=fitMetrics(xs,ys,m.f,r.params,r.dof,r.chi2);
+      if(!isFinite(met.aic)||!isFinite(met.r2))continue;
+      res.push({k,name:m.name,aic:met.aic,r2:met.r2,rchi2:met.rchi2});
+    }catch(e){}
+  }
+  if(!res.length){toast('All models failed — check data');return;}
+  res.sort((a,b)=>a.aic-b.aic);
+  if(res[0]){document.getElementById('fitmod').value=res[0].k;onFitMod();autoGuess();}
+  const minAIC=res[0].aic;
+  document.getElementById('mrank').innerHTML=res.slice(0,10).map((r,i)=>{
+    const daic=(r.aic-minAIC).toFixed(1);
+    const col=i===0?'var(--gr)':daic<2?'var(--cy)':daic<10?'var(--ye)':'var(--ts)';
+    return`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bd);color:${col};font-size:10px">
+      <span>${i===0?'★ ':''}${r.name}</span>
+      <span style="color:var(--ts)">ΔAIC=${daic} R²=${r.r2.toFixed(3)}</span>
+    </div>`;
+  }).join('');
+  toast(`Best: ${res[0].name} — ΔAIC=0, R²=${res[0].r2.toFixed(4)}`);
+}
+
+// ═══════ STATS TAB ═══════
+function probit(p){
+  if(p<=0)return-8;if(p>=1)return 8;
+  const c=[-7.784e-3,-.3223,-.9946,-1.626,2.938,2.938],d=[7.784e-3,.3224,2.445,3.754];
+  const pL=.02425,pH=1-pL;
+  if(p<pL){const q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+2.506628)/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  if(p<=pH){const q=p-.5,r=q*q;return q*((((.0308*r-.8312)*r+4.8717)*r-7.7133)*r+3.3988)/((((.6038*r-.7059)*r+.4931)*r+.0551)*r+1);}
+  const q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+2.506628)/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+}
+function mkStatGrid(arr,clr){
+  const sem=std(arr)/Math.sqrt(arr.length)||0;
+  return[['N',arr.length,''],['Mean',mean(arr).toFixed(4),''],['Median',median(arr).toFixed(4),''],['Std Dev',std(arr).toFixed(4),''],['Variance',variance(arr).toFixed(4),''],['Min',Math.min(...arr).toFixed(4),''],['Max',Math.max(...arr).toFixed(4),''],['Range',(Math.max(...arr)-Math.min(...arr)).toFixed(4),''],['IQR',iqr(arr).toFixed(4),''],['Skewness',skewness(arr).toFixed(4),''],['Kurtosis',kurtosis(arr).toFixed(4),''],['SEM',sem.toFixed(4),''],['CV%',(std(arr)/Math.abs(mean(arr)||1)*100).toFixed(2),''],['95% CI LB',(mean(arr)-1.96*sem).toFixed(4),''],['95% CI UB',(mean(arr)+1.96*sem).toFixed(4),'']].map(([l,v])=>`<div class="si"><div class="sl">${l}</div><div class="sv" style="color:${clr};font-size:12px">${v}</div></div>`).join('');
+}
+function runAllStats(){
+  if(!S.data.length){toast('No data');return;}
+  const xs=S.data.map(r=>r.x),ys=S.data.map(r=>r.y);
+  document.getElementById('sxg').innerHTML=mkStatGrid(xs,'var(--cy)');
+  document.getElementById('syg').innerHTML=mkStatGrid(ys,'var(--or)');
+  const skY=skewness(ys),kuY=kurtosis(ys),jb=ys.length*(skY*skY/6+kuY*kuY/24);
+  document.getElementById('normres').innerHTML=`
+    <div style="margin-bottom:7px"><div style="color:var(--ts)">Skewness:</div>
+      <div style="color:${Math.abs(skY)<.5?'var(--gr)':'var(--or)'}">${skY.toFixed(4)} ${Math.abs(skY)<.5?'✓':'⚠'}</div></div>
+    <div style="margin-bottom:7px"><div style="color:var(--ts)">Excess Kurtosis:</div>
+      <div style="color:${Math.abs(kuY)<1?'var(--gr)':'var(--or)'}">${kuY.toFixed(4)} ${Math.abs(kuY)<1?'✓':'⚠'}</div></div>
+    <div><div style="color:var(--ts)">Jarque-Bera:</div>
+      <div style="color:${jb<6?'var(--gr)':'var(--re)'}">${jb.toFixed(3)} → ${jb<6?'Normal':'Non-normal'}</div></div>`;
+  const r=pearsonR(xs,ys),rs=spearman(xs,ys);
+  document.getElementById('corrres').innerHTML=`
+    <div class="si" style="margin-bottom:6px"><div class="sl">Pearson r</div><div class="sv" style="color:${Math.abs(r)>.7?'var(--gr)':'var(--cy)'}">${r.toFixed(4)}</div></div>
+    <div class="si" style="margin-bottom:6px"><div class="sl">R²</div><div class="sv g">${(r*r).toFixed(4)}</div></div>
+    <div class="si" style="margin-bottom:6px"><div class="sl">Spearman ρ</div><div class="sv p">${rs.toFixed(4)}</div></div>
+    <div class="si"><div class="sl">Strength</div><div class="sv" style="color:${Math.abs(r)>.7?'var(--gr)':Math.abs(r)>.3?'var(--ye)':'var(--ts)'};font-size:11px">${Math.abs(r)>.7?'Strong':Math.abs(r)>.3?'Moderate':'Weak'}</div></div>`;
+  plotHist();plotQQ();
+  toast('Statistics computed');
+}
+function plotHist(){
+  if(!S.data.length)return;
+  const vt=document.getElementById('histvar').value;
+  const v=vt==='y'?S.data.map(r=>r.y):S.data.map(r=>r.x);
+  const lbl=vt==='y'?document.getElementById('ylbl').value:document.getElementById('xlbl').value;
+  const m=mean(v),s=std(v),n=v.length,mn=Math.min(...v),mx=Math.max(...v),bw=(mx-mn)/Math.ceil(Math.sqrt(n));
+  const xn=Array.from({length:100},(_,i)=>mn+i*(mx-mn)/99);
+  const yn=xn.map(x=>n*bw*Math.exp(-((x-m)*(x-m))/(2*s*s))/(s*Math.sqrt(2*Math.PI)));
+  Plotly.react('histplot',
+    [{x:v,type:'histogram',name:'Data',nbinsx:Math.max(5,Math.ceil(Math.sqrt(n))),marker:{color:'rgba(0,212,255,.55)',line:{color:'#00d4ff',width:.5}}},
+     {x:xn,y:yn,type:'scatter',mode:'lines',name:'Normal',line:{color:CC.fit,width:2}}],
+    {...plyL('',lbl,'Count'),margin:{t:18,r:14,b:38,l:48}},{responsive:true,displayModeBar:false});
+}
+function plotQQ(){
+  if(!S.data.length)return;
+  const ys=[...S.data.map(r=>r.y)].sort((a,b)=>a-b),n=ys.length,m=mean(ys),s=std(ys)||1;
+  const tq=ys.map((_,i)=>probit((i+.5)/n)),sq=ys.map(y=>(y-m)/s);
+  const mn=Math.min(...tq),mx=Math.max(...tq);
+  Plotly.react('qqplot',
+    [{x:tq,y:sq,mode:'markers',type:'scatter',name:'Q-Q',marker:{color:CC.exp,size:5}},
+     {x:[mn,mx],y:[mn,mx],mode:'lines',type:'scatter',name:'Normal',line:{color:CC.fit,dash:'dash',width:1.5}}],
+    {...plyL('','Theoretical Quantiles','Sample Quantiles'),margin:{t:18,r:14,b:38,l:52}},
+    {responsive:true,displayModeBar:false});
+}
+function runBayes(){
+  if(!S.data.length){toast('No data');return;}
+  const ys=S.data.map(r=>r.y),n=ys.length,m=mean(ys),s=std(ys)||1,sem=s/Math.sqrt(n);
+  const ci95=[m-1.96*sem,m+1.96*sem],ci68=[m-sem,m+sem];
+  const bf=Math.exp(-0.5*(m/sem)*(m/sem));
+  document.getElementById('bayres').innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div class="si"><div class="sl">Posterior mean μ</div><div class="sv p">${m.toFixed(4)}</div></div>
+      <div class="si"><div class="sl">Posterior σ</div><div class="sv p">${s.toFixed(4)}</div></div>
+      <div class="si"><div class="sl">68% Credible Interval</div><div class="sv" style="font-size:11px;color:var(--cy)">[${ci68[0].toFixed(4)}, ${ci68[1].toFixed(4)}]</div></div>
+      <div class="si"><div class="sl">95% Credible Interval</div><div class="sv" style="font-size:11px;color:var(--cy)">[${ci95[0].toFixed(4)}, ${ci95[1].toFixed(4)}]</div></div>
+      <div class="si"><div class="sl">Bayes Factor (H₀: μ=0)</div><div class="sv" style="color:${bf<0.05?'var(--gr)':'var(--or)'}">${bf.toFixed(4)} → ${bf<0.05?'Reject H₀':'Fail to reject'}</div></div>
+      <div class="si"><div class="sl">Posterior N(μ,σ²)</div><div class="sv" style="font-size:10px;color:var(--ts)">N(${m.toFixed(3)}, ${sem.toFixed(3)}²)</div></div>
+    </div>`;
+  toast('Bayesian analysis complete');
+}
+function runBoot(){
+  if(!S.data.length){toast('No data');return;}
+  const ys=S.data.map(r=>r.y),N=parseInt(document.getElementById('bootn').value)||2000;
+  const bm=[],bs=[];
+  for(let b=0;b<N;b++){
+    const samp=Array.from({length:ys.length},()=>ys[Math.floor(Math.random()*ys.length)]);
+    bm.push(mean(samp));bs.push(std(samp));
+  }
+  bm.sort((a,b)=>a-b);bs.sort((a,b)=>a-b);
+  const lo=Math.floor(.025*N),hi=Math.floor(.975*N);
+  document.getElementById('bootres').innerHTML=`
+    <div class="si" style="margin-bottom:5px"><div class="sl">Mean 95% CI</div><div class="sv" style="font-size:11px;color:var(--cy)">[${bm[lo].toFixed(4)}, ${bm[hi].toFixed(4)}]</div></div>
+    <div class="si" style="margin-bottom:5px"><div class="sl">Std 95% CI</div><div class="sv" style="font-size:11px;color:var(--or)">[${bs[lo].toFixed(4)}, ${bs[hi].toFixed(4)}]</div></div>
+    <div class="si"><div class="sl">Boot. SE(mean)</div><div class="sv" style="font-size:12px">${std(bm).toFixed(4)}</div></div>
+    <div style="margin-top:4px;font-size:10px;color:var(--ts)">N=${N} resamples</div>`;
+  toast(`Bootstrap done (N=${N})`);
+}
+
+// ═══════ FFT TAB ═══════
+function runFFT(){
+  if(!S.data.length){toast('No data');return;}
+  const ys=S.data.map(r=>r.y),xs=S.data.map(r=>r.x),n=ys.length;
+  const dx=n>1?Math.abs((xs[xs.length-1]-xs[0])/(n-1)):1,fs=1/(dx||1);
+  const winFn=WINS[document.getElementById('fftwin').value||'none'];
+  const windowed=ys.map((v,i)=>v*winFn(n,i));
+  const N=nextPow2(n);
+  const re=new Array(N).fill(0),im=new Array(N).fill(0);
+  windowed.forEach((v,i)=>{re[i]=v;});
+  fftCT(re,im);
+  const outType=document.getElementById('fftout').value;
+  const half=Math.floor(N/2);
+  const freqs=Array.from({length:half},(_,i)=>i*fs/N);
+  const spectrum=Array.from({length:half},(_,i)=>{
+    const mag=Math.sqrt(re[i]*re[i]+im[i]*im[i])/N*2;
+    switch(outType){
+      case 'mag':return mag;
+      case 'psd':return mag*mag/2;
+      case 'db':return 10*Math.log10(mag*mag/2+1e-300);
+      case 'phase':return Math.atan2(im[i],re[i]);
+    }
+  });
+  const xax=document.getElementById('fftxax').value;
+  const xdata=xax==='period'?freqs.map(f=>f>0?1/f:0):xax==='bin'?Array.from({length:half},(_,i)=>i):freqs;
+  const xl=xax==='period'?'Period':'Frequency (1/x)';
+  const yl=outType==='db'?'Power (dB)':outType==='phase'?'Phase (rad)':'Amplitude';
+  const maxS=Math.max(...spectrum.map(Math.abs));
+  const thr=(parseFloat(document.getElementById('fftthresh').value)||10)/100;
+  const peaks=[];
+  for(let i=1;i<spectrum.length-1;i++)
+    if(Math.abs(spectrum[i])>Math.abs(spectrum[i-1])&&Math.abs(spectrum[i])>Math.abs(spectrum[i+1])&&Math.abs(spectrum[i])>thr*maxS)
+      peaks.push({f:freqs[i],T:freqs[i]>0?1/freqs[i]:Infinity,v:spectrum[i],xi:xdata[i],i});
+  peaks.sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+  const traces=[{x:xdata,y:spectrum,type:'scatter',mode:'lines',name:'Spectrum',line:{color:CC.exp,width:1.5}}];
+  if(isTog('fftptog')&&peaks.length)
+    traces.push({x:peaks.slice(0,10).map(p=>p.xi),y:peaks.slice(0,10).map(p=>p.v),type:'scatter',mode:'markers',name:'Peaks',marker:{color:CC.fit,size:9,symbol:'triangle-up'}});
+  Plotly.react('fftspec',traces,{...plyL('Spectrum',xl,yl),margin:{t:26,r:14,b:40,l:52}},{responsive:true,displayModeBar:true});
+  Plotly.react('ffttime',[{x:xs,y:ys,type:'scatter',mode:'lines',name:'Signal',line:{color:CC.model,width:1.5}}],
+    {...plyL('Signal',document.getElementById('xlbl').value,document.getElementById('ylbl').value),margin:{t:10,r:14,b:36,l:52}},{responsive:true,displayModeBar:false});
+  document.getElementById('fftplist').innerHTML=peaks.slice(0,8).map((p,i)=>`
+    <div style="padding:3px 0;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;color:${i===0?'var(--gr)':'var(--ts)'}">
+      <span>f=${p.f.toFixed(4)}</span><span>T=${isFinite(p.T)?p.T.toFixed(4):'∞'}</span>
+    </div>`).join('')||'No peaks detected';
+  const domF=freqs[spectrum.indexOf(Math.max(...spectrum))];
+  document.getElementById('fftinfo').innerHTML=[['N',n],['FFT size',N],['Δx',dx.toFixed(4)],['fs',fs.toFixed(4)],['Nyquist',(fs/2).toFixed(4)],['Dom. freq',domF.toFixed(4)],['Dom. period',domF>0?(1/domF).toFixed(4):'∞'],['N peaks',peaks.length]].map(([l,v])=>`<div style="margin-bottom:2px"><span style="color:var(--ts)">${l}: </span><span style="color:var(--cy)">${v}</span></div>`).join('');
+  document.getElementById('fftsg').innerHTML=[['Sample Rate',fs.toFixed(4),''],['Nyquist',(fs/2).toFixed(4),''],['Resolution',(fs/N).toFixed(5),''],['Dom. Freq',domF.toFixed(4),'g'],['Dom. Period',domF>0?(1/domF).toFixed(4):'∞','o'],['N Peaks',peaks.length,'p']].map(([l,v,c])=>`<div class="si"><div class="sl">${l}</div><div class="sv ${c}" style="font-size:12px">${v}</div></div>`).join('');
+  toast(`FFT done — ${peaks.length} peaks found`);
+}
+
+// ═══════ TAB SWITCHING ═══════
+function switchTab(tab,btn){
+  document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tp-'+tab).classList.add('active');
+  btn.classList.add('active');
+  if(tab==='plot')setTimeout(updatePlot,50);
+  if(tab==='stats'&&S.data.length)runAllStats();
+  if(tab==='fit'){onFitMod();if(S.fit){plotFit();plotResids();}}
+}
+
+// ═══════ TOAST ═══════
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+// ═══════ INIT ═══════
+function init(){
+  initPresets();onFitMod();
+  loadPreset('pendulum');
+}
+init();
+</script>
+</body>
+</html>

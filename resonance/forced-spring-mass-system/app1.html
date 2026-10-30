@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass–Spring–Damper System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #060a10;
+    --panel:   #0c1320;
+    --border:  #1a2a40;
+    --accent:  #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff5a;
+    --accent4: #ffcc00;
+    --text:    #c8ddf0;
+    --muted:   #4a6a8a;
+    --glow:    0 0 20px rgba(0,212,255,0.3);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; min-height:100vh; overflow-x:hidden;
+  }
+  body::before{
+    content:''; position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px; pointer-events:none; z-index:0;
+  }
+  .app{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:20px;}
+
+  /* ── Header ── */
+  header{text-align:center;padding:36px 0 24px;}
+  header h1{
+    font-family:'Syne',sans-serif;
+    font-size:clamp(24px,4vw,46px); font-weight:800; letter-spacing:-1px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  }
+  header p{color:var(--muted);margin-top:8px;font-size:11px;letter-spacing:3px;text-transform:uppercase;}
+
+  /* ── Theory section ── */
+  .theory{display:flex;flex-direction:column;gap:16px;margin-bottom:24px;}
+  .theory-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;}
+
+  .tcard{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:6px; overflow:hidden;
+  }
+  .tcard-head{
+    font-family:'Syne',sans-serif; font-size:11px; font-weight:600;
+    text-transform:uppercase; letter-spacing:3px; color:var(--muted);
+    padding:10px 16px; border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;
+  }
+  .tcard-head .num{
+    font-family:'Syne',sans-serif; font-size:18px; font-weight:800;
+    color:var(--accent); opacity:.25; line-height:1;
+  }
+  .tcard-body{padding:16px;line-height:1.85;font-size:12px;color:var(--text);}
+  .tcard-body p{margin-bottom:10px;}
+  .tcard-body p:last-child{margin-bottom:0;}
+
+  .eq-block{
+    background:rgba(0,0,0,0.4); border-left:3px solid var(--accent);
+    padding:10px 14px; margin:10px 0; border-radius:0 4px 4px 0;
+    font-size:13px; color:var(--accent); letter-spacing:.5px;
+  }
+  .eq-block.orange{border-color:var(--accent2);color:var(--accent2);}
+  .eq-block.green {border-color:var(--accent3);color:var(--accent3);}
+  .eq-block.yellow{border-color:var(--accent4);color:var(--accent4);}
+
+  .kw{color:var(--accent4);}
+  .hi{color:var(--accent);}
+  .hi2{color:var(--accent2);}
+  .hi3{color:var(--accent3);}
+
+  .step-list{list-style:none;display:flex;flex-direction:column;gap:8px;}
+  .step-list li{
+    display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;
+  }
+  .step-list li .sn{
+    width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.1);
+    border:1px solid var(--accent);color:var(--accent);
+    font-size:10px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;margin-top:2px;
+  }
+
+  .damp-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+  .damp-table th,.damp-table td{
+    padding:7px 10px;border:1px solid var(--border);text-align:left;
+  }
+  .damp-table th{color:var(--muted);font-weight:400;background:rgba(0,0,0,0.3);}
+  .damp-table tr:nth-child(even) td{background:rgba(0,0,0,0.2);}
+  .tag-g{color:var(--accent3);} .tag-y{color:var(--accent4);} .tag-r{color:var(--accent2);}
+
+  .rk4-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+  .rk4-box{
+    background:rgba(0,0,0,0.35);border:1px solid var(--border);
+    border-radius:3px;padding:8px 10px;
+  }
+  .rk4-box .rk-lbl{font-size:10px;color:var(--muted);margin-bottom:4px;}
+  .rk4-box .rk-eq{font-size:11px;color:var(--accent4);}
+
+  /* ── Equation banner ── */
+  .eq-banner{
+    background:var(--panel); border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    padding:14px 20px; margin:0 0 20px; border-radius:4px;
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  }
+  .eq-banner .eq-main{
+    font-size:clamp(14px,2.5vw,22px); color:var(--accent);
+    flex:1;text-align:center;letter-spacing:1px;
+  }
+  .eq-banner .eq-parts{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;}
+  .eq-badge{
+    background:rgba(0,212,255,0.07); border:1px solid var(--border);
+    padding:4px 10px;border-radius:3px;font-size:11px;color:var(--muted);
+  }
+  .eq-badge span{color:var(--text);}
+
+  /* ── Main grid ── */
+  .main-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;}
+  @media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+
+  /* ── Panel ── */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .panel-title{
+    font-family:'Syne',sans-serif; font-size:11px;font-weight:600;
+    text-transform:uppercase;letter-spacing:3px;color:var(--muted);
+    padding:10px 16px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:var(--glow);}
+
+  /* ── Controls ── */
+  .controls-inner{padding:14px 16px;display:flex;flex-direction:column;gap:14px;}
+  .param-group label{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:6px;font-size:11px;
+  }
+  .param-group label .pname{color:var(--muted);}
+  .param-group label .pval{color:var(--accent);font-weight:600;}
+  .param-group label .psym{color:var(--accent2);margin-right:4px;}
+
+  input[type=range]{
+    width:100%;-webkit-appearance:none;height:3px;
+    background:var(--border);border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 8px var(--accent);cursor:pointer;
+    border:2px solid var(--bg);
+  }
+  input[type=range].accent2::-webkit-slider-thumb{background:var(--accent2);box-shadow:0 0 8px var(--accent2);}
+  input[type=range].accent3::-webkit-slider-thumb{background:var(--accent3);box-shadow:0 0 8px var(--accent3);}
+
+  .divider{border:none;border-top:1px solid var(--border);}
+
+  .btn{
+    width:100%;padding:10px;background:transparent;border:1px solid var(--accent);
+    color:var(--accent);font-family:inherit;font-size:11px;
+    letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+    border-radius:3px;transition:all .2s;
+  }
+  .btn:hover{background:rgba(0,212,255,0.1);box-shadow:var(--glow);}
+  .btn.danger{border-color:var(--accent2);color:var(--accent2);}
+  .btn.danger:hover{background:rgba(255,107,53,0.1);}
+  .btn-row{display:flex;gap:8px;}
+
+  .damp-indicator{
+    padding:6px 10px;border-radius:3px;font-size:11px;text-align:center;
+    border:1px solid var(--border);transition:all .3s;
+  }
+  .damp-under{border-color:var(--accent3);color:var(--accent3);background:rgba(127,255,90,0.07);}
+  .damp-crit {border-color:var(--accent4);color:var(--accent4);background:rgba(255,204,0,0.07);}
+  .damp-over {border-color:var(--accent2);color:var(--accent2);background:rgba(255,107,53,0.07);}
+
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .metric-box{background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:3px;padding:8px 10px;}
+  .metric-box .mk{font-size:10px;color:var(--muted);margin-bottom:2px;}
+  .metric-box .mv{font-size:14px;font-weight:600;color:var(--accent);}
+
+  /* ── Right pane ── */
+  .right-pane{display:flex;flex-direction:column;gap:16px;}
+
+  .sim-area{
+    display:grid;grid-template-columns:1fr 2fr;
+    gap:0;border-radius:6px;overflow:hidden;
+    border:1px solid var(--border);background:var(--panel);
+  }
+  @media(max-width:700px){.sim-area{grid-template-columns:1fr;}}
+
+  #simCanvas{display:block;width:100%;background:#07111d;}
+  #plotCanvas{display:block;width:100%;background:#07111d;}
+
+  .canvas-label{
+    font-size:10px;color:var(--muted);letter-spacing:2px;
+    text-transform:uppercase;padding:6px 12px;
+    border-bottom:1px solid var(--border);
+  }
+  .canvas-wrap{display:flex;flex-direction:column;}
+  .canvas-wrap:first-child{border-right:1px solid var(--border);}
+
+  .bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:700px){.bottom-grid{grid-template-columns:1fr;}}
+
+  #phaseCanvas,#anaCanvas{display:block;width:100%;background:#07111d;}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;padding:8px 14px;border-top:1px solid var(--border);}
+  .leg-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);}
+  .leg-line{width:20px;height:2px;border-radius:1px;}
+
+  .sol-box{
+    background:rgba(0,0,0,0.4);border:1px solid var(--border);
+    border-left:3px solid var(--accent3);
+    padding:10px 14px;font-size:11px;line-height:1.9;
+    margin:0 14px 14px;border-radius:0 3px 3px 0;
+  }
+  .sol-box .sol-title{color:var(--accent3);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+  .sol-box .sol-eq{color:var(--text);}
+  .sol-box .sol-eq span{color:var(--accent4);}
+
+  /* collapsible theory */
+  .theory-toggle{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:12px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+    font-family:'Syne',sans-serif;font-size:13px;color:var(--text);
+    transition:border-color .2s; user-select:none;
+  }
+  .theory-toggle:hover{border-color:var(--accent);}
+  .theory-toggle .arrow{color:var(--accent);transition:transform .3s;}
+  .theory-toggle.open .arrow{transform:rotate(180deg);}
+  .theory-collapsible{display:none;}
+  .theory-collapsible.visible{display:block;}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════════════════════════════ HEADER ═══════════════════════════════════ -->
+<header>
+  <h1>Mass – Spring – Damper System</h1>
+  <p>Equation Derivation &nbsp;·&nbsp; Analytical &amp; Numerical Solution &nbsp;·&nbsp; Interactive Simulation</p>
+</header>
+
+<!-- ═══════════════════════════════ THEORY ═══════════════════════════════════ -->
+<div class="theory">
+
+  <!-- Toggle button -->
+  <div class="theory-toggle open" id="theoryToggle" onclick="toggleTheory()">
+    <span>📖 &nbsp; Theory: How is the equation derived and solved?</span>
+    <span class="arrow">▲</span>
+  </div>
+
+  <div class="theory-collapsible visible" id="theoryBody">
+
+    <!-- Row 1: FBD + Standard Form -->
+    <div class="theory-row" style="margin-top:12px;">
+
+      <!-- Card 1: Free-body diagram & Newton -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">01</span> Free-Body Diagram &amp; Newton's 2nd Law</div>
+        <div class="tcard-body">
+          <p>Consider a mass <span class="kw">m</span> constrained to move in one direction (x), attached to a spring of stiffness <span class="kw">k</span> and a viscous damper with coefficient <span class="kw">c</span>. An external harmonic force <span class="kw">F·cos(Ωt)</span> may also be applied.</p>
+          <p>Three forces act on the mass at any instant:</p>
+          <ul class="step-list">
+            <li><div class="sn">1</div><div><span class="hi">Spring force</span> — opposes displacement: <span class="hi">F_s = −kx</span></div></li>
+            <li><div class="sn">2</div><div><span class="hi2">Damping force</span> — opposes velocity: <span class="hi2">F_d = −cẋ</span></div></li>
+            <li><div class="sn">3</div><div><span class="hi3">External force</span>: <span class="hi3">F(t) = F·cos(Ωt)</span></div></li>
+          </ul>
+          <p style="margin-top:10px;">Applying <strong>ΣF = ma</strong>:</p>
+          <div class="eq-block">mẍ = −kx − cẋ + F·cos(Ωt)</div>
+          <p>Rearranging to the standard form (all terms on the left):</p>
+          <div class="eq-block">m·ẍ + c·ẋ + k·x = F·cos(Ωt)</div>
+          <p style="color:var(--muted);font-size:11px;">This is a <em>linear, second-order, ordinary differential equation with constant coefficients</em>. Every term has a clear physical meaning: inertia, dissipation, and stiffness.</p>
+        </div>
+      </div>
+
+      <!-- Card 2: Standard parameters -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">02</span> Dimensionless Standard Form</div>
+        <div class="tcard-body">
+          <p>Dividing the entire equation by <span class="kw">m</span> introduces two fundamental parameters that fully characterise the system's dynamics:</p>
+          <div class="eq-block">ẍ + 2ζω₀ẋ + ω₀²x = (F/m)·cos(Ωt)</div>
+
+          <table class="damp-table" style="margin-top:10px;">
+            <tr><th>Symbol</th><th>Name</th><th>Definition</th><th>Unit</th></tr>
+            <tr><td class="hi">ω₀</td><td>Natural frequency</td><td>√(k/m)</td><td>rad/s</td></tr>
+            <tr><td class="hi2">ζ</td><td>Damping ratio</td><td>c / (2√(mk))</td><td>—</td></tr>
+            <tr><td class="hi3">ωd</td><td>Damped frequency</td><td>ω₀√(1−ζ²)</td><td>rad/s</td></tr>
+            <tr><td class="hi">Td</td><td>Damped period</td><td>2π / ωd</td><td>s</td></tr>
+          </table>
+
+          <p style="margin-top:10px;color:var(--muted);font-size:11px;"><span class="kw">ζ</span> alone determines the qualitative character of the free response — whether the system oscillates, decays exponentially, or returns without oscillation.</p>
+
+          <p>The <strong>critical damping coefficient</strong> is:</p>
+          <div class="eq-block orange">c_cr = 2√(mk) = 2m·ω₀</div>
+          <p style="color:var(--muted);font-size:11px;">At ζ = 1 the system returns to rest <em>as fast as possible</em> without oscillating.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Analytical + Numerical -->
+    <div class="theory-row">
+
+      <!-- Card 3: Analytical solution -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">03</span> Analytical Solution (Closed Form)</div>
+        <div class="tcard-body">
+          <p>For the <strong>free vibration case</strong> (F = 0) the solution is the homogeneous part only. The characteristic equation is:</p>
+          <div class="eq-block">ms² + cs + k = 0 &nbsp;→&nbsp; s = −ζω₀ ± ω₀√(ζ²−1)</div>
+          <p>Three distinct cases arise depending on ζ:</p>
+
+          <table class="damp-table">
+            <tr>
+              <th>Case</th><th>Condition</th><th>Solution x(t)</th>
+            </tr>
+            <tr>
+              <td class="tag-g">Under-damped</td>
+              <td class="tag-g">ζ &lt; 1</td>
+              <td>e<sup>−ζω₀t</sup>[A cos(ωd t) + B sin(ωd t)]</td>
+            </tr>
+            <tr>
+              <td class="tag-y">Critically damped</td>
+              <td class="tag-y">ζ = 1</td>
+              <td>(A + Bt)·e<sup>−ω₀t</sup></td>
+            </tr>
+            <tr>
+              <td class="tag-r">Over-damped</td>
+              <td class="tag-r">ζ &gt; 1</td>
+              <td>A·e<sup>s₁t</sup> + B·e<sup>s₂t</sup></td>
+            </tr>
+          </table>
+
+          <p style="margin-top:10px;">The constants A, B are determined from initial conditions x(0) = x₀, ẋ(0) = v₀. For the <strong>under-damped</strong> case:</p>
+          <div class="eq-block green">A = x₀ &nbsp;&nbsp; B = (v₀ + ζω₀x₀) / ωd</div>
+
+          <p>For <strong>forced vibration</strong> (F ≠ 0) the full solution is:</p>
+          <div class="eq-block">x(t) = x_homogeneous(t) + x_particular(t)</div>
+          <p style="color:var(--muted);font-size:11px;">The particular (steady-state) solution is found by assuming x_p = X cos(Ωt) + Y sin(Ωt) and solving for the amplitudes X and Y algebraically.</p>
+        </div>
+      </div>
+
+      <!-- Card 4: Numerical — RK4 -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">04</span> Numerical Solution — Runge-Kutta 4</div>
+        <div class="tcard-body">
+          <p>The 2nd-order ODE is rewritten as a <strong>system of two 1st-order ODEs</strong> by introducing the state vector [x, v]:</p>
+          <div class="eq-block orange">ẋ = v<br>v̇ = [F cos(Ωt) − cv − kx] / m</div>
+          <p>This is integrated forward in time using the <strong>4th-order Runge-Kutta (RK4)</strong> method with time-step <span class="kw">Δt = 1/200 s</span>:</p>
+
+          <div class="rk4-grid">
+            <div class="rk4-box">
+              <div class="rk-lbl">Stage 1 — slope at start</div>
+              <div class="rk-eq">k₁ = f(tₙ, yₙ)</div>
+            </div>
+            <div class="rk4-box">
+              <div class="rk-lbl">Stage 2 — slope at midpoint</div>
+              <div class="rk-eq">k₂ = f(tₙ+h/2, yₙ+h·k₁/2)</div>
+            </div>
+            <div class="rk4-box">
+              <div class="rk-lbl">Stage 3 — corrected midpoint</div>
+              <div class="rk-eq">k₃ = f(tₙ+h/2, yₙ+h·k₂/2)</div>
+            </div>
+            <div class="rk4-box">
+              <div class="rk-lbl">Stage 4 — slope at end</div>
+              <div class="rk-eq">k₄ = f(tₙ+h, yₙ+h·k₃)</div>
+            </div>
+          </div>
+
+          <div class="eq-block" style="margin-top:10px;">yₙ₊₁ = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄)</div>
+          <p>RK4 achieves <span class="kw">4th-order accuracy</span> — the local truncation error is O(h⁵). Compared to simple Euler (1st-order), it remains stable and accurate over hundreds of oscillation cycles. You can verify this directly in the simulation: the cyan (numerical) and orange (analytical) curves are nearly indistinguishable.</p>
+          <p style="color:var(--muted);font-size:11px;">The simulation uses a fixed-timestep accumulator: each animation frame advances the physics by as many Δt steps as real time has elapsed, keeping physics independent of frame rate.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Phase portrait + resonance -->
+    <div class="theory-row">
+
+      <!-- Card 5: Phase portrait -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">05</span> Phase Portrait — Geometric Insight</div>
+        <div class="tcard-body">
+          <p>Instead of plotting x vs. time, a <strong>phase portrait</strong> plots displacement x against velocity ẋ. This 2D picture reveals the complete qualitative behaviour of the system:</p>
+          <ul class="step-list">
+            <li><div class="sn">▸</div><div><span class="tag-g">Under-damped</span> — inward spiral converging to origin (equilibrium)</div></li>
+            <li><div class="sn">▸</div><div><span class="tag-y">Critically damped</span> — direct path to origin, no loops</div></li>
+            <li><div class="sn">▸</div><div><span class="tag-r">Over-damped</span> — slow monotone approach to origin</div></li>
+            <li><div class="sn">▸</div><div><span class="hi">Undamped</span> (c = 0) — closed ellipse, energy conserved forever</div></li>
+            <li><div class="sn">▸</div><div><span class="hi2">Forced</span> — at steady state the trajectory becomes a closed loop (limit cycle)</div></li>
+          </ul>
+          <p style="margin-top:8px;color:var(--muted);font-size:11px;">The gradient colouring in the simulation (cyan → teal) encodes time: recent history appears brighter, so you can read the direction of motion directly from the colour.</p>
+          <div class="eq-block green">Energy: E = ½mv² + ½kx²</div>
+          <p style="color:var(--muted);font-size:11px;">Constant energy ↔ ellipse in phase space. Damping dissipates energy, shrinking the ellipse into a spiral toward (0, 0).</p>
+        </div>
+      </div>
+
+      <!-- Card 6: Resonance & forced response -->
+      <div class="tcard">
+        <div class="tcard-head"><span class="num">06</span> Forced Response &amp; Resonance</div>
+        <div class="tcard-body">
+          <p>When a harmonic force F·cos(Ωt) is applied, the <strong>steady-state amplitude</strong> of the particular solution is:</p>
+          <div class="eq-block yellow">X = (F/k) / √[(1−r²)² + (2ζr)²]</div>
+          <p style="color:var(--muted);font-size:11px;">where r = Ω/ω₀ is the <strong>frequency ratio</strong>. The factor in the denominator is the Dynamic Magnification Factor (DMF).</p>
+
+          <ul class="step-list" style="margin-top:8px;">
+            <li><div class="sn">▸</div><div><strong>r ≪ 1</strong> (slow forcing) — DMF ≈ 1, response ≈ static deflection F/k</div></li>
+            <li><div class="sn">▸</div><div><strong>r = 1</strong> (resonance) — DMF = 1/(2ζ), amplitude can be enormous for small ζ</div></li>
+            <li><div class="sn">▸</div><div><strong>r ≫ 1</strong> (fast forcing) — DMF → 0, mass barely moves</div></li>
+          </ul>
+
+          <p style="margin-top:10px;">Try it in the simulation:</p>
+          <ul class="step-list">
+            <li><div class="sn">1</div><div>Set F &gt; 0, then sweep Ω toward ω₀ — watch the amplitude explode.</div></li>
+            <li><div class="sn">2</div><div>Increase c — the resonance peak flattens and shifts left.</div></li>
+            <li><div class="sn">3</div><div>Set c = 0 and Ω = ω₀ — the amplitude grows <em>without bound</em> (beat phenomenon).</div></li>
+          </ul>
+
+          <div class="eq-block orange" style="margin-top:10px;">At resonance: X_res = F / (c·ω₀) = F / (2ζ·k/ω₀)</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end theory-collapsible -->
+</div><!-- end theory -->
+
+<!-- ═════════════════════ LIVE EQUATION BANNER ════════════════════════════════ -->
+<div class="eq-banner">
+  <div class="eq-main">m·ẍ + c·ẋ + k·x = F·cos(Ωt)</div>
+  <div class="eq-parts">
+    <div class="eq-badge">ω₀ = <span id="b-w0">—</span> rad/s</div>
+    <div class="eq-badge">ζ = <span id="b-zeta">—</span></div>
+    <div class="eq-badge">ωd = <span id="b-wd">—</span> rad/s</div>
+    <div class="eq-badge">Td = <span id="b-td">—</span> s</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SIMULATION ════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- LEFT: Controls -->
+  <div>
+    <div class="panel">
+      <div class="panel-title"><div class="dot"></div>Parameters</div>
+      <div class="controls-inner">
+
+        <div class="param-group">
+          <label><span><span class="psym">m</span><span class="pname">— Mass</span></span><span class="pval" id="v-m">1.00 kg</span></label>
+          <input type="range" id="s-m" min="0.1" max="5" step="0.05" value="1">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym">k</span><span class="pname">— Spring Stiffness</span></span><span class="pval" id="v-k">10.00 N/m</span></label>
+          <input type="range" id="s-k" min="0.5" max="50" step="0.5" value="10">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym">c</span><span class="pname">— Damping Coefficient</span></span><span class="pval" id="v-c">0.50 N·s/m</span></label>
+          <input type="range" id="s-c" class="accent2" min="0" max="20" step="0.1" value="0.5">
+        </div>
+
+        <hr class="divider">
+        <div class="param-group">
+          <label><span><span class="psym">x₀</span><span class="pname">— Initial Displacement</span></span><span class="pval" id="v-x0">1.00 m</span></label>
+          <input type="range" id="s-x0" class="accent3" min="-3" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym">v₀</span><span class="pname">— Initial Velocity</span></span><span class="pval" id="v-v0">0.00 m/s</span></label>
+          <input type="range" id="s-v0" class="accent3" min="-10" max="10" step="0.1" value="0">
+        </div>
+
+        <hr class="divider">
+        <div class="param-group">
+          <label><span><span class="psym">F</span><span class="pname">— Forcing Amplitude</span></span><span class="pval" id="v-F">0.00 N</span></label>
+          <input type="range" id="s-F" min="0" max="10" step="0.1" value="0">
+        </div>
+        <div class="param-group">
+          <label><span><span class="psym">Ω</span><span class="pname">— Forcing Frequency</span></span><span class="pval" id="v-Om">1.00 rad/s</span></label>
+          <input type="range" id="s-Om" min="0.1" max="10" step="0.1" value="1">
+        </div>
+
+        <hr class="divider">
+        <div id="damp-ind" class="damp-indicator damp-under">Under-damped (ζ &lt; 1)</div>
+
+        <div class="metrics">
+          <div class="metric-box"><div class="mk">ω₀ (rad/s)</div><div class="mv" id="m-w0">—</div></div>
+          <div class="metric-box"><div class="mk">ζ (damping ratio)</div><div class="mv" id="m-zeta">—</div></div>
+          <div class="metric-box"><div class="mk">ωd (rad/s)</div><div class="mv" id="m-wd">—</div></div>
+          <div class="metric-box"><div class="mk">Td (s)</div><div class="mv" id="m-td">—</div></div>
+        </div>
+
+        <hr class="divider">
+        <div class="btn-row">
+          <button class="btn" onclick="startSim()">▶ Start</button>
+          <button class="btn danger" onclick="resetSim()">⟳ Reset</button>
+        </div>
+        <button class="btn" onclick="togglePause()" id="pauseBtn">⏸ Pause</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-pane">
+
+    <!-- Mechanical model + time history -->
+    <div class="sim-area">
+      <div class="canvas-wrap">
+        <div class="canvas-label">⚙ Mechanical Model</div>
+        <canvas id="simCanvas" height="240"></canvas>
+      </div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">📈 Displacement vs. Time</div>
+        <canvas id="plotCanvas" height="240"></canvas>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="leg-item"><div class="leg-line" style="background:var(--accent)"></div>Numerical (RK4)</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--accent2);opacity:.8"></div>Analytical</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--accent3);height:1px;opacity:.5"></div>Equilibrium</div>
+      <div class="leg-item"><div class="leg-line" style="background:var(--accent);opacity:.2"></div>Decay envelope</div>
+    </div>
+
+    <!-- Analytical solution readout -->
+    <div class="panel" id="sol-panel">
+      <div class="panel-title"><div class="dot" style="background:var(--accent3)"></div>Analytical Solution (current parameters)</div>
+      <div class="sol-box">
+        <div class="sol-title">Free Vibration — F = 0</div>
+        <div class="sol-eq" id="sol-eq-text">Computing…</div>
+      </div>
+    </div>
+
+    <!-- Phase portrait + analytical comparison -->
+    <div class="bottom-grid">
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--accent4)"></div>Phase Portrait (x vs. ẋ)</div>
+        <canvas id="phaseCanvas" height="220"></canvas>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><div class="dot" style="background:var(--accent2)"></div>Analytical vs. Numerical — Full Range</div>
+        <canvas id="anaCanvas" height="220"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════ SCRIPT ════════════════════════════════════════════ -->
+<script>
+// ─── Theory toggle ────────────────────────────────────────────────────────────
+function toggleTheory(){
+  const body=document.getElementById('theoryBody');
+  const btn =document.getElementById('theoryToggle');
+  const vis =body.classList.toggle('visible');
+  btn.classList.toggle('open',vis);
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let m=1,k=10,c=0.5,x0=1,v0=0,F=0,Om=1;
+let simX=1,simV=0,simT=0;
+let running=false,paused=false,animId=null;
+let history=[],maxHistory=600;
+let lastTs=null;
+let physDt=1/200,physAcc=0;
+
+// ─── Canvas references ────────────────────────────────────────────────────────
+const simC  =document.getElementById('simCanvas');
+const plotC =document.getElementById('plotCanvas');
+const phaseC=document.getElementById('phaseCanvas');
+const anaC  =document.getElementById('anaCanvas');
+const ctxSim  =simC.getContext('2d');
+const ctxPlot =plotC.getContext('2d');
+const ctxPhase=phaseC.getContext('2d');
+const ctxAna  =anaC.getContext('2d');
+
+function resizeAll(){
+  [simC,plotC].forEach(c=>{c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;});
+  [phaseC,anaC].forEach(c=>{c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;});
+}
+window.addEventListener('resize',()=>{resizeAll();drawAll();});
+resizeAll();
+
+// ─── ODE: RK4 ─────────────────────────────────────────────────────────────────
+function deriv(t,x,v){
+  return{dx:v,dv:(F*Math.cos(Om*t)-c*v-k*x)/m};
+}
+function rk4Step(t,x,v,dt){
+  const k1=deriv(t,x,v);
+  const k2=deriv(t+dt/2,x+dt/2*k1.dx,v+dt/2*k1.dv);
+  const k3=deriv(t+dt/2,x+dt/2*k2.dx,v+dt/2*k2.dv);
+  const k4=deriv(t+dt,  x+dt*k3.dx,  v+dt*k3.dv);
+  return{
+    x:x+dt/6*(k1.dx+2*k2.dx+2*k3.dx+k4.dx),
+    v:v+dt/6*(k1.dv+2*k2.dv+2*k3.dv+k4.dv)
+  };
+}
+
+// ─── Analytical solution ──────────────────────────────────────────────────────
+function analyticalX(t){
+  const w0=Math.sqrt(k/m);
+  const z=c/(2*Math.sqrt(m*k));
+  let xh;
+  if(z<1-1e-6){
+    const wd=w0*Math.sqrt(1-z*z);
+    const A=x0,B=(v0+z*w0*x0)/wd;
+    xh=Math.exp(-z*w0*t)*(A*Math.cos(wd*t)+B*Math.sin(wd*t));
+  }else if(z>1+1e-6){
+    const s1=-z*w0+w0*Math.sqrt(z*z-1),s2=-z*w0-w0*Math.sqrt(z*z-1);
+    const A=(v0-s2*x0)/(s1-s2),B=x0-A;
+    xh=A*Math.exp(s1*t)+B*Math.exp(s2*t);
+  }else{
+    const A=x0,B=v0+w0*x0;
+    xh=(A+B*t)*Math.exp(-w0*t);
+  }
+  if(F===0)return xh;
+  const num=F/m,den_r=k/m-Om*Om,den_i=(c/m)*Om;
+  const denom=den_r*den_r+den_i*den_i;
+  return xh+(num*den_r/denom)*Math.cos(Om*t)+(-num*den_i/denom)*Math.sin(Om*t);
+}
+
+// ─── Parameter helpers ────────────────────────────────────────────────────────
+function params(){
+  const w0=Math.sqrt(k/m),z=c/(2*Math.sqrt(m*k));
+  const wd=z<1?w0*Math.sqrt(1-z*z):0;
+  return{w0,z,wd,Td:wd>0?2*Math.PI/wd:Infinity};
+}
+
+// ─── UI ──────────────────────────────────────────────────────────────────────
+function updateUI(){
+  const p=params();
+  document.getElementById('v-m').textContent=m.toFixed(2)+' kg';
+  document.getElementById('v-k').textContent=k.toFixed(2)+' N/m';
+  document.getElementById('v-c').textContent=c.toFixed(2)+' N·s/m';
+  document.getElementById('v-x0').textContent=x0.toFixed(2)+' m';
+  document.getElementById('v-v0').textContent=v0.toFixed(2)+' m/s';
+  document.getElementById('v-F').textContent=F.toFixed(2)+' N';
+  document.getElementById('v-Om').textContent=Om.toFixed(2)+' rad/s';
+  const fmt=n=>isFinite(n)?n.toFixed(3):'∞';
+  ['m-w0','b-w0'].forEach(id=>document.getElementById(id).textContent=p.w0.toFixed(3));
+  ['m-zeta','b-zeta'].forEach(id=>document.getElementById(id).textContent=p.z.toFixed(3));
+  ['m-wd','b-wd'].forEach(id=>document.getElementById(id).textContent=fmt(p.wd));
+  ['m-td','b-td'].forEach(id=>document.getElementById(id).textContent=fmt(p.Td));
+  const di=document.getElementById('damp-ind');
+  di.className='damp-indicator';
+  if(p.z<1-1e-4){di.classList.add('damp-under');di.textContent=`Under-damped — ζ = ${p.z.toFixed(3)} < 1`;}
+  else if(p.z>1+1e-4){di.classList.add('damp-over');di.textContent=`Over-damped — ζ = ${p.z.toFixed(3)} > 1`;}
+  else{di.classList.add('damp-crit');di.textContent=`Critically damped — ζ ≈ 1`;}
+  updateSolText(p);
+}
+
+function updateSolText(p){
+  const el=document.getElementById('sol-eq-text');
+  const w0f=p.w0.toFixed(3),zf=p.z.toFixed(3),wdf=p.wd.toFixed(3);
+  if(p.z<1-1e-4){
+    const B=((v0+p.z*p.w0*x0)/p.wd).toFixed(3);
+    el.innerHTML=`x(t) = e<sup>−${(p.z*p.w0).toFixed(3)}t</sup> · [<span>${x0.toFixed(2)}</span>·cos(<span>${wdf}</span>t) + <span>${B}</span>·sin(<span>${wdf}</span>t)]<br>
+    <br>ω₀ = <span>${w0f}</span> rad/s &nbsp; ωd = <span>${wdf}</span> rad/s &nbsp; ζ = <span>${zf}</span><br>Decay time constant τ = <span>${(1/(p.z*p.w0)).toFixed(3)}</span> s`;
+  }else if(p.z>1+1e-4){
+    const s1=(-p.z*p.w0+p.w0*Math.sqrt(p.z*p.z-1)).toFixed(3);
+    const s2=(-p.z*p.w0-p.w0*Math.sqrt(p.z*p.z-1)).toFixed(3);
+    el.innerHTML=`x(t) = A·e<sup><span>${s1}</span>t</sup> + B·e<sup><span>${s2}</span>t</sup><br>
+    <br>s₁ = <span>${s1}</span> &nbsp; s₂ = <span>${s2}</span> &nbsp; ζ = <span>${zf}</span><br>Both roots negative → pure exponential decay, no oscillation.`;
+  }else{
+    el.innerHTML=`x(t) = (<span>${x0.toFixed(2)}</span> + <span>${(v0+p.w0*x0).toFixed(3)}</span>·t) · e<sup>−<span>${w0f}</span>t</sup><br>
+    <br>Critically damped: fastest return to rest without oscillation.<br>ω₀ = <span>${w0f}</span> rad/s`;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function clr(ctx){ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);}
+function gridLines(ctx,W,H,col='rgba(26,42,64,0.8)'){
+  ctx.strokeStyle=col;ctx.lineWidth=1;
+  for(let i=0;i<W;i+=W/8){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for(let j=0;j<H;j+=H/6){ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(W,j);ctx.stroke();}
+}
+
+// ─── Mechanical model ─────────────────────────────────────────────────────────
+function drawSim(){
+  const W=simC.width,H=simC.height,ctx=ctxSim,dpr=devicePixelRatio;
+  clr(ctx);
+  const ceilY=H*0.12,eqY=H*0.5,massH=H*0.12,massW=W*0.35;
+  const massX=W/2-massW/2,massY=eqY+simX*(H*0.55/3)-massH/2;
+  // ceiling
+  ctx.strokeStyle='#1a2a40';ctx.lineWidth=2*dpr;
+  ctx.beginPath();ctx.moveTo(0,ceilY);ctx.lineTo(W,ceilY);ctx.stroke();
+  for(let xi=0;xi<W;xi+=14*dpr){ctx.beginPath();ctx.moveTo(xi,ceilY);ctx.lineTo(xi-8*dpr,ceilY-8*dpr);ctx.stroke();}
+  // spring
+  const nCoils=10,zigW=W*0.08,segH=(massY-ceilY-2)/(nCoils*2+2);
+  ctx.strokeStyle='rgba(0,212,255,0.7)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();ctx.moveTo(W/2,ceilY+2);ctx.lineTo(W/2,ceilY+2+segH);
+  for(let i=0;i<nCoils;i++){
+    ctx.lineTo(W/2+(i%2===0?1:-1)*zigW,ceilY+2+segH+(2*i+1)*segH);
+    ctx.lineTo(W/2+(i%2===0?-1:1)*zigW,ceilY+2+segH+(2*i+2)*segH);
+  }
+  ctx.lineTo(W/2,massY);ctx.stroke();
+  // damper
+  if(c>0.05){
+    const dx=W*0.15,dpX=W/2+dx,dpY1=ceilY+2,dpY2=massY,midY=(dpY1+dpY2)/2;
+    ctx.strokeStyle='rgba(255,107,53,0.6)';ctx.lineWidth=1.5*dpr;
+    ctx.beginPath();ctx.moveTo(dpX,dpY1);ctx.lineTo(dpX,midY-H*0.05);ctx.stroke();
+    ctx.strokeRect(dpX-W*0.04,midY-H*0.05,W*0.08,H*0.1);
+    ctx.beginPath();ctx.moveTo(dpX,midY+H*0.05);ctx.lineTo(dpX,dpY2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dpX-W*0.035,midY);ctx.lineTo(dpX+W*0.035,midY);ctx.stroke();
+  }
+  // equilibrium line
+  ctx.strokeStyle='rgba(127,255,90,0.25)';ctx.lineWidth=1*dpr;
+  ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(0,eqY);ctx.lineTo(W,eqY);ctx.stroke();
+  ctx.setLineDash([]);
+  // mass block
+  const grad=ctx.createLinearGradient(massX,massY,massX,massY+massH);
+  grad.addColorStop(0,'rgba(0,212,255,0.3)');grad.addColorStop(1,'rgba(0,212,255,0.05)');
+  ctx.fillStyle=grad;ctx.strokeStyle='rgba(0,212,255,0.8)';ctx.lineWidth=2*dpr;
+  ctx.fillRect(massX,massY,massW,massH);ctx.strokeRect(massX,massY,massW,massH);
+  ctx.fillStyle='rgba(0,212,255,0.9)';
+  ctx.font=`bold ${11*dpr}px JetBrains Mono`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(`m = ${m.toFixed(1)} kg`,W/2,massY+massH/2);
+  // displacement arrow
+  if(Math.abs(simX)>0.05){
+    const ax=W*0.1;
+    ctx.strokeStyle='rgba(255,204,0,0.8)';ctx.lineWidth=1.5*dpr;
+    ctx.beginPath();ctx.moveTo(ax,eqY);ctx.lineTo(ax,massY+massH/2);ctx.stroke();
+    ctx.fillStyle='rgba(255,204,0,0.9)';
+    ctx.font=`${9*dpr}px JetBrains Mono`;ctx.textAlign='center';
+    ctx.fillText(`x=${simX.toFixed(2)}m`,ax,(eqY+massY+massH/2)/2);
+  }
+  // force arrow
+  if(F>0.01){
+    const fArrowY=massY+massH/2,fLen=F*8*dpr;
+    ctx.strokeStyle='rgba(255,107,53,0.9)';ctx.lineWidth=2*dpr;
+    ctx.beginPath();ctx.moveTo(massX-10*dpr,fArrowY);ctx.lineTo(massX-10*dpr-fLen,fArrowY);ctx.stroke();
+    ctx.fillStyle='rgba(255,107,53,0.9)';
+    ctx.font=`${9*dpr}px JetBrains Mono`;ctx.textAlign='right';
+    ctx.fillText('F(t)',massX-14*dpr-fLen,fArrowY-5*dpr);
+  }
+  // readout
+  ctx.fillStyle='rgba(74,106,138,0.9)';
+  ctx.font=`${9*dpr}px JetBrains Mono`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.fillText(`t = ${simT.toFixed(2)} s`,8*dpr,H-20*dpr);
+  ctx.fillText(`ẋ = ${simV.toFixed(3)} m/s`,8*dpr,H-8*dpr);
+}
+
+// ─── Time-history plot ────────────────────────────────────────────────────────
+function drawPlot(){
+  const W=plotC.width,H=plotC.height,ctx=ctxPlot,dpr=devicePixelRatio;
+  clr(ctx);
+  const pad={l:36*dpr,r:12*dpr,t:12*dpr,b:28*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  gridLines(ctx,W,H);
+  ctx.strokeStyle='#1a2a40';ctx.lineWidth=1*dpr;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,H-pad.b);ctx.lineTo(W-pad.r,H-pad.b);ctx.stroke();
+  if(history.length<2)return;
+  const tWindow=20,tMax=Math.max(simT,tWindow),tMin=tMax-tWindow;
+  const xVals=history.map(h=>h.x);
+  const xMax=Math.max(...xVals.map(Math.abs),0.1)*1.15;
+  const mapX=t=>(t-tMin)/tWindow*pw+pad.l;
+  const mapY=x=>ph/2-(x/xMax)*ph/2+pad.t;
+  // zero line
+  ctx.strokeStyle='rgba(127,255,90,0.2)';ctx.lineWidth=1*dpr;
+  ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mapY(0));ctx.lineTo(W-pad.r,mapY(0));ctx.stroke();
+  ctx.setLineDash([]);
+  // envelope
+  const p=params();
+  if(p.z<1-1e-4&&F<0.01){
+    ctx.strokeStyle='rgba(0,212,255,0.15)';ctx.lineWidth=1*dpr;
+    for(const sign of[1,-1]){
+      ctx.beginPath();let first=true;
+      for(let ti=tMin;ti<=tMax;ti+=0.1){
+        const env=sign*Math.abs(x0+v0/p.wd)*Math.exp(-p.z*p.w0*ti);
+        const cx=mapX(ti),cy=mapY(env);
+        if(first){ctx.moveTo(cx,cy);first=false;}else ctx.lineTo(cx,cy);
+      }
+      ctx.stroke();
+    }
+  }
+  // numerical
+  ctx.strokeStyle='rgba(0,212,255,0.9)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();
+  history.forEach((h,i)=>{const cx=mapX(h.t),cy=mapY(h.x);if(i===0)ctx.moveTo(cx,cy);else ctx.lineTo(cx,cy);});
+  ctx.stroke();
+  // analytical overlay
+  ctx.strokeStyle='rgba(255,107,53,0.5)';ctx.lineWidth=1.5*dpr;
+  ctx.setLineDash([5*dpr,3*dpr]);
+  ctx.beginPath();let first=true;
+  for(let ti=tMin;ti<=tMax;ti+=0.05){
+    const ax=analyticalX(ti),cx=mapX(ti),cy=mapY(ax);
+    if(first){ctx.moveTo(cx,cy);first=false;}else ctx.lineTo(cx,cy);
+  }
+  ctx.stroke();ctx.setLineDash([]);
+  // labels
+  ctx.fillStyle='rgba(74,106,138,0.9)';ctx.font=`${8*dpr}px JetBrains Mono`;ctx.textAlign='center';
+  ctx.fillText('t (s)  →',W/2,H-4*dpr);
+  ctx.save();ctx.translate(10*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('x (m)',0,0);ctx.restore();
+  ctx.fillText(tMin.toFixed(0),pad.l,H-pad.b+10*dpr);
+  ctx.fillText(tMax.toFixed(0),W-pad.r,H-pad.b+10*dpr);
+  ctx.textAlign='right';
+  ctx.fillText(xMax.toFixed(2),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillText((-xMax).toFixed(2),pad.l-2*dpr,H-pad.b-2*dpr);
+}
+
+// ─── Phase portrait ───────────────────────────────────────────────────────────
+function drawPhase(){
+  const W=phaseC.width,H=phaseC.height,ctx=ctxPhase,dpr=devicePixelRatio;
+  clr(ctx);const pad=20*dpr,pw=W-2*pad,ph=H-2*pad;
+  gridLines(ctx,W,H);
+  if(history.length<2)return;
+  const xVals=history.map(h=>h.x),vVals=history.map(h=>h.v);
+  const xMax=Math.max(...xVals.map(Math.abs),0.1)*1.2;
+  const vMax=Math.max(...vVals.map(Math.abs),0.1)*1.2;
+  const mapX=x=>(x+xMax)/(2*xMax)*pw+pad;
+  const mapY=v=>(1-(v+vMax)/(2*vMax))*ph+pad;
+  ctx.strokeStyle='#1a2a40';ctx.lineWidth=1*dpr;
+  ctx.beginPath();ctx.moveTo(pad,H/2);ctx.lineTo(W-pad,H/2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W/2,pad);ctx.lineTo(W/2,H-pad);ctx.stroke();
+  for(let i=1;i<history.length;i++){
+    const t_=(i-1)/(history.length-1);
+    ctx.strokeStyle=`hsla(${180+t_*60},100%,60%,${0.2+t_*0.6})`;
+    ctx.lineWidth=(0.5+t_*1.5)*dpr;
+    ctx.beginPath();
+    ctx.moveTo(mapX(history[i-1].x),mapY(history[i-1].v));
+    ctx.lineTo(mapX(history[i].x),mapY(history[i].v));
+    ctx.stroke();
+  }
+  ctx.fillStyle='rgba(255,204,0,0.9)';
+  ctx.beginPath();ctx.arc(mapX(simX),mapY(simV),4*dpr,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(74,106,138,0.8)';
+  ctx.font=`${8*dpr}px JetBrains Mono`;ctx.textAlign='center';
+  ctx.fillText('x (m)',W/2,H-4*dpr);
+  ctx.save();ctx.translate(8*dpr,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('ẋ (m/s)',0,0);ctx.restore();
+}
+
+// ─── Analytical vs Numerical ──────────────────────────────────────────────────
+function drawAna(){
+  const W=anaC.width,H=anaC.height,ctx=ctxAna,dpr=devicePixelRatio;
+  clr(ctx);
+  const pad={l:36*dpr,r:12*dpr,t:12*dpr,b:28*dpr};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  gridLines(ctx,W,H);
+  const tEnd=Math.max(simT,20),N=300,dt_=tEnd/N;
+  let nx=x0,nv=v0;
+  const nPts=[],aPts=[];
+  for(let i=0;i<=N;i++){
+    const t_=i*dt_;
+    nPts.push({t:t_,x:nx});aPts.push({t:t_,x:analyticalX(t_)});
+    if(i<N){const s=rk4Step(t_,nx,nv,dt_);nx=s.x;nv=s.v;}
+  }
+  const allX=[...nPts.map(p=>p.x),...aPts.map(p=>p.x)];
+  const xMax=Math.max(...allX.map(Math.abs),0.1)*1.15;
+  const mapX=t=>t/tEnd*pw+pad.l;
+  const mapY=x=>ph/2-(x/xMax)*ph/2+pad.t;
+  ctx.strokeStyle='rgba(127,255,90,0.2)';ctx.lineWidth=1*dpr;
+  ctx.setLineDash([4*dpr,4*dpr]);
+  ctx.beginPath();ctx.moveTo(pad.l,mapY(0));ctx.lineTo(W-pad.r,mapY(0));ctx.stroke();
+  ctx.setLineDash([]);
+  // analytical
+  ctx.strokeStyle='rgba(255,107,53,0.8)';ctx.lineWidth=1.5*dpr;ctx.setLineDash([5*dpr,3*dpr]);
+  ctx.beginPath();aPts.forEach((p,i)=>{if(i===0)ctx.moveTo(mapX(p.t),mapY(p.x));else ctx.lineTo(mapX(p.t),mapY(p.x));});
+  ctx.stroke();ctx.setLineDash([]);
+  // numerical
+  ctx.strokeStyle='rgba(0,212,255,0.8)';ctx.lineWidth=1.5*dpr;
+  ctx.beginPath();nPts.forEach((p,i)=>{if(i===0)ctx.moveTo(mapX(p.t),mapY(p.x));else ctx.lineTo(mapX(p.t),mapY(p.x));});
+  ctx.stroke();
+  ctx.fillStyle='rgba(74,106,138,0.9)';ctx.font=`${8*dpr}px JetBrains Mono`;ctx.textAlign='center';
+  ctx.fillText(`t ∈ [0, ${tEnd.toFixed(0)}] s`,W/2,H-4*dpr);
+  ctx.textAlign='right';
+  ctx.fillText(xMax.toFixed(2),pad.l-2*dpr,pad.t+4*dpr);
+  ctx.fillText((-xMax).toFixed(2),pad.l-2*dpr,H-pad.b-2*dpr);
+}
+
+function drawAll(){drawSim();drawPlot();drawPhase();drawAna();}
+
+// ─── Simulation loop ──────────────────────────────────────────────────────────
+function loop(ts){
+  if(!running||paused){lastTs=null;return;}
+  if(lastTs===null){lastTs=ts;animId=requestAnimationFrame(loop);return;}
+  let dt=(ts-lastTs)/1000;lastTs=ts;dt=Math.min(dt,0.05);
+  physAcc+=dt;
+  while(physAcc>=physDt){
+    const s=rk4Step(simT,simX,simV,physDt);
+    simX=s.x;simV=s.v;simT+=physDt;physAcc-=physDt;
+    history.push({t:simT,x:simX,v:simV});
+    if(history.length>maxHistory)history.shift();
+  }
+  drawAll();
+  animId=requestAnimationFrame(loop);
+}
+
+function startSim(){
+  if(animId)cancelAnimationFrame(animId);
+  running=true;paused=false;lastTs=null;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  animId=requestAnimationFrame(loop);
+}
+function resetSim(){
+  if(animId)cancelAnimationFrame(animId);
+  simX=x0;simV=v0;simT=0;history=[];running=false;paused=false;physAcc=0;
+  document.getElementById('pauseBtn').textContent='⏸ Pause';
+  drawAll();
+}
+function togglePause(){
+  if(!running)return;
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(!paused){lastTs=null;animId=requestAnimationFrame(loop);}
+}
+
+// ─── Sliders ──────────────────────────────────────────────────────────────────
+function bindSlider(id,setter){
+  document.getElementById(id).addEventListener('input',function(){
+    setter(parseFloat(this.value));updateUI();drawAll();
+  });
+}
+bindSlider('s-m', v=>{m=v;});
+bindSlider('s-k', v=>{k=v;});
+bindSlider('s-c', v=>{c=v;});
+bindSlider('s-x0',v=>{x0=v;simX=v;history=[];simT=0;simV=v0;});
+bindSlider('s-v0',v=>{v0=v;simV=v;history=[];simT=0;simX=x0;});
+bindSlider('s-F', v=>{F=v;});
+bindSlider('s-Om',v=>{Om=v;});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateUI();resetSim();startSim();
+</script>
+</body>
+</html>

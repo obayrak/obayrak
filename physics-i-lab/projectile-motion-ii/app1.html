@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile Motion - Linear Air Drag</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e2937);
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .header { 
+            text-align: center; 
+            margin-bottom: 25px; 
+        }
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 42px;
+            background: linear-gradient(to right, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .main-container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 500px;
+            background: linear-gradient(#0c4a6e 0%, #bae6fd 68%, #f8fafc 100%);
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            display: block;
+            margin-bottom: 20px;
+        }
+        
+        .simulation-wrapper {
+            position: relative;
+            background: #1e2937;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .control-panel {
+            background: #334155;
+            border-radius: 16px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #e0f2fe;
+        }
+        
+        .value {
+            font-family: monospace;
+            background: #0f172a;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 14px;
+            color: #67e8f9;
+        }
+        
+        button {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-launch { background: #22c55e; color: #052e16; }
+        .btn-pause  { background: #eab308; color: #422006; }
+        .btn-reset  { background: #ef4444; color: white; }
+        
+        /* Compact Live Motion Data */
+        .live-data {
+            background: #1e2937;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .live-data h2 {
+            margin: 0 0 15px 0;
+            color: #67e8f9;
+            font-size: 20px;
+        }
+        
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+        
+        .data-item {
+            background: #0f172a;
+            padding: 12px 14px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .data-label {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        
+        .data-value {
+            font-family: monospace;
+            font-size: 17px;
+            font-weight: 600;
+            color: #67e8f9;
+        }
+        
+        .status {
+            position: absolute;
+            top: 35px;
+            right: 35px;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 14px;
+            background: rgba(0,0,0,0.7);
+        }
+        
+        .info-box {
+            position: absolute;
+            top: 90px;
+            left: 90px;
+            background: rgba(15,23,42,0.9);
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #67e8f9;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        .equations-box, .explanation {
+            max-width: 1100px;
+            margin: 0 auto 25px;
+            background: #1e2937;
+            border-radius: 16px;
+            padding: 30px;
+        }
+        
+        .equation {
+            background: #0f172a;
+            padding: 16px;
+            border-radius: 12px;
+            font-family: monospace;
+            color: #67e8f9;
+            margin: 12px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+
+    <div class="header">
+        <h1>Projectile Motion Simulator</h1>
+        <p>Linear Air Drag • Live Motion Data</p>
+    </div>
+
+    <!-- Simulation -->
+    <div class="simulation-wrapper">
+        <canvas id="canvas" width="860" height="500"></canvas>
+        <div class="status" id="status">Ready to launch</div>
+        
+        <div class="info-box" id="info-box">
+            x: 0.0 m  y: 0.0 m<br>
+            vx: 0.0  vy: 0.0<br>
+            Drag: 0.00 N
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="control-panel">
+        <div class="control-group">
+            <label>Initial Velocity — <span id="v0-val" class="value">25.0</span> m/s</label>
+            <input type="range" id="v0" min="10" max="80" value="25" step="0.5">
+        </div>
+        <div class="control-group">
+            <label>Launch Angle — <span id="angle-val" class="value">45</span>°</label>
+            <input type="range" id="angle" min="5" max="85" value="45" step="1">
+        </div>
+        <div class="control-group">
+            <label>Gravity — <span id="g-val" class="value">9.81</span> m/s²</label>
+            <input type="range" id="g" min="1" max="20" value="9.81" step="0.01">
+        </div>
+        <div class="control-group">
+            <label>Initial Height — <span id="h0-val" class="value">0.0</span> m</label>
+            <input type="range" id="h0" min="0" max="40" value="0" step="0.5">
+        </div>
+        <div class="control-group">
+            <label>Drag Coefficient (b) — <span id="b-val" class="value">0.15</span></label>
+            <input type="range" id="b" min="0" max="1" value="0.15" step="0.01">
+        </div>
+        <div class="control-group">
+            <label>Sim Speed — <span id="speed-val" class="value">1.0×</span></label>
+            <input type="range" id="sim-speed" min="0.2" max="5" value="1" step="0.1">
+        </div>
+
+        <div style="grid-column: 1/-1; display:flex; gap:12px; margin-top:10px;">
+            <button id="btn-launch" class="btn-launch">🚀 Launch</button>
+            <button id="btn-pause" class="btn-pause">⏸️ Pause</button>
+            <button id="btn-reset" class="btn-reset">⟳ Reset</button>
+        </div>
+    </div>
+
+    <!-- Compact Live Motion Data -->
+    <div class="live-data">
+        <h2>Live Motion Data</h2>
+        <div class="data-grid">
+            <div class="data-item">
+                <div class="data-label">Time</div>
+                <div class="data-value" id="live-time">0.00 s</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Position (x, y)</div>
+                <div class="data-value" id="live-pos">0.0 , 0.0 m</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Velocity (vx, vy)</div>
+                <div class="data-value" id="live-vel">17.7 , 17.7 m/s</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Speed</div>
+                <div class="data-value" id="live-speed">25.0 m/s</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Air Drag Force</div>
+                <div class="data-value" id="live-drag">0.00 N</div>
+            </div>
+            <div class="data-item">
+                <div class="data-label">Max Height</div>
+                <div class="data-value" id="live-maxh">0.0 m</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equations -->
+    <div class="equations-box">
+        <h2>Equations of Motion (Linear Drag)</h2>
+        <div class="equation">
+            aₓ = −b ⋅ vₓ<br>
+            aᵧ = −g − b ⋅ vᵧ<br><br>
+            F_drag = −b ⋅ v  (magnitude shown in Live Data)
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ==================== SIMULATION CODE ====================
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let v0 = 25, thetaDeg = 45, g = 9.81, h0 = 0, b = 0.15;
+let simSpeed = 1;
+let isRunning = false, isPaused = false;
+let x = 0, y = 0, vx = 0, vy = 0, time = 0;
+let dt = 0.012;
+let trail = [];
+let maxHeight = 0;
+
+const groundY = 430;
+
+const statusEl = document.getElementById('status');
+const infoBox = document.getElementById('info-box');
+
+// Live Data Elements
+const liveTimeEl = document.getElementById('live-time');
+const livePosEl = document.getElementById('live-pos');
+const liveVelEl = document.getElementById('live-vel');
+const liveSpeedEl = document.getElementById('live-speed');
+const liveDragEl = document.getElementById('live-drag');
+const liveMaxhEl = document.getElementById('live-maxh');
+
+function updateSliderValues() {
+    v0 = parseFloat(document.getElementById('v0').value);
+    thetaDeg = parseFloat(document.getElementById('angle').value);
+    g = parseFloat(document.getElementById('g').value);
+    h0 = parseFloat(document.getElementById('h0').value);
+    b = parseFloat(document.getElementById('b').value);
+    simSpeed = parseFloat(document.getElementById('sim-speed').value);
+
+    document.getElementById('v0-val').textContent = v0.toFixed(1);
+    document.getElementById('angle-val').textContent = thetaDeg;
+    document.getElementById('g-val').textContent = g.toFixed(2);
+    document.getElementById('h0-val').textContent = h0.toFixed(1);
+    document.getElementById('b-val').textContent = b.toFixed(2);
+    document.getElementById('speed-val').textContent = simSpeed.toFixed(1) + '×';
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Background
+    const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+    grad.addColorStop(0, '#0c4a6e');
+    grad.addColorStop(0.7, '#bae6fd');
+    grad.addColorStop(1, '#f8fafc');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#166534';
+    ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+    const scaleX = 2.4;
+    const scaleY = 3.2;
+    const startX = 80;
+
+    // Trail
+    if (trail.length > 1) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#f59e0b';
+        ctx.beginPath();
+        for (let p of trail) {
+            ctx.lineTo(startX + p.x * scaleX, groundY - p.y * scaleY);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+
+    const px = startX + x * scaleX;
+    const py = groundY - Math.max(y, 0) * scaleY;
+    const speed = Math.sqrt(vx*vx + vy*vy);
+
+    // Particle
+    const r = 10 + speed * 0.15;
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = '#f97316';
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#fef08c';
+    ctx.beginPath();
+    ctx.arc(px-3, py-3, r*0.4, 0, Math.PI*2);
+    ctx.fill();
+
+    if (speed > 10) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(Math.atan2(-vy, vx));
+        ctx.fillStyle = 'rgba(249,115,22,0.85)';
+        ctx.beginPath();
+        ctx.moveTo(-r*1.6, 0);
+        ctx.lineTo(-r*2.8, -r*0.8);
+        ctx.lineTo(-r*2.8, r*0.8);
+        ctx.fill();
+        ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+
+    // Velocity vector
+    if (document.getElementById('show-vectors') && document.getElementById('show-vectors').checked) {
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + vx*2.2, py - vy*2.2);
+        ctx.stroke();
+    }
+
+    // On-canvas info
+    const dragF = (b * speed).toFixed(2);
+    infoBox.innerHTML = `x: ${x.toFixed(1)} m  y: ${Math.max(y,0).toFixed(1)} m<br>
+                         vx: ${vx.toFixed(1)}  vy: ${vy.toFixed(1)}<br>
+                         Drag: ${dragF} N`;
+}
+
+function updateLiveData() {
+    const speed = Math.sqrt(vx*vx + vy*vy);
+    liveTimeEl.textContent = time.toFixed(2) + " s";
+    livePosEl.textContent = x.toFixed(1) + " , " + Math.max(y,0).toFixed(1) + " m";
+    liveVelEl.textContent = vx.toFixed(1) + " , " + vy.toFixed(1) + " m/s";
+    liveSpeedEl.textContent = speed.toFixed(1) + " m/s";
+    liveDragEl.textContent = (b * speed).toFixed(2) + " N";
+    liveMaxhEl.textContent = maxHeight.toFixed(1) + " m";
+}
+
+function physicsStep() {
+    if (!isRunning || isPaused) return;
+
+    const speed = Math.sqrt(vx*vx + vy*vy);
+    if (speed < 0.1) {
+        isRunning = false;
+        return;
+    }
+
+    const ax = -b * vx;
+    const ay = -g - b * vy;
+
+    vx += ax * dt * simSpeed;
+    vy += ay * dt * simSpeed;
+    x += vx * dt * simSpeed;
+    y += vy * dt * simSpeed;
+    time += dt * simSpeed;
+
+    if (y > maxHeight) maxHeight = y;
+    trail.push({x: x, y: y});
+
+    if (y <= 0 && time > 0.2) {
+        isRunning = false;
+        statusEl.textContent = "✅ Landed";
+        statusEl.style.backgroundColor = "#16a34a";
+    }
+
+    updateLiveData();
+}
+
+function gameLoop() {
+    physicsStep();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function launch() {
+    updateSliderValues();
+    const theta = thetaDeg * Math.PI / 180;
+    x = 0; y = h0;
+    vx = v0 * Math.cos(theta);
+    vy = v0 * Math.sin(theta);
+    time = 0;
+    trail = [];
+    maxHeight = h0;
+
+    isRunning = true;
+    isPaused = false;
+    statusEl.textContent = "🚀 Flying...";
+    statusEl.style.backgroundColor = "#3b82f6";
+}
+
+function reset() {
+    isRunning = false;
+    isPaused = false;
+    time = 0;
+    trail = [];
+    maxHeight = 0;
+    statusEl.textContent = "Ready to launch";
+    statusEl.style.backgroundColor = "rgba(0,0,0,0.7)";
+    updateLiveData();
+    draw();
+}
+
+// Event Listeners
+document.getElementById('btn-launch').addEventListener('click', launch);
+document.getElementById('btn-pause').addEventListener('click', () => {
+    if (isRunning) {
+        isPaused = !isPaused;
+        document.getElementById('btn-pause').textContent = isPaused ? "▶️ Resume" : "⏸️ Pause";
+    }
+});
+document.getElementById('btn-reset').addEventListener('click', reset);
+
+['v0','angle','g','h0','b','sim-speed'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateSliderValues);
+});
+
+updateSliderValues();
+draw();
+gameLoop();
+</script>
+
+</body>
+</html>

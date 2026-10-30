@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quantum Resonance Simulator — Bloch Sphere Dynamics</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #05070f;
+  --s0:        #091020;
+  --s1:        #0d1830;
+  --s2:        #121f3a;
+  --s3:        #182844;
+  --bd:        rgba(255,255,255,0.07);
+  --bd2:       rgba(255,255,255,0.13);
+  --text:      #cdd8f0;
+  --muted:     #4a6080;
+  --dim:       #2a3858;
+  --fn:        'JetBrains Mono', monospace;
+  --fs:        'Space Grotesk', sans-serif;
+  --fp:        'Playfair Display', serif;
+
+  /* Physics colours */
+  --q-e:       #00d4ff;   /* |e⟩ excited   — cyan     */
+  --q-g:       #ff6b6b;   /* |g⟩ ground    — coral    */
+  --q-vec:     #f5c518;   /* state vector  — gold     */
+  --q-coh:     #b48efe;   /* coherence     — violet   */
+  --q-drive:   #4ade80;   /* drive field   — green    */
+  --q-res:     #f97316;   /* resonance     — orange   */
+  --q-w:       #60a5fa;   /* w component   — blue     */
+
+  --glow-e:    0 0 24px rgba(0,212,255,.45);
+  --glow-g:    0 0 24px rgba(255,107,107,.45);
+  --glow-v:    0 0 24px rgba(245,197,24,.45);
+  --glow-c:    0 0 18px rgba(180,142,254,.35);
+
+  --r:         8px;
+  --gap:       16px;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--fs);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* Quantum grid backdrop */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(ellipse 70% 50% at 30% 20%, rgba(0,212,255,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(180,142,254,0.04) 0%, transparent 60%),
+    linear-gradient(rgba(0,212,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 38px 38px, 38px 38px;
+  pointer-events: none; z-index: 0;
+}
+
+.app { position: relative; z-index: 1; max-width: 1600px; margin: 0 auto; padding: 18px; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.site-header { text-align: center; padding: 28px 0 18px; }
+.site-header .eyebrow {
+  font-family: var(--fn); font-size: 0.68rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+}
+.site-header h1 {
+  font-family: var(--fn); font-size: clamp(18px, 3vw, 38px);
+  font-weight: 600; letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--q-e) 0%, var(--q-coh) 50%, var(--q-vec) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.site-header p {
+  color: var(--muted); margin-top: 6px; font-size: 0.75rem;
+  letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--fn);
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
+  padding: 16px;
+}
+.card + .card { margin-top: var(--gap); }
+
+.card__title {
+  font-family: var(--fn); font-weight: 500; font-size: 0.65rem;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+  padding-bottom: 11px; margin-bottom: 14px; border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; gap: 8px;
+}
+.card__title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* ── Theory section ──────────────────────────────────────────────────────── */
+.theory-toggle {
+  background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r);
+  padding: 11px 16px; cursor: pointer; display: flex; justify-content: space-between;
+  align-items: center; font-family: var(--fn); font-size: 0.72rem; color: var(--text);
+  letter-spacing: 0.06em; transition: border-color 0.2s; user-select: none;
+  margin-bottom: 0;
+}
+.theory-toggle:hover { border-color: var(--q-e); }
+.theory-toggle .arr { color: var(--q-e); transition: transform 0.3s; }
+.theory-toggle.open .arr { transform: rotate(180deg); }
+.tcoll { display: none; margin-top: var(--gap); }
+.tcoll.vis { display: block; }
+
+.trow { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+
+.tcard { background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; }
+.tcard__head {
+  font-family: var(--fn); font-size: 0.62rem; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.18em; color: var(--muted); padding: 9px 14px;
+  border-bottom: 1px solid var(--bd); display: flex; align-items: center; gap: 10px;
+}
+.tcard__head .num { font-size: 20px; font-weight: 700; opacity: 0.16; line-height: 1; color: var(--q-e); }
+.tcard__body { padding: 13px 14px; font-size: 0.82rem; line-height: 1.85; color: var(--text); font-family: var(--fs); }
+.tcard__body p { margin-bottom: 8px; }
+.tcard__body p:last-child { margin: 0; }
+.tcard__body strong { color: var(--text); font-weight: 600; }
+
+.eq {
+  background: rgba(0,0,0,0.45); border-left: 3px solid var(--q-e);
+  padding: 8px 12px; margin: 8px 0; border-radius: 0 4px 4px 0;
+  font-family: var(--fn); font-size: 0.76rem; color: var(--q-e);
+  overflow-x: auto; white-space: nowrap;
+}
+.eq.g { border-color: var(--q-g); color: var(--q-g); }
+.eq.v { border-color: var(--q-coh); color: var(--q-coh); }
+.eq.d { border-color: var(--q-drive); color: var(--q-drive); }
+.eq.o { border-color: var(--q-res); color: var(--q-res); }
+.eq.w { border-color: var(--q-w); color: var(--q-w); }
+
+/* ── Live state banner ───────────────────────────────────────────────────── */
+.state-banner {
+  background: var(--s0); border: 1px solid var(--bd2);
+  border-left: 3px solid var(--q-e);
+  padding: 12px 16px; border-radius: var(--r);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin: var(--gap) 0; font-family: var(--fn); font-size: 0.72rem;
+}
+.state-banner .ket { font-size: clamp(13px, 2vw, 18px); color: var(--q-e); flex: 1; text-align: center; }
+.state-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.sbadge {
+  background: rgba(0,212,255,0.07); border: 1px solid var(--bd);
+  padding: 3px 9px; border-radius: 3px; font-size: 0.68rem; color: var(--muted);
+}
+.sbadge span { color: var(--text); }
+
+/* ── Main layout ─────────────────────────────────────────────────────────── */
+.main-grid { display: grid; grid-template-columns: 290px 1fr; gap: var(--gap); align-items: start; }
+@media(max-width: 1000px) { .main-grid { grid-template-columns: 1fr; } }
+
+/* ── Sticky sidebar ──────────────────────────────────────────────────────── */
+.sidebar {
+  position: sticky; top: 18px;
+  max-height: calc(100vh - 36px); overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--s3) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 2px; }
+
+/* ── Controls ────────────────────────────────────────────────────────────── */
+.ctrl { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+.ctrl__label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--fn); font-size: 0.67rem; color: var(--muted);
+}
+.ctrl__label .sym { font-weight: 600; font-size: 0.70rem; }
+.ctrl__val {
+  font-weight: 600; color: var(--text); background: var(--s3);
+  padding: 1px 6px; border-radius: 3px; font-size: 0.67rem; min-width: 54px; text-align: right;
+}
+
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 3px;
+  border-radius: 2px; background: var(--s3); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--q-e); box-shadow: 0 0 0 3px rgba(0,212,255,0.25); cursor: pointer; transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.sl-g::-webkit-slider-thumb   { background: var(--q-g);    box-shadow: 0 0 0 3px rgba(255,107,107,0.25); }
+.sl-v::-webkit-slider-thumb   { background: var(--q-coh);  box-shadow: 0 0 0 3px rgba(180,142,254,0.25); }
+.sl-d::-webkit-slider-thumb   { background: var(--q-drive);box-shadow: 0 0 0 3px rgba(74,222,128,0.25); }
+.sl-o::-webkit-slider-thumb   { background: var(--q-res);  box-shadow: 0 0 0 3px rgba(249,115,22,0.25); }
+.sl-w::-webkit-slider-thumb   { background: var(--q-w);    box-shadow: 0 0 0 3px rgba(96,165,250,0.25); }
+.sl-vec::-webkit-slider-thumb { background: var(--q-vec);  box-shadow: 0 0 0 3px rgba(245,197,24,0.25); }
+
+.divider { border: none; border-top: 1px solid var(--bd); margin: 4px 0; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-3   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+
+button {
+  padding: 8px 10px; background: var(--s2); color: var(--text);
+  border: 1px solid var(--bd2); border-radius: var(--r);
+  font-family: var(--fs); font-weight: 500; font-size: 0.78rem;
+  cursor: pointer; transition: all 0.15s;
+}
+button:hover { background: var(--s3); border-color: var(--q-e); color: var(--q-e); }
+button.btn--run  { background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.4); color: var(--q-e); }
+button.btn--run:hover  { background: rgba(0,212,255,0.22); }
+button.btn--stop { background: rgba(255,107,107,0.10); border-color: rgba(255,107,107,0.35); color: var(--q-g); }
+button.btn--stop:hover { background: rgba(255,107,107,0.20); }
+button.preset-btn {
+  flex: 1; font-size: 0.68rem; padding: 6px 8px;
+  border-color: var(--bd); color: var(--muted);
+}
+button.preset-btn.active { border-color: var(--q-coh); color: var(--q-coh); background: rgba(180,142,254,0.08); }
+button.preset-btn:hover  { border-color: var(--q-coh); color: var(--q-coh); }
+
+/* Status pill */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-family: var(--fn); font-size: 0.62rem; font-weight: 600;
+  letter-spacing: 0.06em; margin-top: 8px;
+}
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.pill--run   { background: rgba(74,222,128,0.10); border: 1px solid rgba(74,222,128,0.3); color: #86efac; }
+.pill--run::before   { background: #4ade80; box-shadow: 0 0 5px #4ade80; animation: pulse 1.2s infinite; }
+.pill--pause { background: rgba(245,197,24,0.09); border: 1px solid rgba(245,197,24,0.28); color: #fde68a; }
+.pill--pause::before { background: #fbbf24; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Metric boxes */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mbox {
+  background: var(--s0); border: 1px solid var(--bd); border-radius: 5px; padding: 8px 10px;
+}
+.mbox__label { font-family: var(--fn); font-size: 0.60rem; color: var(--muted); margin-bottom: 2px; letter-spacing: 0.06em; }
+.mbox__val   { font-family: var(--fn); font-size: 1.05rem; font-weight: 700; color: var(--q-e); }
+
+/* Resonance indicator */
+.res-meter {
+  margin-top: 10px; padding: 8px 10px;
+  background: var(--s0); border: 1px solid var(--bd); border-radius: 5px;
+}
+.res-meter__label { font-family: var(--fn); font-size: 0.60rem; color: var(--muted); margin-bottom: 5px; }
+.res-bar-track { height: 6px; background: var(--s3); border-radius: 3px; overflow: hidden; position: relative; }
+.res-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--q-g), var(--q-vec), var(--q-drive));
+  transition: width 0.1s; position: absolute; left: 0; top: 0;
+}
+.res-indicator { display: flex; justify-content: space-between; margin-top: 3px; font-family: var(--fn); font-size: 0.58rem; color: var(--muted); }
+
+/* ── Right pane ──────────────────────────────────────────────────────────── */
+.right-pane { display: flex; flex-direction: column; gap: var(--gap); }
+
+/* ── Bloch viewport ──────────────────────────────────────────────────────── */
+.bloch-viewport {
+  height: 500px; position: relative;
+  background: var(--s0); border: 1px solid var(--bd); border-radius: 12px; overflow: hidden;
+}
+.bloch-viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.hud {
+  position: absolute; z-index: 10;
+  background: rgba(5,7,15,0.88); border: 1px solid var(--bd2);
+  border-radius: var(--r); padding: 11px 13px;
+  font-family: var(--fn); font-size: 0.68rem; line-height: 1.85;
+  backdrop-filter: blur(8px);
+}
+.hud--tl { top: 10px; left: 10px; min-width: 180px; }
+.hud--tr { top: 10px; right: 10px; min-width: 190px; }
+.hud__row { display: flex; justify-content: space-between; gap: 12px; }
+.hud__key { color: var(--muted); }
+.hud__val { color: var(--text); font-weight: 600; text-align: right; }
+.hud__sep { border: none; border-top: 1px solid var(--bd); margin: 5px 0; }
+.leg-item { display: flex; align-items: center; gap: 7px; font-size: 0.64rem; color: var(--muted); margin-bottom: 3px; }
+.leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-line { width: 16px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+
+/* ── Charts grid ─────────────────────────────────────────────────────────── */
+.charts-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+@media(max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r);
+  padding: 13px; display: flex; flex-direction: column; gap: 7px;
+  position: relative; overflow: hidden; height: 230px;
+}
+.chart-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; opacity: 0.6;
+}
+.chart-card:nth-child(1)::before { background: linear-gradient(90deg, var(--q-e), transparent); }
+.chart-card:nth-child(2)::before { background: linear-gradient(90deg, var(--q-coh), transparent); }
+.chart-card:nth-child(3)::before { background: linear-gradient(90deg, var(--q-drive), transparent); }
+.chart-card:nth-child(4)::before { background: linear-gradient(90deg, var(--q-vec), transparent); }
+.chart-title { font-family: var(--fn); font-size: 0.62rem; color: var(--muted); letter-spacing: 0.08em; flex-shrink: 0; }
+.chart-wrap  { flex: 1; position: relative; min-height: 0; }
+.chart-wrap canvas { position: absolute; inset: 0; }
+
+/* ── Bottom row: energy level + resonance ────────────────────────────────── */
+.bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+@media(max-width: 700px) { .bottom-row { grid-template-columns: 1fr; } }
+
+.energy-card {
+  background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r);
+  overflow: hidden; display: flex; flex-direction: column;
+  position: relative;
+}
+.energy-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--q-res), transparent); opacity: 0.6;
+}
+
+/* ── Theory panel ────────────────────────────────────────────────────────── */
+.theory-panel { background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; }
+.theory-tabs { display: flex; border-bottom: 1px solid var(--bd); padding: 0 16px; }
+.theory-tab {
+  padding: 12px 16px; background: transparent; border: none;
+  border-bottom: 2px solid transparent; border-radius: 0;
+  color: var(--muted); font-size: 0.74rem; font-weight: 500; font-family: var(--fn);
+  cursor: pointer; transition: all 0.14s;
+}
+.theory-tab:hover { color: var(--text); background: transparent; }
+.theory-tab.active { color: var(--text); border-bottom-color: var(--q-e); background: transparent; }
+.theory-body {
+  padding: 18px; max-height: 400px; overflow-y: auto;
+  font-size: 0.88rem; line-height: 1.82;
+  scrollbar-width: thin; scrollbar-color: var(--s3) transparent;
+}
+.theory-body::-webkit-scrollbar { width: 4px; }
+.theory-body::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 2px; }
+.theory-pane { display: none; }
+.theory-pane.active { display: block; }
+.theory-body h3 { font-size: 0.88rem; font-weight: 600; color: var(--text); margin: 16px 0 7px; }
+.theory-body h3:first-child { margin-top: 0; }
+.theory-body p  { color: var(--muted); margin-bottom: 9px; }
+.theory-body ul { padding-left: 16px; }
+.theory-body li { margin-bottom: 7px; color: var(--muted); }
+.theory-body strong { color: var(--text); font-weight: 600; }
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   READABILITY + DAY/NIGHT CONTROLS
+   Presentation-only additions: no physics, calculations, controls, or layout
+   logic are changed.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --fs: Inter, "Segoe UI", Arial, system-ui, sans-serif;
+  --read-text: #dbe5f7;
+  --read-muted: #7f93b2;
+  --read-dim: #617694;
+}
+
+html { font-size: 15px; }
+
+body {
+  font-family: var(--fs);
+  line-height: 1.52;
+  letter-spacing: 0.005em;
+}
+
+.site-header { position: relative; }
+.site-header .eyebrow { font-size: 0.78rem; margin-bottom: 12px; }
+.site-header p { font-size: 0.82rem; margin-top: 8px; }
+.site-header h1 { font-family: var(--fs); font-weight: 700; }
+
+.card__title {
+  font-family: var(--fs);
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  line-height: 1.4;
+}
+
+.tcard__head {
+  font-family: var(--fs);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.10em;
+  line-height: 1.45;
+  padding: 11px 14px;
+}
+
+.tcard__body {
+  font-size: 0.92rem;
+  line-height: 1.62;
+  padding: 15px 16px;
+}
+
+.tcard__body p { margin-bottom: 11px; }
+
+.eq {
+  font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  padding: 10px 13px;
+  margin: 10px 0;
+  letter-spacing: 0;
+}
+
+.theory-toggle {
+  font-family: var(--fs);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  padding: 12px 16px;
+}
+
+.state-banner {
+  font-size: 0.80rem;
+  line-height: 1.5;
+  padding: 13px 16px;
+}
+.sbadge {
+  font-size: 0.76rem;
+  padding: 4px 10px;
+  line-height: 1.45;
+}
+.state-banner .ket { font-size: clamp(14px, 2vw, 19px); }
+
+.ctrl__label {
+  font-family: var(--fs);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.ctrl__label .sym { font-size: 0.82rem; }
+.ctrl__val {
+  font-size: 0.78rem;
+  padding: 2px 7px;
+}
+
+button {
+  font-family: var(--fs);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  padding: 9px 11px;
+}
+button.preset-btn {
+  font-size: 0.75rem;
+  padding: 7px 9px;
+  line-height: 1.4;
+}
+
+.pill {
+  font-family: var(--fs);
+  font-size: 0.70rem;
+  line-height: 1.4;
+  padding: 4px 10px;
+}
+
+.mbox { padding: 9px 11px; }
+.mbox__label {
+  font-family: var(--fs);
+  font-size: 0.70rem;
+  line-height: 1.4;
+}
+.mbox__val { font-size: 1.08rem; }
+
+.res-meter__label,
+.res-indicator {
+  font-family: var(--fs);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.hud {
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.leg-item { font-size: 0.71rem; line-height: 1.45; }
+.hud > div[style] { font-size: 0.70rem !important; }
+
+.chart-title {
+  font-family: var(--fs);
+  font-size: 0.70rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.theory-tab {
+  font-family: var(--fs);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  padding: 13px 16px;
+}
+.theory-body {
+  font-size: 0.94rem;
+  line-height: 1.65;
+  padding: 20px;
+}
+.theory-body h3 {
+  font-size: 0.98rem;
+  line-height: 1.45;
+  margin: 18px 0 9px;
+}
+.theory-body p { margin-bottom: 11px; }
+.theory-body li { margin-bottom: 8px; line-height: 1.6; }
+
+/* Native form controls: readability only. */
+input, select, textarea {
+  font-family: var(--fs);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+input[type=range] { height: 4px; }
+input[type=range]::-webkit-slider-thumb { width: 15px; height: 15px; }
+input[type=range]::-moz-range-thumb { width: 15px; height: 15px; }
+
+/* Theme controls: fixed in the header so the existing layout remains intact. */
+.theme-switch {
+  position: absolute;
+  top: 18px;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  z-index: 20;
+}
+.theme-btn {
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-family: Arial, sans-serif;
+  font-size: 1.15rem;
+  line-height: 1;
+  background: var(--s2);
+  color: var(--text);
+  border: 1px solid var(--bd2);
+  box-shadow: none;
+}
+.theme-btn:hover {
+  background: var(--s3);
+  border-color: var(--q-e);
+  color: var(--q-e);
+}
+.theme-btn.active {
+  border-color: var(--q-e);
+  box-shadow: 0 0 0 2px rgba(0,212,255,.12);
+}
+
+/* Day mode. The dark mode remains the default, so existing appearance is
+   preserved unless the user selects the star/day button. */
+body.light-theme {
+  --bg: #f4f7fb;
+  --s0: #ffffff;
+  --s1: #f8fafc;
+  --s2: #eef3f8;
+  --s3: #e2e9f2;
+  --bd: rgba(24, 43, 66, 0.13);
+  --bd2: rgba(24, 43, 66, 0.22);
+  --text: #182638;
+  --muted: #52657d;
+  --dim: #73849a;
+  --read-text: #182638;
+  --read-muted: #52657d;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.light-theme::before {
+  background-image:
+    radial-gradient(ellipse 70% 50% at 30% 20%, rgba(0,130,190,0.045) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(110,75,190,0.035) 0%, transparent 60%),
+    linear-gradient(rgba(30,90,140,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,90,140,0.035) 1px, transparent 1px);
+}
+
+body.light-theme .eq {
+  background: rgba(220, 229, 239, 0.72);
+}
+
+/* Plot/canvas surfaces follow the page background in Day mode. */
+body.light-theme .chart-wrap,
+body.light-theme .chart-wrap canvas,
+body.light-theme .bloch-viewport,
+body.light-theme .bloch-viewport canvas,
+body.light-theme #energyCanvas,
+body.light-theme #phaseCanvas {
+  background: var(--bg) !important;
+}
+
+/* Keep overlays readable while the underlying plot follows the page. */
+body.light-theme .hud {
+  background: rgba(244, 247, 251, 0.94);
+  color: var(--text);
+  border-color: var(--bd2);
+}
+
+body.light-theme .state-banner,
+body.light-theme .mbox,
+body.light-theme .res-meter,
+body.light-theme .hud {
+  background: rgba(255,255,255,0.92);
+}
+body.light-theme .hud {
+  backdrop-filter: blur(8px);
+}
+body.light-theme .theory-body p,
+body.light-theme .theory-body li,
+body.light-theme .tcard__body {
+  color: var(--text);
+}
+body.light-theme .theme-btn {
+  background: var(--s2);
+  color: var(--text);
+}
+body.light-theme .theme-btn.active {
+  border-color: var(--q-res);
+  box-shadow: 0 0 0 2px rgba(249,115,22,.12);
+}
+
+/* Prevent common readability problems while leaving the original dimensions
+   and responsive structure untouched. */
+.tcard__body,
+.theory-body,
+.card__title,
+.ctrl__label,
+.chart-title,
+.theory-tab,
+button {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 700px) {
+  .theme-switch { top: 10px; right: 0; }
+  .theme-btn { width: 36px; height: 34px; }
+  .site-header { padding-right: 86px; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ════════════ HEADER ════════════════════════════════════════════════════ -->
+<header class="site-header">
+  <div class="theme-switch" aria-label="Theme controls">
+    <button type="button" class="theme-btn" id="nightBtn" title="Night mode" aria-label="Night mode">☾</button>
+    <button type="button" class="theme-btn" id="dayBtn" title="Day mode" aria-label="Day mode">★</button>
+  </div>
+  <div class="eyebrow">Two-Level Quantum System · Bloch Sphere · Rabi Oscillations</div>
+  <h1>Quantum Resonance Simulator</h1>
+  <p>Driven Two-Level System · Bloch Equations · Population Dynamics · Relaxation</p>
+</header>
+
+<!-- ════════════ THEORY ════════════════════════════════════════════════════ -->
+<div style="margin-bottom:var(--gap);">
+  <div class="theory-toggle open" id="theoryToggle" onclick="toggleTheory()">
+    <span>⚛️ &nbsp; Theory — Quantum two-level systems, Bloch equations, and resonance</span>
+    <span class="arr">▲</span>
+  </div>
+  <div class="tcoll vis" id="theoryBody">
+    <div style="margin-top:var(--gap);">
+      <div class="trow">
+
+        <div class="tcard">
+          <div class="tcard__head"><span class="num">01</span>The Two-Level System</div>
+          <div class="tcard__body">
+            <p>A two-level quantum system (qubit) has only two eigenstates: the <strong>ground state |g⟩</strong> and the <strong>excited state |e⟩</strong>, separated by energy ℏω₀. The general pure state is:</p>
+            <div class="eq">|ψ⟩ = α|g⟩ + β|e⟩ &nbsp; |α|²+|β|²=1</div>
+            <p>The <strong>density matrix</strong> ρ = |ψ⟩⟨ψ| fully describes mixed states too. Its diagonal elements ρ_gg, ρ_ee give the populations; off-diagonals ρ_ge, ρ_eg are the <strong>coherences</strong>.</p>
+            <div class="eq v">ρ = [[ρ_gg, ρ_ge], [ρ_eg, ρ_ee]]  (Tr ρ = 1)</div>
+            <p>Examples: qubit in quantum computers, NMR spin-½, two-photon atom, superconducting transmon, nitrogen-vacancy center in diamond.</p>
+          </div>
+        </div>
+
+        <div class="tcard">
+          <div class="tcard__head"><span class="num">02</span>Driving &amp; Rabi Oscillations</div>
+          <div class="tcard__body">
+            <p>Apply an oscillating field at frequency ω. In the <strong>rotating wave approximation (RWA)</strong>, the Hamiltonian in the rotating frame is:</p>
+            <div class="eq">H_RWA = −(ℏ/2)[Δ·σz + Ω·σx]</div>
+            <p>where <strong>Δ = ω − ω₀</strong> is the detuning and <strong>Ω</strong> is the Rabi coupling (proportional to field amplitude × dipole moment).</p>
+            <p>At resonance <strong>Δ = 0</strong>, the system oscillates completely between |g⟩ and |e⟩ at the Rabi frequency Ω. The excited-state population:</p>
+            <div class="eq d">P_e(t) = (Ω/Ω_R)² · sin²(Ω_R·t/2)</div>
+            <div class="eq d">Ω_R = √(Ω² + Δ²)  &nbsp; (generalized Rabi frequency)</div>
+          </div>
+        </div>
+
+        <div class="tcard">
+          <div class="tcard__head"><span class="num">03</span>Bloch Sphere &amp; Equations</div>
+          <div class="tcard__body">
+            <p>Any two-level state maps to a point on the <strong>Bloch sphere</strong> via the real Bloch vector (u, v, w):</p>
+            <div class="eq w">u = 2·Re(ρ_eg) &nbsp; v = 2·Im(ρ_eg) &nbsp; w = ρ_ee − ρ_gg</div>
+            <p>Pure states lie on the surface (|r|=1); mixed states are inside. The <strong>Bloch equations</strong> govern the time evolution in the rotating frame:</p>
+            <div class="eq">du/dt = Δv &nbsp; − u/T₂</div>
+            <div class="eq">dv/dt = −Δu + Ωw − v/T₂</div>
+            <div class="eq">dw/dt = −Ωv &nbsp; − (w+1)/T₁</div>
+            <p>The Rabi drive rotates the Bloch vector; relaxation shrinks it toward the ground state.</p>
+          </div>
+        </div>
+
+        <div class="tcard">
+          <div class="tcard__head"><span class="num">04</span>Relaxation: T₁ and T₂</div>
+          <div class="tcard__body">
+            <p><strong>T₁ — longitudinal relaxation</strong> (energy relaxation): the rate at which the population decays to equilibrium. The excited state decays as:</p>
+            <div class="eq g">P_e(t) = P_e(0) · e^(−t/T₁)</div>
+            <p><strong>T₂ — transverse relaxation</strong> (dephasing): coherences (u, v) decay due to phase noise. Always T₂ ≤ 2T₁. The coherence length:</p>
+            <div class="eq g">|ρ_eg|(t) = |ρ_eg(0)| · e^(−t/T₂)</div>
+            <p>The <strong>resonance linewidth</strong> (FWHM) is determined by T₂: Γ = 1/T₂. A pure state has T₂ = 2T₁; in practice dephasing makes T₂ &lt; 2T₁. The steady-state Lorentzian lineshape:</p>
+            <div class="eq o">P_e^ss(Δ) = (Ω²·T₁T₂/2) / (1 + Δ²T₂² + Ω²T₁T₂)</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ LIVE BANNER ═══════════════════════════════════════════════ -->
+<div class="state-banner">
+  <div class="ket" id="bannerKet">|ψ⟩ = |g⟩</div>
+  <div class="state-badges">
+    <div class="sbadge">P_e = <span id="bn_pe">0.000</span></div>
+    <div class="sbadge">|S| = <span id="bn_coh">0.000</span></div>
+    <div class="sbadge">Ω_R = <span id="bn_OR">—</span></div>
+    <div class="sbadge">Δ/Ω = <span id="bn_ratio">—</span></div>
+    <div class="sbadge">t = <span id="bn_t">0.00</span></div>
+  </div>
+</div>
+
+<!-- ════════════ MAIN GRID ══════════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- ════ SIDEBAR ════════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <!-- System parameters -->
+    <div class="card">
+      <div class="card__title"><div class="dot" style="background:var(--q-e)"></div>System Parameters</div>
+
+      <div class="ctrl">
+        <div class="ctrl__label">
+          <span class="sym" style="color:var(--q-drive)">Ω &nbsp;</span><span>Rabi coupling</span>
+          <span class="ctrl__val" id="vOmega">1.00</span>
+        </div>
+        <input type="range" class="sl-d" id="slOmega" min="0.05" max="4" step="0.05" value="1.0">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl__label">
+          <span class="sym" style="color:var(--q-res)">Δ &nbsp;</span><span>Detuning (ω − ω₀)</span>
+          <span class="ctrl__val" id="vDelta">0.00</span>
+        </div>
+        <input type="range" class="sl-o" id="slDelta" min="-4" max="4" step="0.1" value="0">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl__label">
+          <span class="sym" style="color:var(--q-g)">T₁</span><span>Longitudinal relax.</span>
+          <span class="ctrl__val" id="vT1">∞</span>
+        </div>
+        <input type="range" class="sl-g" id="slT1" min="0.5" max="50" step="0.5" value="50">
+      </div>
+
+      <div class="ctrl" style="margin-bottom:0;">
+        <div class="ctrl__label">
+          <span class="sym" style="color:var(--q-coh)">T₂</span><span>Transverse relax.</span>
+          <span class="ctrl__val" id="vT2">∞</span>
+        </div>
+        <input type="range" class="sl-v" id="slT2" min="0.25" max="50" step="0.25" value="50">
+      </div>
+    </div>
+
+    <!-- Initial state -->
+    <div class="card">
+      <div class="card__title"><div class="dot" style="background:var(--q-coh)"></div>Initial State</div>
+
+      <div class="btn-row" style="flex-wrap:wrap;gap:5px;">
+        <button class="preset-btn active" id="init-g"  onclick="setInitState('g')">|g⟩ Ground</button>
+        <button class="preset-btn"        id="init-e"  onclick="setInitState('e')">|e⟩ Excited</button>
+        <button class="preset-btn"        id="init-px" onclick="setInitState('px')">|+x⟩ Sup.</button>
+        <button class="preset-btn"        id="init-py" onclick="setInitState('py')">|+y⟩ Sup.</button>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="card">
+      <div class="card__title"><div class="dot" style="background:var(--q-vec)"></div>Physics Presets</div>
+
+      <div class="btn-row" style="flex-direction:column;gap:5px;">
+        <button class="preset-btn" onclick="applyPreset('rabi')">⚡ Rabi Oscillation (Δ=0)</button>
+        <button class="preset-btn" onclick="applyPreset('offresonance')">📡 Off-Resonance</button>
+        <button class="preset-btn" onclick="applyPreset('t1decay')">📉 T₁ Decay (energy)</button>
+        <button class="preset-btn" onclick="applyPreset('t2dephase')">💨 T₂ Dephasing</button>
+        <button class="preset-btn" onclick="applyPreset('strongdrive')">🔥 Strong Drive</button>
+        <button class="preset-btn" onclick="applyPreset('weakdrive')">🔬 Weak Drive (near-resonance)</button>
+      </div>
+    </div>
+
+    <!-- Simulation controls -->
+    <div class="card">
+      <div class="card__title"><div class="dot" style="background:var(--q-drive)"></div>Simulation</div>
+
+      <div class="ctrl">
+        <div class="ctrl__label">
+          <span>Speed ×</span>
+          <span class="ctrl__val" id="vSpeed">1.0</span>
+        </div>
+        <input type="range" class="sl-w" id="slSpeed" min="0.1" max="5" step="0.1" value="1">
+      </div>
+
+      <div class="ctrl" style="margin-bottom:0;">
+        <div class="ctrl__label">
+          <span>Trail length</span>
+          <span class="ctrl__val" id="vTrail">300</span>
+        </div>
+        <input type="range" id="slTrail" min="50" max="800" step="50" value="300">
+      </div>
+
+      <div class="btn-3" style="margin-top:10px;">
+        <button class="btn--run"  id="playBtn"  onclick="togglePlay()">▶ Run</button>
+        <button id="stepBtn"  onclick="stepOnce()">↷ Step</button>
+        <button class="btn--stop" id="resetBtn" onclick="resetSim()">↺ Reset</button>
+      </div>
+
+      <div id="playPill" class="pill pill--pause">PAUSED</div>
+    </div>
+
+    <!-- Live readouts -->
+    <div class="card">
+      <div class="card__title"><div class="dot" style="background:var(--q-vec)"></div>Live State</div>
+
+      <div class="metric-grid">
+        <div class="mbox">
+          <div class="mbox__label">P_e  (excited)</div>
+          <div class="mbox__val" id="mt_pe" style="color:var(--q-e)">0.000</div>
+        </div>
+        <div class="mbox">
+          <div class="mbox__label">P_g  (ground)</div>
+          <div class="mbox__val" id="mt_pg" style="color:var(--q-g)">1.000</div>
+        </div>
+        <div class="mbox">
+          <div class="mbox__label">|S| coherence</div>
+          <div class="mbox__val" id="mt_coh" style="color:var(--q-coh)">0.000</div>
+        </div>
+        <div class="mbox">
+          <div class="mbox__label">Bloch |r|</div>
+          <div class="mbox__val" id="mt_bloch" style="color:var(--q-vec)">1.000</div>
+        </div>
+        <div class="mbox">
+          <div class="mbox__label">u component</div>
+          <div class="mbox__val" id="mt_u" style="color:#93c5fd">0.000</div>
+        </div>
+        <div class="mbox">
+          <div class="mbox__label">v component</div>
+          <div class="mbox__val" id="mt_v" style="color:#a5f3fc">0.000</div>
+        </div>
+      </div>
+
+      <div class="res-meter">
+        <div class="res-meter__label">RESONANCE PROXIMITY  (0 = off, 1 = on)</div>
+        <div class="res-bar-track"><div class="res-bar-fill" id="resBar" style="width:100%"></div></div>
+        <div class="res-indicator"><span>off-resonance</span><span>on resonance</span></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ════ RIGHT PANE ══════════════════════════════════════════════════════ -->
+  <div class="right-pane">
+
+    <!-- Bloch sphere viewport -->
+    <div class="bloch-viewport" id="blochViewport">
+
+      <!-- TL HUD: live values -->
+      <div class="hud hud--tl">
+        <div class="hud__row"><span class="hud__key">u</span><span class="hud__val" id="hud_u" style="color:#93c5fd">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">v</span><span class="hud__val" id="hud_v" style="color:#a5f3fc">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">w</span><span class="hud__val" id="hud_w" style="color:var(--q-w)">−1.000</span></div>
+        <hr class="hud__sep">
+        <div class="hud__row"><span class="hud__key">P_e</span><span class="hud__val" id="hud_pe" style="color:var(--q-e)">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">P_g</span><span class="hud__val" id="hud_pg" style="color:var(--q-g)">1.000</span></div>
+        <div class="hud__row"><span class="hud__key">|S|</span><span class="hud__val" id="hud_coh" style="color:var(--q-coh)">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">t</span><span class="hud__val" id="hud_t">0.000</span></div>
+      </div>
+
+      <!-- TR HUD: legend -->
+      <div class="hud hud--tr">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--q-e)"></div>North pole |e⟩ — excited</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--q-g)"></div>South pole |g⟩ — ground</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--q-vec)"></div>State vector (Bloch arrow)</div>
+        <div class="leg-item"><div class="leg-line" style="background:var(--q-coh)"></div>Trajectory trail</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--q-drive);opacity:0.6"></div>Drive field (equatorial plane)</div>
+        <hr class="hud__sep">
+        <div style="font-size:0.62rem;color:var(--muted);">Drag to orbit · scroll to zoom</div>
+      </div>
+    </div>
+
+    <!-- Dynamic charts 2×2 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">POPULATIONS  P_e(t)  &amp;  P_g(t)</div>
+        <div class="chart-wrap"><canvas id="chartPop"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">BLOCH VECTOR  u(t) · v(t) · w(t)</div>
+        <div class="chart-wrap"><canvas id="chartBloch"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">COHERENCE  |S|(t)  &amp;  BLOCH NORM  |r|(t)</div>
+        <div class="chart-wrap"><canvas id="chartCoh"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">RESONANCE LINESHAPE  P_e^ss vs Δ/Ω</div>
+        <div class="chart-wrap"><canvas id="chartLine"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Bottom row: energy level diagram + phase portrait -->
+    <div class="bottom-row">
+      <div class="energy-card">
+        <div class="card__title" style="padding:10px 13px;margin:0;border-bottom:1px solid var(--bd);">
+          <div class="dot" style="background:var(--q-res)"></div>Energy Level Diagram &amp; Drive
+        </div>
+        <canvas id="energyCanvas" style="display:block;width:100%;height:200px;background:var(--s0);"></canvas>
+      </div>
+      <div class="energy-card">
+        <div class="card__title" style="padding:10px 13px;margin:0;border-bottom:1px solid var(--bd);">
+          <div class="dot" style="background:var(--q-coh)"></div>Phase Portrait — Coherence Plane (u, v)
+        </div>
+        <canvas id="phaseCanvas" style="display:block;width:100%;height:200px;background:var(--s0);"></canvas>
+      </div>
+    </div>
+
+    <!-- Theory panel -->
+    <div class="theory-panel">
+      <div class="theory-tabs">
+        <button class="theory-tab active" data-pane="pPhysics">Bloch Equations</button>
+        <button class="theory-tab"        data-pane="pPresets">Preset Scenarios</button>
+        <button class="theory-tab"        data-pane="pRead">How to Read</button>
+      </div>
+      <div class="theory-body">
+
+        <div id="pPhysics" class="theory-pane active">
+          <h3>The Full Bloch Equations (rotating frame, RWA)</h3>
+          <p>In the interaction picture (rotating frame at drive frequency ω), after the rotating wave approximation eliminates fast oscillations at ω+ω₀, the density matrix equations reduce to the optical Bloch equations:</p>
+          <div class="eq" style="white-space:normal;">du/dt = +Δ·v − u/T₂</div>
+          <div class="eq" style="white-space:normal;">dv/dt = −Δ·u + Ω·w − v/T₂</div>
+          <div class="eq" style="white-space:normal;">dw/dt = −Ω·v − (w+1)/T₁</div>
+          <p>This system is integrated numerically using <strong>4th-order Runge-Kutta (RK4)</strong> with Δt = 0.005 Rabi units. The Bloch vector (u, v, w) maps to a point on the unit sphere; w = ρ_ee − ρ_gg is the population inversion.</p>
+          <h3>Steady-State Solution</h3>
+          <p>Setting all time derivatives to zero gives the <strong>optical Bloch steady state</strong>:</p>
+          <div class="eq o">w_ss = −(1 + Δ²T₂²) / (1 + Δ²T₂² + Ω²T₁T₂)</div>
+          <p>The excited-state population P_e^ss = (1+w_ss)/2 forms a <strong>Lorentzian lineshape</strong> centred at Δ=0 with width Γ = 1/T₂ (in Rabi units). This is exactly the lineshape shown in the top-right chart.</p>
+          <h3>Numerical Integration</h3>
+          <p>The simulation uses RK4 with step Δt = 0.005. Each frame advances the physics by speed × frame_dt steps. The trail shows the last N positions of the Bloch vector on the sphere surface.</p>
+        </div>
+
+        <div id="pPresets" class="theory-pane">
+          <h3>Rabi Oscillation (Δ=0, no relaxation)</h3>
+          <p>The textbook quantum resonance scenario. The state vector precesses around the x-axis of the Bloch sphere. At Δ=0, the Rabi frequency Ω_R = Ω and the population undergoes complete inversion: P_e oscillates between 0 and 1. A <strong>π-pulse</strong> (time T = π/Ω) flips the qubit completely from |g⟩ to |e⟩.</p>
+          <h3>Off-Resonance (Δ ≠ 0)</h3>
+          <p>When the drive detuning is non-zero, the generalized Rabi frequency increases: Ω_R = √(Ω²+Δ²). The oscillation is faster but the population never fully inverts — maximum P_e = (Ω/Ω_R)² &lt; 1. On the Bloch sphere, the trajectory traces a smaller circle offset from the equator.</p>
+          <h3>T₁ Decay (energy relaxation)</h3>
+          <p>With Ω=0 and starting in |e⟩, the population decays exponentially: P_e(t) = e^(−t/T₁). On the Bloch sphere, the state vector spirals from the north pole (|e⟩) straight down to the south pole (|g⟩).</p>
+          <h3>T₂ Dephasing (coherence loss)</h3>
+          <p>Starting in a superposition |+x⟩ with no drive, the coherences u, v decay as e^(−t/T₂) while w remains fixed. The Bloch vector shrinks radially inward — the qubit loses its quantum phase information but keeps its population.</p>
+          <h3>Strong Drive (power broadening)</h3>
+          <p>When Ω >> 1/T₂, the resonance line broadens beyond its natural linewidth — <strong>power broadening</strong>. The Lorentzian half-width becomes √(1+Ω²T₁T₂)/T₂. The Bloch sphere motion becomes very fast.</p>
+        </div>
+
+        <div id="pRead" class="theory-pane">
+          <h3>Bloch Sphere</h3>
+          <ul>
+            <li><strong>North pole (0,0,+1)</strong> = |e⟩ fully excited state. <strong>South pole (0,0,−1)</strong> = |g⟩ ground state.</li>
+            <li><strong>Equator</strong> = maximum coherence, equal superposition of |g⟩ and |e⟩. Different phases correspond to different equatorial points.</li>
+            <li><strong>Interior</strong> = mixed states (decoherence has occurred). The Bloch vector shrinks from the surface toward the centre.</li>
+            <li><strong>Gold arrow</strong> = current state vector (u, v, w). The trail shows its history.</li>
+          </ul>
+          <h3>Charts</h3>
+          <ul>
+            <li><strong>Populations</strong> — P_e (cyan) and P_g (coral) sum to 1. Rabi oscillations appear here as sinusoidal oscillations.</li>
+            <li><strong>Bloch components</strong> — u (blue) is in-phase coherence, v (teal) is quadrature coherence, w (gold) is population inversion. w = 2P_e − 1.</li>
+            <li><strong>Coherence |S|</strong> — √(u²+v²), the length of the transverse Bloch vector. Decays with time constant T₂. Also shows |r| = √(u²+v²+w²) ≤ 1.</li>
+            <li><strong>Resonance lineshape</strong> — steady-state P_e as a function of detuning Δ/Ω. Narrower = longer T₂. The current drive frequency is marked.</li>
+            <li><strong>Phase portrait (u,v)</strong> — the rotating-frame coherence vector. Circles → coherent oscillation; spiralling inward → T₂ decay.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /.right-pane -->
+</div><!-- /.main-grid -->
+</div><!-- /.app -->
+
+<script>
+'use strict';
+
+
+// ─── Readability theme controls ───────────────────────────────────────────────
+// Presentation-only: no simulation state, equations, or calculations are changed.
+(function(){
+  const nightBtn = document.getElementById('nightBtn');
+  const dayBtn   = document.getElementById('dayBtn');
+
+  function applyTheme(mode, save=true){
+    const isDay = mode === 'day';
+    document.body.classList.toggle('light-theme', isDay);
+    nightBtn.classList.toggle('active', !isDay);
+    dayBtn.classList.toggle('active', isDay);
+    nightBtn.setAttribute('aria-pressed', String(!isDay));
+    dayBtn.setAttribute('aria-pressed', String(isDay));
+    if(save){
+      try { localStorage.setItem('quantum-resonance-theme', mode); } catch(e) {}
+    }
+  }
+
+  nightBtn.addEventListener('click', () => applyTheme('night'));
+  dayBtn.addEventListener('click', () => applyTheme('day'));
+
+  let saved = 'night';
+  try { saved = localStorage.getItem('quantum-resonance-theme') || 'night'; } catch(e) {}
+  applyTheme(saved, false);
+})();
+
+
+// ─── Theory toggle ────────────────────────────────────────────────────────────
+function toggleTheory(){
+  const b=document.getElementById('theoryBody'), t=document.getElementById('theoryToggle');
+  t.classList.toggle('open', b.classList.toggle('vis'));
+}
+document.querySelectorAll('.theory-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.theory-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.theory-pane').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.pane).classList.add('active');
+  });
+});
+
+// ─── Physics state ────────────────────────────────────────────────────────────
+const DT = 0.005;   // RK4 time step (in normalized Rabi units)
+let simT = 0;
+let blochU = 0, blochV = 0, blochW = -1;  // start in |g⟩
+
+// Parameters
+const p = { Omega: 1.0, Delta: 0.0, T1: 50, T2: 50 };
+let simRunning = false;
+let simSpeed   = 1.0;
+let trailLen   = 300;
+
+// ─── Read parameters from sliders ────────────────────────────────────────────
+function readParams() {
+  p.Omega = parseFloat(document.getElementById('slOmega').value);
+  p.Delta = parseFloat(document.getElementById('slDelta').value);
+  p.T1    = parseFloat(document.getElementById('slT1').value);
+  p.T2    = Math.min(parseFloat(document.getElementById('slT2').value), 2 * p.T1);
+  simSpeed = parseFloat(document.getElementById('slSpeed').value);
+  trailLen = parseInt(document.getElementById('slTrail').value);
+}
+
+function updateSliderLabels() {
+  const fmt = v => v >= 49 ? '∞' : v.toFixed(v >= 10 ? 1 : 2);
+  document.getElementById('vOmega').textContent = p.Omega.toFixed(2);
+  document.getElementById('vDelta').textContent = p.Delta.toFixed(2);
+  document.getElementById('vT1').textContent    = fmt(p.T1);
+  document.getElementById('vT2').textContent    = fmt(p.T2);
+  document.getElementById('vSpeed').textContent = simSpeed.toFixed(1);
+  document.getElementById('vTrail').textContent = trailLen;
+}
+
+// ─── Bloch equations (RK4) ────────────────────────────────────────────────────
+function blochDeriv(u, v, w) {
+  const { Omega: O, Delta: D, T1, T2 } = p;
+  return {
+    du:  D * v     - u / T2,
+    dv: -D * u + O * w - v / T2,
+    dw: -O * v     - (w + 1) / T1
+  };
+}
+
+function rk4Step(dt) {
+  const k1 = blochDeriv(blochU, blochV, blochW);
+  const u2=blochU+dt/2*k1.du, v2=blochV+dt/2*k1.dv, w2=blochW+dt/2*k1.dw;
+  const k2 = blochDeriv(u2, v2, w2);
+  const u3=blochU+dt/2*k2.du, v3=blochV+dt/2*k2.dv, w3=blochW+dt/2*k2.dw;
+  const k3 = blochDeriv(u3, v3, w3);
+  const u4=blochU+dt*k3.du,   v4=blochV+dt*k3.dv,   w4=blochW+dt*k3.dw;
+  const k4 = blochDeriv(u4, v4, w4);
+  blochU += dt/6*(k1.du + 2*k2.du + 2*k3.du + k4.du);
+  blochV += dt/6*(k1.dv + 2*k2.dv + 2*k3.dv + k4.dv);
+  blochW += dt/6*(k1.dw + 2*k2.dw + 2*k3.dw + k4.dw);
+  simT += dt;
+}
+
+// ─── THREE.JS: Bloch Sphere ───────────────────────────────────────────────────
+const viewport = document.getElementById('blochViewport');
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, viewport.clientWidth/viewport.clientHeight, 0.01, 100);
+camera.position.set(1.8, 1.4, 2.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+renderer.setClearColor(0x09102000, 0);  // transparent — show CSS bg
+renderer.setClearColor(0x09102000);
+renderer.setClearColor(0x09102000, 1);
+renderer.setClearColor(new THREE.Color(0x09102000));
+renderer.setClearColor(0x09102000);
+renderer.setClearColor(new THREE.Color('#09102000'));
+
+// just use a dark clear color
+renderer.setClearColor(0x06080f, 1);
+viewport.appendChild(renderer.domElement);
+
+const orbitCtrl = new THREE.OrbitControls(camera, renderer.domElement);
+orbitCtrl.enableDamping = true;
+orbitCtrl.dampingFactor = 0.08;
+orbitCtrl.minDistance   = 1.2;
+orbitCtrl.maxDistance   = 8;
+
+scene.add(new THREE.AmbientLight(0x304060, 3.0));
+const dl = new THREE.DirectionalLight(0x8090ff, 0.8);
+dl.position.set(3, 5, 3); scene.add(dl);
+
+// ── Bloch sphere wireframe
+const sphereGeo  = new THREE.SphereGeometry(1, 48, 24);
+const sphereMat  = new THREE.MeshStandardMaterial({
+  color: 0x0d1830, wireframe: false,
+  transparent: true, opacity: 0.12,
+  roughness: 1, metalness: 0
+});
+scene.add(new THREE.Mesh(sphereGeo, sphereMat));
+
+// Wireframe lines (meridians + parallels)
+const wireMat = new THREE.LineBasicMaterial({ color: 0x1a3060, transparent: true, opacity: 0.45 });
+for (let lat = -75; lat <= 75; lat += 30) {
+  const r = Math.cos(lat * Math.PI/180);
+  const y = Math.sin(lat * Math.PI/180);
+  const pts = [];
+  for (let i = 0; i <= 64; i++) {
+    const phi = (i/64)*2*Math.PI;
+    pts.push(new THREE.Vector3(r*Math.cos(phi), y, r*Math.sin(phi)));
+  }
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat));
+}
+for (let lon = 0; lon < 180; lon += 30) {
+  const pts = [];
+  for (let i = 0; i <= 64; i++) {
+    const th = (i/64)*2*Math.PI;
+    const phi = lon * Math.PI/180;
+    pts.push(new THREE.Vector3(Math.sin(th)*Math.cos(phi), Math.cos(th), Math.sin(th)*Math.sin(phi)));
+  }
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat));
+}
+// Equatorial circle (highlighted, drive plane)
+{
+  const pts = [];
+  for (let i = 0; i <= 128; i++) {
+    const phi = (i/128)*2*Math.PI;
+    pts.push(new THREE.Vector3(Math.cos(phi), 0, Math.sin(phi)));
+  }
+  scene.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: 0x2a6040, transparent: true, opacity: 0.5 })
+  ));
+}
+
+// ── Axes
+function addAxis(dir, color) {
+  const mat  = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55 });
+  const pts  = [new THREE.Vector3(0,0,0), dir];
+  return scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+}
+addAxis(new THREE.Vector3(1.3,0,0), 0x3060a0);   // u → x (blue)
+addAxis(new THREE.Vector3(0,0,1.3), 0x30a080);   // v → z (teal)
+addAxis(new THREE.Vector3(0,1.3,0), 0xa06030);   // w → y (gold)
+
+// ── Pole labels (sprites)
+function makeLabel(text, color='#ffffff') {
+  const c = document.createElement('canvas');
+  c.width=256; c.height=80;
+  const ctx = c.getContext('2d');
+  ctx.font='bold 36px JetBrains Mono, monospace';
+  ctx.fillStyle = color;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, 128, 40);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  spr.scale.set(0.65, 0.20, 1);
+  return spr;
+}
+const lE = makeLabel('|e⟩', '#00d4ff'); lE.position.set(0,  1.22, 0); scene.add(lE);
+const lG = makeLabel('|g⟩', '#ff6b6b'); lG.position.set(0, -1.22, 0); scene.add(lG);
+const lX = makeLabel('+x',  '#60a5fa'); lX.position.set(1.25,0,0);    scene.add(lX);
+const lZ = makeLabel('+y',  '#4ade80'); lZ.position.set(0,0,1.25);    scene.add(lZ);
+
+// ── Pole dots
+function addPoleDot(pos, color, size=0.055) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(size, 16, 16),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  m.position.copy(pos); scene.add(m);
+}
+addPoleDot(new THREE.Vector3(0, 1,0), 0x00d4ff, 0.06);
+addPoleDot(new THREE.Vector3(0,-1,0), 0xff6b6b, 0.06);
+
+// ── State vector (ArrowHelper)
+const stateArrow = new THREE.ArrowHelper(
+  new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0),
+  1.0, 0xf5c518, 0.14, 0.08
+);
+scene.add(stateArrow);
+
+// ── Trail (vertex-coloured line)
+const TRAIL_MAX = 1000;
+let trailPositions = new Float32Array(TRAIL_MAX * 3);
+let trailColors    = new Float32Array(TRAIL_MAX * 3);
+let trailHead = 0, trailCount = 0;
+const trailGeo = new THREE.BufferGeometry();
+const trailMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75 });
+const trailMesh = new THREE.Line(trailGeo, trailMat);
+scene.add(trailMesh);
+
+function pushTrail(u, v, w) {
+  const idx = (trailHead % TRAIL_MAX) * 3;
+  trailPositions[idx]   = u;
+  trailPositions[idx+1] = w;  // w → y (up)
+  trailPositions[idx+2] = v;  // v → z
+
+  // colour: violet → cyan based on P_e
+  const pe = (w + 1) / 2;
+  trailColors[idx]   = 0.5 + 0.5 * pe;       // R
+  trailColors[idx+1] = 0.3 * pe;              // G
+  trailColors[idx+2] = 0.8 + 0.2 * (1 - pe); // B
+
+  trailHead++;
+  trailCount = Math.min(trailCount + 1, trailLen);
+}
+
+function rebuildTrail() {
+  const n = Math.min(trailCount, trailLen);
+  if (n < 2) { trailGeo.setDrawRange(0, 0); return; }
+  const pos = new Float32Array(n * 3);
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const src = ((trailHead - n + i + TRAIL_MAX) % TRAIL_MAX) * 3;
+    pos[i*3]   = trailPositions[src];
+    pos[i*3+1] = trailPositions[src+1];
+    pos[i*3+2] = trailPositions[src+2];
+    const alpha = i / (n - 1);
+    col[i*3]   = trailColors[src]   * alpha;
+    col[i*3+1] = trailColors[src+1] * alpha;
+    col[i*3+2] = trailColors[src+2] * alpha;
+  }
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  trailGeo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  trailGeo.setDrawRange(0, n);
+}
+
+// ── Update Bloch sphere objects
+function updateBlochSphere() {
+  const u = blochU, v = blochV, w = blochW;
+  const r = Math.sqrt(u*u+v*v+w*w) || 1e-9;
+  const dir = new THREE.Vector3(u/r, w/r, v/r).normalize();
+  if (dir.length() > 0.01) {
+    stateArrow.setDirection(dir);
+    stateArrow.setLength(Math.min(r, 1.0), 0.14, 0.08);
+  }
+  stateArrow.position.set(0,0,0);
+
+  // Color arrow by P_e
+  const pe = (w + 1) / 2;
+  const col = new THREE.Color().setHSL(0.55 - 0.55*pe, 1.0, 0.55 + 0.1*pe);
+  stateArrow.setColor(col);
+}
+
+// ─── Chart.js charts ──────────────────────────────────────────────────────────
+Chart.defaults.color       = '#4a6080';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size   = 10;
+
+const _sBase = {
+  ticks: { color: '#2a3858' }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' }
+};
+const _cBase = {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { labels: { color:'#4a6080', font:{size:10}, boxWidth:14, boxHeight:2, padding:9 } },
+             tooltip: { backgroundColor:'rgba(5,7,15,0.92)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'#cdd8f0', bodyColor:'#cdd8f0', padding:8 }},
+  scales: { x: { type:'linear', ..._sBase, title:{ display:true, text:'t (Rabi units)', color:'#2a3858' } }, y: { ..._sBase } }
+};
+
+function mkChart(id, datasets) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { datasets: datasets.map(d => ({ ...d, data: [], pointRadius: 0, tension: 0.2 })) },
+    options: JSON.parse(JSON.stringify(_cBase))
+  });
+}
+
+const chartPop = mkChart('chartPop', [
+  { label: 'P_e (excited)', borderColor: '#00d4ff', borderWidth: 2 },
+  { label: 'P_g (ground)',  borderColor: '#ff6b6b', borderWidth: 2 }
+]);
+
+const chartBloch = mkChart('chartBloch', [
+  { label: 'u', borderColor: '#93c5fd', borderWidth: 1.8 },
+  { label: 'v', borderColor: '#4ade80', borderWidth: 1.8 },
+  { label: 'w', borderColor: '#fbbf24', borderWidth: 1.8 }
+]);
+chartBloch.options.scales.y.min = -1.05;
+chartBloch.options.scales.y.max =  1.05;
+
+const chartCoh = mkChart('chartCoh', [
+  { label: '|S| coherence', borderColor: '#b48efe', borderWidth: 2 },
+  { label: '|r| Bloch norm',borderColor: '#f5c518', borderWidth: 1.5, borderDash:[4,3] }
+]);
+chartCoh.options.scales.y.min = 0;
+chartCoh.options.scales.y.max = 1.05;
+
+// Resonance lineshape chart (static, updates when params change)
+const chartLine = new Chart(document.getElementById('chartLine').getContext('2d'), {
+  type: 'line',
+  data: { datasets: [
+    { label: 'P_e^ss (Δ/Ω)',   borderColor: '#f97316', borderWidth: 2, pointRadius: 0, data: [] },
+    { label: 'Current Δ',       type: 'scatter', data: [{x:0,y:0}], pointRadius: 6,
+      showLine: false, borderColor: '#f5c518', backgroundColor: '#f5c518' }
+  ]},
+  options: { ...JSON.parse(JSON.stringify(_cBase)),
+    scales: {
+      x: { type:'linear', ..._sBase, title:{ display:true, text:'Δ/Ω', color:'#2a3858' } },
+      y: { ..._sBase, min:0, max:0.55, title:{ display:true, text:'P_e^ss', color:'#2a3858' } }
+    }
+  }
+});
+
+function updateLineshape() {
+  const O = p.Omega, T1 = p.T1, T2 = p.T2;
+  const data = [];
+  for (let d = -5; d <= 5; d += 0.08) {
+    const denom = 1 + d*d*T2*T2 + O*O*T1*T2;
+    const pe = (O*O*T1*T2/2) / denom;
+    data.push({ x: d / O, y: pe });
+  }
+  chartLine.data.datasets[0].data = data;
+  const peSS = (() => {
+    const d = p.Delta, denom = 1 + d*d*T2*T2 + O*O*T1*T2;
+    return (O*O*T1*T2/2) / denom;
+  })();
+  chartLine.data.datasets[1].data = [{ x: p.Delta/O, y: peSS }];
+  chartLine.update('none');
+}
+
+// History arrays for dynamic charts
+let histT=[], histPe=[], histPg=[], histU=[], histV=[], histW=[], histCoh=[], histR=[];
+const MAX_H = 3000;
+
+function pushHistory() {
+  const pe = (blochW + 1) / 2;
+  const pg = 1 - pe;
+  const coh = Math.sqrt(blochU*blochU + blochV*blochV);
+  const r   = Math.sqrt(blochU*blochU + blochV*blochV + blochW*blochW);
+  histT.push(simT); histPe.push(pe); histPg.push(pg);
+  histU.push(blochU); histV.push(blochV); histW.push(blochW);
+  histCoh.push(coh); histR.push(r);
+  if (histT.length > MAX_H) {
+    [histT,histPe,histPg,histU,histV,histW,histCoh,histR].forEach(a => a.shift());
+  }
+}
+
+let lastChartFlush = 0;
+function flushCharts() {
+  const stride = Math.max(1, Math.floor(histT.length / 300));
+  const idx    = Array.from({ length: Math.ceil(histT.length/stride) }, (_,i)=>i*stride);
+  const xy = (ts, ys) => idx.map(i => ({ x: +ts[i].toFixed(4), y: +ys[i].toFixed(5) }));
+
+  chartPop.data.datasets[0].data   = xy(histT, histPe);
+  chartPop.data.datasets[1].data   = xy(histT, histPg);
+  chartBloch.data.datasets[0].data = xy(histT, histU);
+  chartBloch.data.datasets[1].data = xy(histT, histV);
+  chartBloch.data.datasets[2].data = xy(histT, histW);
+  chartCoh.data.datasets[0].data   = xy(histT, histCoh);
+  chartCoh.data.datasets[1].data   = xy(histT, histR);
+  [chartPop, chartBloch, chartCoh].forEach(c => c.update('none'));
+}
+
+function clearCharts() {
+  histT=[]; histPe=[]; histPg=[]; histU=[]; histV=[]; histW=[]; histCoh=[]; histR=[];
+  [chartPop, chartBloch, chartCoh].forEach(c => {
+    c.data.datasets.forEach(d => { d.data=[]; }); c.update('none');
+  });
+}
+
+// ─── Energy level diagram (canvas) ────────────────────────────────────────────
+function drawEnergyDiagram() {
+  const cvs = document.getElementById('energyCanvas');
+  const ctx  = cvs.getContext('2d');
+  cvs.width  = cvs.offsetWidth  * devicePixelRatio;
+  cvs.height = cvs.offsetHeight * devicePixelRatio;
+  const W = cvs.width, H = cvs.height, dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W/2, pad = 40*dpr;
+  const gY = H*0.75, eY = H*0.22;
+  const lw  = W*0.3;
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  for (let y = 0; y < H; y += 30*dpr) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Energy levels
+  function drawLevel(y, col, label, pop) {
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5*dpr;
+    ctx.beginPath(); ctx.moveTo(cx-lw/2, y); ctx.lineTo(cx+lw/2, y); ctx.stroke();
+    ctx.fillStyle = col; ctx.font = `${11*dpr}px JetBrains Mono`; ctx.textAlign = 'right';
+    ctx.fillText(label, cx-lw/2-8*dpr, y+4*dpr);
+    // Population bar
+    const bw = lw * pop;
+    const grad = ctx.createLinearGradient(cx-lw/2, 0, cx-lw/2+bw, 0);
+    grad.addColorStop(0, col + '88'); grad.addColorStop(1, col + '22');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx-lw/2, y-6*dpr, bw, 6*dpr);
+    ctx.fillStyle = col; ctx.font = `${10*dpr}px JetBrains Mono`; ctx.textAlign = 'left';
+    ctx.fillText(`P=${pop.toFixed(3)}`, cx+lw/2+6*dpr, y+4*dpr);
+  }
+
+  const Pe = (blochW + 1) / 2;
+  const Pg = 1 - Pe;
+  drawLevel(eY, '#00d4ff', '|e⟩', Pe);
+  drawLevel(gY, '#ff6b6b', '|g⟩', Pg);
+
+  // Transition arrow (ω₀)
+  const arrowX = cx;
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5*dpr;
+  ctx.setLineDash([5*dpr, 4*dpr]);
+  ctx.beginPath(); ctx.moveTo(arrowX, gY-4*dpr); ctx.lineTo(arrowX, eY+4*dpr); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.font = `${9*dpr}px JetBrains Mono`; ctx.textAlign = 'center';
+  ctx.fillText('ω₀', arrowX+12*dpr, (gY+eY)/2);
+
+  // Drive arrow (ω = ω₀ + Δ)
+  const driveX = cx + lw/2 * 0.5;
+  const detuning = p.Delta;
+  const driveY = eY + detuning * (gY - eY) / 4;  // visual offset for detuning
+  ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2*dpr;
+  ctx.beginPath();
+  ctx.moveTo(driveX, gY-6*dpr);
+  ctx.lineTo(driveX, Math.max(driveY, eY+8*dpr));
+  ctx.stroke();
+  // Arrowhead
+  ctx.fillStyle = '#4ade80';
+  ctx.beginPath();
+  ctx.moveTo(driveX, Math.max(driveY, eY+8*dpr));
+  ctx.lineTo(driveX-5*dpr, Math.max(driveY+10*dpr, eY+18*dpr));
+  ctx.lineTo(driveX+5*dpr, Math.max(driveY+10*dpr, eY+18*dpr));
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#4ade80'; ctx.font = `${9*dpr}px JetBrains Mono`; ctx.textAlign = 'center';
+  ctx.fillText('ω', driveX, gY+14*dpr);
+
+  // Detuning label
+  if (Math.abs(detuning) > 0.05) {
+    const mid = (gY + eY) / 2;
+    ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1.5*dpr;
+    ctx.setLineDash([3*dpr, 3*dpr]);
+    ctx.beginPath();
+    ctx.moveTo(driveX+6*dpr, Math.max(driveY, eY+8*dpr));
+    ctx.lineTo(driveX+6*dpr, eY);
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#f97316'; ctx.font = `${9*dpr}px JetBrains Mono`; ctx.textAlign = 'left';
+    ctx.fillText(`Δ=${p.Delta.toFixed(1)}`, driveX+10*dpr, mid - 10*dpr);
+  }
+
+  // Rabi coupling Ω label
+  ctx.fillStyle = '#fbbf24'; ctx.font = `bold ${10*dpr}px JetBrains Mono`; ctx.textAlign = 'center';
+  ctx.fillText(`Ω = ${p.Omega.toFixed(2)}`, cx, H - 10*dpr);
+  ctx.fillStyle = '#b48efe';
+  ctx.fillText(`Ω_R = ${Math.sqrt(p.Omega*p.Omega + p.Delta*p.Delta).toFixed(3)}`, cx, H - 24*dpr);
+}
+
+// ─── Phase portrait (u, v) ─────────────────────────────────────────────────────
+let phaseHistory = [];
+function drawPhasePortrait() {
+  const cvs = document.getElementById('phaseCanvas');
+  const ctx  = cvs.getContext('2d');
+  cvs.width  = cvs.offsetWidth  * devicePixelRatio;
+  cvs.height = cvs.offsetHeight * devicePixelRatio;
+  const W = cvs.width, H = cvs.height, dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = 20*dpr, pw = W-2*pad, ph = H-2*pad;
+  const cx = W/2, cy = H/2;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 30*dpr) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 30*dpr) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Unit circle
+  ctx.strokeStyle = 'rgba(180,142,254,0.25)'; ctx.lineWidth = 1.5*dpr;
+  ctx.beginPath(); ctx.arc(cx, cy, Math.min(pw,ph)/2, 0, Math.PI*2); ctx.stroke();
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = dpr;
+  ctx.beginPath(); ctx.moveTo(pad,cy); ctx.lineTo(W-pad,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,pad); ctx.lineTo(cx,H-pad); ctx.stroke();
+
+  const mX = u => cx + u * pw/2;
+  const mY = v => cy - v * ph/2;
+
+  // Trail (recent history)
+  const n = Math.min(phaseHistory.length, trailLen);
+  for (let i = 1; i < n; i++) {
+    const t_ = (i-1)/(n-1);
+    ctx.strokeStyle = `hsla(270,70%,${45+t_*30}%,${0.15+t_*0.75})`;
+    ctx.lineWidth   = (0.5+t_*1.5)*dpr;
+    ctx.beginPath();
+    ctx.moveTo(mX(phaseHistory[phaseHistory.length-n+i-1].u), mY(phaseHistory[phaseHistory.length-n+i-1].v));
+    ctx.lineTo(mX(phaseHistory[phaseHistory.length-n+i].u),   mY(phaseHistory[phaseHistory.length-n+i].v));
+    ctx.stroke();
+  }
+
+  // Current point
+  ctx.fillStyle = '#f5c518';
+  ctx.beginPath(); ctx.arc(mX(blochU), mY(blochV), 5*dpr, 0, Math.PI*2); ctx.fill();
+
+  // Labels
+  ctx.fillStyle = 'rgba(74,96,128,0.8)'; ctx.font = `${9*dpr}px JetBrains Mono`; ctx.textAlign='center';
+  ctx.fillText('u (in-phase)', W/2, H-5*dpr);
+  ctx.save(); ctx.translate(8*dpr, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('v (quadrature)', 0, 0); ctx.restore();
+}
+
+// ─── HUD + metrics update ─────────────────────────────────────────────────────
+function updateHUD() {
+  const u = blochU, v = blochV, w = blochW;
+  const pe = (w+1)/2, pg = 1-pe;
+  const coh = Math.sqrt(u*u+v*v);
+  const r   = Math.sqrt(u*u+v*v+w*w);
+  const OR  = Math.sqrt(p.Omega*p.Omega + p.Delta*p.Delta);
+
+  const f4 = n => n.toFixed(4);
+  document.getElementById('hud_u').textContent  = f4(u);
+  document.getElementById('hud_v').textContent  = f4(v);
+  document.getElementById('hud_w').textContent  = f4(w);
+  document.getElementById('hud_pe').textContent = f4(pe);
+  document.getElementById('hud_pg').textContent = f4(pg);
+  document.getElementById('hud_coh').textContent= f4(coh);
+  document.getElementById('hud_t').textContent  = simT.toFixed(3);
+
+  document.getElementById('mt_pe').textContent  = f4(pe);
+  document.getElementById('mt_pg').textContent  = f4(pg);
+  document.getElementById('mt_coh').textContent = f4(coh);
+  document.getElementById('mt_bloch').textContent= f4(r);
+  document.getElementById('mt_u').textContent   = f4(u);
+  document.getElementById('mt_v').textContent   = f4(v);
+
+  document.getElementById('bn_pe').textContent  = f4(pe);
+  document.getElementById('bn_coh').textContent = f4(coh);
+  document.getElementById('bn_OR').textContent  = OR.toFixed(3);
+  document.getElementById('bn_ratio').textContent = (p.Delta/p.Omega).toFixed(2);
+  document.getElementById('bn_t').textContent   = simT.toFixed(2);
+
+  // Resonance bar (closer to 0 detuning = fuller)
+  const proximity = 1 / (1 + (p.Delta/p.Omega)**2);
+  document.getElementById('resBar').style.width = (proximity * 100).toFixed(1) + '%';
+
+  // Ket label
+  const ketEl = document.getElementById('bannerKet');
+  if (pe < 0.02)       ketEl.textContent = '|ψ⟩ ≈ |g⟩  (ground state)';
+  else if (pe > 0.98)  ketEl.textContent = '|ψ⟩ ≈ |e⟩  (excited state)';
+  else if (coh > 0.85) ketEl.textContent = `|ψ⟩ = α|g⟩ + β|e⟩  (coherent superposition)`;
+  else                 ketEl.textContent = `ρ  (mixed state, |r|=${r.toFixed(3)})`;
+}
+
+// ─── Simulation loop ──────────────────────────────────────────────────────────
+let lastFrameTs = null;
+
+function animate(ts) {
+  requestAnimationFrame(animate);
+  orbitCtrl.update();
+
+  if (simRunning) {
+    if (lastFrameTs === null) lastFrameTs = ts;
+    const wallDt = Math.min((ts - lastFrameTs) / 1000, 0.05);
+    lastFrameTs = ts;
+
+    // Advance physics by speed × wallDt simulation time
+    const physTime = wallDt * simSpeed;
+    const nSteps   = Math.max(1, Math.round(physTime / DT));
+
+    for (let i = 0; i < nSteps; i++) {
+      rk4Step(DT);
+      pushTrail(blochU, blochV, blochW);
+      if (i % 3 === 0) {
+        pushHistory();
+        phaseHistory.push({ u: blochU, v: blochV });
+        if (phaseHistory.length > MAX_H) phaseHistory.shift();
+      }
+    }
+
+    // Chart flush every ~80ms
+    if (ts - lastChartFlush > 80) { flushCharts(); lastChartFlush = ts; }
+  } else {
+    lastFrameTs = null;
+  }
+
+  rebuildTrail();
+  updateBlochSphere();
+  updateHUD();
+  drawEnergyDiagram();
+  drawPhasePortrait();
+  renderer.render(scene, camera);
+}
+
+// ─── Controls ─────────────────────────────────────────────────────────────────
+function togglePlay() {
+  simRunning = !simRunning;
+  lastFrameTs = null;
+  document.getElementById('playBtn').textContent = simRunning ? '⏸ Pause' : '▶ Run';
+  const pill = document.getElementById('playPill');
+  pill.textContent  = simRunning ? 'RUNNING' : 'PAUSED';
+  pill.className    = `pill ${simRunning ? 'pill--run' : 'pill--pause'}`;
+}
+
+function stepOnce() {
+  simRunning = false;
+  lastFrameTs = null;
+  for (let i = 0; i < 20; i++) { rk4Step(DT); pushTrail(blochU, blochV, blochW); }
+  pushHistory();
+  phaseHistory.push({ u: blochU, v: blochV });
+  flushCharts();
+  document.getElementById('playBtn').textContent = '▶ Run';
+  document.getElementById('playPill').className  = 'pill pill--pause';
+  document.getElementById('playPill').textContent = 'PAUSED';
+}
+
+function resetSim() {
+  simRunning  = false;
+  lastFrameTs = null;
+  document.getElementById('playBtn').textContent = '▶ Run';
+  document.getElementById('playPill').className  = 'pill pill--pause';
+  document.getElementById('playPill').textContent = 'PAUSED';
+  clearCharts();
+  phaseHistory = [];
+  trailHead = 0; trailCount = 0;
+  trailGeo.setDrawRange(0, 0);
+}
+
+// ─── Initial state setters ────────────────────────────────────────────────────
+function setInitState(state) {
+  resetSim();
+  simT = 0;
+  switch(state) {
+    case 'g':  blochU=0;  blochV=0;  blochW=-1;  break;
+    case 'e':  blochU=0;  blochV=0;  blochW= 1;  break;
+    case 'px': blochU=1;  blochV=0;  blochW= 0;  break;
+    case 'py': blochU=0;  blochV=1;  blochW= 0;  break;
+  }
+  document.querySelectorAll('[id^=init-]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('init-'+state);
+  if (btn) btn.classList.add('active');
+}
+
+// ─── Presets ──────────────────────────────────────────────────────────────────
+function applyPreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  switch(name) {
+    case 'rabi':
+      setSliders({ Omega:1.0, Delta:0.0, T1:50, T2:50, speed:1.0 });
+      setInitState('g'); break;
+    case 'offresonance':
+      setSliders({ Omega:1.0, Delta:1.5, T1:50, T2:50, speed:1.0 });
+      setInitState('g'); break;
+    case 't1decay':
+      setSliders({ Omega:0.0, Delta:0.0, T1:5.0, T2:10, speed:0.5 });
+      setInitState('e'); break;
+    case 't2dephase':
+      setSliders({ Omega:0.0, Delta:0.0, T1:50, T2:3.0, speed:0.5 });
+      setInitState('px'); break;
+    case 'strongdrive':
+      setSliders({ Omega:3.0, Delta:0.5, T1:50, T2:20, speed:1.5 });
+      setInitState('g'); break;
+    case 'weakdrive':
+      setSliders({ Omega:0.3, Delta:0.1, T1:10, T2:8.0, speed:0.5 });
+      setInitState('g'); break;
+  }
+}
+
+function setSliders({ Omega, Delta, T1, T2, speed }) {
+  document.getElementById('slOmega').value = Omega;
+  document.getElementById('slDelta').value = Delta;
+  document.getElementById('slT1').value    = T1;
+  document.getElementById('slT2').value    = T2;
+  document.getElementById('slSpeed').value = speed;
+  readParams();
+  updateSliderLabels();
+  updateLineshape();
+}
+
+// ─── Slider wiring ────────────────────────────────────────────────────────────
+['slOmega','slDelta','slT1','slT2','slSpeed','slTrail'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    readParams();
+    updateSliderLabels();
+    updateLineshape();
+  });
+});
+
+// ─── Responsive resize ────────────────────────────────────────────────────────
+new ResizeObserver(() => {
+  const w = viewport.clientWidth, h = viewport.clientHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}).observe(viewport);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+readParams();
+updateSliderLabels();
+updateLineshape();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html> 

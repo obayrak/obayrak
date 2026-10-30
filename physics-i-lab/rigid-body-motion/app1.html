@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rigid Body on a Track — Rolling &amp; Sliding Dynamics Lab</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080b10;
+  --bg2:#0c1017;
+  --panel:#10151d;
+  --panel2:#141b24;
+  --border:#232c38;
+  --border-soft:#1a212b;
+  --text:#c8d3e0;
+  --text-dim:#7686969a;
+  --text-dim2:#8593a3;
+  --accent:#57e7d4;
+  --accent-dim:#2d7d72;
+  --accent2:#ffb454;
+  --danger:#ff6b6b;
+  --good:#5ee6a0;
+  --purple:#b499ff;
+  --mono: 'Cascadia Code','SF Mono','Consolas','Menlo',monospace;
+  --sans: -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --glow: 0 0 12px rgba(87,231,212,0.35);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+body{
+  background:
+    radial-gradient(circle at 15% 8%, rgba(87,231,212,0.05), transparent 45%),
+    radial-gradient(circle at 85% 92%, rgba(180,153,255,0.04), transparent 45%),
+    var(--bg);
+  min-height:100vh;
+}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent-dim);}
+
+.app{max-width:1720px;margin:0 auto;padding:14px 16px 30px;}
+
+/* ---------- Header ---------- */
+header.topbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--border);border-radius:10px;
+  padding:12px 16px;margin-bottom:12px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 24px rgba(0,0,0,0.35);
+}
+.brand{display:flex;flex-direction:column;margin-right:8px;}
+.brand .t1{font-size:14px;letter-spacing:0.14em;color:var(--accent);font-weight:700;text-transform:uppercase;}
+.brand .t2{font-size:11px;color:var(--text-dim2);letter-spacing:0.04em;}
+.ctrl-group{display:flex;flex-direction:column;gap:3px;}
+.ctrl-group label{font-size:9.5px;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-dim2);}
+select, .btn{
+  background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:6px 10px;font-family:var(--sans);font-size:12.5px;
+  cursor:pointer;transition:border-color .15s, box-shadow .15s, color .15s;
+}
+select:hover, .btn:hover{border-color:var(--accent-dim);}
+select:focus, .btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.btn{display:inline-flex;align-items:center;gap:6px;}
+.btn.primary{background:linear-gradient(180deg,#1b3733,var(--bg2));border-color:var(--accent-dim);color:var(--accent);font-weight:600;}
+.btn.primary:hover{box-shadow:var(--glow);}
+.btn.active{background:var(--accent);color:#04201b;border-color:var(--accent);font-weight:700;}
+.btn.danger-outline{border-color:#5a2a2a;color:var(--danger);}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.spacer{flex:1 1 auto;}
+.btnrow{display:flex;gap:6px;align-items:flex-end;}
+.divider-v{width:1px;align-self:stretch;background:var(--border);margin:2px 2px;}
+
+/* ---------- Workspace grid ---------- */
+.workspace{
+  display:grid;grid-template-columns:272px 1fr 300px;gap:12px;align-items:start;
+}
+@media(max-width:1180px){
+  .workspace{grid-template-columns:1fr;}
+  .panel-right, .panel-left{order:3;}
+}
+
+.panel{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--border);border-radius:10px;
+  padding:12px 13px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
+}
+.panel h3{
+  margin:0 0 10px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--accent);border-bottom:1px solid var(--border-soft);padding-bottom:7px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel h3 .sub{color:var(--text-dim2);font-size:9.5px;text-transform:none;letter-spacing:0;font-weight:400;}
+.stack{display:flex;flex-direction:column;gap:10px;}
+
+.readout-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 8px;}
+.readout{
+  background:var(--bg2);border:1px solid var(--border-soft);border-radius:7px;
+  padding:6px 8px;position:relative;overflow:hidden;
+}
+.readout .rl{font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim2);display:block;}
+.readout .rv{font-family:var(--mono);font-size:15px;color:var(--text);font-weight:600;display:block;margin-top:1px;}
+.readout .ru{font-size:9.5px;color:var(--text-dim2);margin-left:3px;}
+.readout.wide{grid-column:1/-1;}
+.readout.hl .rv{color:var(--accent);}
+.readout.warn .rv{color:var(--danger);}
+
+.slider-row{display:flex;flex-direction:column;gap:3px;}
+.slider-row .lbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-dim2);}
+.slider-row .lbl b{color:var(--text);font-family:var(--mono);font-weight:600;}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--border);outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;box-shadow:0 0 6px rgba(87,231,212,0.6);border:2px solid #04201b;
+}
+input[type=range]::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid #04201b;
+}
+
+.check-row{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text);cursor:pointer;user-select:none;padding:2px 0;}
+.check-row input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.check-row .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none;}
+
+.section-label{font-size:10px;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-dim2);margin:2px 0 -2px;}
+
+/* ---------- Middle / canvas ---------- */
+.panel-mid{padding:12px;position:relative;}
+.canvas-wrap{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border-soft);
+  background:
+    radial-gradient(circle at 50% 0%, #0e1620, #060911 75%);
+}
+canvas#sceneCanvas{display:block;width:100%;height:480px;}
+.hud{position:absolute;top:10px;left:10px;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.hud-badge{
+  font-family:var(--mono);font-size:10.5px;background:rgba(8,11,16,0.78);border:1px solid var(--border);
+  border-radius:6px;padding:5px 9px;color:var(--text-dim2);backdrop-filter:blur(3px);
+}
+.hud-badge b{color:var(--accent);}
+.diag{
+  position:absolute;top:10px;right:10px;width:190px;background:rgba(8,11,16,0.85);border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;backdrop-filter:blur(3px);transition:border-color .2s, box-shadow .2s;
+}
+.diag.contact-lost{border-color:var(--danger);box-shadow:0 0 14px rgba(255,107,107,0.35);}
+.diag .dtitle{font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim2);margin-bottom:5px;}
+.diag .drow{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);padding:1.5px 0;color:var(--text);}
+.diag .drow span:first-child{color:var(--text-dim2);font-family:var(--sans);}
+.diag .status{margin-top:5px;text-align:center;font-size:10.5px;font-weight:700;letter-spacing:0.03em;border-radius:5px;padding:4px;background:rgba(94,230,160,0.12);color:var(--good);}
+.diag .status.bad{background:rgba(255,107,107,0.14);color:var(--danger);animation:pulse 0.9s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.55;}}
+.endmsg{
+  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  background:rgba(8,11,16,0.9);border:1px solid var(--accent2);color:var(--accent2);
+  font-size:11.5px;padding:6px 14px;border-radius:20px;font-family:var(--mono);display:none;
+}
+
+.legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:9px;padding:8px 4px 2px;border-top:1px solid var(--border-soft);}
+.legend .item{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-dim2);}
+.legend .sw{width:16px;height:2.5px;border-radius:2px;}
+
+.mini-graphs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.mini-graphs .chart-card{padding:8px 10px 4px;}
+.mini-graphs .chart-box{height:120px;}
+
+/* ---------- Math panel ---------- */
+.math-card{background:var(--bg2);border:1px solid var(--border-soft);border-radius:8px;padding:8px 10px;}
+.math-card .mt{font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent2);margin-bottom:5px;}
+.math-eq{font-size:13.5px;overflow-x:auto;color:var(--text);}
+.math-eq .katex{font-size:1em;}
+.math-eq-sub{margin-top:2px;}
+
+/* ---------- Tabs ---------- */
+.tabbar{display:flex;gap:6px;margin-bottom:12px;}
+.tabbtn{
+  background:var(--bg2);border:1px solid var(--border);color:var(--text-dim2);
+  border-radius:8px;padding:8px 18px;font-family:var(--sans);font-size:12.5px;font-weight:600;
+  letter-spacing:0.03em;cursor:pointer;transition:border-color .15s, color .15s, box-shadow .15s;
+}
+.tabbtn:hover{border-color:var(--accent-dim);color:var(--text);}
+.tabbtn.active{background:linear-gradient(180deg,#1b3733,var(--bg2));border-color:var(--accent-dim);color:var(--accent);box-shadow:var(--glow);}
+
+/* ---------- Theory tab ---------- */
+.theory-wrap{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--border);
+  border-radius:10px;padding:18px 20px 22px;box-shadow:0 8px 20px rgba(0,0,0,0.3);
+}
+.theory-intro{font-size:12.5px;color:var(--text-dim2);line-height:1.6;max-width:980px;margin:0 0 16px;}
+.theory-intro b{color:var(--text);}
+.theory-cols{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;}
+.theory-colhead{
+  display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:11px;text-transform:uppercase;
+  letter-spacing:0.1em;font-weight:700;
+}
+.theory-colhead.left{background:linear-gradient(180deg,#1b3733,var(--bg2));color:var(--accent);border-right:1px solid var(--border-soft);}
+.theory-colhead.right{background:linear-gradient(180deg,#2a2140,var(--bg2));color:var(--purple);}
+.theory-row{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border-soft);}
+.theory-cell{padding:11px 16px;font-size:13px;}
+.theory-cell.left{border-right:1px solid var(--border-soft);}
+.theory-label{font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim2);margin-bottom:4px;}
+.theory-eq{overflow-x:auto;color:var(--text);}
+.theory-eq .katex{font-size:1.05em;}
+.theory-section-title{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent2);
+  margin:22px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border-soft);
+}
+.theory-note{background:var(--bg2);border:1px solid var(--border-soft);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-dim2);margin-top:10px;line-height:1.55;}
+.theory-note .theory-eq{display:inline-block;margin:3px 10px 3px 0;}
+.itable{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px;}
+.itable th,.itable td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--border-soft);}
+.itable th{color:var(--text-dim2);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;}
+.itable td.eq{color:var(--accent);font-family:var(--mono);}
+.itable tr:hover td{background:rgba(87,231,212,0.04);}
+
+/* ---------- Graphs ---------- */
+.graphs{margin-top:12px;}
+.graphs-grid{
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(300px,1fr));gap:12px;
+}
+.chart-card{
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px 6px;box-shadow:0 8px 20px rgba(0,0,0,0.25);
+}
+.chart-card .ct{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.chart-card .ct .name{font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);}
+.chart-card .ct .now{font-family:var(--mono);font-size:12px;color:var(--text-dim2);}
+.chart-box{height:150px;position:relative;}
+
+footer.note{margin-top:14px;text-align:center;font-size:10.5px;color:var(--text-dim2);}
+footer.note span{color:var(--accent-dim);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="t1">Rigid Body Track Lab</div>
+      <div class="t2">Rolling &amp; sliding dynamics on variable-incline tracks</div>
+    </div>
+
+    <div class="ctrl-group">
+      <label for="trackSelect">Track</label>
+      <select id="trackSelect">
+        <option value="progressive">Progressive Physics Track</option>
+        <option value="coaster">Roller-Coaster Track</option>
+        <option value="loop">Incline–Valley–Loop</option>
+        <option value="staircase">Staircase Inclines</option>
+        <option value="wavy">Wavy Track</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <label for="objectSelect">Object</label>
+      <select id="objectSelect">
+        <option value="solidSphere">Solid Sphere</option>
+        <option value="hollowSphere">Hollow Sphere</option>
+        <option value="solidCylinder">Solid Cylinder</option>
+        <option value="hollowCylinder">Hollow Cylinder</option>
+        <option value="disk">Disk</option>
+        <option value="block">Block (sliding)</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <label for="modeSelect">Motion mode</label>
+      <select id="modeSelect">
+        <option value="slide">Sliding without rotation</option>
+        <option value="rollNoSlip" selected>Rolling without slipping</option>
+        <option value="rollSlip">Rolling with slipping</option>
+      </select>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="playBtn" title="Play / Pause">▶ Play</button>
+      <button class="btn" id="stepBtn" title="Step one frame">⏭ Step</button>
+      <button class="btn danger-outline" id="resetBtn" title="Reset simulation">⟲ Reset</button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <div class="btnrow" id="speedBtns">
+      <button class="btn" data-speed="0.25">Slow ¼×</button>
+      <button class="btn active" data-speed="1">Real-time 1×</button>
+      <button class="btn" data-speed="2">2×</button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="hud-badge" id="clockBadge">t = <b>0.00</b> s</div>
+  </header>
+
+  <div class="tabbar">
+    <button class="tabbtn active" id="tabSim" data-tab="sim">◆ Simulation</button>
+    <button class="tabbtn" id="tabTheory" data-tab="theory">Σ Theory</button>
+  </div>
+
+  <div id="viewSimulation">
+  <div class="workspace">
+
+    <!-- ===================== LEFT PANEL — TRANSLATIONAL ===================== -->
+    <div class="panel panel-left">
+      <h3>Translational <span class="sub">linear motion</span></h3>
+      <div class="readout-grid">
+        <div class="readout hl"><span class="rl">Speed v</span><span class="rv" id="ro-v">0.00<span class="ru">m/s</span></span></div>
+        <div class="readout"><span class="rl">Accel a</span><span class="rv" id="ro-a">0.00<span class="ru">m/s²</span></span></div>
+        <div class="readout"><span class="rl">Arc length s</span><span class="rv" id="ro-s">0.00<span class="ru">m</span></span></div>
+        <div class="readout"><span class="rl">Momentum p</span><span class="rv" id="ro-p">0.00<span class="ru">kg·m/s</span></span></div>
+        <div class="readout wide"><span class="rl">Position (x, y)</span><span class="rv" id="ro-xy">0.00, 0.00<span class="ru">m</span></span></div>
+        <div class="readout wide"><span class="rl">Translational KE</span><span class="rv" id="ro-ket">0.00<span class="ru">J</span></span></div>
+      </div>
+
+      <div class="section-label" style="margin-top:12px;">Parameters</div>
+      <div class="stack" style="margin-top:6px;">
+        <div class="slider-row"><div class="lbl"><span>Mass m</span><b id="lbl-mass">1.00 kg</b></div>
+          <input type="range" id="mass" min="0.2" max="5" step="0.05" value="1"></div>
+        <div class="slider-row"><div class="lbl"><span>Radius R</span><b id="lbl-radius">0.50 m</b></div>
+          <input type="range" id="radius" min="0.2" max="1.2" step="0.02" value="0.5"></div>
+        <div class="slider-row"><div class="lbl"><span>Gravity g</span><b id="lbl-g">9.80 m/s²</b></div>
+          <input type="range" id="gravity" min="1" max="20" step="0.1" value="9.8"></div>
+        <div class="slider-row"><div class="lbl"><span>Initial speed v₀</span><b id="lbl-v0">1.50 m/s</b></div>
+          <input type="range" id="v0" min="0" max="5" step="0.1" value="1.5"></div>
+        <div class="slider-row"><div class="lbl"><span>Static friction μₛ</span><b id="lbl-mus">0.50</b></div>
+          <input type="range" id="muS" min="0" max="1" step="0.02" value="0.5"></div>
+        <div class="slider-row"><div class="lbl"><span>Kinetic friction μₖ</span><b id="lbl-muk">0.30</b></div>
+          <input type="range" id="muK" min="0" max="1" step="0.02" value="0.3"></div>
+      </div>
+
+      <div class="section-label" style="margin-top:12px;">Display</div>
+      <div class="stack" style="margin-top:5px;">
+        <label class="check-row"><input type="checkbox" id="chkTrail" checked><span class="swatch" style="background:var(--purple)"></span>Trail of previous motion</label>
+        <label class="check-row"><input type="checkbox" id="chkVelColor" checked><span class="swatch" style="background:linear-gradient(90deg,#4fa8ff,#ff5b5b)"></span>Velocity-dependent color</label>
+        <label class="check-row"><input type="checkbox" id="chkRotation" checked><span class="swatch" style="background:var(--accent)"></span>Rotation / orientation marker</label>
+      </div>
+
+      <div class="section-label" style="margin-top:12px;">Vectors</div>
+      <div class="stack" style="margin-top:5px;">
+        <label class="check-row"><input type="checkbox" id="chkVecAll"><b>Draw all vectors</b></label>
+        <label class="check-row"><input type="checkbox" id="chkVecWeight" checked><span class="swatch" style="background:#ffd76b"></span>Weight (mg)</label>
+        <label class="check-row"><input type="checkbox" id="chkVecNormal" checked><span class="swatch" style="background:#57e7d4"></span>Normal (N)</label>
+        <label class="check-row"><input type="checkbox" id="chkVecFriction"><span class="swatch" style="background:#ff8e5b"></span>Friction (f)</label>
+        <label class="check-row"><input type="checkbox" id="chkVecTangent"><span class="swatch" style="background:#b499ff"></span>Tangential (mg sinθ)</label>
+        <label class="check-row"><input type="checkbox" id="chkVecCentripetal"><span class="swatch" style="background:#ff6bd0"></span>Centripetal (mκv²)</label>
+        <label class="check-row"><input type="checkbox" id="chkVecNet"><span class="swatch" style="background:#ffffff"></span>Net force</label>
+      </div>
+    </div>
+
+    <!-- ===================== MIDDLE — SIMULATION ===================== -->
+    <div class="panel panel-mid">
+      <h3>Simulation <span class="sub" id="trackNameLbl">Progressive Physics Track</span></h3>
+      <div class="canvas-wrap">
+        <canvas id="sceneCanvas"></canvas>
+        <div class="hud">
+          <div class="hud-badge" id="modeBadge">Mode: <b>Rolling — no slip</b></div>
+          <div class="hud-badge" id="objBadge">Object: <b>Solid Sphere</b></div>
+        </div>
+        <div class="diag" id="diagBox">
+          <div class="dtitle">Kinematics @ Contact</div>
+          <div class="drow"><span>Tangential v</span><span id="d-vt">0.00 m/s</span></div>
+          <div class="drow"><span>Centripetal a</span><span id="d-ac">0.00 m/s²</span></div>
+          <div class="drow"><span>Radial (normal) a</span><span id="d-an">0.00 m/s²</span></div>
+          <div class="drow"><span>Normal force N</span><span id="d-N">0.00 N</span></div>
+          <div class="status" id="d-status">CONTACT NORMAL</div>
+        </div>
+        <div class="endmsg" id="endMsg">End of track reached</div>
+      </div>
+      <div class="legend">
+        <div class="item"><span class="sw" style="background:#ffd76b"></span>Weight</div>
+        <div class="item"><span class="sw" style="background:#57e7d4"></span>Normal</div>
+        <div class="item"><span class="sw" style="background:#ff8e5b"></span>Friction</div>
+        <div class="item"><span class="sw" style="background:#b499ff"></span>Tangential g</div>
+        <div class="item"><span class="sw" style="background:#ff6bd0"></span>Centripetal</div>
+        <div class="item"><span class="sw" style="background:#ffffff"></span>Net force</div>
+      </div>
+      <div class="mini-graphs">
+        <div class="chart-card">
+          <div class="ct"><span class="name">Velocity vs Time</span><span class="now" id="now-v">0.00 m/s</span></div>
+          <div class="chart-box"><canvas id="chartV"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="ct"><span class="name">Acceleration vs Time</span><span class="now" id="now-a">0.00 m/s²</span></div>
+          <div class="chart-box"><canvas id="chartA"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== RIGHT PANEL — ROTATIONAL + MATH ===================== -->
+    <div class="panel panel-right">
+      <h3>Rotational <span class="sub">angular motion</span></h3>
+      <div class="readout-grid">
+        <div class="readout hl"><span class="rl">Angular vel ω</span><span class="rv" id="ro-w">0.00<span class="ru">rad/s</span></span></div>
+        <div class="readout"><span class="rl">Angular accel α</span><span class="rv" id="ro-alpha">0.00<span class="ru">rad/s²</span></span></div>
+        <div class="readout"><span class="rl">Orientation φ</span><span class="rv" id="ro-phi">0.00<span class="ru">rad</span></span></div>
+        <div class="readout"><span class="rl">Moment of inertia</span><span class="rv" id="ro-I">0.000<span class="ru">kg·m²</span></span></div>
+        <div class="readout"><span class="rl">Angular momentum L</span><span class="rv" id="ro-L">0.00<span class="ru">kg·m²/s</span></span></div>
+        <div class="readout"><span class="rl">Rotational KE</span><span class="rv" id="ro-ker">0.00<span class="ru">J</span></span></div>
+        <div class="readout wide" id="ro-rolling-box"><span class="rl">Rolling condition (v vs ωR)</span><span class="rv" id="ro-rolling">v = ωR ✓</span></div>
+      </div>
+
+      <div class="section-label" style="margin-top:12px;">Live Mathematical Panel</div>
+      <div class="stack" id="mathPanel" style="margin-top:6px;max-height:520px;overflow-y:auto;padding-right:2px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== BOTTOM — GRAPHS ===================== -->
+  <div class="graphs">
+    <div class="graphs-grid">
+      <div class="chart-card">
+        <div class="ct"><span class="name">Normal Force — contact condition</span><span class="now" id="now-N">0.00 N</span></div>
+        <div class="chart-box"><canvas id="chartN"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ct"><span class="name">Mechanical Energy vs Time</span><span class="now" id="now-E">0.00 J</span></div>
+        <div class="chart-box"><canvas id="chartE"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ct"><span class="name">Rotational Quantities vs Time</span><span class="now" id="now-Rot">ω 0.00 rad/s</span></div>
+        <div class="chart-box"><canvas id="chartRot"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">Constrained-track model — when <span>N ≤ 0</span> the graph and diagnostics panel flag loss of contact (in reality the body would leave the surface here).</footer>
+  </div><!-- /viewSimulation -->
+
+  <!-- ===================== THEORY TAB ===================== -->
+  <div id="viewTheory" style="display:none;">
+    <div class="theory-wrap">
+      <p class="theory-intro">
+        Every rigid body on the track has two independent sets of degrees of freedom: <b>translational</b> motion
+        of its center of mass along the track (position <b>x</b>/arc-length <b>s</b>, velocity <b>v</b>, acceleration <b>a</b>),
+        and <b>rotational</b> motion about its own center (angle <b>θ</b>, angular velocity <b>ω</b>, angular acceleration <b>α</b>).
+        The two columns below are direct analogues of each other — every translational law on the left has a rotational
+        mirror on the right, with <b>mass m ↔ moment of inertia I</b> and <b>force F ↔ torque τ</b> swapping roles.
+        When <b>rolling without slipping</b>, the two sides are coupled by the constraint <b>v = ωR</b>.
+      </p>
+
+      <div class="theory-section-title">Kinematics</div>
+      <div class="theory-cols">
+        <div class="theory-colhead left">Translational — x, v, a</div>
+        <div class="theory-colhead right">Rotational — θ, ω, α</div>
+
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Position</div><div class="theory-eq" id="th-eq-0L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Angle</div><div class="theory-eq" id="th-eq-0R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Velocity</div><div class="theory-eq" id="th-eq-1L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Angular velocity</div><div class="theory-eq" id="th-eq-1R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Acceleration</div><div class="theory-eq" id="th-eq-2L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Angular acceleration</div><div class="theory-eq" id="th-eq-2R"></div></div>
+        </div>
+      </div>
+
+      <div class="theory-section-title">Inertia &amp; Newton's 2nd Law</div>
+      <div class="theory-cols">
+        <div class="theory-colhead left">Translational — m, F</div>
+        <div class="theory-colhead right">Rotational — I, τ</div>
+
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Inertia</div><div class="theory-eq" id="th-eq-3L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Moment of inertia</div><div class="theory-eq" id="th-eq-3R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Force</div><div class="theory-eq" id="th-eq-4L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Torque (lever arm R)</div><div class="theory-eq" id="th-eq-4R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Newton's 2nd law</div><div class="theory-eq" id="th-eq-5L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Rotational analogue</div><div class="theory-eq" id="th-eq-5R"></div></div>
+        </div>
+      </div>
+
+      <div class="theory-section-title">Momentum &amp; Energy</div>
+      <div class="theory-cols">
+        <div class="theory-colhead left">Translational — p, KE, W, P</div>
+        <div class="theory-colhead right">Rotational — L, KE, W, P</div>
+
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Momentum</div><div class="theory-eq" id="th-eq-6L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Angular momentum</div><div class="theory-eq" id="th-eq-6R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Kinetic energy</div><div class="theory-eq" id="th-eq-7L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Rotational kinetic energy</div><div class="theory-eq" id="th-eq-7R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Work</div><div class="theory-eq" id="th-eq-8L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Work</div><div class="theory-eq" id="th-eq-8R"></div></div>
+        </div>
+        <div class="theory-row">
+          <div class="theory-cell left"><div class="theory-label">Power</div><div class="theory-eq" id="th-eq-9L"></div></div>
+          <div class="theory-cell"><div class="theory-label">Power</div><div class="theory-eq" id="th-eq-9R"></div></div>
+        </div>
+      </div>
+
+      <div class="theory-section-title">Rolling Without Slipping — coupling the two sides</div>
+      <div class="theory-note">
+        <div class="theory-eq" id="th-roll-0"></div>
+        <div class="theory-eq" id="th-roll-1"></div>
+        On an incline of angle <b>θ</b>, Newton's 2nd law along the track and the rotational analogue about the
+        contact point combine to give the constrained acceleration of a rolling body:
+        <div class="theory-eq" id="th-roll-2" style="margin-top:6px;"></div>
+        <div class="theory-eq" id="th-roll-3"></div>
+        <div class="theory-eq" id="th-roll-4"></div>
+        where <b>c = I/(mR²)</b> depends only on the mass distribution of the shape — heavier rims (large c) roll
+        down more slowly than solid, mass-centered shapes (small c), regardless of total mass.
+      </div>
+
+      <div class="theory-section-title">Moment of Inertia by Shape (I = c·m·R²)</div>
+      <table class="itable">
+        <thead><tr><th>Object</th><th>c</th><th>I</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Solid sphere</td><td class="eq">2/5</td><td class="eq">I = 0.4 mR²</td><td>mass concentrated near center — rolls fastest</td></tr>
+          <tr><td>Hollow sphere (shell)</td><td class="eq">2/3</td><td class="eq">I = 0.667 mR²</td><td>mass on the shell</td></tr>
+          <tr><td>Solid cylinder / disk</td><td class="eq">1/2</td><td class="eq">I = 0.5 mR²</td><td>uniform disk cross-section</td></tr>
+          <tr><td>Hollow cylinder (ring)</td><td class="eq">1</td><td class="eq">I = mR²</td><td>all mass at radius R — rolls slowest</td></tr>
+          <tr><td>Block (sliding)</td><td class="eq">n/a</td><td class="eq">ω = 0 always</td><td>no rotational DOF — pure translation, kinetic friction only</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /viewTheory -->
+
+</div><!-- /app -->
+
+<script>
+(function(){
+"use strict";
+
+/* ======================================================================
+   TRACK GEOMETRY ENGINE
+   A track is a sequence of segments, each with constant signed curvature
+   kappa (0 = straight line). Given arc length s, we return {x,y,theta,kappa}.
+   Frenet-style closed form: exact for lines and circular arcs (incl. loops).
+====================================================================== */
+
+function buildTrack(startX,startY,startTheta,segDefs){
+  let x=startX,y=startY,theta=startTheta,cum=0;
+  const segs=[];
+  for(const d of segDefs){
+    if(d.length<=1e-9) continue;
+    segs.push({kappa:d.kappa,length:d.length,theta0:theta,x0:x,y0:y,cumStart:cum});
+    cum+=d.length;
+    if(Math.abs(d.kappa)<1e-9){
+      x=x+d.length*Math.cos(theta);
+      y=y+d.length*Math.sin(theta);
+    } else {
+      const nt=theta+d.kappa*d.length;
+      x=x+(1/d.kappa)*(Math.sin(nt)-Math.sin(theta));
+      y=y-(1/d.kappa)*(Math.cos(nt)-Math.cos(theta));
+      theta=nt;
+    }
+  }
+  return {segs,totalLength:cum};
+}
+
+function sampleTrack(track,s){
+  s=Math.max(0,Math.min(track.totalLength-1e-7,s));
+  let lo=0,hi=track.segs.length-1,idx=0;
+  while(lo<=hi){const mid=(lo+hi)>>1; if(track.segs[mid].cumStart<=s){idx=mid;lo=mid+1;} else {hi=mid-1;}}
+  const seg=track.segs[idx];
+  const ds=s-seg.cumStart;
+  let x,y,theta;
+  if(Math.abs(seg.kappa)<1e-9){
+    theta=seg.theta0;
+    x=seg.x0+ds*Math.cos(theta);
+    y=seg.y0+ds*Math.sin(theta);
+  } else {
+    theta=seg.theta0+seg.kappa*ds;
+    x=seg.x0+(1/seg.kappa)*(Math.sin(theta)-Math.sin(seg.theta0));
+    y=seg.y0-(1/seg.kappa)*(Math.cos(theta)-Math.cos(seg.theta0));
+  }
+  return {x,y,theta,kappa:seg.kappa};
+}
+
+// helper: sequence of target tangent angles (deg) with straight run-outs and
+// transition-arc radii, producing a smooth (G1 continuous) segment list.
+function stopsToSegs(startThetaDeg, stops){
+  let theta=startThetaDeg;
+  const segs=[];
+  for(const st of stops){
+    const dth=st.theta-theta;
+    if(Math.abs(dth)>0.01){
+      const rad=dth*Math.PI/180;
+      const kappa=Math.sign(rad)/st.radius;
+      const length=Math.abs(rad)*st.radius;
+      segs.push({kappa,length});
+      theta=st.theta;
+    }
+    if(st.straight && st.straight>0) segs.push({kappa:0,length:st.straight});
+  }
+  return {segs,theta};
+}
+
+function degToSegs(stops){ return stopsToSegs(0,stops).segs; }
+
+const TRACK_DEFS = {
+  progressive(){
+    const stops=[
+      {theta:0,   straight:3, radius:5},
+      {theta:-15, straight:5, radius:6},
+      {theta:-30, straight:5, radius:6},
+      {theta:-45, straight:5, radius:6},
+      {theta:-55, straight:4, radius:6},
+      {theta:0,   straight:8, radius:22},
+    ];
+    return buildTrack(0,0,0,degToSegs(stops));
+  },
+  coaster(){
+    const stops=[
+      {theta:-40, straight:3, radius:10},
+      {theta:20,  straight:2, radius:8},
+      {theta:-30, straight:2, radius:8},
+      {theta:15,  straight:2, radius:7},
+      {theta:-20, straight:2, radius:7},
+      {theta:10,  straight:2, radius:6},
+      {theta:0,   straight:6, radius:15},
+    ];
+    return buildTrack(0,0,0,degToSegs(stops));
+  },
+  loop(){
+    const p1=stopsToSegs(0,[
+      {theta:-42, straight:5, radius:8},
+      {theta:0,   straight:2, radius:8},
+    ]);
+    const Rloop=2.2;
+    const loopSeg={kappa:1/Rloop,length:2*Math.PI*Rloop};
+    const p2=stopsToSegs(p1.theta,[
+      {theta:0,  straight:3, radius:9},
+      {theta:-15,straight:2, radius:9},
+      {theta:0,  straight:6, radius:9},
+    ]);
+    const all=[...p1.segs, loopSeg, ...p2.segs];
+    return buildTrack(0,0,0,all);
+  },
+  staircase(){
+    const stops=[
+      {theta:-30, straight:4, radius:2.0},
+      {theta:0,   straight:3, radius:2.0},
+      {theta:-30, straight:4, radius:2.0},
+      {theta:0,   straight:3, radius:2.0},
+      {theta:-30, straight:4, radius:2.0},
+      {theta:0,   straight:3, radius:2.0},
+      {theta:-30, straight:4, radius:2.0},
+      {theta:0,   straight:6, radius:2.0},
+    ];
+    return buildTrack(0,0,0,degToSegs(stops));
+  },
+  wavy(){
+    const stops=[
+      {theta:-18, straight:2, radius:6},
+      {theta:18,  straight:2, radius:6},
+      {theta:-18, straight:2, radius:6},
+      {theta:18,  straight:2, radius:6},
+      {theta:-18, straight:2, radius:6},
+      {theta:18,  straight:2, radius:6},
+      {theta:-10, straight:2, radius:6},
+      {theta:0,   straight:4, radius:8},
+    ];
+    return buildTrack(0,0,0,degToSegs(stops));
+  }
+};
+
+const TRACK_LABELS = {
+  progressive:'Progressive Physics Track',
+  coaster:'Roller-Coaster Track',
+  loop:'Incline–Valley–Loop',
+  staircase:'Staircase Inclines',
+  wavy:'Wavy Track'
+};
+
+/* ======================================================================
+   OBJECT DEFINITIONS
+====================================================================== */
+const OBJECTS = {
+  solidSphere:  {label:'Solid Sphere',   c:2/5, shape:'circle', hollow:false},
+  hollowSphere: {label:'Hollow Sphere',  c:2/3, shape:'circle', hollow:true},
+  solidCylinder:{label:'Solid Cylinder', c:1/2, shape:'circle', hollow:false},
+  hollowCylinder:{label:'Hollow Cylinder',c:1,  shape:'circle', hollow:true},
+  disk:         {label:'Disk',           c:1/2, shape:'disk',  hollow:false},
+  block:        {label:'Block (sliding)',c:null,shape:'block', hollow:false},
+};
+
+const MODE_LABELS = {
+  slide:'Sliding — no rotation',
+  rollNoSlip:'Rolling — no slip',
+  rollSlip:'Rolling — with slipping'
+};
+
+/* ======================================================================
+   STATE
+====================================================================== */
+const state = {
+  trackKey:'progressive',
+  objKey:'solidSphere',
+  mode:'rollNoSlip',
+  track:null, trackBBox:null,
+  s:0, v:1.5, omega:0, phi:0,
+  t:0,
+  playing:false,
+  speed:1,
+  ended:false,
+  trail:[], // {x,y,v}
+  history:{t:[],v:[],a:[],N:[],KEt:[],KEr:[],PE:[],E:[],omega:[],L:[]},
+  lastChartUpdate:0,
+  params:{ m:1, R:0.5, g:9.8, muS:0.5, muK:0.3, v0:1.5 },
+};
+
+function getObj(){ return OBJECTS[state.objKey]; }
+function momentOfInertia(){
+  const o=getObj();
+  if(o.c===null) return 0;
+  return o.c*state.params.m*state.params.R*state.params.R;
+}
+
+/* ======================================================================
+   PHYSICS
+====================================================================== */
+function derivatives(s,v,omega,mode){
+  const tp=sampleTrack(state.track,s);
+  const g=state.params.g, m=state.params.m, R=state.params.R;
+  const gT=-g*Math.sin(tp.theta);           // tangential accel due to gravity
+  const N = m*(g*Math.cos(tp.theta) + tp.kappa*v*v);
+  const Nc = Math.max(N,0);
+  let a=0, domega=0, friction=0;
+
+  if(mode==='slide'){
+    if(Math.abs(v)<1e-5){
+      if(Math.abs(gT)*m <= state.params.muS*Nc){ a=0; friction=-m*gT; }
+      else { const dir=Math.sign(gT)||1; a=gT-dir*state.params.muK*Nc/m; friction=dir*state.params.muK*Nc; }
+    } else {
+      const dir=Math.sign(v);
+      a=gT-dir*state.params.muK*Nc/m;
+      friction=dir*state.params.muK*Nc;
+    }
+    domega=0;
+  } else if(mode==='rollNoSlip'){
+    const I=momentOfInertia();
+    const cRatio=I/(m*R*R);
+    a=gT/(1+cRatio);
+    friction=m*a*cRatio;
+    domega=a/R; // informative only; omega is set directly = v/R after integration
+  } else { // rollSlip
+    const I=momentOfInertia();
+    const vRel=v-omega*R;
+    const dir=Math.abs(vRel)<1e-5?0:Math.sign(vRel);
+    a=gT-dir*state.params.muK*Nc/m;
+    domega=dir*state.params.muK*Nc*R/I;
+    friction=dir*state.params.muK*Nc;
+  }
+  return {ds:v, dv:a, domega, a, N, Nc, gT, friction, theta:tp.theta, kappa:tp.kappa, x:tp.x, y:tp.y};
+}
+
+function rk4Step(dt){
+  const mode=state.mode;
+  function deriv(s,v,omega){
+    const d=derivatives(s,v,omega,mode);
+    return {ds:d.ds, dv:d.dv, domega: mode==='rollNoSlip'?0:d.domega};
+  }
+  const s0=state.s, v0=state.v, w0=state.omega;
+  const k1=deriv(s0,v0,w0);
+  const k2=deriv(s0+k1.ds*dt/2, v0+k1.dv*dt/2, w0+k1.domega*dt/2);
+  const k3=deriv(s0+k2.ds*dt/2, v0+k2.dv*dt/2, w0+k2.domega*dt/2);
+  const k4=deriv(s0+k3.ds*dt, v0+k3.dv*dt, w0+k3.domega*dt);
+  let ns=s0+dt/6*(k1.ds+2*k2.ds+2*k3.ds+k4.ds);
+  let nv=v0+dt/6*(k1.dv+2*k2.dv+2*k3.dv+k4.dv);
+  let nw=w0+dt/6*(k1.domega+2*k2.domega+2*k3.domega+k4.domega);
+
+  if(mode==='rollNoSlip') nw=nv/state.params.R;
+  if(mode==='block'||mode==='slide') nw=0;
+
+  // boundaries
+  let ended=false;
+  if(ns>=state.track.totalLength){ ns=state.track.totalLength; nv=0; nw=(mode==='rollNoSlip')?0:nw; ended=true; }
+  if(ns<=0 && nv<0){ ns=0; nv=0; }
+
+  state.s=ns; state.v=nv; state.omega=nw;
+  state.phi += (mode==='slide'?0:state.omega)*dt;
+  state.t += dt;
+  if(ended){ state.playing=false; state.ended=true; }
+}
+
+/* ======================================================================
+   TRACK / BBOX / RESET
+====================================================================== */
+function rebuildTrack(){
+  state.track = TRACK_DEFS[state.trackKey]();
+  // bounding box from dense sampling
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  const N=1000;
+  for(let i=0;i<=N;i++){
+    const s=i/N*state.track.totalLength;
+    const p=sampleTrack(state.track,s);
+    if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+    if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+  }
+  state.trackBBox={minX,maxX,minY,maxY};
+  document.getElementById('trackNameLbl').textContent = TRACK_LABELS[state.trackKey];
+}
+
+function resetSim(){
+  state.s=0; state.t=0; state.phi=0; state.ended=false;
+  state.v = getObj().shape==='block' ? state.params.v0 : state.params.v0;
+  state.omega = (state.mode==='rollNoSlip') ? state.v/state.params.R : 0;
+  state.trail=[];
+  for(const k in state.history) state.history[k]=[];
+  document.getElementById('endMsg').style.display='none';
+  state.lastChartUpdate=0;
+  resetCharts();
+  renderFrame(true);
+}
+
+/* ======================================================================
+   CANVAS RENDERING
+====================================================================== */
+const canvas=document.getElementById('sceneCanvas');
+const ctx=canvas.getContext('2d');
+let viewScale=1, viewOX=0, viewOY=0;
+
+function resizeCanvas(){
+  const wrap=canvas.parentElement;
+  const cssW=wrap.clientWidth, cssH= wrap.clientHeight || 480;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  computeView(cssW,cssH);
+  renderFrame(true);
+}
+window.addEventListener('resize', resizeCanvas);
+
+function computeView(cssW,cssH){
+  if(!state.trackBBox) return;
+  const bb=state.trackBBox;
+  const R=state.params.R;
+  const bw=(bb.maxX-bb.minX)+2*R+1, bh=(bb.maxY-bb.minY)+2*R+1;
+  const marginX=cssW*0.06, marginY=cssH*0.10;
+  const sx=(cssW-2*marginX)/bw, sy=(cssH-2*marginY)/bh;
+  viewScale=Math.min(sx,sy);
+  const cx=(bb.minX+bb.maxX)/2, cy=(bb.minY+bb.maxY)/2;
+  viewOX = cssW/2 - cx*viewScale;
+  viewOY = cssH/2 + cy*viewScale;
+}
+function w2sX(x){ return viewOX + x*viewScale; }
+function w2sY(y){ return viewOY - y*viewScale; }
+
+function velColor(v, vmax){
+  const t=Math.max(0,Math.min(1, Math.abs(v)/Math.max(0.5,vmax)));
+  // blue (slow) -> cyan -> amber -> red (fast)
+  const stops=[[79,168,255],[87,231,212],[255,183,84],[255,91,91]];
+  const seg = t*3; const i=Math.min(2,Math.floor(seg)); const f=seg-i;
+  const c0=stops[i], c1=stops[i+1];
+  const r=Math.round(c0[0]+(c1[0]-c0[0])*f);
+  const g=Math.round(c0[1]+(c1[1]-c0[1])*f);
+  const b=Math.round(c0[2]+(c1[2]-c0[2])*f);
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawTrackPath(){
+  const N=600;
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const s=i/N*state.track.totalLength;
+    const p=sampleTrack(state.track,s);
+    const sx=w2sX(p.x), sy=w2sY(p.y);
+    if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+  }
+  ctx.lineWidth=6; ctx.strokeStyle='#1c2733'; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.stroke();
+  ctx.lineWidth=2.2; ctx.strokeStyle='#3c4d5e';
+  ctx.stroke();
+  // dashed centerline glow
+  ctx.setLineDash([1,7]);
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(87,231,212,0.35)';
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawArrow(x1,y1,x2,y2,color,width){
+  const ang=Math.atan2(y2-y1,x2-x1);
+  const len=Math.hypot(x2-x1,y2-y1);
+  if(len<2) return;
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=width||2.4;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const headLen=Math.min(10,len*0.5);
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-headLen*Math.cos(ang-0.4), y2-headLen*Math.sin(ang-0.4));
+  ctx.lineTo(x2-headLen*Math.cos(ang+0.4), y2-headLen*Math.sin(ang+0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+let lastFrame=null;
+function renderFrame(forceStatic){
+  const cssW=canvas.clientWidth, cssH=canvas.clientHeight;
+  ctx.clearRect(0,0,cssW,cssH);
+
+  // faint grid
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,0.025)'; ctx.lineWidth=1;
+  const gridStep=viewScale; // 1 meter
+  if(gridStep>6){
+    for(let gx=viewOX%gridStep; gx<cssW; gx+=gridStep){ ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,cssH);ctx.stroke(); }
+    for(let gy=viewOY%gridStep; gy<cssH; gy+=gridStep){ ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(cssW,gy);ctx.stroke(); }
+  }
+  ctx.restore();
+
+  drawTrackPath();
+
+  const tp=sampleTrack(state.track,state.s);
+  const n=[-Math.sin(tp.theta), Math.cos(tp.theta)];
+  const R=state.params.R;
+  const cx=tp.x+n[0]*R, cy=tp.y+n[1]*R;
+  const scx=w2sX(cx), scy=w2sY(cy);
+
+  const d=derivatives(state.s,state.v,state.omega,state.mode);
+
+  // trail
+  if(document.getElementById('chkTrail').checked){
+    const useVel=document.getElementById('chkVelColor').checked;
+    const vmax=Math.max(3, Math.abs(state.v)*1.1);
+    for(let i=1;i<state.trail.length;i++){
+      const p0=state.trail[i-1], p1=state.trail[i];
+      ctx.beginPath();
+      ctx.moveTo(w2sX(p0.x),w2sY(p0.y));
+      ctx.lineTo(w2sX(p1.x),w2sY(p1.y));
+      const alpha=0.15+0.65*(i/state.trail.length);
+      ctx.strokeStyle= useVel ? velColor(p1.v,vmax).replace('rgb','rgba').replace(')',`,${alpha})`) : `rgba(180,153,255,${alpha})`;
+      ctx.lineWidth=3;
+      ctx.stroke();
+    }
+  }
+
+  // vectors
+  const forceScale = 32/(state.params.m*state.params.g);
+  const T=[Math.cos(tp.theta), Math.sin(tp.theta)];
+  const drawVec=(dirx,diry,mag,color)=>{
+    if(Math.abs(mag)<1e-6) return;
+    const ex=scx+dirx*mag*forceScale, ey=scy-diry*mag*forceScale;
+    drawArrow(scx,scy,ex,ey,color,2.6);
+  };
+  const allOn=document.getElementById('chkVecAll').checked;
+  const on=(id)=> allOn || document.getElementById(id).checked;
+
+  let weightVec=[0,-state.params.m*state.params.g];
+  let normalVec=[n[0]*d.Nc, n[1]*d.Nc];
+  let frictionVec=[T[0]*d.friction, T[1]*d.friction];
+  let netVec=[weightVec[0]+normalVec[0]+frictionVec[0], weightVec[1]+normalVec[1]+frictionVec[1]];
+
+  if(on('chkVecWeight')) drawVec(0,-1, state.params.m*state.params.g, '#ffd76b');
+  if(on('chkVecNormal')) drawVec(n[0],n[1], d.Nc, '#57e7d4');
+  if(on('chkVecFriction')) drawVec(T[0],T[1], d.friction, '#ff8e5b');
+  if(on('chkVecTangent')) drawVec(T[0],T[1], state.params.m*d.gT, '#b499ff');
+  if(on('chkVecCentripetal')) drawVec(n[0],n[1], state.params.m*tp.kappa*state.v*state.v, '#ff6bd0');
+  if(on('chkVecNet')) drawArrow(scx,scy, scx+netVec[0]*forceScale, scy-netVec[1]*forceScale, '#ffffff', 3);
+
+  // object body
+  const rpx=R*viewScale;
+  const showRot=document.getElementById('chkRotation').checked;
+  const o=getObj();
+  const useVel2=document.getElementById('chkVelColor').checked;
+  const bodyColor = useVel2 ? velColor(state.v, Math.max(3,Math.abs(state.v)*1.05)) : '#57e7d4';
+
+  ctx.save();
+  if(o.shape==='block'){
+    ctx.translate(scx,scy);
+    ctx.rotate(-tp.theta);
+    const half=rpx*0.9;
+    const grad=ctx.createLinearGradient(-half,-half,half,half);
+    grad.addColorStop(0, bodyColor); grad.addColorStop(1,'#0d3833');
+    ctx.fillStyle=grad; ctx.strokeStyle='#08211d'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.rect(-half,-half*0.8,half*2,half*1.6); ctx.fill(); ctx.stroke();
+  } else {
+    const grad=ctx.createRadialGradient(scx-rpx*0.35,scy-rpx*0.35,rpx*0.15,scx,scy,rpx);
+    grad.addColorStop(0,'#eafffb'); grad.addColorStop(0.35,bodyColor); grad.addColorStop(1,'#0c2b28');
+    ctx.fillStyle=grad; ctx.strokeStyle='#08211d'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(scx,scy,rpx,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    if(o.hollow){
+      ctx.beginPath(); ctx.arc(scx,scy,rpx*0.52,0,Math.PI*2);
+      ctx.strokeStyle='rgba(6,15,13,0.85)'; ctx.lineWidth=Math.max(2,rpx*0.22); ctx.stroke();
+    }
+    if(o.shape==='disk'){
+      ctx.beginPath(); ctx.arc(scx,scy,rpx*0.86,0,Math.PI*2);
+      ctx.strokeStyle='rgba(6,15,13,0.5)'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    if(showRot){
+      // orientation spoke — rolling rightward (theta~0) with v>0 spins clockwise on screen.
+      // state.phi is integrated in the sim's rolling convention (omega = v/R for forward roll),
+      // and in canvas coords (y-down) an INCREASING angle already reads as clockwise, so use +phi.
+      const spokeAng = state.phi;
+      ctx.beginPath();
+      ctx.moveTo(scx,scy);
+      ctx.lineTo(scx+Math.cos(spokeAng)*rpx, scy+Math.sin(spokeAng)*rpx);
+      ctx.strokeStyle='#04211c'; ctx.lineWidth=Math.max(2,rpx*0.14); ctx.stroke();
+      ctx.beginPath(); ctx.arc(scx,scy,Math.max(2,rpx*0.12),0,Math.PI*2); ctx.fillStyle='#04211c'; ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // loss-of-contact glow ring
+  if(d.N<=0){
+    ctx.beginPath(); ctx.arc(scx,scy,rpx+6,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,107,107,0.85)'; ctx.lineWidth=2.5; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  document.getElementById('endMsg').style.display = state.ended ? 'block' : 'none';
+  updateHUD(d,tp);
+}
+
+/* ======================================================================
+   HUD / READOUTS / MATH PANEL
+====================================================================== */
+function fmt(x,dp){ if(!isFinite(x)) return '—'; dp=dp===undefined?2:dp; return x.toFixed(dp); }
+
+function updateHUD(d,tp){
+  document.getElementById('clockBadge').innerHTML = `t = <b>${fmt(state.t,2)}</b> s`;
+  document.getElementById('ro-v').innerHTML = `${fmt(state.v)}<span class="ru">m/s</span>`;
+  document.getElementById('ro-a').innerHTML = `${fmt(d.a)}<span class="ru">m/s²</span>`;
+  document.getElementById('ro-s').innerHTML = `${fmt(state.s)}<span class="ru">m</span>`;
+  document.getElementById('ro-p').innerHTML = `${fmt(state.params.m*state.v)}<span class="ru">kg·m/s</span>`;
+  document.getElementById('ro-xy').innerHTML = `${fmt(tp.x)}, ${fmt(tp.y)}<span class="ru">m</span>`;
+  const KEt=0.5*state.params.m*state.v*state.v;
+  document.getElementById('ro-ket').innerHTML = `${fmt(KEt)}<span class="ru">J</span>`;
+
+  const I=momentOfInertia();
+  const KEr=0.5*I*state.omega*state.omega;
+  document.getElementById('ro-w').innerHTML = `${fmt(state.omega)}<span class="ru">rad/s</span>`;
+  document.getElementById('ro-alpha').innerHTML = `${fmt(d.domega)}<span class="ru">rad/s²</span>`;
+  document.getElementById('ro-phi').innerHTML = `${fmt(((state.phi%(2*Math.PI))+2*Math.PI)%(2*Math.PI))}<span class="ru">rad</span>`;
+  document.getElementById('ro-I').innerHTML = `${fmt(I,3)}<span class="ru">kg·m²</span>`;
+  document.getElementById('ro-L').innerHTML = `${fmt(I*state.omega)}<span class="ru">kg·m²/s</span>`;
+  document.getElementById('ro-ker').innerHTML = `${fmt(KEr)}<span class="ru">J</span>`;
+
+  const box=document.getElementById('ro-rolling-box');
+  const rollTxt=document.getElementById('ro-rolling');
+  if(getObj().shape==='block'){
+    rollTxt.textContent='n/a — sliding body';
+    box.className='readout wide';
+  } else {
+    const slip=state.v-state.omega*state.params.R;
+    if(Math.abs(slip)<0.03){ rollTxt.textContent=`v = ωR  ✓  (Δ=${fmt(slip,3)})`; box.className='readout wide'; }
+    else { rollTxt.textContent=`slipping: v−ωR = ${fmt(slip,3)} m/s`; box.className='readout wide warn'; }
+  }
+
+  // loop diagnostics
+  document.getElementById('d-vt').textContent=`${fmt(state.v)} m/s`;
+  document.getElementById('d-ac').textContent=`${fmt(tp.kappa*state.v*state.v)} m/s²`;
+  document.getElementById('d-an').textContent=`${fmt(d.a)} m/s²`;
+  document.getElementById('d-N').textContent=`${fmt(d.N)} N`;
+  const diagBox=document.getElementById('diagBox');
+  const statusEl=document.getElementById('d-status');
+  if(d.N<=0){ diagBox.classList.add('contact-lost'); statusEl.classList.add('bad'); statusEl.textContent='N = 0 — CONTACT LOST'; }
+  else { diagBox.classList.remove('contact-lost'); statusEl.classList.remove('bad'); statusEl.textContent='CONTACT NORMAL'; }
+
+  document.getElementById('modeBadge').innerHTML=`Mode: <b>${MODE_LABELS[state.mode]}</b>`;
+  document.getElementById('objBadge').innerHTML=`Object: <b>${getObj().label}</b>`;
+
+  updateMathPanel(d,tp,I,KEt,KEr);
+}
+
+/* ---------- KaTeX math panel ---------- */
+const MATH_DEFS=[
+  {title:'Translation', tex:(v,d)=>`s=${fmt(state.s)}\\text{ m}\\qquad v=\\dfrac{ds}{dt}=${fmt(state.v)}\\text{ m/s}`},
+  {title:'Rotation', tex:(v,d)=>`\\omega=${fmt(state.omega)}\\text{ rad/s}\\qquad \\alpha=${fmt(d.domega)}\\text{ rad/s}^2`},
+  {title:'Dynamics — tangential', tex:(v,d)=>`ma = mg\\sin\\theta - f \\;\\Rightarrow\\; ${fmt(state.params.m*d.a)}\\text{ N} = ${fmt(state.params.m*d.gT+d.friction)}\\text{ N} \\;-\\; ${fmt(d.friction)}\\text{ N}`},
+  {title:'Dynamics — normal', tex:(v,d,tp)=>`N = m(g\\cos\\theta+\\kappa v^2) = ${fmt(d.N)}\\text{ N}`},
+  {title:'Rolling condition', tex:(v,d)=>`v ${Math.abs(state.v-state.omega*state.params.R)<0.03?'=':'\\neq'} \\omega R \\;\\Rightarrow\\; ${fmt(state.v)} \\;\\text{vs}\\; ${fmt(state.omega*state.params.R)}\\text{ m/s}`},
+  {title:'Torque', tex:(v,d)=>`\\tau = fR = I\\alpha \\;\\Rightarrow\\; ${fmt(d.friction*state.params.R,3)}\\text{ N·m} \\approx ${fmt(momentOfInertia()*d.domega,3)}\\text{ N·m}`},
+  {title:'Angular momentum', tex:(v,d)=>`L = I\\omega = ${fmt(momentOfInertia(),3)}\\times ${fmt(state.omega)} = ${fmt(momentOfInertia()*state.omega,3)}\\text{ kg·m}^2\\text{/s}`},
+  {title:'Mechanical energy', tex:(v,d,tp,I,KEt,KEr)=>`E=\\tfrac12mv^2+\\tfrac12I\\omega^2+mgy = ${fmt(KEt,2)}+${fmt(KEr,2)}+${fmt(state.params.m*state.params.g*(tp.y-state.trackBBox.minY),2)} = ${fmt(KEt+KEr+state.params.m*state.params.g*(tp.y-state.trackBBox.minY),2)}\\text{ J}`},
+];
+
+let mathInit=false;
+function initMathPanel(){
+  const host=document.getElementById('mathPanel');
+  host.innerHTML='';
+  MATH_DEFS.forEach((def,i)=>{
+    const card=document.createElement('div');
+    card.className='math-card';
+    card.innerHTML=`<div class="mt">${def.title}</div><div class="math-eq" id="math-${i}"></div>`;
+    host.appendChild(card);
+  });
+  mathInit=true;
+}
+let lastMathUpdate=0;
+function updateMathPanel(d,tp,I,KEt,KEr){
+  const now=performance.now();
+  if(!mathInit) initMathPanel();
+  if(now-lastMathUpdate<180 && lastMathUpdate!==0) return;
+  lastMathUpdate=now;
+  MATH_DEFS.forEach((def,i)=>{
+    try{
+      katex.render(def.tex(state.v,d,tp,I,KEt,KEr), document.getElementById(`math-${i}`), {throwOnError:false, displayMode:false});
+    }catch(e){/* ignore transient */}
+  });
+}
+
+/* ======================================================================
+   GRAPHS (Chart.js)
+====================================================================== */
+const MAXPTS=350;
+function mkChart(id,datasets,yLabel){
+  const c=document.getElementById(id).getContext('2d');
+  return new Chart(c,{
+    type:'line',
+    data:{labels:[], datasets:datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{mode:'nearest',intersect:false},
+      plugins:{legend:{display:datasets.length>1, labels:{color:'#8593a3', boxWidth:10, font:{size:9.5}}}, tooltip:{enabled:false}},
+      scales:{
+        x:{ticks:{color:'#5c6a7a',maxTicksLimit:6,font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'#5c6a7a',font:{size:9}}, grid:{color:'rgba(255,255,255,0.06)'}}
+      }
+    }
+  });
+}
+const chartV=mkChart('chartV',[{label:'v',data:[],borderColor:'#57e7d4',borderWidth:2,pointRadius:0,tension:0.15}]);
+const chartA=mkChart('chartA',[{label:'a',data:[],borderColor:'#b499ff',borderWidth:2,pointRadius:0,tension:0.15}]);
+const chartN=mkChart('chartN',[{label:'N',data:[],borderColor:'#ffb454',borderWidth:2,pointRadius:0,tension:0.15,
+  segment:{borderColor:ctx=> (ctx.p0.parsed.y<=0.05||ctx.p1.parsed.y<=0.05) ? '#ff6b6b' : '#ffb454'}}]);
+const chartE=mkChart('chartE',[
+  {label:'KE trans',data:[],borderColor:'#57e7d4',borderWidth:1.6,pointRadius:0,tension:0.15},
+  {label:'KE rot',data:[],borderColor:'#ff8e5b',borderWidth:1.6,pointRadius:0,tension:0.15},
+  {label:'PE',data:[],borderColor:'#b499ff',borderWidth:1.6,pointRadius:0,tension:0.15},
+  {label:'Total',data:[],borderColor:'#ffffff',borderWidth:2,pointRadius:0,tension:0.15},
+]);
+const chartRot=mkChart('chartRot',[
+  {label:'ω',data:[],borderColor:'#57e7d4',borderWidth:2,pointRadius:0,tension:0.15,yAxisID:'y'},
+  {label:'L',data:[],borderColor:'#ff6bd0',borderWidth:1.6,pointRadius:0,tension:0.15,yAxisID:'y'},
+]);
+
+function resetCharts(){
+  [chartV,chartA,chartN,chartE,chartRot].forEach(c=>{
+    c.data.labels=[]; c.data.datasets.forEach(ds=>ds.data=[]); c.update('none');
+  });
+}
+
+function recordSample(d,tp,I,KEt,KEr){
+  const h=state.history;
+  h.t.push(state.t); h.v.push(state.v); h.a.push(d.a); h.N.push(Math.max(0,d.N));
+  h.KEt.push(KEt); h.KEr.push(KEr);
+  const PE=state.params.m*state.params.g*(tp.y-state.trackBBox.minY);
+  h.PE.push(PE); h.E.push(KEt+KEr+PE);
+  h.omega.push(state.omega); h.L.push(I*state.omega);
+  for(const k in h){ if(h[k].length>MAXPTS) h[k].shift(); }
+}
+
+function pushChartData(){
+  const now=performance.now();
+  if(now-state.lastChartUpdate<140) return;
+  state.lastChartUpdate=now;
+  const h=state.history;
+  const labels=h.t.map(t=>t.toFixed(1));
+  chartV.data.labels=labels; chartV.data.datasets[0].data=h.v.slice(); chartV.update('none');
+  chartA.data.labels=labels; chartA.data.datasets[0].data=h.a.slice(); chartA.update('none');
+  chartN.data.labels=labels; chartN.data.datasets[0].data=h.N.slice(); chartN.update('none');
+  chartE.data.labels=labels;
+  chartE.data.datasets[0].data=h.KEt.slice();
+  chartE.data.datasets[1].data=h.KEr.slice();
+  chartE.data.datasets[2].data=h.PE.slice();
+  chartE.data.datasets[3].data=h.E.slice();
+  chartE.update('none');
+  chartRot.data.labels=labels;
+  chartRot.data.datasets[0].data=h.omega.slice();
+  chartRot.data.datasets[1].data=h.L.slice();
+  chartRot.update('none');
+
+  const lastV=h.v[h.v.length-1]||0, lastA=h.a[h.a.length-1]||0, lastN=h.N[h.N.length-1]||0;
+  const lastE=h.E[h.E.length-1]||0, lastW=h.omega[h.omega.length-1]||0;
+  document.getElementById('now-v').textContent=fmt(lastV)+' m/s';
+  document.getElementById('now-a').textContent=fmt(lastA)+' m/s²';
+  document.getElementById('now-N').textContent=fmt(lastN)+' N';
+  document.getElementById('now-E').textContent=fmt(lastE)+' J';
+  document.getElementById('now-Rot').textContent='ω '+fmt(lastW)+' rad/s';
+}
+
+/* ======================================================================
+   MAIN LOOP
+====================================================================== */
+const FIXED_DT=1/240;
+let rafId=null, prevTime=null;
+function loop(ts){
+  rafId=requestAnimationFrame(loop);
+  if(prevTime===null) prevTime=ts;
+  let frameDt=(ts-prevTime)/1000; prevTime=ts;
+  frameDt=Math.min(frameDt,0.05);
+  if(!state.playing){ return; }
+  let simDt=frameDt*state.speed;
+  let steps=Math.min(40, Math.max(1,Math.round(simDt/FIXED_DT)));
+  const h=simDt/steps;
+  let d=null, tp=null, I=momentOfInertia(), KEt=0, KEr=0;
+  for(let i=0;i<steps;i++){
+    if(state.ended) break;
+    rk4Step(h);
+  }
+  tp=sampleTrack(state.track,state.s);
+  d=derivatives(state.s,state.v,state.omega,state.mode);
+  KEt=0.5*state.params.m*state.v*state.v;
+  KEr=0.5*I*state.omega*state.omega;
+  const cx=tp.x+(-Math.sin(tp.theta))*state.params.R, cy=tp.y+Math.cos(tp.theta)*state.params.R;
+  state.trail.push({x:cx,y:cy,v:state.v});
+  if(state.trail.length>500) state.trail.shift();
+  recordSample(d,tp,I,KEt,KEr);
+  renderFrame();
+  pushChartData();
+}
+requestAnimationFrame(loop);
+
+/* ======================================================================
+   UI WIRING
+====================================================================== */
+function syncModeAvailability(){
+  const modeSel=document.getElementById('modeSelect');
+  if(getObj().shape==='block'){
+    state.mode='slide';
+    modeSel.value='slide';
+    modeSel.disabled=true;
+  } else {
+    modeSel.disabled=false;
+  }
+}
+
+/* ---------- Tabs ---------- */
+function setTab(tab){
+  const sim=document.getElementById('viewSimulation'), th=document.getElementById('viewTheory');
+  const bSim=document.getElementById('tabSim'), bTh=document.getElementById('tabTheory');
+  if(tab==='theory'){
+    sim.style.display='none'; th.style.display='block';
+    bTh.classList.add('active'); bSim.classList.remove('active');
+  } else {
+    sim.style.display=''; th.style.display='none';
+    bSim.classList.add('active'); bTh.classList.remove('active');
+    resizeCanvas(); // in case layout changed while hidden
+  }
+}
+document.getElementById('tabSim').addEventListener('click',()=>setTab('sim'));
+document.getElementById('tabTheory').addEventListener('click',()=>setTab('theory'));
+
+document.getElementById('trackSelect').addEventListener('change',e=>{
+  state.trackKey=e.target.value;
+  rebuildTrack();
+  resizeCanvas();
+  resetSim();
+});
+document.getElementById('objectSelect').addEventListener('change',e=>{
+  state.objKey=e.target.value;
+  syncModeAvailability();
+  resetSim();
+});
+document.getElementById('modeSelect').addEventListener('change',e=>{
+  state.mode=e.target.value;
+  resetSim();
+});
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  state.playing=!state.playing;
+  if(state.playing && state.ended){ resetSim(); state.playing=true; }
+  document.getElementById('playBtn').innerHTML = state.playing ? '⏸ Pause' : '▶ Play';
+  document.getElementById('playBtn').classList.toggle('active', state.playing);
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  state.playing=false;
+  document.getElementById('playBtn').innerHTML='▶ Play';
+  document.getElementById('playBtn').classList.remove('active');
+  resetSim();
+});
+document.getElementById('stepBtn').addEventListener('click',()=>{
+  if(state.playing) return;
+  if(state.ended) return;
+  rk4Step(FIXED_DT*4);
+  const tp=sampleTrack(state.track,state.s);
+  const d=derivatives(state.s,state.v,state.omega,state.mode);
+  const I=momentOfInertia();
+  const KEt=0.5*state.params.m*state.v*state.v, KEr=0.5*I*state.omega*state.omega;
+  const cx=tp.x+(-Math.sin(tp.theta))*state.params.R, cy=tp.y+Math.cos(tp.theta)*state.params.R;
+  state.trail.push({x:cx,y:cy,v:state.v});
+  recordSample(d,tp,I,KEt,KEr);
+  renderFrame();
+  pushChartData();
+});
+
+document.querySelectorAll('#speedBtns .btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#speedBtns .btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.speed=parseFloat(btn.dataset.speed);
+  });
+});
+
+function bindSlider(id,labelId,fmtFn,paramKey){
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>{
+    const val=parseFloat(el.value);
+    state.params[paramKey]=val;
+    document.getElementById(labelId).textContent=fmtFn(val);
+    if(paramKey==='v0' || paramKey==='R'){ /* no auto full reset, applied on next reset */ }
+  });
+}
+bindSlider('mass','lbl-mass',v=>v.toFixed(2)+' kg','m');
+bindSlider('radius','lbl-radius',v=>v.toFixed(2)+' m','R');
+bindSlider('gravity','lbl-g',v=>v.toFixed(2)+' m/s²','g');
+bindSlider('v0','lbl-v0',v=>v.toFixed(2)+' m/s','v0');
+bindSlider('muS','lbl-mus',v=>v.toFixed(2),'muS');
+bindSlider('muK','lbl-muk',v=>v.toFixed(2),'muK');
+
+// Parameter changes that affect geometry/energetics should reset the run
+['mass','radius','gravity','v0','muS','muK'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{ computeView(canvas.clientWidth,canvas.clientHeight); resetSim(); });
+});
+
+document.getElementById('chkVecAll').addEventListener('change',e=>{
+  const on=e.target.checked;
+  ['chkVecWeight','chkVecNormal','chkVecFriction','chkVecTangent','chkVecCentripetal','chkVecNet'].forEach(id=>{
+    document.getElementById(id).disabled=on;
+  });
+});
+
+/* ======================================================================
+   THEORY TAB — static translational/rotational analogy equations
+====================================================================== */
+function renderTheory(){
+  const eqs = {
+    'th-eq-0L': 'x(t)\\ \\text{[m]}',
+    'th-eq-0R': '\\theta(t)\\ \\text{[rad]}',
+    'th-eq-1L': 'v=\\dfrac{dx}{dt}\\ \\text{[m/s]}',
+    'th-eq-1R': '\\omega=\\dfrac{d\\theta}{dt}\\ \\text{[rad/s]}',
+    'th-eq-2L': 'a=\\dfrac{dv}{dt}=\\dfrac{d^2x}{dt^2}\\ \\text{[m/s}^2\\text{]}',
+    'th-eq-2R': '\\alpha=\\dfrac{d\\omega}{dt}=\\dfrac{d^2\\theta}{dt^2}\\ \\text{[rad/s}^2\\text{]}',
+    'th-eq-3L': 'm\\ \\text{[kg]}',
+    'th-eq-3R': 'I=\\displaystyle\\int r^2\\,dm = cmR^2\\ \\text{[kg·m}^2\\text{]}',
+    'th-eq-4L': 'F\\ \\text{[N]}',
+    'th-eq-4R': '\\tau = \\vec r\\times\\vec F = fR\\ \\text{[N·m]}',
+    'th-eq-5L': 'F=ma',
+    'th-eq-5R': '\\tau=I\\alpha',
+    'th-eq-6L': 'p=mv\\ \\text{[kg·m/s]}',
+    'th-eq-6R': 'L=I\\omega\\ \\text{[kg·m}^2\\text{/s]}',
+    'th-eq-7L': 'KE_{\\text{trans}}=\\tfrac12 mv^2',
+    'th-eq-7R': 'KE_{\\text{rot}}=\\tfrac12 I\\omega^2',
+    'th-eq-8L': 'W=F\\cdot d',
+    'th-eq-8R': 'W=\\tau\\cdot\\Delta\\theta',
+    'th-eq-9L': 'P=Fv',
+    'th-eq-9R': 'P=\\tau\\omega',
+    'th-roll-0': '\\text{No-slip constraint:}\\quad v=\\omega R \\qquad a=\\alpha R',
+    'th-roll-1': '\\text{Friction }f\\text{ provides the torque that couples the two sides: }\\ fR=I\\alpha',
+    'th-roll-2': 'mg\\sin\\theta - f = ma \\quad\\text{(translational, along track)}',
+    'th-roll-3': 'fR = I\\alpha = I\\dfrac{a}{R} \\quad\\text{(rotational, about center)}',
+    'th-roll-4': '\\Rightarrow\\quad a=\\dfrac{g\\sin\\theta}{1+I/(mR^2)}=\\dfrac{g\\sin\\theta}{1+c}',
+  };
+  for(const id in eqs){
+    const el=document.getElementById(id);
+    if(!el) continue;
+    try{ katex.render(eqs[id], el, {throwOnError:false, displayMode:true}); }catch(e){/* ignore */}
+  }
+}
+
+/* ======================================================================
+   INIT
+====================================================================== */
+function init(){
+  syncModeAvailability();
+  rebuildTrack();
+  resizeCanvas();
+  resetSim();
+  renderTheory();
+}
+init();
+
+})();
+</script>
+</body>
+</html>
