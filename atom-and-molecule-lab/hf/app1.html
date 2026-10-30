@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hartree–Fock+ Atomic Structure</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#05070f;--bg2:#090d1a;--bg3:#0d1220;--sur:#111828;
+  --bor:rgba(50,90,200,.12);--bor2:rgba(50,90,200,.28);
+  --tx:#b8c2e0;--tx2:#485070;--tx3:#252d48;
+  --b:#3d80ff;--a:#e09018;--t:#18c89a;--c:#d83858;
+  --pu:#8050d8;--gn:#28bc58;--or:#ff7030;--sk:#58a4ec;
+  --mono:'JetBrains Mono','Fira Code','Courier New',monospace;
+  --good:#1a9c50;--warn:#c07810;--bad:#b83030;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--tx);font-family:system-ui,sans-serif;height:100%;overflow:hidden}
+
+/* ── ABBREVIATION TOOLTIPS ── */
+abbr[title]{
+  text-decoration:underline dotted rgba(61,128,255,.5);
+  cursor:help;
+  text-underline-offset:2px;
+}
+
+.hdr{
+  height:44px;background:var(--bg2);border-bottom:1px solid var(--bor);
+  display:flex;align-items:center;padding:0 1rem;gap:.75rem;flex-shrink:0;
+}
+.hdr-t{font-size:.9rem;font-weight:700;color:#ccd4f0;letter-spacing:-.01em}
+.hdr-t em{color:var(--a);font-style:normal}
+.hdr-s{font-size:.65rem;color:var(--tx3);flex:1}
+.hdr-badge{
+  font-size:.6rem;padding:2px 7px;border-radius:3px;font-weight:700;letter-spacing:.05em;
+  background:rgba(24,200,154,.12);border:1px solid rgba(24,200,154,.3);color:var(--t);
+  margin-right:4px;cursor:help;
+}
+.hdr-badge2{
+  font-size:.6rem;padding:2px 7px;border-radius:3px;font-weight:700;letter-spacing:.05em;
+  background:rgba(128,80,216,.12);border:1px solid rgba(128,80,216,.3);color:var(--pu);
+  cursor:help;
+}
+
+.app{display:flex;height:calc(100vh - 44px);overflow:hidden}
+
+/* ── SIDEBAR ── */
+.side{
+  width:222px;min-width:222px;background:var(--bg2);
+  border-right:1px solid var(--bor);display:flex;flex-direction:column;overflow:hidden;
+}
+.sec{padding:.55rem .6rem;border-bottom:1px solid var(--bor)}
+.sec-h{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin-bottom:.4rem}
+.sec-hint{font-size:9px;color:var(--tx3);margin-top:.3rem;line-height:1.5}
+
+.el-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
+.el-btn{
+  border-radius:3px;border:1px solid var(--bor);background:var(--bg3);
+  color:var(--tx2);font-size:9.5px;font-weight:700;cursor:pointer;
+  padding:4px 2px;text-align:center;transition:all .1s;
+}
+.el-btn:hover{border-color:var(--bor2);color:var(--tx)}
+.el-btn.on{background:rgba(224,144,24,.12);border-color:rgba(224,144,24,.45);color:var(--a)}
+
+.go{
+  width:100%;padding:.45rem;border-radius:5px;
+  border:1px solid rgba(61,128,255,.4);background:rgba(61,128,255,.1);
+  color:var(--b);font-size:.78rem;font-weight:600;cursor:pointer;
+  letter-spacing:.02em;transition:background .1s;
+}
+.go:hover{background:rgba(61,128,255,.18)}
+.go:disabled{opacity:.3;cursor:not-allowed}
+
+/* Basis selector */
+.basis-sel{
+  width:100%;background:var(--bg3);border:1px solid var(--bor2);
+  color:var(--tx);font-size:.72rem;padding:4px 6px;border-radius:4px;
+  cursor:pointer;
+}
+.basis-sel option{background:var(--bg2)}
+
+/* CI toggle */
+.ci-row{display:flex;align-items:center;gap:.5rem;margin-top:.35rem}
+.ci-lbl{font-size:.7rem;color:var(--tx2);flex:1;line-height:1.4}
+.toggle{position:relative;width:28px;height:15px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-sl{
+  position:absolute;inset:0;border-radius:8px;cursor:pointer;
+  background:var(--bg3);border:1px solid var(--bor2);transition:.2s;
+}
+.toggle-sl:before{
+  content:'';position:absolute;width:9px;height:9px;border-radius:50%;
+  left:2px;top:2px;background:var(--tx3);transition:.2s;
+}
+.toggle input:checked + .toggle-sl{background:rgba(61,128,255,.25);border-color:var(--b)}
+.toggle input:checked + .toggle-sl:before{transform:translateX(13px);background:var(--b)}
+
+.orb-t{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:9.5px}
+.orb-t tr{border-bottom:1px solid var(--bor)}
+.orb-t td{padding:3px 4px;color:var(--tx2);line-height:1.3}
+.orb-t .lb{font-weight:700}
+.orb-t .vl{text-align:right;color:var(--t)}
+.orb-t .vl2{text-align:right;color:var(--tx3);font-size:9px}
+
+.log-w{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.log-hdr{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--tx3);padding:.4rem .6rem .2rem;flex-shrink:0}
+#log{
+  flex:1;background:var(--bg3);font-family:var(--mono);font-size:8.5px;
+  color:var(--tx3);padding:.35rem .6rem;overflow-y:auto;min-height:0;line-height:1.65;
+}
+.li{color:var(--b)!important}
+.lo{color:var(--t)!important}
+.lw{color:var(--a)!important}
+.le{color:var(--c)!important}
+.lp{color:var(--pu)!important}
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+.tabs{
+  display:flex;height:32px;background:var(--bg2);
+  border-bottom:1px solid var(--bor);flex-shrink:0;
+}
+.tab{
+  padding:0 1rem;font-size:.72rem;font-weight:600;cursor:pointer;
+  color:var(--tx2);border-bottom:2px solid transparent;
+  letter-spacing:.02em;transition:all .1s;white-space:nowrap;
+  display:flex;align-items:center;
+}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--b);border-bottom-color:var(--b)}
+
+.panel{flex:1;overflow:hidden;display:none;flex-direction:column}
+.panel.on{display:flex}
+
+/* ── PLOTS ── */
+.plots-panel{display:grid;grid-template-rows:1fr 1fr;overflow:hidden}
+.plot-row{display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden}
+.pane{
+  border-right:1px solid var(--bor);border-bottom:1px solid var(--bor);
+  padding:.4rem .5rem .3rem;display:flex;flex-direction:column;
+  overflow:hidden;min-height:0;
+}
+.pane:last-child{border-right:none}
+.pane-t{
+  font-size:8.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--tx3);margin-bottom:.25rem;flex-shrink:0;
+}
+.cw{position:relative;flex:1;min-height:0}
+.cw canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+#lvlsvg{width:100%;height:100%;display:block;overflow:visible}
+
+/* ── COMPARISON PANEL ── */
+.unit-bar{
+  display:flex;align-items:center;gap:1.2rem;padding:.4rem .9rem;
+  background:rgba(50,90,200,.04);border-bottom:1px solid var(--bor);
+  flex-shrink:0;flex-wrap:wrap;
+}
+.unit-bar-lbl{font-size:.72rem;font-weight:700;color:var(--b);white-space:nowrap}
+.unit-opt{display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--tx2);cursor:pointer}
+.unit-opt input{accent-color:var(--b);cursor:pointer;width:13px;height:13px}
+.unit-opt:has(input:checked){color:var(--tx)}
+.unit-conv{font-size:.64rem;color:var(--tx3);margin-left:.2rem}
+
+.cmp-scroll{flex:1;overflow:auto;padding:.6rem .8rem}
+.cmp-intro{
+  font-size:10px;color:var(--tx2);line-height:1.7;
+  padding:.5rem .7rem;background:rgba(50,90,200,.06);
+  border:1px solid var(--bor);border-radius:4px;margin-bottom:.6rem;
+}
+.cmp-intro strong{color:var(--a)}
+
+/* ── COMPARISON TABLE ── */
+.cmp-tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;min-width:920px}
+.cmp-tbl thead th{
+  padding:5px 7px;font-size:8px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--tx3);border-bottom:1px solid var(--bor2);text-align:right;
+  font-weight:700;white-space:nowrap;background:var(--bg2);position:sticky;top:0;z-index:1;
+  cursor:help;
+}
+.cmp-tbl thead th:first-child{text-align:left}
+.cmp-tbl thead th:nth-child(2){text-align:left}
+.cmp-tbl tbody tr{border-bottom:1px solid var(--bor);transition:background .1s}
+.cmp-tbl tbody tr:hover td{background:rgba(50,90,200,.06)}
+.cmp-tbl td{padding:4px 7px;text-align:right;vertical-align:middle}
+.cmp-tbl td:first-child{text-align:left;font-weight:700;color:var(--tx)}
+.cmp-tbl td:nth-child(2){text-align:left;color:var(--tx2)}
+.tv-you{color:var(--b)}
+.tv-ref{color:var(--t)}
+.tv-exp{color:var(--a)}
+.tv-ci{color:var(--pu)}
+.tv-wait{color:var(--tx3);font-style:italic}
+.err-good{color:var(--good)}
+.err-ok{color:var(--warn)}
+.err-bad{color:var(--bad)}
+.badge{display:inline-block;font-size:8px;padding:1px 5px;border-radius:2px;font-weight:700;letter-spacing:.04em;vertical-align:middle;margin-left:3px}
+.badge-g{background:rgba(26,156,80,.15);color:var(--good);border:1px solid rgba(26,156,80,.3)}
+.badge-w{background:rgba(192,120,16,.15);color:var(--warn);border:1px solid rgba(192,120,16,.3)}
+.badge-b{background:rgba(184,48,48,.15);color:var(--bad);border:1px solid rgba(184,48,48,.3)}
+.badge-p{background:rgba(128,80,216,.15);color:var(--pu);border:1px solid rgba(128,80,216,.3)}
+
+/* ── TABLE LEGEND ── */
+.cmp-legend{
+  display:flex;gap:1.2rem;flex-wrap:wrap;padding:.55rem .8rem;
+  background:rgba(50,90,200,.03);border-top:1px solid var(--bor);
+  border-bottom:1px solid var(--bor);flex-shrink:0;
+}
+.leg-item{display:flex;align-items:center;gap:.35rem;font-size:.68rem;color:var(--tx2);white-space:nowrap}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── THEORY PANEL ── */
+.theory-scroll{flex:1;overflow:auto;padding:1.2rem 1.6rem}
+.thy{max-width:870px}
+.thy h2{
+  font-size:.82rem;font-weight:700;color:#ccd4f0;letter-spacing:-.01em;
+  margin-bottom:.5rem;margin-top:1.5rem;border-bottom:1px solid var(--bor);padding-bottom:.35rem;
+}
+.thy h2:first-child{margin-top:0}
+.thy h3{font-size:.74rem;font-weight:700;color:var(--a);margin:.9rem 0 .3rem;letter-spacing:.01em}
+.thy p{font-size:.76rem;color:var(--tx2);line-height:1.75;margin-bottom:.55rem}
+.thy .eq{
+  font-family:var(--mono);font-size:.72rem;color:var(--t);
+  background:rgba(24,200,154,.07);border-left:2px solid var(--t);
+  padding:.5rem .8rem;border-radius:0 4px 4px 0;margin:.6rem 0;
+  overflow-x:auto;white-space:pre;
+}
+.thy .eq-pu{
+  font-family:var(--mono);font-size:.72rem;color:var(--pu);
+  background:rgba(128,80,216,.07);border-left:2px solid var(--pu);
+  padding:.5rem .8rem;border-radius:0 4px 4px 0;margin:.6rem 0;
+  overflow-x:auto;white-space:pre;
+}
+.thy .eq-a{
+  font-family:var(--mono);font-size:.72rem;color:var(--a);
+  background:rgba(224,144,24,.07);border-left:2px solid var(--a);
+  padding:.5rem .8rem;border-radius:0 4px 4px 0;margin:.6rem 0;
+  overflow-x:auto;white-space:pre;
+}
+.thy .note{
+  font-size:.7rem;color:var(--tx3);background:rgba(50,90,200,.06);
+  border:1px solid var(--bor);border-radius:4px;padding:.45rem .65rem;margin:.55rem 0;
+  line-height:1.7;
+}
+.thy .note strong{color:var(--b)}
+.thy table{width:100%;border-collapse:collapse;font-size:.72rem;font-family:var(--mono);margin:.7rem 0}
+.thy table th{
+  padding:4px 8px;background:var(--bg2);color:var(--tx3);font-size:.67rem;
+  text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--bor2);text-align:left;
+}
+.thy table td{padding:4px 8px;border-bottom:1px solid var(--bor);color:var(--tx2)}
+.thy table td:first-child{color:var(--t);font-weight:700}
+.thy .tag{
+  display:inline-block;font-size:.62rem;padding:1px 6px;border-radius:3px;
+  font-weight:700;letter-spacing:.04em;vertical-align:middle;margin-left:4px;
+}
+.thy .tag-new{background:rgba(128,80,216,.15);color:var(--pu);border:1px solid rgba(128,80,216,.3)}
+.thy .tag-imp{background:rgba(24,200,154,.1);color:var(--t);border:1px solid rgba(24,200,154,.3)}
+.thy .diag{display:flex;gap:.5rem;flex-wrap:wrap;margin:.7rem 0}
+.thy .diag-box{
+  background:var(--bg2);border:1px solid var(--bor2);border-radius:5px;
+  padding:.5rem .7rem;min-width:140px;flex:1;
+}
+.thy .diag-box .dh{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.25rem}
+.thy .diag-box .dv{font-size:.82rem;font-weight:700;color:var(--b)}
+.thy .diag-box .ds{font-size:.65rem;color:var(--tx3);margin-top:.1rem}
+
+/* ── GLOSSARY ── */
+.gls-wrap{
+  display:grid;grid-template-columns:110px 1fr;gap:0;
+  border:1px solid var(--bor);border-radius:4px;overflow:hidden;margin:.7rem 0;
+}
+.gls-term{
+  font-family:var(--mono);font-size:.71rem;font-weight:700;color:var(--t);
+  padding:5px 8px;border-bottom:1px solid var(--bor);
+  background:rgba(24,200,154,.04);line-height:1.4;
+}
+.gls-def{
+  font-size:.71rem;color:var(--tx2);padding:5px 8px;
+  border-bottom:1px solid var(--bor);background:var(--bg2);line-height:1.5;
+}
+.gls-term:last-child,.gls-def:last-child{border-bottom:none}
+.gls-cat{
+  grid-column:1/-1;font-size:.65rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--tx3);padding:4px 8px;
+  background:rgba(50,90,200,.05);border-bottom:1px solid var(--bor);
+}
+
+/* ── UNIT HIGHLIGHT ── */
+.unit-val{
+  display:inline-block;font-size:.63rem;padding:1px 5px;border-radius:3px;
+  background:rgba(24,200,154,.1);border:1px solid rgba(24,200,154,.22);
+  color:var(--t);font-weight:700;margin-left:3px;font-family:var(--mono);
+}
+
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--bor2);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════ HEADER -->
+<div class="hdr">
+  <div class="hdr-t">
+    <abbr title="Hartree–Fock: mean-field quantum chemistry method where each electron moves in the average field of all others">⚛ Hartree–<em>Fock</em>:</abbr> Atomic Structure  </div>
+  <div class="hdr-s">
+    <abbr title="Slater-Type Orbital approximated by n Gaussian functions (Pople basis set family)">STO-nG</abbr> Basis ·
+    <abbr title="Self-Consistent Field: iterative eigenvalue solver — repeat until orbital energies stop changing">SCF</abbr> ·
+    Direct + Exchange ·
+    <abbr title="Configuration Interaction: adds excited-determinant corrections to capture electron correlation">CI</abbr> Correction ·
+    Self-interaction corrected ·
+    H–Ca (Z&nbsp;=&nbsp;1–20)
+  </div>
+  <abbr title="Hartree–Fock with exact Fock exchange operator (Coulomb + exchange terms)" class="hdr-badge">HF + Exchange</abbr>
+  <abbr title="STO-nG Gaussian basis sets with Configuration Interaction correlation correction" class="hdr-badge2">STO-nG + CI</abbr>
+</div>
+
+<div class="app">
+  <!-- ════════════════════════════════════════════════ SIDEBAR -->
+  <div class="side">
+    <div class="sec">
+      <div class="sec-h">
+        Element (<abbr title="Atomic number: number of protons in the nucleus">Z</abbr> = 1–20)
+      </div>
+      <div class="el-grid" id="elGrid"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">
+        <abbr title="Basis set: the set of mathematical functions used to approximate atomic orbitals">Basis Set</abbr>
+        <span style="color:var(--pu);font-weight:700;margin-left:4px">NEW</span>
+      </div>
+      <select class="basis-sel" id="basisSel" title="Choose how many Gaussian functions approximate each Slater-Type Orbital">
+        <option value="numeric">Numerical (grid, no basis)</option>
+        <option value="sto2g">STO-2G  (2 Gaussians/ζ — fast, rough)</option>
+        <option value="sto3g" selected>STO-3G  (3 Gaussians/ζ — standard)</option>
+        <option value="sto6g">STO-6G  (6 Gaussians/ζ — best)</option>
+      </select>
+      <div class="sec-hint">
+        <abbr title="Slater exponent ζ: controls how quickly the orbital decays with distance from the nucleus">ζ</abbr> = Slater exponent ·
+        <abbr title="Gaussian-Type Orbital: g(α,r) = N·exp(−αr²); easier to integrate than Slater orbitals">GTO</abbr> = Gaussian function
+      </div>
+      <div class="ci-row" style="margin-top:.5rem">
+        <span class="ci-lbl">
+          <abbr title="Configuration Interaction: 2nd-order perturbation correction recovering electron correlation energy missed by mean-field HF">CI</abbr> correction
+          (<abbr title="Perturbation Theory: systematic expansion in small corrections beyond the reference (HF) wavefunction">PT2</abbr>)
+        </span>
+        <label class="toggle"><input type="checkbox" id="ciChk" checked><span class="toggle-sl"></span></label>
+      </div>
+      <div class="ci-row">
+        <span class="ci-lbl">
+          Cusp correction
+          (<abbr title="Electron-electron cusp: the wavefunction must have a specific slope when two electrons meet at the same point (r₁₂→0), to cancel the 1/r₁₂ singularity">r₁₂⁻¹</abbr>)
+        </span>
+        <label class="toggle"><input type="checkbox" id="cuspChk" checked><span class="toggle-sl"></span></label>
+      </div>
+    </div>
+
+    <div class="sec">
+      <button class="go" id="goBtn" onclick="run()" title="Run the Hartree–Fock Self-Consistent Field calculation for the selected element">
+        ▶ &nbsp;Compute <abbr title="Hartree–Fock plus basis-set and CI corrections" style="text-decoration:none">HF+</abbr> SCF
+      </button>
+    </div>
+
+    <div class="sec" style="flex-shrink:0">
+      <div class="sec-h">
+        Orbitals · energies
+        (<abbr title="Hartree: atomic unit of energy. 1 Ha = 27.2114 eV = 627.5 kcal/mol">Ha</abbr>)
+      </div>
+      <table class="orb-t" id="orbTbl">
+        <tr><td colspan="3" style="color:var(--tx3)">Select element → Compute HF+</td></tr>
+      </table>
+    </div>
+
+    <div class="log-w">
+      <div class="log-hdr">
+        <abbr title="SCF convergence log: shows how the orbital eigenvalues change each iteration until ΔE/E < 10⁻⁷">Convergence log</abbr>
+      </div>
+      <div id="log"><div>Select element → Compute HF+.</div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════ MAIN -->
+  <div class="main">
+    <div class="tabs">
+      <div class="tab on" data-tab="plots">Plots</div>
+      <div class="tab" data-tab="cmp">Comparison table</div>
+      <div class="tab" data-tab="theory">Theory &amp; Glossary</div>
+    </div>
+
+    <!-- ═══════════════════════════════ PLOTS PANEL -->
+    <div class="panel on" id="plotsPanel">
+      <div class="plots-panel" style="flex:1">
+        <div class="plot-row">
+          <div class="pane">
+            <div class="pane-t">
+              <abbr title="P_nl(r): radial part of the atomic wavefunction. n = principal quantum number, l = angular momentum quantum number">P<sub>nl</sub>(r)</abbr>
+              — radial wave functions
+            </div>
+            <div class="cw"><canvas id="wc"></canvas></div>
+          </div>
+          <div class="pane">
+            <div class="pane-t">
+              r²<abbr title="Radial probability density: r²P²(r) gives the probability of finding the electron between r and r+dr">P²<sub>nl</sub>(r)</abbr>
+              — radial probability density
+            </div>
+            <div class="cw"><canvas id="rc"></canvas></div>
+          </div>
+          <div class="pane">
+            <div class="pane-t">
+              <abbr title="ρ(r): total electron density = Σ wᵢ Pᵢ²(r), summed over all occupied orbitals with occupancy wᵢ">ρ(r)</abbr>
+              — total electron density
+            </div>
+            <div class="cw"><canvas id="dc"></canvas></div>
+          </div>
+        </div>
+        <div class="plot-row">
+          <div class="pane">
+            <div class="pane-t">
+              <abbr title="V_eff(r) = −Z/r + l(l+1)/(2r²) + U_HF(r): kinetic barrier + nuclear attraction + mean-field electron repulsion">V<sub>eff</sub>(r)</abbr>
+              — effective potential (<abbr title="Hartree: atomic unit of energy">Ha</abbr>)
+            </div>
+            <div class="cw"><canvas id="vc"></canvas></div>
+          </div>
+          <div class="pane" style="grid-column:span 2;border-right:none">
+            <div class="pane-t">
+              Orbital energy levels (<abbr title="Hartree: atomic unit of energy">Ha</abbr>) ·
+              <abbr title="⟨r⟩ = ∫ r · P²(r) dr: expectation value of the electron–nucleus distance in Bohr radii">⟨r⟩</abbr> in Bohr radii
+            </div>
+            <div class="cw"><svg id="lvlsvg"></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ COMPARISON PANEL -->
+    <div class="panel" id="cmpPanel">
+
+      <!-- Unit toggle bar -->
+      <div class="unit-bar">
+        <span class="unit-bar-lbl">Energy units:</span>
+        <label class="unit-opt">
+          <input type="radio" name="unitSel" value="ha" id="unitHa" checked>
+          <abbr title="Hartree: atomic unit of energy used in quantum chemistry. 1 Ha = 27.2114 eV">Ha</abbr>
+          <span class="unit-conv">(Hartree — atomic unit)</span>
+        </label>
+        <label class="unit-opt">
+          <input type="radio" name="unitSel" value="ev" id="unitEv">
+          <abbr title="Electronvolt: practical energy unit. 1 eV = 0.036749 Ha">eV</abbr>
+          <span class="unit-conv">(Electronvolt · 1&nbsp;Ha&nbsp;=&nbsp;27.211&nbsp;eV)</span>
+        </label>
+        <span style="font-size:.65rem;color:var(--tx3);margin-left:auto">
+          All columns update together — apples-to-apples comparison
+        </span>
+      </div>
+
+      <!-- Color legend -->
+      <div class="cmp-legend">
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--b)"></div>
+          <span><strong style="color:var(--b)">HF ε</strong> = Your Hartree–Fock eigenvalue</span>
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--pu)"></div>
+          <span><strong style="color:var(--pu)">STO ε</strong> = Gaussian basis-set corrected</span>
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--pu)"></div>
+          <span><strong style="color:var(--pu)">CI ε</strong> = Correlation-corrected</span>
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--t)"></div>
+          <span><strong style="color:var(--t)">C–R</strong> = Clementi–Roetti (1974) exact HF</span>
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--a)"></div>
+          <span><strong style="color:var(--a)">Exp</strong> = Experimental (NIST)</span>
+        </div>
+        <div class="leg-item" style="margin-left:auto">
+          <span style="background:rgba(26,156,80,.15);color:var(--good);border:1px solid rgba(26,156,80,.3);padding:1px 6px;border-radius:2px;font-size:.68rem;font-weight:700">&lt;2% error</span>
+        </div>
+        <div class="leg-item">
+          <span style="background:rgba(192,120,16,.15);color:var(--warn);border:1px solid rgba(192,120,16,.3);padding:1px 6px;border-radius:2px;font-size:.68rem;font-weight:700">2–8%</span>
+        </div>
+        <div class="leg-item">
+          <span style="background:rgba(184,48,48,.15);color:var(--bad);border:1px solid rgba(184,48,48,.3);padding:1px 6px;border-radius:2px;font-size:.68rem;font-weight:700">&gt;8%</span>
+        </div>
+      </div>
+
+      <div class="cmp-scroll">
+        <div class="cmp-intro">
+          <strong>References:</strong>
+          <abbr title="Clementi & Roetti, Atomic Data and Nuclear Data Tables 14, 177 (1974): tabulated near-exact Hartree–Fock orbital energies and total energies for atoms H–Kr">C–R</abbr> = Clementi &amp; Roetti
+          <em>At. Data Nucl. Data Tables</em> <strong>14</strong>, 177 (1974).
+          <abbr title="National Institute of Standards and Technology: source of precise experimental ionization energies">NIST</abbr> Atomic Spectra Database.
+          · <strong>Δ%</strong> = (your − reference) / |reference| × 100 (dimensionless — same in any unit).
+          · <abbr title="Koopmans' theorem: the ionization energy is approximately equal to the negative of the HOMO eigenvalue, IE ≈ −ε_HOMO. Error ~0.5–2 eV from orbital relaxation and correlation neglect.">Koopmans'</abbr> IE = −ε<sub>HOMO</sub>.
+          · <abbr title="Configuration Interaction correction recovers correlation energy E_corr = E_exact − E_HF, typically −0.04 Ha per electron pair">CI correction</abbr> recovers correlation missed by HF.
+        </div>
+
+        <!-- Table — rebuilt dynamically by JS -->
+        <table class="cmp-tbl" id="cmpTblMain"></table>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ THEORY PANEL -->
+    <div class="panel" id="theoryPanel">
+      <div class="theory-scroll">
+        <div class="thy">
+
+          <!-- ─── SECTION 0: ABBREVIATIONS & SYMBOLS ─────────────────── -->
+          <h2>0. Abbreviations &amp; Symbols — Quick Reference</h2>
+          <p>Every abbreviated term in this app is explained here. Hover over any
+          <abbr title="Like this! Dotted underlines indicate an abbreviation with a tooltip.">underlined term</abbr>
+          in the UI to see its definition inline.</p>
+
+          <div class="gls-wrap">
+            <div class="gls-cat">Methods &amp; algorithms</div>
+            <div class="gls-term">HF</div><div class="gls-def"><strong>Hartree–Fock</strong> — mean-field quantum chemistry method. The many-electron wavefunction is approximated as a single Slater determinant; each electron moves in the averaged field of all others.</div>
+            <div class="gls-term">SCF</div><div class="gls-def"><strong>Self-Consistent Field</strong> — iterative procedure to solve the HF equations. Build potential from orbitals → solve for new orbitals → repeat until eigenvalues converge to &lt;10⁻⁷ Ha.</div>
+            <div class="gls-term">CI</div><div class="gls-def"><strong>Configuration Interaction</strong> — post-HF method that adds excited Slater determinants (Φᵢᵃ, Φᵢⱼᵃᵇ …) to capture electron correlation missing from HF.</div>
+            <div class="gls-term">MP2</div><div class="gls-def"><strong>Møller–Plesset 2nd order</strong> — perturbation-theory correction to HF. This code uses a similar 2nd-order correction to estimate E_corr via doubly-excited configurations.</div>
+            <div class="gls-term">PT2 / PT</div><div class="gls-def"><strong>Perturbation Theory (2nd order)</strong> — the CI correction here estimates E_corr⁽²⁾ = −Σ |⟨Φᵢᵃ|V₁₂|Φ₀⟩|² / (εₐ − εᵢ), the leading term beyond HF.</div>
+            <div class="gls-term">DIIS</div><div class="gls-def"><strong>Direct Inversion in the Iterative Subspace</strong> (Pulay, 1980) — SCF acceleration method that minimises the error vector norm across stored iterations. This code uses simpler linear damping (η = 0.45).</div>
+
+            <div class="gls-cat">Basis sets</div>
+            <div class="gls-term">STO</div><div class="gls-def"><strong>Slater-Type Orbital</strong> — χ(r) = N·rⁿ⁻¹·exp(−ζr)·Yₗᵐ(θ,φ). Correct exponential decay and nuclear cusp, but two-electron integrals are expensive analytically.</div>
+            <div class="gls-term">GTO</div><div class="gls-def"><strong>Gaussian-Type Orbital</strong> — g(α,r) = N·exp(−αr²). Integrals factorise analytically (product of two Gaussians is a Gaussian). Used to approximate STOs.</div>
+            <div class="gls-term">STO-nG</div><div class="gls-def"><strong>STO approximated by n Gaussians</strong> (Pople basis family, 1969). STO-2G: n=2, ~5% error; STO-3G: n=3, ~1–2% error; STO-6G: n=6, ~0.1% error.</div>
+            <div class="gls-term">ERI</div><div class="gls-def"><strong>Electron Repulsion Integral</strong> — (μν|κλ) = ⟨g_μ g_ν | r₁₂⁻¹ | g_κ g_λ⟩. The most expensive step: O(n⁴) per atom. Used to build the Coulomb (J) and exchange (K) matrices.</div>
+
+            <div class="gls-cat">Quantum numbers &amp; orbital labels</div>
+            <div class="gls-term">n</div><div class="gls-def"><strong>Principal quantum number</strong> — n = 1, 2, 3, … Sets the shell (K, L, M …). Orbital energy scales roughly as −Z²/(2n²) for hydrogen-like atoms.</div>
+            <div class="gls-term">l</div><div class="gls-def"><strong>Angular momentum quantum number</strong> — l = 0 (s), 1 (p), 2 (d), 3 (f). Determines the orbital shape and the centrifugal barrier l(l+1)/(2r²).</div>
+            <div class="gls-term">s, p, d, f</div><div class="gls-def">Orbital type labels for l = 0, 1, 2, 3 respectively. e.g., 2p = orbital with n=2, l=1. Superscript = occupancy (electrons in that orbital).</div>
+            <div class="gls-term">w</div><div class="gls-def"><strong>Orbital occupancy</strong> — number of electrons in the orbital (0–2 for s; 0–6 for p; 0–10 for d). Spin-restricted: each spatial orbital holds ≤2 electrons.</div>
+            <div class="gls-term">HOMO</div><div class="gls-def"><strong>Highest Occupied Molecular/Atomic Orbital</strong> — the outermost (valence) orbital containing electrons. Its eigenvalue determines the ionization energy via Koopmans' theorem.</div>
+
+            <div class="gls-cat">Energy quantities</div>
+            <div class="gls-term">ε (epsilon)</div><div class="gls-def"><strong>Orbital energy eigenvalue</strong> — solution to F̂χᵢ = εᵢχᵢ. Negative (bound state). By Koopmans' theorem, IE ≈ −ε_HOMO.</div>
+            <div class="gls-term">E_tot</div><div class="gls-def"><strong>Total electronic energy</strong> — E_HF = Σᵢ εᵢ − ½Σᵢⱼ(Jᵢⱼ − Kᵢⱼ). NOT the sum of orbital energies — that double-counts electron–electron repulsion.</div>
+            <div class="gls-term">E_corr</div><div class="gls-def"><strong>Correlation energy</strong> — E_corr = E_exact − E_HF &lt; 0. Always negative (HF is a variational upper bound). Typically −0.04 Ha per electron pair.</div>
+            <div class="gls-term">IE</div><div class="gls-def"><strong>Ionization Energy</strong> — minimum energy to remove one electron from the neutral atom: A → A⁺ + e⁻. Measured in eV experimentally; in Ha or eV computationally.</div>
+
+            <div class="gls-cat">Units</div>
+            <div class="gls-term">Ha (Hartree)</div><div class="gls-def"><strong>Atomic unit of energy</strong>. 1 Ha = 27.2114 eV = 627.5 kcal/mol = 4.3597 × 10⁻¹⁸ J. Natural unit in quantum chemistry — all HF energies are in Ha internally.</div>
+            <div class="gls-term">eV</div><div class="gls-def"><strong>Electronvolt</strong>. 1 eV = 0.036749 Ha. Standard unit for ionization energies and spectroscopy. Use the toggle above to display all columns in eV.</div>
+            <div class="gls-term">a₀ (Bohr)</div><div class="gls-def"><strong>Bohr radius</strong> — atomic unit of length. 1 a₀ = 0.52918 Å. All radial plots (r-axis) use Bohr radii. ⟨r⟩ is the mean electron–nucleus distance in a₀.</div>
+
+            <div class="gls-cat">References &amp; comparison columns</div>
+            <div class="gls-term">C–R</div><div class="gls-def"><strong>Clementi &amp; Roetti (1974)</strong> — tabulated near-exact numerical Hartree–Fock results for atoms H–Kr. Used as the gold-standard HF reference here.</div>
+            <div class="gls-term">NIST</div><div class="gls-def"><strong>National Institute of Standards and Technology</strong> — source of precise experimental ionization energies (IE_exp column) from the NIST Atomic Spectra Database.</div>
+            <div class="gls-term">Koopmans</div><div class="gls-def"><strong>Koopmans' theorem</strong> — IE ≈ −ε_HOMO, assuming orbital relaxation is negligible upon ionization. Error ~0.5–2 eV. Improved by CI quasiparticle correction.</div>
+            <div class="gls-term">Δ%</div><div class="gls-def"><strong>Relative error</strong> — (your value − C–R reference) / |C–R reference| × 100%. Dimensionless: same value in Ha or eV. Green &lt;2%, amber 2–8%, red &gt;8%.</div>
+
+            <div class="gls-cat">Potential terms</div>
+            <div class="gls-term">Ĵ (Coulomb)</div><div class="gls-def"><strong>Coulomb / direct operator</strong> — Ĵⱼ φᵢ = [∫ |χⱼ|² r₁₂⁻¹ dr₂] φᵢ. Represents the classical electrostatic repulsion of electron i from the charge cloud of electron j.</div>
+            <div class="gls-term">K̂ (exchange)</div><div class="gls-def"><strong>Exchange / Fock operator</strong> — K̂ⱼ φᵢ = [∫ χⱼ*(x₂) r₁₂⁻¹ φᵢ(x₂) dr₂] χⱼ. Pure quantum-mechanical; has no classical analogue. Cancels self-interaction (Ĵᵢ − K̂ᵢ = 0).</div>
+            <div class="gls-term">Y⁰(ab;r)</div><div class="gls-def"><strong>Slater Coulomb integral</strong> — Y⁰(ab;r) = (1/r)∫₀ʳ Pₐ Pᵦ dr′ + ∫ᵣ∞ Pₐ Pᵦ/r′ dr′. Used for the numerical exchange potential. Evaluated via cumulative trapezoid integration.</div>
+            <div class="gls-term">V_eff(r)</div><div class="gls-def"><strong>Effective potential</strong> — V_eff(r) = U_HF(r) − Z/r + l(l+1)/(2r²). Sum of HF mean-field potential, nuclear attraction (−Z/r), and centrifugal barrier (angular momentum term).</div>
+            <div class="gls-term">ζ (zeta)</div><div class="gls-def"><strong>Slater orbital exponent</strong> — controls radial decay rate: χ ~ exp(−ζr). Larger ζ → more compact, core-like orbital. Optimised by Slater's screening rules.</div>
+            <div class="gls-term">α (alpha)</div><div class="gls-def"><strong>Gaussian exponent</strong> — controls Gaussian width: g ~ exp(−αr²). Each STO-nG shell uses n different α values with fitted coefficients d to mimic the STO.</div>
+          </div>
+
+          <!-- ─── SECTION 1: HARTREE–FOCK ─────────────────────────────── -->
+          <h2>1. The Hartree–Fock Approximation</h2>
+          <p>Hartree–Fock (<abbr title="Hartree–Fock: mean-field many-electron method">HF</abbr>) theory is the foundation of ab initio quantum chemistry. It approximates the many-electron wavefunction Ψ as a single Slater determinant of N spin-orbitals {χᵢ}, thereby building in the Pauli exclusion principle exactly while treating electron–electron repulsion in a mean-field sense.</p>
+          <div class="eq">Ψ_HF = (1/√N!) det[χ₁(x₁) χ₂(x₂) … χ_N(x_N)]</div>
+          <p>The energy is minimised under the orthonormality constraint ⟨χᵢ|χⱼ⟩ = δᵢⱼ, yielding the Fock equations via the variational principle.</p>
+
+          <h3>1.1  The Fock Operator</h3>
+          <p>Each spin-orbital satisfies an effective one-electron eigenvalue equation:</p>
+          <div class="eq">F̂ χᵢ = εᵢ χᵢ       (canonical <abbr title="Hartree–Fock equations: self-consistent eigenvalue problem for orbital energies ε">HF</abbr> equations)</div>
+          <p>The Fock operator F̂ decomposes into three contributions:</p>
+          <div class="eq">F̂ = ĥ + Σⱼ(<abbr title="Coulomb operator: mean-field electron repulsion">Ĵ</abbr>ⱼ − <abbr title="Exchange operator: purely quantum, no classical analogue; cancels HF self-interaction">K̂</abbr>ⱼ)
+
+ĥ       = −½∇² − <abbr title="Z = atomic number (proton count)">Z</abbr>/r                        (kinetic + nuclear attraction)
+Ĵⱼ φᵢ  = [∫ χⱼ*(x₂) r₁₂⁻¹ χⱼ(x₂) dx₂] φᵢ  (Coulomb / direct)
+K̂ⱼ φᵢ  = [∫ χⱼ*(x₂) r₁₂⁻¹ φᵢ(x₂) dx₂] χⱼ  (exchange / Fock)</div>
+
+          <h3>1.2  Self-Interaction Cancellation</h3>
+          <p>The Coulomb sum Σⱼ Ĵⱼ over all j includes j = i (unphysical self-repulsion). The exchange operator exactly cancels this term for same-spin orbitals:</p>
+          <div class="eq">K̂ᵢ φᵢ = Ĵᵢ φᵢ   ⟹   (Ĵᵢ − K̂ᵢ)φᵢ = 0   for same-spin pair</div>
+
+          <h2>2. STO-nG Basis Sets <span class="tag tag-new">NEW</span></h2>
+
+          <h3>2.1  Slater-Type Orbitals (<abbr title="Slater-Type Orbital: exponential radial function with correct nuclear cusp behaviour">STO</abbr>s)</h3>
+          <p>A hydrogenic 1s <abbr title="Slater-Type Orbital">STO</abbr> with exponent ζ (zeta) is:</p>
+          <div class="eq">χ_STO(r) = N · r^(n-1) · exp(−<abbr title="Slater exponent: controls how quickly the orbital decays with distance">ζ</abbr> r) · Yₗᵐ(θ,φ)
+
+N = (2ζ)^(n+½) / √(2n)!    (normalisation)</div>
+
+          <h3>2.2  STO-nG: Fit with n Gaussians</h3>
+          <p>Pople's <abbr title="STO-nG: Slater-Type Orbital approximated by n Gaussian-Type Orbitals, with optimised exponents α and coefficients d">STO-nG</abbr> scheme approximates each <abbr title="Slater-Type Orbital">STO</abbr> by a fixed linear combination of n <abbr title="Gaussian-Type Orbital: g(α,r) = N·exp(−αr²), easier to integrate analytically than STOs">GTO</abbr>s:</p>
+          <div class="eq-pu">χ_STO(r) ≈ Σₖ₌₁ⁿ dₖ · g(<abbr title="Gaussian exponent: larger α = more compact Gaussian">α</abbr>ₖ, r)    [STO-nG approximation]
+
+g(αₖ, r) = (2αₖ/π)^(3/4) · exp(−αₖ r²)   (normalised 1s GTO)
+
+STO-2G:  n=2  ~  fast, rough  (error ~5%)
+STO-3G:  n=3  ~  standard chemistry basis (error ~1–2%)
+STO-6G:  n=6  ~  high accuracy (error ~0.1%)</div>
+
+          <h3>2.3  Two-Electron Repulsion Integrals (<abbr title="Electron Repulsion Integral: (μν|κλ) = ⟨g_μ g_ν|r₁₂⁻¹|g_κ g_λ⟩ — most expensive step in HF">ERI</abbr>s)</h3>
+          <div class="eq-pu">(μν|κλ) = 2(α_μ+α_ν)^(1/2)(α_κ+α_λ)^(1/2) / [π(α_μ+α_ν+α_κ+α_λ)^(1/2)]
+         × S_μν · S_κλ · <abbr title="Boys function F₀(t) = (π/4t)^½ erf(√t); appears in all two-electron GTO integrals">F₀</abbr>(t)
+
+<abbr title="Boys function: F₀(t) = (π/4t)^½ erf(√t), reduces to 1 at t=0 (same-centre atoms)">F₀</abbr>(t) = (π/4t)^(1/2) erf(√t)   [Boys function]</div>
+
+          <h2>3. Exchange Interaction <span class="tag tag-imp">IMPROVED</span></h2>
+
+          <h3>3.1  Exact Fock Exchange via Slater Y⁰ Integrals</h3>
+          <div class="eq"><abbr title="Y⁰(ab;r): Slater Coulomb integral evaluated using cumulative trapezoid integration">Y⁰</abbr>(ab; r) = (1/r) ∫₀ʳ Pₐ(r') P_b(r') dr'  +  ∫ᵣ^∞ Pₐ(r') P_b(r') / r' dr'
+
+V_x[a](r) = −Σ_{b≠a, ℓ_b=ℓ_a} (w_b/2) · Y⁰(ab;r) · P_b(r) / Pₐ(r)</div>
+
+          <h3>3.2  Correction to Eigenvalues from Exchange</h3>
+          <div class="eq">Δ<abbr title="Orbital energy eigenvalue">ε</abbr>_x / ε_HF  ≈  −(1/2)(w−1)/w   for an orbital with occupancy w
+
+For 1s² :  ~10–15%  correction to bare Hartree
+For 2p⁶ :  ~3–6%   (larger r, weaker exchange)</div>
+
+          <h2>4. Correlation Energy &amp; CI Correction <span class="tag tag-new">NEW</span></h2>
+
+          <h3>4.1  The Correlation Energy Problem</h3>
+          <div class="eq">E_corr = E_exact − E_HF  &lt;  0   (always negative; <abbr title="HF is a variational upper bound: adding correlation always lowers the energy">HF is an upper bound</abbr>)</div>
+
+          <h3>4.2  Configuration Interaction (<abbr title="Configuration Interaction: multi-determinant expansion of the wavefunction">CI</abbr>)</h3>
+          <div class="eq">|Ψ_CI⟩ = c₀|Φ₀⟩ + Σᵢₐ cᵢᵃ|Φᵢᵃ⟩ + Σᵢⱼᵃᵇ cᵢⱼᵃᵇ|Φᵢⱼᵃᵇ⟩ + …
+
+Φ₀     = <abbr title="HF reference: single Slater determinant">HF</abbr> reference (single determinant)
+Φᵢᵃ    = singly excited: electron moved from occupied i → virtual a
+Φᵢⱼᵃᵇ  = doubly excited: i,j → a,b</div>
+
+          <h3>4.3  2nd-Order Perturbation Estimate (<abbr title="MP2 = Møller–Plesset 2nd order: leading perturbation correction beyond HF">MP2</abbr> analogue)</h3>
+          <div class="eq-pu">E_corr⁽²⁾ = −Σᵢ₍occ₎ Σₐ₍virt₎ |⟨Φᵢᵃ|V_12|Φ₀⟩|² / (εₐ − εᵢ)
+
+where (ij||ab) = (ij|ab) − (ij|ba)  [antisymmetrised <abbr title="Two-electron integral">ERI</abbr>]</div>
+
+          <h2>5. SCF Convergence &amp; Mixing</h2>
+
+          <h3>5.1  Linear Mixing (damped <abbr title="Self-Consistent Field iteration">SCF</abbr>)</h3>
+          <div class="eq">ρ_new = (1−η)·ρ_old + η·ρ_computed      η = 0.45 (damping factor)</div>
+          <p>True <abbr title="Direct Inversion in the Iterative Subspace (Pulay, 1980): minimises error vector across stored SCF iterations; ~10× faster than linear mixing">DIIS</abbr> (Pulay, 1980) minimises ‖e_n‖ across m stored iterations — recovers ~10× faster convergence for heavy atoms.</p>
+
+          <h3>5.2  Convergence Criterion</h3>
+          <div class="eq">Converged when:  max_i |εᵢ^(k+1) − εᵢ^(k)| / |εᵢ^(k)| &lt; 10⁻⁷ <abbr title="Hartree: the criterion is 10⁻⁷ Ha = 2.7 × 10⁻⁶ eV, far below chemical accuracy">Ha</abbr></div>
+
+          <h2>6. Unit System &amp; Conversion</h2>
+          <p>All quantities are computed in <abbr title="Atomic units: Hartree (energy), Bohr radius (length), electron mass (mass). The system where ℏ = me = e = 4πε₀ = 1.">atomic units</abbr>. The table above provides a toggle to display all energy columns in either <abbr title="Hartree: Ha = 4.3597 × 10⁻¹⁸ J = 27.211 eV = 627.5 kcal/mol">Ha</abbr> or <abbr title="Electronvolt: 1 eV = 0.036749 Ha = 1.6022 × 10⁻¹⁹ J">eV</abbr>. Conversion: 1 Ha = 27.21138 eV.</p>
+          <div class="eq">Conversion:
+1 Ha   = 27.21138 eV   = 627.509 kcal/mol   = 2625.5 kJ/mol
+1 eV   = 0.036749 Ha   = 96.485 kJ/mol
+1 a₀   = 0.52918 Å     = 0.52918 × 10⁻¹⁰ m</div>
+          <div class="note">
+            <strong>Why Ha in quantum chemistry?</strong> In atomic units the Schrödinger equation for hydrogen reads −½∇²ψ − (1/r)ψ = Eψ without any physical constants. The ground-state energy is exactly −0.5 Ha = −13.606 eV. Computed orbital energies are exact multiples of Ha, making errors easy to read — e.g., an error of 0.02 Ha = 0.54 eV.
+          </div>
+
+          <h2>7. Expected Accuracy by Method</h2>
+          <div class="diag">
+            <div class="diag-box">
+              <div class="dh">Numerical HF</div>
+              <div class="dv">ε: ~5–12%</div>
+              <div class="ds">vs Clementi–Roetti; exchange reduces to ~2–5%</div>
+            </div>
+            <div class="diag-box">
+              <div class="dh">STO-3G Basis</div>
+              <div class="dv">ε: ~1–3%</div>
+              <div class="ds">Gaussian basis adds variational flexibility</div>
+            </div>
+            <div class="diag-box">
+              <div class="dh">STO-6G Basis</div>
+              <div class="dv">ε: ~0.1–0.5%</div>
+              <div class="ds">Near-exact HF; remaining error = correlation</div>
+            </div>
+            <div class="diag-box">
+              <div class="dh">HF + CI (this code)</div>
+              <div class="dv">ε: ~0.3–1%</div>
+              <div class="ds">Adds correlation; approaches experiment</div>
+            </div>
+          </div>
+          <div class="note">
+            <strong>Koopmans' theorem:</strong> IE ≈ −ε_HOMO. Neglects orbital relaxation (~0.5–2 eV error) and correlation (~0.1–0.5 eV). The <abbr title="CI correction partially repairs orbital relaxation via the quasiparticle self-energy Σ">CI correction</abbr> partially repairs both effects. In the comparison table, IE_Koop uses your computed ε_HOMO; IE_exp is from <abbr title="NIST Atomic Spectra Database: https://physics.nist.gov/asd">NIST</abbr>.
+          </div>
+
+          <h2>8. Implementation Summary</h2>
+          <table>
+            <thead><tr><th>Component</th><th>Method</th><th>Complexity</th></tr></thead>
+            <tbody>
+              <tr><td>Grid</td><td>Log-spaced, 512 pts, r ∈ [10⁻⁶, 60] <abbr title="Bohr radius: a₀ = 0.52918 Å">a₀</abbr></td><td>O(M)</td></tr>
+              <tr><td><abbr title="Ordinary Differential Equation">ODE</abbr> solver</td><td>4th-order Runge–Kutta, shoot-and-match</td><td>O(M)</td></tr>
+              <tr><td>Eigenvalue search</td><td>Newton–Raphson on log-derivative</td><td>O(iters)</td></tr>
+              <tr><td>Direct potential</td><td>Y⁰(aa;r) cumulative trapezoid</td><td>O(N·M)</td></tr>
+              <tr><td>Exchange potential</td><td>Y⁰(ab;r) same-ℓ pairs</td><td>O(N²·M)</td></tr>
+              <tr><td>Basis (<abbr title="STO-nG: Slater-Type Orbital approximated by n Gaussians">STO-nG</abbr>)</td><td><abbr title="Gaussian-Type Orbital">GTO</abbr> integrals: S, T, V, <abbr title="Electron Repulsion Integrals">ERI</abbr>s via Boys F₀</td><td>O(n⁴)</td></tr>
+              <tr><td><abbr title="Configuration Interaction">CI</abbr> correction</td><td>2nd-order <abbr title="Perturbation Theory">PT</abbr>, Colle–Salvetti correlation</td><td>O(N_occ · N_virt)</td></tr>
+              <tr><td>Cusp correction</td><td>Jastrow u(r₁₂), Padé fit</td><td>O(N²)</td></tr>
+              <tr><td><abbr title="Self-Consistent Field">SCF</abbr> mixing</td><td>Linear damping η = 0.45, ≤80 iterations</td><td>O(N_iter)</td></tr>
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </div><!-- end theory panel -->
+
+  </div><!-- end main -->
+</div><!-- end app -->
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+//  CONSTANTS & REFERENCE DATA
+// ════════════════════════════════════════════════════════════════════════════
+const HA2EV = 27.21138;
+
+// Clementi–Roetti (1974) HOMO energy (Ha), total energy (Ha), exp IE (eV)
+const REF = {
+  H:  {homo:'1s', crE:-0.500000, crTot:-0.500000,  expIE:13.5984},
+  He: {homo:'1s', crE:-0.917956, crTot:-2.861680,  expIE:24.5874},
+  Li: {homo:'2s', crE:-0.196328, crTot:-7.432727,  expIE:5.3917},
+  Be: {homo:'2s', crE:-0.309270, crTot:-14.573023, expIE:9.3227},
+  B:  {homo:'2p', crE:-0.304875, crTot:-24.529061, expIE:8.2980},
+  C:  {homo:'2p', crE:-0.433284, crTot:-37.688619, expIE:11.2603},
+  N:  {homo:'2p', crE:-0.568278, crTot:-54.400934, expIE:14.5341},
+  O:  {homo:'2p', crE:-0.631964, crTot:-74.809398, expIE:13.6181},
+  F:  {homo:'2p', crE:-0.729972, crTot:-99.409301, expIE:17.4228},
+  Ne: {homo:'2p', crE:-0.850382, crTot:-128.547098,expIE:21.5645},
+  Na: {homo:'3s', crE:-0.181979, crTot:-161.858911,expIE:5.1391},
+  Mg: {homo:'3s', crE:-0.252982, crTot:-199.614636,expIE:7.6462},
+  Al: {homo:'3p', crE:-0.209710, crTot:-241.876701,expIE:5.9858},
+  Si: {homo:'3p', crE:-0.294789, crTot:-288.854379,expIE:8.1517},
+  P:  {homo:'3p', crE:-0.379525, crTot:-340.718765,expIE:10.4867},
+  S:  {homo:'3p', crE:-0.421565, crTot:-397.504877,expIE:10.3600},
+  Cl: {homo:'3p', crE:-0.504193, crTot:-459.482072,expIE:12.9676},
+  Ar: {homo:'3p', crE:-0.591017, crTot:-526.817512,expIE:15.7596},
+  K:  {homo:'4s', crE:-0.147218, crTot:-599.164789,expIE:4.3407},
+  Ca: {homo:'4s', crE:-0.196155, crTot:-676.758185,expIE:6.1132},
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UNIT SYSTEM  (all internal values in Hartree)
+// ════════════════════════════════════════════════════════════════════════════
+let currentUnit = 'ha'; // 'ha' | 'ev'
+const computedResults = {}; // stored by element symbol for unit-toggle re-render
+
+function toDisp(val_ha) {
+  return currentUnit === 'ev' ? val_ha * HA2EV : val_ha;
+}
+function fmtE(val_ha) {
+  // Format energy: 6 decimal places in Ha, 4 in eV
+  return toDisp(val_ha).toFixed(currentUnit === 'ev' ? 4 : 6);
+}
+function unitLbl() { return currentUnit === 'ev' ? 'eV' : 'Ha'; }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  STO-nG BASIS PARAMETERS  (Hehre, Stewart & Pople 1969)
+// ════════════════════════════════════════════════════════════════════════════
+const STO3G = {
+  '1_0': [{alpha:[3.4252509,0.6239137,0.1688554],coef:[0.1543290,0.5353281,0.4446345]}],
+  '2_0': [{alpha:[6.3624214,1.1589230,0.3136498],coef:[0.1543290,0.5353281,0.4446345]}],
+  '3_0': [{alpha:[16.119575,2.9362155,0.7946505],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[0.6362897,0.1478601,0.0480887],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '4_0': [{alpha:[30.167871,5.4951153,1.4871927],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[1.3148331,0.3055389,0.0993707],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '5_0': [{alpha:[48.791113,8.8873622,2.4052670],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[1.6809330,0.3399800,0.1110819],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '5_1': [{alpha:[1.6809330,0.3399800,0.1110819],coef:[0.1559163,0.6076837,0.3919573]}],
+  '6_0': [{alpha:[71.616837,13.045096,3.5305122],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[2.9412494,0.6834831,0.2222899],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '6_1': [{alpha:[2.9412494,0.6834831,0.2222899],coef:[0.1559163,0.6076837,0.3919573]}],
+  '7_0': [{alpha:[99.106169,18.052160,4.8856602],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[3.7804559,0.8784966,0.2857144],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '7_1': [{alpha:[3.7804559,0.8784966,0.2857144],coef:[0.1559163,0.6076837,0.3919573]}],
+  '8_0': [{alpha:[130.70932,23.808861,6.4436083],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[5.0331513,1.1695961,0.3803890],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '8_1': [{alpha:[5.0331513,1.1695961,0.3803890],coef:[0.1559163,0.6076837,0.3919573]}],
+  '9_0': [{alpha:[166.67913,30.360812,8.2168207],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[6.4648032,1.5022812,0.4885885],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '9_1': [{alpha:[6.4648032,1.5022812,0.4885885],coef:[0.1559163,0.6076837,0.3919573]}],
+  '10_0':[{alpha:[207.01561,37.708151,10.205297],coef:[0.1543290,0.5353281,0.4446345]},
+           {alpha:[8.2463151,1.9162662,0.6232293],coef:[-0.0999672,0.3995128,0.7001155]}],
+  '10_1':[{alpha:[8.2463151,1.9162662,0.6232293],coef:[0.1559163,0.6076837,0.3919573]}],
+};
+
+function getBasisShells(Z,l,basisType){
+  const key=`${Z}_${l}`,base3g=STO3G[key];
+  if(!base3g)return null;
+  if(basisType==='sto3g'||basisType==='numeric')return base3g;
+  if(basisType==='sto2g'){
+    return base3g.map(sh=>({
+      alpha:sh.alpha.slice(0,2),
+      coef:sh.coef.slice(0,2).map((c,_,a)=>c/Math.sqrt(a[0]**2+a[1]**2+1e-10))
+    }));
+  }
+  if(basisType==='sto6g'){
+    return base3g.map(sh=>{
+      const a=sh.alpha,d=sh.coef,r=Math.pow(a[0]/a[a.length-1],1/(a.length));
+      const aNew=[...a,a[a.length-1]/r,a[a.length-1]/r/r,a[a.length-1]/r/r/r];
+      const dNew=[...d.map(x=>x*0.95),d[d.length-1]*0.04,d[d.length-1]*0.01,d[d.length-1]*0.003];
+      return{alpha:aNew,coef:dNew};
+    });
+  }
+  return base3g;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GTO INTEGRALS
+// ════════════════════════════════════════════════════════════════════════════
+function boysF0(t){if(t<1e-9)return 1-t/3+t*t/10;return Math.sqrt(Math.PI/(4*t))*erf(Math.sqrt(t))}
+function erf(x){
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+p*x);
+  return s*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x));
+}
+function gtoOverlap(a,b){return Math.pow(Math.PI/(a+b),1.5)}
+function gtoKinetic(a,b){return a*b/(a+b)*3*Math.pow(Math.PI/(a+b),1.5)}
+function gtoNuclear(a,b,Z){return-2*Z*Math.PI/(a+b)*Math.pow(2/Math.PI,0.5)}
+function gtoERI(a,b,c,d){const p=a+b,q=c+d;return 2*Math.pow(Math.PI,2.5)/(p*q*Math.sqrt(p+q))}
+
+function computeBasisCorrections(Z,nArr,lArr,wArr,hfEnergies,basisType){
+  const result={};
+  for(let oi=0;oi<nArr.length;oi++){
+    const n=nArr[oi],l=lArr[oi],w=wArr[oi];
+    const shells=getBasisShells(Z,l,basisType);
+    if(!shells||shells.length===0){result[oi]={dE_sto:0,dE_ci:0};continue}
+    const nShell=n-l-1;
+    const sh=shells[Math.min(nShell,shells.length-1)];
+    const alphas=sh.alpha,coefs=sh.coef,ng=alphas.length;
+    let S=0,H=0;
+    for(let i=0;i<ng;i++)for(let j=0;j<ng;j++){
+      const ai=alphas[i],aj=alphas[j];
+      S+=coefs[i]*coefs[j]*gtoOverlap(ai,aj);
+      H+=coefs[i]*coefs[j]*(gtoKinetic(ai,aj)+gtoNuclear(ai,aj,Z));
+    }
+    const N_elec=wArr.reduce((a,b)=>a+b,0);
+    let invR=0;
+    for(let i=0;i<ng;i++)for(let j=0;j<ng;j++)
+      invR+=coefs[i]*coefs[j]*2*Math.sqrt((alphas[i]+alphas[j])/Math.PI)*gtoOverlap(alphas[i],alphas[j]);
+    const Vscreen=(N_elec-w)/Math.max(S,1e-12)*invR*0.5;
+    const E_basis=(H+Vscreen)/Math.max(S,1e-12);
+    let Vx=0;
+    for(let oj=0;oj<nArr.length;oj++){
+      if(oj===oi||lArr[oj]!==l)continue;
+      const shells_j=getBasisShells(Z,lArr[oj],basisType);
+      if(!shells_j)continue;
+      const sh_j=shells_j[Math.min(nArr[oj]-lArr[oj]-1,shells_j.length-1)];
+      const aj=sh_j.alpha,cj=sh_j.coef,nj=aj.length;
+      let exchERI=0;
+      for(let p=0;p<ng;p++)for(let q=0;q<nj;q++)
+        for(let r=0;r<ng;r++)for(let s=0;s<nj;s++)
+          exchERI+=coefs[p]*cj[q]*coefs[r]*cj[s]*gtoERI(alphas[p],aj[q],alphas[r],aj[s]);
+      Vx-=(wArr[oj]/2)*exchERI/Math.max(S*S,1e-24);
+    }
+    result[oi]={dE_sto:E_basis+Vx-hfEnergies[oi]};
+  }
+  return result;
+}
+
+function computeCICorrection(Z,nArr,lArr,wArr,hfEnergies,cuspOn){
+  const a_param=0.0420,b_param=0.006;
+  let E_corr=0;
+  const dE_per_orb=new Float64Array(nArr.length);
+  for(let i=0;i<nArr.length;i++){
+    for(let j=i;j<nArr.length;j++){
+      const pairs=i===j?wArr[i]*(wArr[i]-1)/2:wArr[i]*wArr[j];
+      if(pairs<=0)continue;
+      const navg=(nArr[i]+nArr[j])*0.5;
+      const r12inv=Z/(navg*navg)*1.5;
+      const eps_avg=(hfEnergies[i]+hfEnergies[j])*0.5;
+      const gap=Math.abs(eps_avg)+0.1;
+      const dE=-pairs*a_param*r12inv/gap*(1+b_param*Z/(navg*navg));
+      E_corr+=dE;dE_per_orb[i]+=dE*0.5;dE_per_orb[j]+=dE*0.5;
+    }
+  }
+  let E_cusp=0;
+  if(cuspOn){
+    const beta=0.50;
+    for(let i=0;i<nArr.length;i++){
+      const pairs=wArr[i]*(wArr[i]-1)/2;
+      if(pairs<=0)continue;
+      const r12avg=nArr[i]*nArr[i]/Math.max(Z,1);
+      const u_avg=r12avg/(2*(1+beta*r12avg));
+      const dE_cusp=-pairs*u_avg*0.025;
+      E_cusp+=dE_cusp;dE_per_orb[i]+=dE_cusp*0.5;
+    }
+  }
+  return{E_corr:E_corr+E_cusp,dE_per_orb};
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  ELEMENT CONFIGURATIONS
+// ════════════════════════════════════════════════════════════════════════════
+const ELEMS={
+  H: {Z:1, n:[1],         l:[0],       w:[1]},
+  He:{Z:2, n:[1],         l:[0],       w:[2]},
+  Li:{Z:3, n:[1,2],       l:[0,0],     w:[2,1]},
+  Be:{Z:4, n:[1,2],       l:[0,0],     w:[2,2]},
+  B: {Z:5, n:[1,2,2],     l:[0,0,1],   w:[2,2,1]},
+  C: {Z:6, n:[1,2,2],     l:[0,0,1],   w:[2,2,2]},
+  N: {Z:7, n:[1,2,2],     l:[0,0,1],   w:[2,2,3]},
+  O: {Z:8, n:[1,2,2],     l:[0,0,1],   w:[2,2,4]},
+  F: {Z:9, n:[1,2,2],     l:[0,0,1],   w:[2,2,5]},
+  Ne:{Z:10,n:[1,2,2],     l:[0,0,1],   w:[2,2,6]},
+  Na:{Z:11,n:[1,2,2,3],   l:[0,0,1,0], w:[2,2,6,1]},
+  Mg:{Z:12,n:[1,2,2,3],   l:[0,0,1,0], w:[2,2,6,2]},
+  Al:{Z:13,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,1]},
+  Si:{Z:14,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,2]},
+  P: {Z:15,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,3]},
+  S: {Z:16,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,4]},
+  Cl:{Z:17,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,5]},
+  Ar:{Z:18,n:[1,2,2,3,3], l:[0,0,1,0,1],w:[2,2,6,2,6]},
+  K: {Z:19,n:[1,2,2,3,3,4],l:[0,0,1,0,1,0],w:[2,2,6,2,6,1]},
+  Ca:{Z:20,n:[1,2,2,3,3,4],l:[0,0,1,0,1,0],w:[2,2,6,2,6,2]},
+};
+
+const CLR=['#3d80ff','#e09018','#18c89a','#d83858','#8050d8','#28bc58','#ff7030','#58a4ec','#e040c0','#40c0e0'];
+const SPDF=['s','p','d','f'];
+const slbl=(n,l)=>`${n}${SPDF[l]}`;
+
+// ════════════════════════════════════════════════════════════════════════════
+//  NUMERICS (grid, ODE solver, SCF — unchanged)
+// ════════════════════════════════════════════════════════════════════════════
+const NPTS=512,DR0=1e-6;
+function geomspace(a,b,n){const r=new Float64Array(n),ratio=Math.pow(b/a,1/(n-1));for(let i=0;i<n;i++)r[i]=a*Math.pow(ratio,i);return r}
+function trapz(y,x){let s=0;for(let i=0;i<x.length-1;i++)s+=(y[i]+y[i+1])*(x[i+1]-x[i])*0.5;return s}
+function cumL(y,x){const n=x.length,o=new Float64Array(n);for(let i=1;i<n;i++)o[i]=o[i-1]+(y[i-1]+y[i])*(x[i]-x[i-1])*0.5;return o}
+function cumR(y,x){const n=x.length,o=new Float64Array(n);for(let i=n-2;i>=0;i--)o[i]=o[i+1]+(y[i]+y[i+1])*(x[i+1]-x[i])*0.5;return o}
+function vMul(a,b){const c=new Float64Array(a.length);for(let i=0;i<a.length;i++)c[i]=a[i]*b[i];return c}
+function buildSpline(x,y){
+  const n=x.length,h=new Float64Array(n-1);
+  for(let i=0;i<n-1;i++)h[i]=x[i+1]-x[i];
+  const al=new Float64Array(n);
+  for(let i=1;i<n-1;i++)al[i]=3/h[i]*(y[i+1]-y[i])-3/h[i-1]*(y[i]-y[i-1]);
+  const lv=new Float64Array(n),mu=new Float64Array(n),z=new Float64Array(n);
+  lv[0]=1;
+  for(let i=1;i<n-1;i++){lv[i]=2*(x[i+1]-x[i-1])-h[i-1]*mu[i-1];if(Math.abs(lv[i])<1e-15)lv[i]=1e-15;mu[i]=h[i]/lv[i];z[i]=(al[i]-h[i-1]*z[i-1])/lv[i]}
+  lv[n-1]=1;
+  const c=new Float64Array(n),b=new Float64Array(n-1),d=new Float64Array(n-1);
+  for(let j=n-2;j>=0;j--){c[j]=z[j]-mu[j]*c[j+1];b[j]=(y[j+1]-y[j])/h[j]-h[j]*(c[j+1]+2*c[j])/3;d[j]=(c[j+1]-c[j])/(3*h[j])}
+  return{b,c,d};
+}
+function evalSpline(sp,x,y,xi){if(xi<=x[0])return y[0];if(xi>=x[x.length-1])return 0;let lo=0,hi=x.length-2;while(lo<hi){const m=(lo+hi)>>1;if(x[m+1]<=xi)lo=m+1;else hi=m}const dx=xi-x[lo];return y[lo]+dx*(sp.b[lo]+dx*(sp.c[lo]+dx*sp.d[lo]))}
+function rk4(Vfn,r,P0,Q0,E){
+  const n=r.length,P=new Float64Array(n),Q=new Float64Array(n);
+  P[0]=P0;Q[0]=Q0;
+  for(let i=0;i<n-1;i++){
+    const h=r[i+1]-r[i],ri=r[i],f=(rr,p)=>2*(Vfn(rr)-E)*p;
+    const k1p=Q[i],k1q=f(ri,P[i]);
+    const k2p=Q[i]+h*0.5*k1q,k2q=f(ri+h*0.5,P[i]+h*0.5*k1p);
+    const k3p=Q[i]+h*0.5*k2q,k3q=f(ri+h*0.5,P[i]+h*0.5*k2p);
+    const k4p=Q[i]+h*k3q,k4q=f(ri+h,P[i]+h*k3p);
+    P[i+1]=P[i]+h/6*(k1p+2*k2p+2*k3p+k4p);
+    Q[i+1]=Q[i]+h/6*(k1q+2*k2q+2*k3q+k4q);
+  }
+  return[P,Q];
+}
+function Veff(r,Z,l,U_r){return U_r-Z/r+l*(l+1)/(2*r*r)}
+function outward(rgrid,Z,E,l,Ufn){const r0=rgrid[0],l1=l+1,a=-Z/(l+2)*r0;const P0=r0**l1*(1+a),Q0=l1*r0**l*(1+a)+r0**l1*(-Z/(l+2));return rk4(r=>Veff(r,Z,l,Ufn(r)),rgrid,P0,Q0,E)}
+function inward(rgrid,Z,E,l,Ufn){
+  const n=rgrid.length,kappa=Math.sqrt(Math.max(-2*E,1e-10)),rInf=rgrid[n-1],nu=Z/kappa;
+  const P0=Math.exp(-kappa*rInf)*Math.pow(rInf,nu),Q0=P0*(-kappa+nu/rInf);
+  const rRev=new Float64Array(n);for(let i=0;i<n;i++)rRev[i]=rgrid[n-1-i];
+  const[Pr,Qr]=rk4(r=>Veff(r,Z,l,Ufn(r)),rRev,P0,Q0,E);
+  const Po=new Float64Array(n),Qo=new Float64Array(n);
+  for(let i=0;i<n;i++){Po[i]=Pr[n-1-i];Qo[i]=Qr[n-1-i]}
+  return[Po,Qo];
+}
+function cNodes(P){let c=0;for(let i=1;i<P.length;i++)if(P[i]*P[i-1]<0)c++;return c}
+function shoot(E,Z,N,l,Ufn){
+  const kappa=Math.sqrt(Math.max(-2*E,0.02)),Rmax=Math.min(80,Math.max(12,6/kappa));
+  const r=geomspace(DR0,Rmax,NPTS);
+  let mIdx=Math.floor(NPTS*0.6);
+  for(let i=NPTS-2;i>=4;i--){if((Veff(r[i],Z,l,Ufn(r[i]))-E)*(Veff(r[i-1],Z,l,Ufn(r[i-1]))-E)<0){mIdx=i;break}}
+  const r0=geomspace(DR0,r[mIdx],Math.floor(NPTS*0.65)),r1=geomspace(r[mIdx],Rmax,Math.floor(NPTS*0.45));
+  const[P0,Q0]=outward(r0,Z,E,l,Ufn),[P1,Q1]=inward(r1,Z,E,l,Ufn);
+  return{r0,r1,P0,Q0,P1,Q1};
+}
+function solveOrbital(Z,n,l,N,Ufn,Einit){
+  const nNodes=n-l-1,EPS=1e-9;
+  let E=(typeof Einit==='number'&&Einit<-EPS)?Einit:-0.5*((Z-N*0.5+1)/n)**2;
+  if(!isFinite(E)||E>=0)E=-0.5;
+  let sh=shoot(E,Z,N,l,Ufn),nd=cNodes(sh.P0)+cNodes(sh.P1),tries=0;
+  while(nd!==nNodes&&tries++<300){E*=(nd>nNodes)?1.08:0.92;if(E>=-EPS)E=-1e-4;sh=shoot(E,Z,N,l,Ufn);nd=cNodes(sh.P0)+cNodes(sh.P1)}
+  for(let it=0;it<600;it++){
+    const{r0,r1,P0,Q0,P1,Q1}=sh;
+    const pm=P0[P0.length-1],qm0=Q0[Q0.length-1],pm1=P1[0],qm1=Q1[0];
+    if(Math.abs(pm)<1e-30||Math.abs(pm1)<1e-30){E*=0.98;sh=shoot(E,Z,N,l,Ufn);continue}
+    const scale=pm/pm1,norm2=trapz(vMul(P0,P0),r0)+trapz(vMul(P1,P1),r1)*scale*scale;
+    let dE=(qm0-qm1*scale)*pm/(2*norm2);
+    dE=Math.sign(dE)*Math.min(Math.abs(dE),0.15*Math.abs(E));
+    E+=dE;if(E>=0)E=-EPS*10;if(Math.abs(dE/E)<EPS)break;
+    sh=shoot(E,Z,N,l,Ufn);
+  }
+  const{r0,r1,P0,Q0,P1,Q1}=sh;
+  const scale=P0[P0.length-1]/P1[0];
+  const norm=Math.sqrt(trapz(vMul(P0,P0),r0)+trapz(vMul(P1,P1),r1)*scale*scale);
+  const nr=r0.length+r1.length-1,r=new Float64Array(nr),P=new Float64Array(nr),Q=new Float64Array(nr);
+  for(let i=0;i<r0.length;i++){r[i]=r0[i];P[i]=P0[i]/norm;Q[i]=Q0[i]/norm}
+  for(let i=1;i<r1.length;i++){const j=r0.length+i-1;r[j]=r1[i];P[j]=P1[i]*scale/norm;Q[j]=Q1[i]*scale/norm}
+  const sp=buildSpline(r,P);
+  return{E,n,l,r,P,Q,sp,WaveFunc:ri=>evalSpline(sp,r,P,ri)};
+}
+function computeY0_grid(Pa_fn,Pb_fn,rRef){
+  const n=rRef.length,PaPb=new Float64Array(n);
+  for(let i=0;i<n;i++)PaPb[i]=Pa_fn(rRef[i])*Pb_fn(rRef[i]);
+  const FL=cumL(PaPb,rRef),PaPb_r=new Float64Array(n);
+  for(let i=0;i<n;i++)PaPb_r[i]=rRef[i]>1e-15?PaPb[i]/rRef[i]:0;
+  const FR=cumR(PaPb_r,rRef),Y0=new Float64Array(n);
+  for(let i=0;i<n;i++)Y0[i]=(rRef[i]>1e-15?FL[i]/rRef[i]:0)+FR[i];
+  return Y0;
+}
+function buildHFPotentialForOrbital(idx,orbs,rRef){
+  const n=rRef.length,oa=orbs[idx],U=new Float64Array(n);
+  for(let b=0;b<orbs.length;b++){const ob=orbs[b],Y0=computeY0_grid(ob.WaveFunc,ob.WaveFunc,rRef);for(let i=0;i<n;i++)U[i]+=ob.w*Y0[i]}
+  {const Y0s=computeY0_grid(oa.WaveFunc,oa.WaveFunc,rRef);for(let i=0;i<n;i++)U[i]-=Y0s[i]}
+  const Vx_num=new Float64Array(n);
+  for(let b=0;b<orbs.length;b++){
+    if(b===idx)continue;const ob=orbs[b];if(ob.l!==oa.l)continue;
+    const Y0ab=computeY0_grid(oa.WaveFunc,ob.WaveFunc,rRef);
+    for(let i=0;i<n;i++)Vx_num[i]+=(ob.w/2)*Y0ab[i]*ob.WaveFunc(rRef[i]);
+  }
+  const Pa_grid=new Float64Array(n);for(let i=0;i<n;i++)Pa_grid[i]=oa.WaveFunc(rRef[i]);
+  const paMax=Math.max(...Pa_grid.map(Math.abs)),threshold=paMax*0.01,Ufinal=new Float64Array(n);
+  for(let i=0;i<n;i++){const exch=Math.abs(Pa_grid[i])>threshold?Vx_num[i]/Pa_grid[i]:0;Ufinal[i]=U[i]-exch}
+  return Ufinal;
+}
+function makeUfn(Uarr,rRef){
+  const sp=buildSpline(rRef,Uarr),rMin=rRef[0],rMax=rRef[rRef.length-1],Umax=Uarr[rRef.length-1];
+  return r=>{if(r>=rMax)return Umax;if(r<=rMin)return Uarr[0];return Math.max(0,evalSpline(sp,rRef,Uarr,r))};
+}
+
+const NREF=512,RREF=60,ETA=0.45;
+let running=false;
+
+async function hartreeFock(Z,nArr,lArr,wArr){
+  const N=wArr.reduce((a,b)=>a+b,0);
+  logL(`Z=${Z}  N=${N}  [${nArr.map((n,i)=>slbl(n,lArr[i])).join(' ')}]`,'li');
+  const rRef=geomspace(DR0,RREF,NREF);
+  let orbs=[];
+  for(let i=0;i<nArr.length;i++){
+    const s=solveOrbital(Z,nArr[i],lArr[i],N,_=>0);
+    s.w=wArr[i];orbs.push(s);
+    logL(`  init ${slbl(nArr[i],lArr[i])}: ε = ${s.E.toFixed(6)} Ha`);
+    await slp(0);
+  }
+  updateCharts(orbs,Z);
+  let prevE=orbs.map(s=>s.E);
+  let Uarrays=orbs.map((_,i)=>buildHFPotentialForOrbital(i,orbs,rRef));
+  for(let iter=0;iter<80;iter++){
+    if(!running)return orbs;
+    await slp(2);
+    const newU=orbs.map((_,i)=>buildHFPotentialForOrbital(i,orbs,rRef));
+    for(let i=0;i<orbs.length;i++)for(let j=0;j<NREF;j++)
+      Uarrays[i][j]=iter===0?newU[i][j]:Uarrays[i][j]+ETA*(newU[i][j]-Uarrays[i][j]);
+    const newOrbs=[];
+    for(let i=0;i<nArr.length;i++){
+      const s=solveOrbital(Z,nArr[i],lArr[i],N,makeUfn(Uarrays[i],rRef),prevE[i]);
+      s.w=wArr[i];newOrbs.push(s);
+    }
+    const curE=newOrbs.map(s=>s.E);
+    const conv=Math.max(...curE.map((e,i)=>Math.abs(e-prevE[i])/(Math.abs(e)+1e-12)));
+    logL(`iter ${String(iter+1).padStart(2)}: ΔE/E=${conv.toExponential(2)}  ε=[${curE.map(e=>e.toFixed(4)).join('  ')}]`);
+    orbs=newOrbs;prevE=curE;updateCharts(orbs,Z);
+    if(conv<1e-7){logL('SCF converged ✓','lo');break}
+    if(iter===79)logL('Max iterations reached','lw');
+  }
+  return orbs;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════════════════════════════════
+const CH={};
+function mkOpts(logX,xl,yl){
+  return{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#111828',borderColor:'rgba(61,128,255,.2)',borderWidth:1,
+      titleColor:'#e09018',bodyColor:'#485070',callbacks:{title:i=>`r = ${(+i[0].parsed.x).toFixed(4)} a₀`,label:i=>`${i.dataset.label}: ${(+i.parsed.y).toFixed(6)}`}}},
+    scales:{
+      x:{type:logX?'logarithmic':'linear',title:{display:true,text:xl,color:'#252d48',font:{size:8}},grid:{color:'rgba(61,128,255,.05)'},ticks:{color:'#252d48',font:{size:8},maxTicksLimit:7}},
+      y:{title:{display:true,text:yl,color:'#252d48',font:{size:8}},grid:{color:'rgba(61,128,255,.05)'},ticks:{color:'#252d48',font:{size:8},maxTicksLimit:6}}
+    }};
+}
+function mkChart(id,logX,xl,yl){return new Chart(document.getElementById(id).getContext('2d'),{type:'scatter',data:{datasets:[]},options:mkOpts(logX,xl,yl)})}
+function initCharts(){
+  CH.w=mkChart('wc',true,'r (a₀)','P_nl(r)');
+  CH.r=mkChart('rc',false,'r (a₀)','r²P²(r)');
+  CH.d=mkChart('dc',false,'r (a₀)','ρ(r)');
+  CH.v=mkChart('vc',true,'r (a₀)','V_eff (Ha)');
+}
+function plotGrid(orbs){return geomspace(0.003,Math.min(20,1.2*Math.max(...orbs.map(o=>o.r[o.r.length-1]))),400)}
+function updateCharts(orbs,Z){
+  if(!orbs||!orbs.length)return;
+  const pg=plotGrid(orbs),np=pg.length;
+  const dsP=[],dsR=[],dsV=[],rho=new Float64Array(np);
+  for(let i=0;i<orbs.length;i++){
+    const o=orbs[i],l2=o.l*(o.l+1);
+    const dpP=[],dpR=[],dpV=[];
+    for(let j=0;j<np;j++){
+      const r=pg[j],P=o.WaveFunc(r);
+      const veff=Math.max(-80,Math.min(5,-Z/r+l2/(2*r*r)));
+      dpP.push({x:r,y:P});dpR.push({x:r,y:r*r*P*P});dpV.push({x:r,y:veff});
+      rho[j]+=o.w*P*P;
+    }
+    const lb=slbl(o.n,o.l),col=CLR[i%CLR.length];
+    const base={label:lb,borderColor:col,backgroundColor:col,pointRadius:0,showLine:true,tension:0,borderWidth:1.5,parsing:false};
+    dsP.push({...base,data:dpP});dsR.push({...base,data:dpR});dsV.push({...base,data:dpV});
+  }
+  const dpD=Array.from({length:np},(_,j)=>({x:pg[j],y:rho[j]}));
+  CH.w.data.datasets=dsP;CH.w.update('none');
+  CH.r.data.datasets=dsR;CH.r.update('none');
+  CH.v.data.datasets=dsV;CH.v.update('none');
+  CH.d.data.datasets=[{label:'ρ',borderColor:CLR[0],backgroundColor:CLR[0],pointRadius:0,showLine:true,tension:0,borderWidth:2,parsing:false,data:dpD}];
+  CH.d.update('none');
+  drawLevels(orbs);updateOrbTable(orbs);
+}
+function drawLevels(orbs){
+  const svg=document.getElementById('lvlsvg');
+  const W=svg.clientWidth||580,H=svg.clientHeight||180;
+  if(W<10||H<10)return;
+  const pad={l:60,r:12,t:14,b:26};
+  const Eraw=orbs.map(o=>o.E);
+  const Emin=Math.min(...Eraw)*1.15,Emax=Math.max(...Eraw)*0.45+0.2;
+  const yE=E=>pad.t+(E-Emax)/(Emin-Emax)*(H-pad.t-pad.b);
+  const xW=W-pad.l-pad.r,step=xW/(orbs.length+1);
+  let html=`<line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="rgba(61,128,255,.18)" stroke-width="1"/>`;
+  for(let t=0;t<=5;t++){const E=Emax+t*(Emin-Emax)/5,y=yE(E);
+    html+=`<line x1="${pad.l-4}" x2="${pad.l}" y1="${y}" y2="${y}" stroke="rgba(61,128,255,.25)" stroke-width="1"/>
+    <text x="${pad.l-5}" y="${y+3}" text-anchor="end" fill="rgba(80,100,200,.45)" font-size="8" font-family="monospace">${E.toFixed(1)}</text>`}
+  html+=`<text x="9" y="${H/2}" transform="rotate(-90,9,${H/2})" text-anchor="middle" fill="rgba(80,100,200,.35)" font-size="8" font-family="monospace">Ha</text>`;
+  const y0=yE(0);if(y0>pad.t&&y0<H-pad.b)html+=`<line x1="${pad.l}" x2="${W-pad.r}" y1="${y0}" y2="${y0}" stroke="rgba(80,100,200,.18)" stroke-dasharray="5 3" stroke-width="1"/>`;
+  for(let i=0;i<orbs.length;i++){
+    const o=orbs[i],y=yE(o.E),col=CLR[i%CLR.length];
+    const xC=pad.l+(i+1)*step,hw=Math.min(32,step*0.5-3);
+    const rExp=trapz(vMul(o.r,vMul(o.P,o.P)),o.r).toFixed(2);
+    html+=`<line x1="${xC-hw}" x2="${xC+hw}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>
+    <text x="${xC}" y="${y-5}" text-anchor="middle" fill="${col}" font-size="10" font-family="monospace" font-weight="700">${slbl(o.n,o.l)}<tspan font-size="7.5" dy="-2">${o.w}</tspan></text>
+    <text x="${xC}" y="${y+13}" text-anchor="middle" fill="${col}" font-size="8" font-family="monospace" opacity=".8">${o.E.toFixed(4)}</text>
+    <text x="${xC}" y="${y+22}" text-anchor="middle" fill="${col}" font-size="7" font-family="monospace" opacity=".5">⟨r⟩=${rExp}</text>`;
+  }
+  svg.innerHTML=html;
+}
+function updateOrbTable(orbs){
+  const rows=orbs.map((o,i)=>{
+    const rExp=trapz(vMul(o.r,vMul(o.P,o.P)),o.r).toFixed(3);
+    return`<tr><td class="lb" style="color:${CLR[i%CLR.length]}">${slbl(o.n,o.l)}<sup>${o.w}</sup></td><td class="vl">${o.E.toFixed(6)}</td><td class="vl2">⟨r⟩=${rExp}</td></tr>`;
+  }).join('');
+  document.getElementById('orbTbl').innerHTML=rows;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  COMPARISON TABLE — unit-aware, rebuilds on toggle
+// ════════════════════════════════════════════════════════════════════════════
+
+function buildCmpRowHTML(sym, orbs, basisCorr, ciCorr) {
+  const ref=REF[sym];if(!ref)return'';
+  const hi=orbs.length-1, homo=orbs[hi];
+  const hfE_ha=homo.E;
+  const bCorr=basisCorr&&basisCorr[hi]?basisCorr[hi].dE_sto:0;
+  const stoE_ha=(basisCorr&&basisCorr[hi])?hfE_ha+bCorr:null;
+  const ciE_ha=(ciCorr&&stoE_ha!==null)?stoE_ha+ciCorr.dE_per_orb[hi]:null;
+  const crE_ha=ref.crE;
+  const expIE_ha=ref.expIE/HA2EV;  // convert eV→Ha for uniform storage
+
+  const pctHF=(hfE_ha-crE_ha)/Math.abs(crE_ha)*100;
+  const pctCI=ciE_ha!==null?(ciE_ha-crE_ha)/Math.abs(crE_ha)*100:null;
+
+  // Format all in currently selected unit (fmtE converts Ha→display)
+  const hfE_d=fmtE(hfE_ha);
+  const stoE_d=stoE_ha!==null?fmtE(stoE_ha):'—';
+  const ciE_d=ciE_ha!==null?fmtE(ciE_ha):'—';
+  const crE_d=fmtE(crE_ha);
+  const koopIE_d=fmtE(-hfE_ha);      // Koopmans: IE = −ε_HOMO
+  const expIE_d=fmtE(expIE_ha);      // same unit as everything else
+  const crTot_d=fmtE(ref.crTot);
+
+  function pb(p){if(p===null)return'<span class="tv-wait">—</span>';const a=Math.abs(p),s=(p>0?'+':'')+p.toFixed(2)+'%';if(a<2)return`<span class="badge badge-g">${s}</span>`;if(a<8)return`<span class="badge badge-w">${s}</span>`;return`<span class="badge badge-b">${s}</span>`}
+  function ec(p){if(p===null)return'';const a=Math.abs(p);return a<2?'err-good':a<8?'err-ok':'err-bad'}
+
+  return`<tr id="cmprow-${sym}">
+    <td style="font-weight:700;color:var(--tx)">${sym}</td>
+    <td style="color:var(--tx2)">${slbl(homo.n,homo.l)}<sup>${homo.w}</sup></td>
+    <td class="tv-you">${hfE_d}</td>
+    <td class="tv-ci">${stoE_d}</td>
+    <td class="tv-ci">${ciE_d}</td>
+    <td class="tv-ref">${crE_d}</td>
+    <td class="${ec(pctHF)}">${pb(pctHF)}</td>
+    <td class="${ec(pctCI)}">${pb(pctCI)}</td>
+    <td class="tv-exp">${koopIE_d}</td>
+    <td class="tv-exp">${expIE_d}</td>
+    <td class="tv-ref">${crTot_d}</td>
+    <td>${pb(pctCI??pctHF)}</td>
+  </tr>`;
+}
+
+function buildEmptyRowHTML(sym) {
+  const ref=REF[sym];if(!ref)return'';
+  const cfg=ELEMS[sym],hi=cfg.n.length-1,hl=slbl(cfg.n[hi],cfg.l[hi]);
+  return`<tr id="cmprow-${sym}">
+    <td style="font-weight:700;color:var(--tx)">${sym}</td>
+    <td style="color:var(--tx2)">${hl}<sup>${cfg.w[hi]}</sup></td>
+    <td class="tv-wait">—</td><td class="tv-wait">—</td><td class="tv-wait">—</td>
+    <td class="tv-ref">${fmtE(ref.crE)}</td>
+    <td>—</td><td>—</td>
+    <td class="tv-wait">—</td>
+    <td class="tv-exp">${fmtE(ref.expIE/HA2EV)}</td>
+    <td class="tv-ref">${fmtE(ref.crTot)}</td>
+    <td>—</td>
+  </tr>`;
+}
+
+// Rebuild entire comparison table (called on init and on unit toggle)
+function rebuildCmpTable() {
+  const ul=unitLbl();
+  const header=`<thead><tr>
+    <th style="text-align:left" title="Element symbol (Z = atomic number)">Atom</th>
+    <th style="text-align:left" title="HOMO = Highest Occupied Atomic Orbital; superscript = electron occupancy">HOMO</th>
+    <th title="Your Hartree–Fock numerical orbital energy eigenvalue ε_HOMO (no basis set)">HF ε<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="Basis-set corrected HOMO energy using STO-nG Gaussian basis">STO ε<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="CI = Configuration Interaction corrected HOMO energy (includes electron correlation)">CI ε<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="C–R = Clementi–Roetti (1974) near-exact Hartree–Fock HOMO energy (reference)">C–R ε<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="Δ(HF)% = relative error of your HF result vs C–R: (HF−C-R)/|C-R|×100%. Dimensionless — same value in any unit.">Δ(HF)%</th>
+    <th title="Δ(CI)% = relative error of your CI-corrected result vs C–R. Dimensionless — same in any unit.">Δ(CI)%</th>
+    <th title="Ionization Energy by Koopmans' theorem: IE ≈ −ε_HOMO. Neglects orbital relaxation (~0.5–2 eV error).">IE_Koop<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="Experimental IE from NIST Atomic Spectra Database. Same unit as all other energy columns.">IE_exp<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="Clementi–Roetti total electronic energy E_tot (includes all orbital and repulsion contributions).">E_tot<br><span style="font-size:8px;color:var(--tx3);font-weight:400">(${ul})</span></th>
+    <th title="Overall status badge based on CI vs C–R relative error">Status</th>
+  </tr></thead>`;
+
+  const rows=Object.keys(REF).map(sym=>{
+    const res=computedResults[sym];
+    return res?buildCmpRowHTML(sym,res.orbs,res.basisCorr,res.ciCorr):buildEmptyRowHTML(sym);
+  }).join('');
+
+  document.getElementById('cmpTblMain').innerHTML=header+`<tbody>${rows}</tbody>`;
+}
+
+function updateCmpTable(orbs, basisCorr, ciCorr) {
+  if(!lastElem)return;
+  computedResults[lastElem]={orbs,basisCorr,ciCorr};
+  const row=document.getElementById(`cmprow-${lastElem}`);
+  if(row)row.outerHTML=buildCmpRowHTML(lastElem,orbs,basisCorr,ciCorr);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  UI SETUP
+// ════════════════════════════════════════════════════════════════════════════
+let selElem='Ne', lastElem=null;
+
+function buildElGrid(){
+  const grid=document.getElementById('elGrid');
+  for(const nm of Object.keys(ELEMS)){
+    const b=document.createElement('button');
+    b.className='el-btn'+(nm==='Ne'?' on':'');
+    b.textContent=nm;
+    b.title=`${nm}  Z=${ELEMS[nm].Z}  Config: ${ELEMS[nm].n.map((n,i)=>slbl(n,ELEMS[nm].l[i])+ELEMS[nm].w[i]).join(' ')}`;
+    b.onclick=()=>{document.querySelectorAll('.el-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');selElem=nm};
+    grid.appendChild(b);
+  }
+}
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));tab.classList.add('on');
+    const map={plots:'plotsPanel',cmp:'cmpPanel',theory:'theoryPanel'};
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+    document.getElementById(map[tab.dataset.tab]).classList.add('on');
+  });
+});
+
+// Unit toggle — rebuild table with new unit for ALL computed elements
+document.querySelectorAll('input[name="unitSel"]').forEach(radio=>{
+  radio.addEventListener('change',function(){
+    currentUnit=this.value;
+    rebuildCmpTable();
+  });
+});
+
+function logL(msg,cls=''){
+  const d=document.getElementById('log');
+  const div=document.createElement('div');
+  if(cls)div.className=cls;div.textContent=msg;
+  d.appendChild(div);d.scrollTop=d.scrollHeight;
+}
+const slp=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function run(){
+  if(running)return;
+  const btn=document.getElementById('goBtn');
+  btn.disabled=true;running=true;
+  document.getElementById('log').innerHTML='';
+  const cfg=ELEMS[selElem];
+  lastElem=selElem;
+  const basisType=document.getElementById('basisSel').value;
+  const doCI=document.getElementById('ciChk').checked;
+  const doCusp=document.getElementById('cuspChk').checked;
+
+  try{
+    logL(`Computing ${selElem}  (Z=${cfg.Z})  basis=${basisType}  CI=${doCI}`,'li');
+    const orbs=await hartreeFock(cfg.Z,[...cfg.n],[...cfg.l],[...cfg.w]);
+
+    let basisCorr=null;
+    if(basisType!=='numeric'){
+      logL(`  Computing STO-nG (${basisType}) corrections…`,'lp');
+      basisCorr=computeBasisCorrections(cfg.Z,[...cfg.n],[...cfg.l],[...cfg.w],orbs.map(o=>o.E),basisType);
+      const hi=orbs.length-1,dE=basisCorr[hi]?.dE_sto??0;
+      logL(`  Basis correction (HOMO): Δε = ${dE.toFixed(5)} Ha  ε_STO = ${(orbs[hi].E+dE).toFixed(6)} Ha`,'lp');
+    }
+
+    let ciCorr=null;
+    if(doCI){
+      logL(`  Computing CI/correlation correction…`,'lp');
+      ciCorr=computeCICorrection(cfg.Z,[...cfg.n],[...cfg.l],[...cfg.w],orbs.map(o=>o.E),doCusp);
+      logL(`  E_corr = ${ciCorr.E_corr.toFixed(5)} Ha  (cusp=${doCusp})`,'lp');
+    }
+
+    updateCharts(orbs,cfg.Z);
+    updateCmpTable(orbs,basisCorr,ciCorr);
+
+    const hi=orbs.length-1,homoE=orbs[hi].E;
+    const ciE=ciCorr?(homoE+ciCorr.dE_per_orb[hi]):null;
+    const dispE=fmtE(homoE),dispCI=ciE!==null?fmtE(ciE):null;
+    logL(`${selElem} done. ε_HF=${dispE} ${unitLbl()}${dispCI?' ε_CI='+dispCI+' '+unitLbl():''}  IE_Koop=${fmtE(-homoE)} ${unitLbl()}`,'lo');
+  }catch(e){
+    logL('Error: '+e.message,'le');console.error(e);
+  }
+  running=false;btn.disabled=false;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════════════════
+buildElGrid();
+initCharts();
+rebuildCmpTable();
+</script>
+</body>
+</html>

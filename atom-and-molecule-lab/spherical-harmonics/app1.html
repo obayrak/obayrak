@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Spherical Harmonics · Interactive 3D Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  }
+};
+</script>
+
+<script
+id="MathJax-script"
+async
+src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#07080f;
+  --bg2:#0d0f1a;
+  --bg3:#121525;
+  --bg4:#181c2e;
+  --border:#1e2238;
+  --border2:#252a40;
+  --cyan:#00e5cc;
+  --cyan2:#00bfa5;
+  --amber:#f0a500;
+  --red:#ff4455;
+  --blue:#4488ff;
+  --muted:#4a5070;
+  --text:#c8cfec;
+  --text2:#6b75a0;
+  --text3:#8892b8;
+  --accent-glow:0 0 20px rgba(0,229,204,.18);
+  --font-head:'Syne',sans-serif;
+  --font-mono:'Space Mono',monospace;
+  --font-body:'IBM Plex Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.6;overflow:hidden}
+
+/* ── LAYOUT ─────────────────────────────────────── */
+#app{display:grid;grid-template-rows:58px 1fr;height:100vh;overflow:hidden}
+
+/* ── HEADER ─────────────────────────────────────── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;border-bottom:1px solid var(--border);
+  background:var(--bg2);position:relative;z-index:20;
+  flex-shrink:0;
+}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{
+  width:30px;height:30px;border:1.5px solid var(--cyan);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  position:relative;overflow:hidden;
+}
+.logo-mark::before{
+  content:'';position:absolute;inset:0;
+  background:conic-gradient(transparent 0deg,rgba(0,229,204,.18) 120deg,transparent 240deg);
+  animation:spin 8s linear infinite;
+}
+.logo-mark svg{position:relative;z-index:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo-text{font-family:var(--font-head);font-weight:800;font-size:15px;letter-spacing:.04em;color:#fff}
+.logo-sub{font-family:var(--font-mono);font-size:10px;color:var(--cyan2);letter-spacing:.1em;text-transform:uppercase}
+.hdr-tabs{display:flex;gap:2px}
+.hdr-tab{
+  padding:8px 20px;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted);background:transparent;
+  border:none;cursor:pointer;border-radius:4px;transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.hdr-tab::after{
+  content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:0;height:2px;background:var(--cyan);transition:width .25s;
+}
+.hdr-tab:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.hdr-tab.active{color:var(--cyan);background:rgba(0,229,204,.06)}
+.hdr-tab.active::after{width:60%}
+.hdr-badge{font-size:9px;background:rgba(0,229,204,.15);color:var(--cyan);padding:1px 6px;border-radius:10px;margin-left:6px;vertical-align:middle}
+
+/* ── MAIN CONTENT ──────────────────────────────── */
+#main{display:grid;grid-template-columns:340px 1fr;height:100%;overflow:hidden;min-height:0}
+
+/* ── SIDEBAR (controls) ─────────────────────────── */
+#sidebar{
+  border-right:1px solid var(--border);background:var(--bg2);
+  overflow-y:auto;overflow-x:hidden;padding:0;flex-shrink:0;
+  scrollbar-width:thin;scrollbar-color:var(--border2) transparent;
+}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.ctrl-section{padding:20px 22px;border-bottom:1px solid var(--border)}
+.ctrl-section-title{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px
+}
+.ctrl-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* sliders */
+.param{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.param-head{display:flex;justify-content:space-between;align-items:baseline}
+.param-label{font-family:var(--font-mono);font-size:12px;color:var(--text3)}
+.param-value{font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--cyan);line-height:1}
+.param-range{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:3px;
+  background:var(--border2);border-radius:3px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--cyan);border:2px solid var(--bg);cursor:pointer;
+  box-shadow:0 0 8px rgba(0,229,204,.5);transition:transform .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;border-radius:50%;background:var(--cyan);
+  border:2px solid var(--bg);cursor:pointer;
+}
+
+/* select */
+select{
+  width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:12px;
+  cursor:pointer;outline:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5070'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+}
+select:focus{border-color:var(--cyan)}
+
+/* preset buttons */
+.presets-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:4px}
+.preset-btn{
+  padding:8px 4px;text-align:center;background:var(--bg3);
+  border:1px solid var(--border2);border-radius:6px;
+  cursor:pointer;transition:all .15s;
+}
+.preset-btn:hover{border-color:var(--cyan);background:rgba(0,229,204,.06);color:#fff}
+.preset-btn.active-p{border-color:var(--cyan);background:rgba(0,229,204,.1);box-shadow:var(--accent-glow)}
+.pb-ql{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--cyan);display:block;line-height:1.3}
+.pb-name{font-size:10px;color:var(--text2);display:block;margin-top:2px}
+
+/* info box */
+.infobox{
+  background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--cyan);
+  border-radius:0 6px 6px 0;padding:12px 14px;margin-top:4px;
+}
+.infobox-title{font-family:var(--font-mono);font-size:11px;color:var(--cyan);margin-bottom:5px;letter-spacing:.05em}
+.infobox-text{font-size:12px;color:var(--text2);line-height:1.65}
+.nodes-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.node-stat{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:8px 10px;text-align:center}
+.node-stat-v{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--amber);line-height:1}
+.node-stat-l{font-size:10px;color:var(--text2);margin-top:3px}
+
+/* toggle-row */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.toggle-row label{font-size:12px;color:var(--text3)}
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-sl{
+  position:absolute;inset:0;border-radius:20px;cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border2);transition:.25s;
+}
+.toggle-sl::before{
+  content:'';position:absolute;height:14px;width:14px;border-radius:50%;
+  left:2px;top:2px;background:var(--muted);transition:.25s;
+}
+.toggle input:checked + .toggle-sl{background:rgba(0,229,204,.2);border-color:var(--cyan)}
+.toggle input:checked + .toggle-sl::before{transform:translateX(16px);background:var(--cyan)}
+
+/* ── 3D PANEL ───────────────────────────────────── */
+#panel3d{position:relative;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+#canvasWrap{flex:1;position:relative;overflow:hidden;cursor:grab}
+#canvasWrap:active{cursor:grabbing}
+#shCanvas{display:block;width:100%;height:100%}
+
+/* HUD */
+.hud{position:absolute;pointer-events:none}
+.hud-tl{top:18px;left:22px}
+.hud-tr{top:18px;right:22px;text-align:right}
+.hud-bl{bottom:18px;left:22px}
+.hud-br{bottom:18px;right:22px;text-align:right}
+.hud-ql{font-family:var(--font-mono);font-size:26px;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1}
+.hud-name{font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.hud-formula{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.35);margin-top:2px}
+.hud-hint{font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,.2);letter-spacing:.06em;line-height:2}
+.hud-legend{display:flex;flex-direction:column;gap:5px}
+.legend-item{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,.3)}
+.legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* crosshair grid lines */
+.hud-axes{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:16px}
+.ax{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em}
+.ax-x{color:var(--red)}
+.ax-y{color:var(--blue)}
+.ax-z{color:rgba(0,229,204,.6)}
+
+/* ── CONTENT PANELS ─────────────────────────────── */
+#content-panels{display:none;flex-direction:column;overflow-y:auto;flex:1;min-height:0;padding:36px;max-width:900px;margin:0 auto;width:100%}
+#content-panels.visible{display:flex}
+#content-panels::-webkit-scrollbar{width:4px}
+#content-panels::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.content-panel{display:none}
+.content-panel.active{display:block}
+
+/* typography */
+.sec-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+.sec-title{font-family:var(--font-head);font-weight:800;font-size:34px;color:#fff;line-height:1.1;margin-bottom:6px}
+.sec-subtitle{font-size:15px;color:var(--text2);line-height:1.7;margin-bottom:32px;max-width:660px}
+
+h3.block-head{font-family:var(--font-head);font-weight:700;font-size:18px;color:#fff;margin:28px 0 10px}
+p.body{font-size:14px;color:var(--text);line-height:1.8;margin-bottom:14px}
+.em{color:var(--cyan)}
+
+/* equation blocks */
+.eq-block{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
+  padding:20px 24px;margin:16px 0;position:relative;overflow:hidden;
+}
+.eq-block::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--cyan),transparent);
+}
+.eq-label{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.eq-formula{font-family:var(--font-mono);font-size:14px;color:#e8f0ff;line-height:2;white-space:pre-wrap}
+.eq-note{font-size:12px;color:var(--text2);margin-top:8px;line-height:1.7;font-style:italic}
+
+/* app cards */
+.app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:8px}
+.app-card{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
+  padding:20px;transition:border-color .2s;
+}
+.app-card:hover{border-color:var(--border);box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.app-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:18px}
+.app-card-title{font-family:var(--font-head);font-weight:700;font-size:15px;color:#fff;margin-bottom:6px}
+.app-card-body{font-size:12.5px;color:var(--text2);line-height:1.7}
+.chip{display:inline-block;padding:2px 9px;border-radius:20px;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.04em;margin-bottom:10px}
+
+/* manual table */
+.man-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+.man-table th{text-align:left;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border2)}
+.man-table td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.6}
+.man-table td:first-child{font-family:var(--font-mono);font-size:12px;color:var(--cyan);white-space:nowrap;width:140px}
+.man-table tr:last-child td{border-bottom:none}
+.man-table tr:hover td{background:rgba(255,255,255,.015)}
+.kbd{
+  display:inline-block;padding:2px 8px;background:var(--bg4);border:1px solid var(--border2);
+  border-radius:4px;font-family:var(--font-mono);font-size:11px;color:var(--text3);margin:0 2px;
+}
+
+/* scrollbar body */
+body::-webkit-scrollbar{display:none}
+
+/* loading */
+#loading{
+  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:14px;z-index:999;transition:opacity .4s;
+}
+#loading.gone{opacity:0;pointer-events:none}
+.spin-ring{
+  width:50px;height:50px;border:2px solid var(--border2);border-top-color:var(--cyan);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+#loading p{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin-ring"></div>
+  <p>Initializing renderer</p>
+</div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="7" r="5.5" stroke="#00e5cc" stroke-width="1"/>
+          <ellipse cx="7" cy="7" rx="2.5" ry="5.5" stroke="#00e5cc" stroke-width=".8"/>
+          <line x1="1.5" y1="7" x2="12.5" y2="7" stroke="#00e5cc" stroke-width=".8"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">Spherical Harmonics</div>
+        <div class="logo-sub">3D Interactive Simulator</div>
+      </div>
+    </div>
+    <nav class="hdr-tabs">
+      <button class="hdr-tab active" data-tab="sim">Simulation</button>
+      <button class="hdr-tab" data-tab="phy">Physics <span class="hdr-badge">∇²</span></button>
+      <button class="hdr-tab" data-tab="app">Applications</button>
+      <button class="hdr-tab" data-tab="man">Manual</button>
+    </nav>
+  </header>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+
+      <!-- Quantum numbers -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Quantum numbers</div>
+
+        <div class="param">
+          <div class="param-head">
+            <span class="param-label">ℓ — Azimuthal</span>
+            <span class="param-value" id="lv">2</span>
+          </div>
+          <input type="range" id="sl-l" min="0" max="6" value="2" step="1">
+          <div style="display:flex;justify-content:space-between"><span class="param-range">0 (s)</span><span class="param-range">6 (i)</span></div>
+        </div>
+
+        <div class="param">
+          <div class="param-head">
+            <span class="param-label">m — Magnetic</span>
+            <span class="param-value" id="mv">0</span>
+          </div>
+          <input type="range" id="sl-m" min="-2" max="2" value="0" step="1">
+          <div style="display:flex;justify-content:space-between"><span class="param-range" id="mr-lo">−ℓ</span><span class="param-range" id="mr-hi">+ℓ</span></div>
+        </div>
+      </div>
+
+      <!-- Orbital info -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Orbital analysis</div>
+        <div class="infobox">
+          <div class="infobox-title" id="orb-name">d orbital — d<sub>z²</sub></div>
+          <div class="infobox-text" id="orb-desc">Axially symmetric along z-axis with one nodal cone and one nodal plane</div>
+        </div>
+        <div class="nodes-row">
+          <div class="node-stat">
+            <div class="node-stat-v" id="n-mer">0</div>
+            <div class="node-stat-l">meridional<br>nodal planes</div>
+          </div>
+          <div class="node-stat">
+            <div class="node-stat-v" id="n-lat">2</div>
+            <div class="node-stat-l">latitudinal<br>nodal cones</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visualization -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Visualization</div>
+        <div class="param">
+          <div class="param-head"><span class="param-label">Display mode</span></div>
+          <select id="viz">
+            <option value="both" selected>Deformed + colored</option>
+            <option value="deform">Shape only (deformed)</option>
+            <option value="sphere">Color map (unit sphere)</option>
+          </select>
+        </div>
+        <div class="param" style="margin-top:10px">
+          <div class="param-head"><span class="param-label">Surface resolution</span><span class="param-value" id="resv" style="font-size:14px">64</span></div>
+          <input type="range" id="res" min="32" max="128" step="16" value="64">
+        </div>
+        <div class="param">
+          <div class="param-head"><span class="param-label">Amplitude scale</span><span class="param-value" id="ampv" style="font-size:14px">1.0×</span></div>
+          <input type="range" id="amp" min="0.3" max="3.0" step="0.1" value="1.0">
+        </div>
+      </div>
+
+      <!-- Motion -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Motion</div>
+        <div class="param">
+          <div class="param-head"><span class="param-label">Auto-rotate speed</span><span class="param-value" id="spinv" style="font-size:14px">0.8</span></div>
+          <input type="range" id="spin" min="0" max="4" step="0.1" value="0.8">
+        </div>
+        <div class="toggle-row">
+          <label>Axes visible</label>
+          <label class="toggle"><input type="checkbox" id="tog-axes" checked><span class="toggle-sl"></span></label>
+        </div>
+        <div class="toggle-row">
+          <label>Wireframe overlay</label>
+          <label class="toggle"><input type="checkbox" id="tog-wire"><span class="toggle-sl"></span></label>
+        </div>
+        <div class="toggle-row">
+          <label>Ambient light</label>
+          <label class="toggle"><input type="checkbox" id="tog-amb" checked><span class="toggle-sl"></span></label>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="ctrl-section">
+        <div class="ctrl-section-title">Orbital presets</div>
+        <div class="presets-grid" id="presets-grid">
+          <button class="preset-btn" data-l="0" data-m="0"><span class="pb-ql">s</span><span class="pb-name">ℓ=0</span></button>
+          <button class="preset-btn" data-l="1" data-m="0"><span class="pb-ql">p<sub>z</sub></span><span class="pb-name">ℓ=1,m=0</span></button>
+          <button class="preset-btn" data-l="1" data-m="1"><span class="pb-ql">p<sub>x</sub></span><span class="pb-name">ℓ=1,m=1</span></button>
+          <button class="preset-btn" data-l="2" data-m="0"><span class="pb-ql">d<sub>z²</sub></span><span class="pb-name">ℓ=2,m=0</span></button>
+          <button class="preset-btn" data-l="2" data-m="2"><span class="pb-ql">d<sub>xy</sub></span><span class="pb-name">ℓ=2,m=2</span></button>
+          <button class="preset-btn" data-l="2" data-m="1"><span class="pb-ql">d<sub>xz</sub></span><span class="pb-name">ℓ=2,m=1</span></button>
+          <button class="preset-btn" data-l="3" data-m="0"><span class="pb-ql">f<sub>z³</sub></span><span class="pb-name">ℓ=3,m=0</span></button>
+          <button class="preset-btn" data-l="3" data-m="2"><span class="pb-ql">f</span><span class="pb-name">ℓ=3,m=2</span></button>
+          <button class="preset-btn" data-l="3" data-m="3"><span class="pb-ql">f<sub>max</sub></span><span class="pb-name">ℓ=3,m=3</span></button>
+          <button class="preset-btn" data-l="4" data-m="0"><span class="pb-ql">g<sub>0</sub></span><span class="pb-name">ℓ=4,m=0</span></button>
+          <button class="preset-btn" data-l="4" data-m="4"><span class="pb-ql">g<sub>max</sub></span><span class="pb-name">ℓ=4,m=4</span></button>
+          <button class="preset-btn" data-l="5" data-m="5"><span class="pb-ql">h<sub>max</sub></span><span class="pb-name">ℓ=5,m=5</span></button>
+          <button class="preset-btn" data-l="6" data-m="0"><span class="pb-ql">i<sub>0</sub></span><span class="pb-name">ℓ=6,m=0</span></button>
+          <button class="preset-btn" data-l="6" data-m="6"><span class="pb-ql">i<sub>max</sub></span><span class="pb-name">ℓ=6,m=6</span></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT PANEL -->
+    <div id="panel3d">
+
+      <!-- 3D Canvas (simulation) -->
+      <div id="canvasWrap">
+        <canvas id="shCanvas"></canvas>
+
+        <div class="hud hud-tl">
+          <div class="hud-ql" id="hud-ql">Y₂⁰</div>
+          <div class="hud-name" id="hud-name">d orbital</div>
+          <div class="hud-formula" id="hud-formula">ℓ = 2,  m = 0  →  2ℓ+1 = 5 states</div>
+        </div>
+        <div class="hud hud-tr">
+          <div class="hud-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ff4422"></div>positive phase</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#4488ff"></div>negative phase</div>
+            <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,.2)"></div>nodal surface</div>
+          </div>
+        </div>
+        <div class="hud hud-bl">
+          <div class="hud-hint">DRAG  to rotate  ·  SCROLL  to zoom<br>SHIFT+DRAG  to pan</div>
+        </div>
+        <div class="hud hud-br">
+          <div class="hud-axes">
+            <span class="ax ax-x">x</span>
+            <span class="ax ax-y">y</span>
+            <span class="ax ax-z">z</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content panels (phy / app / man) -->
+      <div id="content-panels">
+
+        <!-- PHYSICS -->
+        <div id="panel-phy" class="content-panel">
+          <div class="sec-eyebrow">Quantum Mechanics &amp; Mathematical Physics</div>
+          <h1 class="sec-title">Spherical Harmonics</h1>
+          <p class="sec-subtitle">A complete orthonormal basis for functions on the 2-sphere S². They arise as the angular eigenfunctions of the Laplace–Beltrami operator and are central to any problem with spherical symmetry — from atomic structure to gravitational fields.</p>
+
+          <h3 class="block-head">Definition</h3>
+          <p class="body">The real-valued spherical harmonics Y<span class="em">ℓ</span><sup>m</sup>(θ,φ) are defined using the associated Legendre polynomials P<span class="em">ℓ</span><sup>|m|</sup> and a normalization constant N<span class="em">ℓm</span>:</p>
+          <div class="eq-block">
+            <div class="eq-label">Real-form definition</div>
+            <div class="eq-formula">        ⎧  N_ℓm · P_ℓ^|m|(cosθ) · cos(mφ)    m > 0
+Y_ℓ^m(θ,φ) = ⎨  N_ℓ0 · P_ℓ^0(cosθ)                  m = 0
+        ⎩  N_ℓm · P_ℓ^|m|(cosθ) · sin(|m|φ)  m < 0
+
+N_ℓm = √[ (2ℓ+1)/(4π) · (ℓ−|m|)! / (ℓ+|m|)! ]</div>
+            <div class="eq-note">where θ ∈ [0,π] is the polar (colatitude) angle and φ ∈ [0,2π) is the azimuthal angle.</div>
+          </div>
+
+          <h3 class="block-head">Angular Momentum Eigenstates</h3>
+          <p class="body">In quantum mechanics, the operators L̂² (total angular momentum squared) and L̂<sub>z</sub> (z-projection) simultaneously diagonalise on Y<span class="em">ℓ</span><sup>m</sup>:</p>
+          <div class="eq-block">
+            <div class="eq-label">Eigenvalue equations</div>
+            <div class="eq-formula">L̂² Y_ℓ^m(θ,φ) = ℏ² ℓ(ℓ+1) Y_ℓ^m(θ,φ)     [ℓ = 0, 1, 2, …]
+
+L̂_z Y_ℓ^m(θ,φ) = ℏ m  Y_ℓ^m(θ,φ)     [m = −ℓ, …, 0, …, +ℓ]</div>
+            <div class="eq-note">The 2ℓ+1 degeneracy in m reflects rotational symmetry about the z-axis. ℓ is the azimuthal quantum number; m is the magnetic quantum number.</div>
+          </div>
+
+          <h3 class="block-head">Orthonormality &amp; Completeness</h3>
+          <div class="eq-block">
+            <div class="eq-label">Orthonormality on S²</div>
+            <div class="eq-formula">∫₀²π ∫₀π  Y_ℓ^m(θ,φ) Y_ℓ'^m'(θ,φ) sinθ dθ dφ  =  δ_ℓℓ' δ_mm'</div>
+          </div>
+          <div class="eq-block">
+            <div class="eq-label">Completeness (spherical Fourier expansion)</div>
+            <div class="eq-formula">f(θ,φ) = Σ_{ℓ=0}^∞ Σ_{m=−ℓ}^{+ℓ} f̂_ℓm Y_ℓ^m(θ,φ)
+
+where  f̂_ℓm = ∫_{S²} f(Ω) Y_ℓ^m(Ω) dΩ</div>
+            <div class="eq-note">Any square-integrable function on the sphere has a unique expansion. This is the exact analogue of the Fourier series for periodic functions.</div>
+          </div>
+
+          <h3 class="block-head">Symmetry &amp; Parity</h3>
+          <div class="eq-block">
+            <div class="eq-label">Key symmetry relations</div>
+            <div class="eq-formula">Parity:        Y_ℓ^m(π−θ, φ+π) = (−1)^ℓ Y_ℓ^m(θ,φ)
+Conjugation:   [Y_ℓ^m]* = (−1)^m Y_ℓ^{−m}
+Addition thm:  Σ_m Y_ℓ^m(Ω₁)[Y_ℓ^m(Ω₂)]* = (2ℓ+1)/(4π) P_ℓ(cosγ)</div>
+          </div>
+
+          <h3 class="block-head">Associated Legendre Polynomials</h3>
+          <p class="body">The associated Legendre polynomials P<span class="em">ℓ</span><sup>m</sup>(x) are computed via stable upward recurrence:</p>
+          <div class="eq-block">
+            <div class="eq-label">Recurrence relation (numerically stable)</div>
+            <div class="eq-formula">Seed:    P_m^m(x) = (2m−1)!! · (1−x²)^{m/2}
+Step:    P_{m+1}^m(x) = x(2m+1) P_m^m(x)
+General: P_{ℓ+1}^m(x) = [(2ℓ+1)x P_ℓ^m(x) − (ℓ+m) P_{ℓ−1}^m(x)] / (ℓ−m+1)</div>
+          </div>
+
+          <h3 class="block-head">Nodal Structure</h3>
+          <p class="body">Y<span class="em">ℓ</span><sup>m</sup> has exactly <strong>ℓ</strong> nodal surfaces (surfaces where Y = 0):</p>
+          <div class="eq-block">
+            <div class="eq-label">Nodal surface counting</div>
+            <div class="eq-formula">|m|    nodal meridian planes   (through the z-axis, φ-structure)
+ℓ − |m|  nodal cone surfaces   (at fixed θ values, θ-structure)
+─────────────────────────────────────────
+ℓ      total nodal surfaces
+
+Special cases:
+  m = 0      → all ℓ nodes are latitudinal cones (axially symmetric)
+  |m| = ℓ   → all ℓ nodes are meridional planes (petal-like, max azimuthal)</div>
+          </div>
+
+          <h3 class="block-head">First Harmonics</h3>
+          <div class="eq-block">
+            <div class="eq-label">Explicit forms (ℓ = 0, 1, 2)</div>
+            <div class="eq-formula" style="font-size:12px">Y_0^0  = 1/√(4π)  ≈ 0.2821                           [s]
+
+Y_1^0  = √(3/4π) cosθ                                 [p_z]
+Y_1^±1 = ±√(3/8π) sinθ · {cosφ / sinφ}               [p_x, p_y]
+
+Y_2^0  = √(5/16π)(3cos²θ − 1)                         [d_z²]
+Y_2^±1 = ±√(15/8π) sinθ cosθ · {cosφ / sinφ}          [d_xz, d_yz]
+Y_2^±2 = √(15/32π) sin²θ · {cos2φ / sin2φ}            [d_x²−y², d_xy]</div>
+          </div>
+        </div>
+
+        <!-- APPLICATIONS -->
+        <div id="panel-app" class="content-panel">
+          <div class="sec-eyebrow">Scientific &amp; Engineering Applications</div>
+          <h1 class="sec-title">Where They Appear</h1>
+          <p class="sec-subtitle">Spherical harmonics are one of the most broadly applicable mathematical tools in science and engineering, bridging quantum mechanics, geophysics, computer graphics, medical imaging, and signal processing.</p>
+
+          <div class="app-grid">
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(68,136,255,.12);color:#4488ff;font-size:20px">⚛</div>
+              <div class="chip" style="background:rgba(68,136,255,.12);color:#4488ff">Quantum Chemistry</div>
+              <div class="app-card-title">Atomic &amp; Molecular Orbitals</div>
+              <div class="app-card-body">Hydrogen wavefunctions factorise as ψ<sub>nℓm</sub> = R<sub>nℓ</sub>(r)·Y<sub>ℓ</sub><sup>m</sup>(θ,φ). All s, p, d, f orbital shapes are directly spherical harmonics. DFT codes use SH basis sets for multi-electron atoms. Chemical bonding (VSEPR, hybridisation) is entirely determined by the SH structure.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(0,229,204,.1);color:var(--cyan)">🎮</div>
+              <div class="chip" style="background:rgba(0,229,204,.1);color:var(--cyan)">Computer Graphics</div>
+              <div class="app-card-title">Real-time Lighting &amp; PBR</div>
+              <div class="app-card-body">SH irradiance environment maps (9 coefficients, ℓ≤2) capture all low-frequency diffuse lighting — used in Unreal, Unity, and every major game engine. Precomputed Radiance Transfer (PRT) encodes soft shadows and interreflections at real-time rates. HDRI lighting in film VFX relies on SH basis compression.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(240,165,0,.1);color:var(--amber)">🌍</div>
+              <div class="chip" style="background:rgba(240,165,0,.1);color:var(--amber)">Geophysics</div>
+              <div class="app-card-title">Earth &amp; Planetary Science</div>
+              <div class="app-card-body">Earth's gravitational field (EGM2008, ℓ up to 2159), geomagnetic field (IGRF), global topography, and ocean heat content are SH series. Seismic tomography (whole-Earth velocity models) and climate parameterisations of temperature and pressure all use SH truncations.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(255,68,85,.1);color:var(--red)">🧠</div>
+              <div class="chip" style="background:rgba(255,68,85,.1);color:var(--red)">Medical Imaging</div>
+              <div class="app-card-title">Diffusion MRI &amp; Brain Mapping</div>
+              <div class="app-card-body">High-angular-resolution diffusion imaging (HARDI) fits water diffusion profiles at each voxel as SH series (ℓ≤8), revealing white-matter fiber orientations. Tractography (3D mapping of neural pathways) and EEG/MEG source localisation both rely on SH decompositions of measured fields.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(150,100,255,.1);color:#a070ff">🔭</div>
+              <div class="chip" style="background:rgba(150,100,255,.1);color:#a070ff">Cosmology</div>
+              <div class="app-card-title">CMB Power Spectrum</div>
+              <div class="app-card-body">The cosmic microwave background temperature anisotropies are expanded in SH: δT/T = Σ a<sub>ℓm</sub>Y<sub>ℓ</sub><sup>m</sup>. The angular power spectrum C<sub>ℓ</sub> = ⟨|a<sub>ℓm</sub>|²⟩ is the primary observable from Planck, WMAP, and future CMB experiments that constrain cosmological models.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(0,200,120,.1);color:#00c878">🔊</div>
+              <div class="chip" style="background:rgba(0,200,120,.1);color:#00c878">Spatial Audio</div>
+              <div class="app-card-title">Ambisonics &amp; 3D Sound</div>
+              <div class="app-card-body">Ambisonics (HOA) encodes 360° spatial audio as SH coefficients of the sound field. Higher-order Ambisonics (HOA) uses ℓ up to 7 for precise spatial reproduction over loudspeaker arrays or headphones. SH-based beamforming is used in microphone arrays for direction-of-arrival estimation.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(255,170,0,.1);color:#ffaa00">💊</div>
+              <div class="chip" style="background:rgba(255,170,0,.1);color:#ffaa00">Drug Discovery</div>
+              <div class="app-card-title">Molecular Shape Descriptors</div>
+              <div class="app-card-body">Rotation-invariant SH power spectra describe molecular surface geometry for 3D shape matching regardless of orientation — used in virtual screening to compare ligand conformations against protein binding pockets. SH-based shape descriptors power similarity search in databases of millions of drug candidates.</div>
+            </div>
+            <div class="app-card">
+              <div class="app-icon" style="background:rgba(68,200,255,.1);color:#44c8ff">🚗</div>
+              <div class="chip" style="background:rgba(68,200,255,.1);color:#44c8ff">Autonomous Systems</div>
+              <div class="app-card-title">LiDAR &amp; 3D Vision</div>
+              <div class="app-card-body">Point-cloud LiDAR data in autonomous vehicles uses SH for compact spherical occupancy representations that are rotation-equivariant — crucial for detecting objects under arbitrary sensor orientations. SH-CNN architectures achieve state-of-the-art on 3D object classification and medical shape analysis tasks.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MANUAL -->
+        <div id="panel-man" class="content-panel">
+          <div class="sec-eyebrow">Documentation</div>
+          <h1 class="sec-title">User Manual</h1>
+          <p class="sec-subtitle">Complete guide to all controls, visual encodings, and interaction modes in the simulator.</p>
+
+          <h3 class="block-head">Controls reference</h3>
+          <table class="man-table">
+            <thead><tr><th>Control</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td>ℓ slider</td><td>Sets the <strong>azimuthal quantum number</strong> (0–6). Controls total angular momentum and total number of nodal surfaces. ℓ=0 is spherical (s), ℓ=1 is dumbbell (p), ℓ=2 is clover (d), etc.</td></tr>
+              <tr><td>m slider</td><td>Sets the <strong>magnetic quantum number</strong>, auto-clamped to [−ℓ, +ℓ]. Controls azimuthal structure. m=0 gives axially symmetric shapes; |m|=ℓ gives maximum petal count with all meridional nodes.</td></tr>
+              <tr><td>Display mode</td><td><em>Deformed+colored</em>: radius proportional to |Y| and colored by phase — recommended default. <em>Shape only</em>: radius only, neutral color. <em>Color map</em>: unit sphere colored by value magnitude and sign.</td></tr>
+              <tr><td>Surface resolution</td><td>Sets the sphere tessellation density (32–128 segments). Higher values give smoother surfaces at the cost of performance. 64 is the recommended balance.</td></tr>
+              <tr><td>Amplitude scale</td><td>Multiplies the radial deformation by this factor (0.3–3.0×). Use higher values to exaggerate subtle structure in high-ℓ harmonics.</td></tr>
+              <tr><td>Auto-rotate</td><td>Continuous rotation speed in arbitrary units (0 = frozen). Drag on canvas overrides auto-rotation while the mouse is held down.</td></tr>
+              <tr><td>Axes visible</td><td>Toggles the XYZ axis indicators (red=x, blue=y, cyan=z).</td></tr>
+              <tr><td>Wireframe</td><td>Overlays a transparent mesh grid showing the underlying triangulation. Useful for visualising surface resolution and nodal line topology.</td></tr>
+              <tr><td>Ambient light</td><td>Toggles ambient fill lighting. Disabling it dramatically increases depth contrast on high-ℓ lobed structures.</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="block-head">Mouse &amp; keyboard interactions</h3>
+          <table class="man-table">
+            <thead><tr><th>Interaction</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><span class="kbd">Drag</span></td><td>Rotate the orbital freely in 3D. Vertical drag tilts; horizontal drag spins.</td></tr>
+              <tr><td><span class="kbd">Scroll</span></td><td>Zoom in or out (camera distance 1.5–8 units).</td></tr>
+              <tr><td><span class="kbd">Shift</span> + drag</td><td>Pan the camera laterally.</td></tr>
+              <tr><td><span class="kbd">Touch drag</span></td><td>Single-finger rotate on mobile/tablet.</td></tr>
+              <tr><td><span class="kbd">Pinch</span></td><td>Two-finger pinch to zoom on touch devices.</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="block-head">Color encoding</h3>
+          <p class="body" style="font-size:13px">The color encodes the <strong>sign (phase)</strong> of Y<sub>ℓ</sub><sup>m</sup>, and the <strong>brightness</strong> encodes the magnitude:</p>
+          <div class="eq-block" style="margin-top:8px">
+            <div class="eq-formula" style="font-size:12px">Y &gt; 0  →  red-orange gradient  (deeper red = larger positive value)
+Y &lt; 0  →  blue gradient        (deeper blue = larger |negative| value)
+Y = 0  →  white/neutral (nodal surfaces — boundaries between lobes)
+
+In deformed mode: radius r(θ,φ) = base + scale · |Y_ℓ^m(θ,φ)|</div>
+          </div>
+
+          <h3 class="block-head">Orbital naming convention</h3>
+          <table class="man-table" style="margin-top:8px">
+            <thead><tr><th>ℓ value</th><th>Letter</th><th>Name</th><th>States (2ℓ+1)</th></tr></thead>
+            <tbody>
+              <tr><td>0</td><td style="color:var(--cyan)">s</td><td style="color:var(--text)">Sharp</td><td>1</td></tr>
+              <tr><td>1</td><td style="color:var(--cyan)">p</td><td style="color:var(--text)">Principal</td><td>3</td></tr>
+              <tr><td>2</td><td style="color:var(--cyan)">d</td><td style="color:var(--text)">Diffuse</td><td>5</td></tr>
+              <tr><td>3</td><td style="color:var(--cyan)">f</td><td style="color:var(--text)">Fundamental</td><td>7</td></tr>
+              <tr><td>4</td><td style="color:var(--cyan)">g</td><td style="color:var(--text)">— (spectroscopic)</td><td>9</td></tr>
+              <tr><td>5</td><td style="color:var(--cyan)">h</td><td style="color:var(--text)">—</td><td>11</td></tr>
+              <tr><td>6</td><td style="color:var(--cyan)">i</td><td style="color:var(--text)">—</td><td>13</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="block-head">Tips for exploration</h3>
+          <p class="body" style="font-size:13px">Start with ℓ=0 and increase ℓ while keeping m=0 — you'll see the number of latitudinal nodal cones grow from 0 to ℓ. Then set |m|=ℓ and increase ℓ — all nodes become meridional planes and the shape becomes a symmetric petal ring. The transition from m=0 to m=ℓ redistributes nodes from latitude to longitude.</p>
+          <p class="body" style="font-size:13px">For best visual results on high-ℓ harmonics (ℓ≥4), increase surface resolution to 96 or 128, set amplitude scale to 1.5–2.0×, and disable ambient light for dramatic shadow contrast between lobes.</p>
+        </div>
+
+      </div><!-- /content-panels -->
+    </div><!-- /panel3d -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+/* ─── MATH ──────────────────────────────────────── */
+function fac(n){let r=1;for(let i=2;i<=n;i++)r*=i;return r;}
+function alp(l,m,x){
+  const am=Math.abs(m);
+  let pmm=1;
+  if(am>0){
+    const s=Math.sqrt(Math.max(0,1-x*x));
+    let df=1;for(let i=1;i<=am;i++){pmm*=-df*s;df+=2;}
+  }
+  if(l===am)return pmm;
+  let p1=x*(2*am+1)*pmm;
+  if(l===am+1)return p1;
+  let p=0;
+  for(let k=am+2;k<=l;k++){p=((2*k-1)*x*p1-(k+am-1)*pmm)/(k-am);pmm=p1;p1=p;}
+  return p;
+}
+function shNorm(l,m){
+  const am=Math.abs(m);
+  return Math.sqrt((2*l+1)/(4*Math.PI)*fac(l-am)/fac(l+am));
+}
+function rsh(l,m,theta,phi){
+  const ct=Math.cos(theta),P=alp(l,m,ct),N=shNorm(l,m);
+  if(m===0)return N*P;
+  if(m>0)return Math.SQRT2*N*Math.cos(m*phi)*P;
+  return Math.SQRT2*N*Math.sin(-m*phi)*P;
+}
+
+/* ─── STATE ─────────────────────────────────────── */
+let cL=2,cM=0;
+let scene,camera,renderer,group,meshSH,wireMesh,axesGroup;
+let drag=false,shift=false,px=0,py=0;
+let dirty=false;
+const orbNames={
+  '0_0':'s orbital','1_0':'p orbital (pz)','1_1':'p orbital (px)',
+  '1_-1':'p orbital (py)','2_0':'d orbital (dz²)','2_1':'d orbital (dxz)',
+  '2_-1':'d orbital (dyz)','2_2':'d orbital (dx²−y²)','2_-2':'d orbital (dxy)',
+  '3_0':'f orbital (fz³)','3_1':'f orbital','3_2':'f orbital','3_3':'f orbital (max m)',
+  '4_0':'g orbital','4_4':'g orbital (max m)','5_5':'h orbital (max m)','6_0':'i orbital','6_6':'i orbital (max m)'
+};
+const orbDesc={
+  '0_0':'Spherically symmetric — single lobe with no nodal surfaces. Represents the ground state angular part.',
+  '1_0':'Two lobes along z-axis separated by a nodal plane at θ=π/2. Classic dumbbell shape.',
+  '1_1':'Two lobes along x-axis. Equivalent to py by rotation. One meridional nodal plane.',
+  '2_0':'Double-cone shape with one nodal cone. Axially symmetric — the d<sub>z²</sub> orbital.',
+  '2_1':'Four lobes in the xz-plane. Two nodal surfaces: one cone and one meridional plane.',
+  '2_2':'Four-lobed clover in the xy-plane. Two meridional nodal planes at 45° to xy-axes.',
+  '3_0':'Axially symmetric f orbital with three nodal cones around the z-axis.',
+  '3_2':'Complex multi-lobed f orbital with five lobes and two meridional + one latitudinal nodal surface.',
+  '3_3':'Maximum-m f orbital — six petals arranged symmetrically around the equatorial plane.',
+  '4_0':'g orbital — five nodal cones, axially symmetric. Eight alternating lobes along z.',
+  '4_4':'Maximum-m g orbital — eight equatorial petals. Four meridional nodal planes.',
+  '5_5':'Maximum-m h orbital — ten equatorial petals around the z-axis.',
+  '6_0':'i orbital — seven nodal cones, maximum number of latitudinal nodes.',
+  '6_6':'Maximum-m i orbital — twelve equatorial petals.',
+};
+
+/* ─── THREE.JS SETUP ────────────────────────────── */
+function init3D(){
+  const wrap=document.getElementById('canvasWrap');
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,W/H,.01,100);
+  camera.position.z=4;
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('shCanvas'),antialias:true,alpha:true});
+  renderer.setSize(W,H);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(0x000000,0);
+
+  group=new THREE.Group();scene.add(group);
+
+  // Lights
+  const amb=new THREE.AmbientLight(0xffffff,.35);amb.name='amb';scene.add(amb);
+  const d1=new THREE.DirectionalLight(0xffffff,1.1);d1.position.set(5,7,5);scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x3355aa,.5);d2.position.set(-5,-4,-5);scene.add(d2);
+  const d3=new THREE.DirectionalLight(0x00ffcc,.2);d3.position.set(0,0,8);scene.add(d3);
+
+  buildAxes();
+  buildMesh();
+
+  // Events
+  const cv=wrap;
+  cv.addEventListener('mousedown',e=>{drag=true;px=e.clientX;py=e.clientY;shift=e.shiftKey;cv.style.cursor='grabbing';});
+  window.addEventListener('mouseup',()=>{drag=false;cv.style.cursor='grab';});
+  window.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    if(e.shiftKey){camera.position.x-=(e.clientX-px)*.006;camera.position.y+=(e.clientY-py)*.006;}
+    else{group.rotation.y+=(e.clientX-px)*.010;group.rotation.x+=(e.clientY-py)*.010;}
+    px=e.clientX;py=e.clientY;
+  });
+  cv.addEventListener('wheel',e=>{camera.position.z=Math.max(1.5,Math.min(8,camera.position.z+e.deltaY*.005));e.preventDefault();},{passive:false});
+  cv.addEventListener('touchstart',e=>{if(e.touches.length===1){drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY;}},{passive:true});
+  cv.addEventListener('touchend',()=>drag=false,{passive:true});
+  cv.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&drag){
+      group.rotation.y+=(e.touches[0].clientX-px)*.01;
+      group.rotation.x+=(e.touches[0].clientY-py)*.01;
+      px=e.touches[0].clientX;py=e.touches[0].clientY;
+    }
+  },{passive:true});
+  window.addEventListener('resize',()=>{
+    const W2=wrap.clientWidth,H2=wrap.clientHeight;
+    camera.aspect=W2/H2;camera.updateProjectionMatrix();renderer.setSize(W2,H2);
+  });
+  loop();
+  document.getElementById('loading').classList.add('gone');
+}
+
+function buildAxes(){
+  if(axesGroup){group.remove(axesGroup);}
+  axesGroup=new THREE.Group();axesGroup.name='axes';
+  const cols=[0xff4444,0x4488ff,0x00e5cc];
+  const dirs=[[1,0,0],[0,1,0],[0,0,1]];
+  dirs.forEach((d,i)=>{
+    const g=new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-d[0]*2.6,-d[1]*2.6,-d[2]*2.6),
+      new THREE.Vector3(d[0]*2.6,d[1]*2.6,d[2]*2.6)
+    ]);
+    axesGroup.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:cols[i],transparent:true,opacity:.55})));
+  });
+  group.add(axesGroup);
+}
+
+function buildMesh(){
+  if(meshSH){group.remove(meshSH);}
+  if(wireMesh){group.remove(wireMesh);}
+
+  const seg=+document.getElementById('res').value;
+  const amp=+document.getElementById('amp').value;
+  const mode=document.getElementById('viz').value;
+  const geo=new THREE.SphereGeometry(1,seg,seg);
+  const pos=geo.attributes.position;
+  const N=pos.count;
+  const cols=new Float32Array(N*3);
+
+  // compute max for normalization
+  let mx=1e-12;
+  for(let i=0;i<N;i++){
+    const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const r=Math.sqrt(x*x+y*y+z*z)||1;
+    const v=Math.abs(rsh(cL,cM,Math.acos(Math.max(-1,Math.min(1,y/r))),Math.atan2(z,x)));
+    if(v>mx)mx=v;
+  }
+
+  for(let i=0;i<N;i++){
+    const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+    const r=Math.sqrt(x*x+y*y+z*z)||1;
+    const th=Math.acos(Math.max(-1,Math.min(1,y/r)));
+    const ph=Math.atan2(z,x);
+    const v=rsh(cL,cM,th,ph);
+    const vn=v/mx;
+    const va=Math.abs(vn);
+
+    // color
+    if(vn>=0){
+      cols[i*3]=.95+.05*va;cols[i*3+1]=.08+.12*va;cols[i*3+2]=.03+.02*va;
+    } else {
+      cols[i*3]=.04*va;cols[i*3+1]=.10*va;cols[i*3+2]=.82+.18*va;
+    }
+
+    // deform
+    if(mode==='deform'||mode==='both'){
+      const base=.2,sc=amp;
+      const nr=base+(1-base)*va*sc*1.4;
+      pos.setXYZ(i,x/r*nr,y/r*nr,z/r*nr);
+    } else {
+      pos.setXYZ(i,x/r,y/r,z/r);
+    }
+  }
+
+  geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
+  pos.needsUpdate=true;geo.computeVertexNormals();
+
+  const mat=new THREE.MeshPhongMaterial({
+    vertexColors:true,side:THREE.DoubleSide,
+    shininess:120,specular:new THREE.Color(.3,.35,.55)
+  });
+  meshSH=new THREE.Mesh(geo,mat);
+  group.add(meshSH);
+
+  // wireframe
+  const wireGeo=new THREE.WireframeGeometry(geo);
+  wireMesh=new THREE.LineSegments(wireGeo,new THREE.LineBasicMaterial({color:0x334466,transparent:true,opacity:.3}));
+  wireMesh.visible=document.getElementById('tog-wire').checked;
+  group.add(wireMesh);
+}
+
+function loop(){
+  requestAnimationFrame(loop);
+  const s=+document.getElementById('spin').value;
+  if(!drag)group.rotation.y+=.004*s;
+  if(dirty){buildMesh();dirty=false;}
+  renderer.render(scene,camera);
+}
+
+/* ─── UI UPDATES ─────────────────────────────────── */
+function updateInfo(){
+  const l=cL,m=cM;
+  document.getElementById('lv').textContent=l;
+  document.getElementById('mv').textContent=m;
+  document.getElementById('mr-lo').textContent=`−${l}`;
+  document.getElementById('mr-hi').textContent=`+${l}`;
+
+  const k=`${l}_${m}`;
+  const letters=['s','p','d','f','g','h','i'];
+  const letter=letters[l]||`ℓ=${l}`;
+  document.getElementById('hud-ql').textContent=`Y${toSub(l)}${toSup(m)}`;
+  document.getElementById('hud-name').textContent=orbNames[k]||`${letter} orbital`;
+  document.getElementById('hud-formula').textContent=`ℓ = ${l},  m = ${m}  →  ${2*l+1} degenerate states`;
+  document.getElementById('n-mer').textContent=Math.abs(m);
+  document.getElementById('n-lat').textContent=l-Math.abs(m);
+  document.getElementById('orb-name').innerHTML=orbNames[k]||`${letter} orbital`;
+  document.getElementById('orb-desc').innerHTML=orbDesc[k]||`${l} total nodal surfaces: ${Math.abs(m)} meridional planes and ${l-Math.abs(m)} latitudinal cones.`;
+
+  // update preset highlights
+  document.querySelectorAll('.preset-btn').forEach(b=>{
+    b.classList.toggle('active-p',+b.dataset.l===l&&+b.dataset.m===m);
+  });
+}
+
+function toSub(n){const d='₀₁₂₃₄₅₆₇₈₉';return String(n).split('').map(c=>d[+c]).join('');}
+function toSup(n){
+  if(n===0)return '⁰';
+  const pos='⁰¹²³⁴⁵⁶⁷⁸⁹';
+  if(n>0)return String(n).split('').map(c=>pos[+c]).join('');
+  return '⁻'+String(-n).split('').map(c=>pos[+c]).join('');
+}
+
+/* ─── CONTROLS ──────────────────────────────────── */
+document.getElementById('sl-l').addEventListener('input',function(){
+  cL=+this.value;
+  cM=Math.max(-cL,Math.min(cL,cM));
+  const ms=document.getElementById('sl-m');ms.min=-cL;ms.max=cL;ms.value=cM;
+  updateInfo();dirty=true;
+});
+document.getElementById('sl-m').addEventListener('input',function(){cM=+this.value;updateInfo();dirty=true;});
+document.getElementById('viz').addEventListener('change',()=>dirty=true);
+document.getElementById('res').addEventListener('input',function(){document.getElementById('resv').textContent=this.value;dirty=true;});
+document.getElementById('amp').addEventListener('input',function(){document.getElementById('ampv').textContent=(+this.value).toFixed(1)+'×';dirty=true;});
+document.getElementById('spin').addEventListener('input',function(){document.getElementById('spinv').textContent=(+this.value).toFixed(1);});
+document.getElementById('tog-axes').addEventListener('change',function(){if(axesGroup)axesGroup.visible=this.checked;});
+document.getElementById('tog-wire').addEventListener('change',function(){if(wireMesh)wireMesh.visible=this.checked;});
+document.getElementById('tog-amb').addEventListener('change',function(){const a=scene.getObjectByName('amb');if(a)a.intensity=this.checked?.35:0;});
+
+// presets
+document.getElementById('presets-grid').addEventListener('click',function(e){
+  const btn=e.target.closest('.preset-btn');
+  if(!btn)return;
+  cL=+btn.dataset.l;cM=+btn.dataset.m;
+  document.getElementById('sl-l').value=cL;
+  document.getElementById('sl-m').min=-cL;document.getElementById('sl-m').max=cL;document.getElementById('sl-m').value=cM;
+  updateInfo();dirty=true;
+});
+
+// tabs
+document.querySelectorAll('.hdr-tab').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.hdr-tab').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    const tab=this.dataset.tab;
+    const cvw=document.getElementById('canvasWrap');
+    const cps=document.getElementById('content-panels');
+    if(tab==='sim'){
+      cvw.style.display='';cps.classList.remove('visible');
+    } else {
+      cvw.style.display='none';cps.classList.add('visible');
+      ['phy','app','man'].forEach(t=>{
+        document.getElementById('panel-'+t).classList.toggle('active',t===tab);
+      });
+    }
+  });
+});
+
+window.addEventListener('load',()=>{setTimeout(()=>{init3D();updateInfo();},80);});
+</script>
+</body>
+</html>

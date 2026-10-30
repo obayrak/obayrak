@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamow State Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false})"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#06101f;--bg1:#0c1a30;--bg2:#112240;
+  --ln:#1e3a5a;--ln2:#2a5080;
+  --aq:#29c5f6;--aq2:#64d9ff;
+  --mn:#0ff0a0;--gd:#f0c060;--co:#ff6b50;--vt:#c080ff;
+  --tx:#c8dcea;--mu:#4e7290;--fa:#253a50;
+  --ok:#20d690;--wn:#ffaa30;--er:#ff4466;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Inter',system-ui,sans-serif;
+  --serif:'Playfair Display',Georgia,serif;
+}
+html,body{height:100%;background:var(--bg0);color:var(--tx);font-family:var(--sans);font-size:14px;line-height:1.55;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+/* ── TOP BAR ── */
+#topbar{display:flex;align-items:center;gap:12px;padding:0 18px;height:46px;
+  background:var(--bg1);border-bottom:1px solid var(--ln);flex-shrink:0}
+#topbar h1{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--aq);letter-spacing:.06em;white-space:nowrap}
+.vbadge{font-family:var(--mono);font-size:.6rem;color:var(--mu);border:1px solid var(--ln);border-radius:3px;padding:1px 5px}
+.sp{flex:1}
+#navtabs{display:flex;height:100%}
+.nb{height:100%;padding:0 16px;background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--mu);font-family:var(--sans);font-size:.78rem;font-weight:500;cursor:pointer;
+  letter-spacing:.03em;transition:color .2s,border-color .2s}
+.nb.on{color:var(--aq);border-bottom-color:var(--aq)}
+.nb:hover:not(.on){color:var(--tx)}
+/* ── PANELS ── */
+.panel{display:none;flex:1;overflow:hidden}.panel.on{display:flex}
+#pSolver{flex-direction:row}
+/* ── SIDEBAR ── */
+.sb{width:308px;min-width:308px;background:var(--bg1);border-right:1px solid var(--ln);
+  display:flex;flex-direction:column;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--ln) var(--bg1)}
+.sb::-webkit-scrollbar{width:4px}.sb::-webkit-scrollbar-thumb{background:var(--ln);border-radius:4px}
+.sbi{padding:12px;display:flex;flex-direction:column;gap:9px}
+.sec{font-family:var(--mono);font-size:.62rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--aq);padding:5px 0 3px;border-bottom:1px solid var(--ln)}
+.f{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.f label{font-family:var(--mono);font-size:.7rem;color:var(--mu);min-width:86px;cursor:default}
+.f label[title]{cursor:help;border-bottom:1px dotted #2a4a60}
+.fn{flex:1;background:var(--bg2);border:1px solid var(--ln);border-radius:4px;
+  color:var(--tx);font-family:var(--mono);font-size:.73rem;padding:4px 7px;outline:none;transition:border-color .15s}
+.fn:focus{border-color:var(--aq)}.fn:hover{border-color:var(--ln2)}
+.fsel{flex:1;background:var(--bg2);border:1px solid var(--ln);border-radius:4px;
+  color:var(--tx);font-family:var(--mono);font-size:.7rem;padding:4px 7px;outline:none;cursor:pointer}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.g2 .f{margin-bottom:0}.g2 .f label{min-width:34px}
+.hint{font-family:var(--mono);font-size:.62rem;color:var(--mu);background:var(--bg2);
+  border-left:2px solid var(--ln2);padding:3px 7px;border-radius:0 3px 3px 0;margin-top:1px}
+.fcb{display:flex;align-items:center;gap:6px}
+.fcb input{accent-color:var(--aq);cursor:pointer}
+.fcb span{font-family:var(--mono);font-size:.7rem;color:var(--mu)}
+.pgw{height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;display:none}
+.pgf{height:100%;width:0;background:linear-gradient(90deg,var(--aq),var(--mn));border-radius:2px;transition:width .3s}
+#btnSolve{width:100%;padding:10px;background:linear-gradient(135deg,#0a2c50,#0a4878);
+  border:1px solid var(--aq);border-radius:5px;color:var(--aq);
+  font-family:var(--sans);font-size:.88rem;font-weight:600;letter-spacing:.08em;
+  cursor:pointer;transition:all .2s;margin-top:1px}
+#btnSolve:hover{background:linear-gradient(135deg,#0a3a6a,#0a5a98);box-shadow:0 0 14px rgba(41,197,246,.22)}
+#btnSolve:active{transform:scale(.98)}
+#btnSolve:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+#stat{font-family:var(--mono);font-size:.68rem;padding:5px 8px;border-radius:4px;
+  border-left:3px solid var(--ln);background:var(--bg2);min-height:28px;word-break:break-word}
+#stat.run{border-color:var(--gd);color:var(--gd)}
+#stat.ok{border-color:var(--ok);color:var(--ok)}
+#stat.wn{border-color:var(--wn);color:var(--wn)}
+#stat.er{border-color:var(--er);color:var(--er)}
+.rt{background:var(--bg2);border:1px solid var(--ln);border-radius:5px;overflow:hidden}
+.rr{display:flex;justify-content:space-between;align-items:baseline;padding:4px 9px;border-bottom:1px solid var(--ln)}
+.rr:last-child{border:none}
+.rk{font-family:var(--mono);font-size:.65rem;color:var(--mu)}
+.rv{font-family:var(--mono);font-size:.72rem;color:var(--mn);text-align:right}
+/* ── CHART AREA ── */
+.ca{flex:1;display:flex;flex-direction:column;min-width:0}
+.ctb{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:6px 11px;
+  background:var(--bg1);border-bottom:1px solid var(--ln);flex-shrink:0}
+.ct{display:flex;align-items:center;gap:4px;cursor:pointer;
+  font-family:var(--mono);font-size:.65rem;color:var(--mu);
+  padding:2px 6px;border:1px solid var(--ln);border-radius:3px;transition:all .15s;user-select:none}
+.ct:hover{background:var(--bg2);color:var(--tx)}.ct.lit{border-color:var(--ln2);color:var(--tx)}
+.dot{width:7px;height:7px;border-radius:50%}
+.vs{width:1px;height:16px;background:var(--ln);flex-shrink:0}
+.al{font-family:var(--mono);font-size:.65rem;color:var(--mu);white-space:nowrap}
+.ax{width:60px;background:var(--bg2);border:1px solid var(--ln);border-radius:3px;
+  color:var(--tx);font-family:var(--mono);font-size:.65rem;padding:2px 5px;outline:none}
+.ax:focus{border-color:var(--aq)}
+.ab{padding:3px 8px;background:var(--bg2);border:1px solid var(--ln);border-radius:3px;
+  color:var(--tx);font-family:var(--mono);font-size:.65rem;cursor:pointer}
+.ab:hover{background:var(--fa);border-color:var(--ln2)}
+.cw{flex:1;padding:9px 13px 7px;position:relative}
+canvas#mainC{position:absolute;inset:9px 13px 7px}
+/* ── DOC PANELS ── */
+.panel.doc{flex-direction:column}
+.ds{flex:1;overflow-y:auto;padding:34px 0 56px;scrollbar-width:thin;scrollbar-color:var(--ln) var(--bg1)}
+.ds::-webkit-scrollbar{width:5px}.ds::-webkit-scrollbar-thumb{background:var(--ln);border-radius:4px}
+.di{max-width:790px;margin:0 auto;padding:0 26px}
+.di h2{font-family:var(--serif);font-size:1.4rem;font-weight:600;color:var(--aq2);
+  margin:32px 0 11px;padding-bottom:7px;border-bottom:1px solid var(--ln)}
+.di h2:first-child{margin-top:0}
+.di h3{font-family:var(--sans);font-size:.97rem;font-weight:600;color:var(--gd);margin:20px 0 8px}
+.di p{margin:0 0 10px;line-height:1.8}
+.di ul{margin:0 0 10px 1.5em;line-height:1.9}
+.eq{background:var(--bg1);border-left:3px solid var(--aq);border-radius:0 5px 5px 0;
+  padding:11px 16px;margin:10px 0;overflow-x:auto}
+.eq.gd{border-color:var(--gd)}.eq.mn{border-color:var(--mn)}
+.ib{background:rgba(41,197,246,.07);border:1px solid rgba(41,197,246,.22);
+  border-radius:6px;padding:11px 15px;margin:13px 0}
+.ib.gd{background:rgba(240,192,96,.07);border-color:rgba(240,192,96,.22)}
+.ib.mn{background:rgba(15,240,160,.07);border-color:rgba(15,240,160,.22)}
+.ib .ibt{font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;margin-bottom:5px;color:var(--aq)}
+.ib.gd .ibt{color:var(--gd)}.ib.mn .ibt{color:var(--mn)}
+.dtab{width:100%;border-collapse:collapse;margin:11px 0;font-size:.84rem}
+.dtab th{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--mu);padding:6px 9px;background:var(--bg1);border-bottom:1px solid var(--ln);text-align:left}
+.dtab td{padding:5px 9px;border-bottom:1px solid var(--ln);vertical-align:top}
+.dtab tr:last-child td{border:none}
+code{font-family:var(--mono);font-size:.78rem;background:var(--bg1);color:var(--aq);padding:1px 5px;border-radius:3px}
+.steps{display:flex;flex-direction:column;gap:4px;margin:11px 0}
+.step{display:flex;gap:9px;align-items:flex-start;padding:8px 11px;background:var(--bg1);border-radius:5px;border-left:3px solid var(--ln)}
+.stn{font-family:var(--mono);font-size:.68rem;font-weight:700;color:var(--aq);min-width:18px;line-height:1.7}
+.stt{font-size:.87rem;line-height:1.75}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid var(--ln);
+  border-top-color:var(--gd);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:4px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>&#936;&thinsp;Gamow State Solver</h1>
+  <span class="vbadge">v1.0</span>
+  <span style="font-size:.7rem;color:var(--mu);font-family:var(--mono)">Normalized outgoing solution &middot; Radial Schrödinger Equation</span>
+  <div class="sp"></div>
+  <div id="navtabs">
+    <button class="nb on" onclick="gotoTab('pSolver',this)">&#9632;&thinsp;Solver</button>
+    <button class="nb" onclick="gotoTab('pPhys',this)">&#128214;&thinsp;Physics</button>
+    <button class="nb" onclick="gotoTab('pMeth',this)">&#9881;&thinsp;Methods</button>
+    <button class="nb" onclick="gotoTab('pGuide',this)">&#128712;&thinsp;Guide</button>
+  </div>
+</div>
+<!-- ══════════════ SOLVER ══════════════ -->
+<div id="pSolver" class="panel on">
+<div class="sb"><div class="sbi">
+  <div class="sec">Nuclear System</div>
+  <div class="g2">
+    <div class="f"><label title="Projectile mass (amu)">Aₚ</label><input class="fn" id="Ap" type="number" value="1.008" step="0.001" min="1"></div>
+    <div class="f"><label title="Projectile charge number">Zₚ</label><input class="fn" id="Zp" type="number" value="0" step="1" min="0"></div>
+    <div class="f"><label title="Target mass (amu)">A_t</label><input class="fn" id="At" type="number" value="208" step="1" min="1"></div>
+    <div class="f"><label title="Target charge number">Z_t</label><input class="fn" id="Zt" type="number" value="82" step="1" min="0"></div>
+  </div>
+  <div class="hint" id="mucLine">μc² = — MeV</div>
+  <div class="sec">Quantum Numbers</div>
+  <div class="g2">
+    <div class="f"><label title="Angular momentum quantum number L">L</label><input class="fn" id="qL" type="number" value="0" step="1" min="0" max="10"></div>
+    <div class="f"><label title="Radial node count nᵣ (0 = deepest state)">nᵣ</label><input class="fn" id="qnr" type="number" value="3" step="1" min="0" max="15"></div>
+  </div>
+  <div class="sec">Nuclear Potential Form</div>
+  <div class="f">
+    <label title="Select the shape of the nuclear potential">Form</label>
+    <select class="fsel" id="potForm" onchange="rebuildPot()">
+      <option value="wsvs">WS Volume + Surface</option>
+      <option value="wsv">WS Volume only</option>
+      <option value="gauss">Gaussian</option>
+      <option value="square">Square Well</option>
+      <option value="yukawa">Yukawa</option>
+      <option value="ho">Harmonic Oscillator</option>
+    </select>
+  </div>
+  <div id="potFlds"></div>
+  <div class="sec">Imaginary Potential (Optical Model)</div>
+  <div class="f fcb">
+    <label title="Add absorptive imaginary WS term −iW(r)">Enable −iW(r)</label>
+    <div class="fcb"><input type="checkbox" id="chkW" onchange="onImagTog()"><span>absorption</span></div>
+  </div>
+  <div id="imagBlk" style="display:none">
+    <div class="g2">
+      <div class="f"><label title="Imaginary depth (MeV)">W (MeV)</label><input class="fn" id="WI" type="number" value="10" step="1" min="0"></div>
+      <div class="f"><label title="Imaginary radius param (fm)">rᵢ (fm)</label><input class="fn" id="ri" type="number" value="1.19" step="0.01"></div>
+    </div>
+    <div class="f"><label title="Imaginary diffuseness (fm)">aᵢ (fm)</label><input class="fn" id="ai" type="number" value="0.65" step="0.01"></div>
+  </div>
+  <div class="sec">Numerical Grid</div>
+  <div class="g2">
+    <div class="f"><label title="Radial step size h (fm)">h (fm)</label><input class="fn" id="gh" type="number" value="0.01" step="0.001" min="0.0005" max="0.5"></div>
+    <div class="f"><label title="Maximum integration radius (fm)">r_max (fm)</label><input class="fn" id="rmax" type="number" value="30" step="1" min="10" max="100"></div>
+  </div>
+  <div class="f"><label title="Matching radius — must be in the asymptotic region">R_M (fm)</label><input class="fn" id="RM" type="number" value="20" step="1" min="5" max="60"></div>
+  <div class="sec">Initial Energy Guess</div>
+  <div class="f"><label title="Initial resonance energy Eᵣ⁰ (MeV)">Eᵣ₀ (MeV)</label><input class="fn" id="Er0" type="number" value="0.16" step="0.01"></div>
+  <div class="f"><label title="Initial half-width Γ₀/2 (MeV). Complex start: E₀ = Eᵣ − iΓ/2">Γ₀/2 (MeV)</label><input class="fn" id="Gi0" type="number" value="0.31" step="0.01" min="0.001"></div>
+  <div class="hint" id="guessLine">E₀ = 0.1600 − 0.3100 i MeV</div>
+  <div class="pgw" id="pgW"><div class="pgf" id="pgF"></div></div>
+  <button id="btnSolve" onclick="solve()">&#9654;&ensp;Compute Gamow State</button>
+  <div id="stat">Ready — configure parameters and click Solve.</div>
+  <div class="sec">Resonance Results</div>
+  <div class="rt">
+    <div class="rr"><span class="rk">Eᵣ (MeV)</span><span class="rv" id="rEr">—</span></div>
+    <div class="rr"><span class="rk">Γ (MeV)</span><span class="rv" id="rGm">—</span></div>
+    <div class="rr"><span class="rk">Γ/2 (MeV)</span><span class="rv" id="rGH">—</span></div>
+    <div class="rr"><span class="rk">τ (s)</span><span class="rv" id="rTau">—</span></div>
+    <div class="rr"><span class="rk">E_res (MeV)</span><span class="rv" id="rEres">—</span></div>
+    <div class="rr"><span class="rk">k (fm⁻¹)</span><span class="rv" id="rK">—</span></div>
+    <div class="rr"><span class="rk">η (Sommerfeld)</span><span class="rv" id="rEta">—</span></div>
+    <div class="rr"><span class="rk">‖ψ‖² (norm check)</span><span class="rv" id="rNm">—</span></div>
+    <div class="rr"><span class="rk">Iterations</span><span class="rv" id="rIt">—</span></div>
+  </div>
+</div></div><!-- sb/sbi -->
+<!-- CHART AREA -->
+<div class="ca">
+  <div class="ctb">
+    <span class="al">ψ(r):</span>
+    <label class="ct lit" id="tb0"><input type="checkbox" checked style="display:none" onchange="dsTog(0)"><span class="dot" style="background:#29c5f6"></span>Re(ψ)</label>
+    <label class="ct lit" id="tb1"><input type="checkbox" checked style="display:none" onchange="dsTog(1)"><span class="dot" style="background:#0ff0a0"></span>Im(ψ)</label>
+    <label class="ct lit" id="tb2"><input type="checkbox" checked style="display:none" onchange="dsTog(2)"><span class="dot" style="background:#f0c060"></span>|ψ|²</label>
+    <div class="vs"></div>
+    <span class="al">V(r):</span>
+    <label class="ct lit" id="tb3"><input type="checkbox" checked style="display:none" onchange="dsTog(3)"><span class="dot" style="background:#ff6b50"></span>V_total</label>
+    <label class="ct" id="tb4"><input type="checkbox" style="display:none" onchange="dsTog(4)"><span class="dot" style="background:#c080ff"></span>Im V</label>
+    <label class="ct" id="tb5"><input type="checkbox" style="display:none" onchange="dsTog(5)"><span class="dot" style="background:#ff9060"></span>V_Coulomb</label>
+    <label class="ct" id="tb6"><input type="checkbox" style="display:none" onchange="dsTog(6)"><span class="dot" style="background:#6090ff"></span>V_nuclear</label>
+    <div class="vs"></div>
+    <span class="al">ψ-axis:</span>
+    <input class="ax" id="yPn" placeholder="auto" title="ψ axis minimum">
+    <span class="al" style="padding:0 1px">–</span>
+    <input class="ax" id="yPx" placeholder="auto" title="ψ axis maximum">
+    <div class="vs"></div>
+    <span class="al">V-axis (MeV):</span>
+    <input class="ax" id="yVn" placeholder="auto" title="V axis minimum (MeV)">
+    <span class="al" style="padding:0 1px">–</span>
+    <input class="ax" id="yVx" placeholder="auto" title="V axis maximum (MeV)">
+    <div class="vs"></div>
+    <button class="ab" onclick="applyAx()">Apply</button>
+    <button class="ab" onclick="autoAx()">Auto</button>
+  </div>
+  <div class="cw"><canvas id="mainC"></canvas></div>
+</div>
+</div><!-- pSolver -->
+<!-- ══════════════ PHYSICS ══════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<div id="pPhys" class="panel doc"><div class="ds"><div class="di">
+<h2>Gamow States and the Resonance Problem</h2>
+<h3>What is a Gamow State?</h3>
+<p>A <em>Gamow state</em> (also called a <em>resonance eigenstate</em> or <em>Siegert state</em>) is a solution of the time-independent Schrödinger equation satisfying <strong>purely outgoing-wave boundary conditions</strong> at large radius. It describes an unstable nucleus or a metastable quantum state that decays by quantum tunnelling through a centrifugal or Coulomb barrier.</p>
+<p>Unlike bound states — which have real negative energies and are square-integrable — Gamow states carry a <em>complex energy eigenvalue</em>:</p>
+<div class="eq gd">$$E_{\text{res}} = E_r - \frac{i\,\Gamma}{2}$$</div>
+<p>where \(E_r > 0\) is the <strong>resonance energy</strong> (position of the cross-section peak) and \(\Gamma > 0\) is the <strong>decay width</strong> (FWHM of the Breit–Wigner resonance). The corresponding mean lifetime and half-life are</p>
+<div class="eq">$$\tau = \frac{\hbar}{\Gamma}, \qquad t_{1/2} = \tau\ln 2 = \frac{\hbar\ln 2}{\Gamma}$$</div>
+<h3>The Radial Schrödinger Equation</h3>
+<p>For a spherically symmetric (complex) potential \(V(r)\), the full wave function factorizes as</p>
+<div class="eq">$$\psi(\mathbf{r}) = \frac{u_L(r)}{r}\,Y_L^m(\hat{r})$$</div>
+<p>The radial function \(u_L(r)\) satisfies the <strong>reduced radial Schrödinger equation</strong>:</p>
+<div class="eq">$$\left[-\frac{\hbar^2}{2\mu}\frac{d^2}{dr^2} + \frac{\hbar^2 L(L+1)}{2\mu r^2} + V(r)\right]u_L(r) = E\, u_L(r)$$</div>
+<p>Rearranging into the form integrated numerically (with \(k^2 = 2\mu E/\hbar^2\), which is complex for a Gamow state):</p>
+<div class="eq gd">$$u_L''(r) = \left[\frac{L(L+1)}{r^2} + \frac{2\mu}{\hbar^2}\,V(r) - k^2\right]u_L(r)$$</div>
+<p>Here \(\mu = m_p m_t/(m_p+m_t)\) is the reduced mass and \(\hbar c = 197.329\) MeV·fm. The wave number \(k = \sqrt{2\mu E}/\hbar c\) is complex when \(E = E_r - i\Gamma/2\).</p>
+<h3>Boundary Conditions</h3>
+<p><strong>Regularity at the origin:</strong> Requiring that \(u_L(r)\) be finite at \(r=0\) demands \(u_L(r)\sim r^{L+1}\) as \(r\to 0\). The code starts the integration at \(r_0 = 10^{-8}\) fm with</p>
+<div class="eq">$$u_L(r_0) = r_0^{L+1}, \qquad u_L'(r_0) = (L+1)\,r_0^L$$</div>
+<p><strong>Purely outgoing-wave condition at large \(r\) (Gamow boundary condition):</strong></p>
+<p>For a <em>neutral projectile</em> (\(Z_p=0\)), the asymptotic form must be the Ricatti–Hankel function of the first kind:</p>
+<div class="eq">$$u_L(r)\;\xrightarrow{r\to\infty}\;A\,\xi_L^{(+)}(kr), \qquad \xi_L^{(+)}(\rho)=\rho\,h_L^{(1)}(\rho) \;\sim\; e^{i(\rho - L\pi/2)} \text{ for large }|\rho|$$</div>
+<p>For a <em>charged projectile</em> (\(Z_p\neq 0\)), the Coulomb–Hankel function takes over:</p>
+<div class="eq">$$u_L(r)\;\xrightarrow{r\to\infty}\;A\,H_L^+(\eta,kr), \quad H_L^+ \approx e^{i\theta_L}$$</div>
+<div class="eq">$$\theta_L(\eta,\rho) = \rho - \eta\ln(2\rho) - \frac{L\pi}{2} + \sigma_L(\eta)$$</div>
+<p>where the <strong>Sommerfeld parameter</strong> \(\eta = Z_p Z_t e^2 \mu/(\hbar^2 k)\) measures the strength of the Coulomb interaction relative to kinetic energy, and \(\sigma_L = \arg\Gamma(L+1+i\eta)\) are the Coulomb phase shifts.</p>
+<div class="ib">
+<div class="ibt">&#9888; Why the Gamow function grows at large r</div>
+<p>Because \(\text{Im}(k) < 0\) for a decaying state, \(|e^{ikr}| = e^{-\text{Im}(k)\cdot r}\) <em>grows</em> exponentially as \(r\to\infty\). This is not a numerical artifact — it correctly encodes the outgoing probability current leaking through the barrier. The Gamow state is therefore <em>not square-integrable</em> in the usual sense.</p>
+</div>
+<h3>The Matching Condition</h3>
+<p>Because the Schrödinger equation is second-order, both \(u_L\) and \(u_L'\) must be continuous at any point. Defining the <strong>logarithmic derivative</strong> (R-matrix element) at the matching radius \(R_M\):</p>
+<div class="eq mn">$$R_L(E) = \frac{u_L(R_M)}{u_L'(R_M)}, \qquad R_R(E) = \frac{H_L^+(k R_M)}{k\,(H_L^+)'(k R_M)}$$</div>
+<p>The Gamow eigenvalue equation is the condition that these two quantities agree:</p>
+<div class="eq gd">$$f(E) \equiv R_L(E) - R_R(E) = 0, \qquad E \in \mathbb{C}$$</div>
+<p>This is solved in the complex energy plane. The root \(E_{\rm res} = E_r - i\Gamma/2\) is the Gamow pole.</p>
+<h3>Node-Count Filter</h3>
+<p>In a given potential there are infinitely many Gamow poles. To identify the desired level, the code counts the number of sign changes (nodes) of \(\text{Re}[u_L(r)]\) in the interval \((r_0+0.1\,\text{fm},\; R_M)\). The matching function is penalized by a factor \(10^6\) whenever the node count differs from the target \(n_r\), preventing the secant iteration from jumping to the wrong pole.</p>
+<h3>Normalization</h3>
+<p>Since the Gamow function grows asymptotically, the true Gamow normalization requires a complex integral \(\int u_L^2\,dr\) (without absolute value). Here we use the practical <strong>truncated \(L^2\) norm</strong> over \([r_0, r_{\max}]\):</p>
+<div class="eq">$$\mathcal{N} = \left[\int_0^{r_{\max}} |u_L(r)|^2\, dr\right]^{1/2}, \qquad \tilde{u}_L(r) = \frac{u_L(r)}{\mathcal{N}}$$</div>
+<p>The normalization check \(\int_0^{r_{\max}}|\tilde{u}_L|^2\,dr = 1\) is computed and displayed. For the reference case (n+²⁰⁸Pb, \(L=0\), \(n_r=3\)) this is unity to 16 digits (Mathematica result).</p>
+<h2>Potential Forms</h2>
+<p>All nuclear radii scale as \(R = r_v A_t^{1/3}\) fm. The full complex potential is \(V(r) = V_C(r) + V_N(r) - iW(r)\).</p>
+<table class="dtab">
+<thead><tr><th>Name</th><th>Formula \(V_N(r)\)</th><th>Parameters</th></tr></thead>
+<tbody>
+<tr><td>WS Vol + Surface</td><td>\(\displaystyle -\frac{V_0}{1+e^x}+\frac{4V_2\,e^x}{(1+e^x)^2},\quad x=\frac{r-R}{a}\)</td><td>\(V_0,V_2,r_v,a_v\)</td></tr>
+<tr><td>WS Volume</td><td>\(\displaystyle -\frac{V_0}{1+e^{(r-R)/a}}\)</td><td>\(V_0,r_v,a_v\)</td></tr>
+<tr><td>Gaussian</td><td>\(-V_0\exp(-(r/R)^2)\)</td><td>\(V_0,r_v\)</td></tr>
+<tr><td>Square Well</td><td>\(-V_0\) for \(r\le R\), else \(0\)</td><td>\(V_0,r_v\)</td></tr>
+<tr><td>Yukawa</td><td>\(-V_0 R e^{-r/R}/r\)</td><td>\(V_0,r_v\)</td></tr>
+<tr><td>Harmonic Osc.</td><td>\(-V_0(1-(r/R)^2)\) for \(r\le R\)</td><td>\(V_0,r_v\)</td></tr>
+</tbody>
+</table>
+<p>The <strong>Coulomb potential</strong> uses the uniform-sphere model (\(R_C = r_v A_t^{1/3}\)):</p>
+<div class="eq">$$V_C(r) = \frac{Z_p Z_t e^2}{2R_C}\!\left(3-\frac{r^2}{R_C^2}\right)\text{ for }r\le R_C, \qquad V_C(r) = \frac{Z_p Z_t e^2}{r}\text{ for }r>R_C$$</div>
+<div class="ib mn">
+<div class="ibt">&#9998; Default example (Mathematica notebook result)</div>
+<p>Neutron (\(A_p=1.008,\,Z_p=0\)) on \({}^{208}\text{Pb}\) (\(A_t=208,\,Z_t=82\)), WS Vol+Surf, \(V_0=65\) MeV, \(V_2=25\) MeV, \(r_v=1.19\) fm, \(a_v=0.75\) fm, \(L=0\), \(n_r=3\). Root: \(E_{\rm res}=0.161059-0.307835\,i\) MeV. Normalization coefficient \(\mathcal{N}^{-1}=0.0837\), check \(=1.000000000000000\).</p>
+</div>
+</div></div></div><!-- pPhys -->
+<!-- ══════════════ METHODS ══════════════ -->
+<div id="pMeth" class="panel doc"><div class="ds"><div class="di">
+<h2>Numerical Methods</h2>
+<h3>Algorithm Overview</h3>
+<div class="steps">
+<div class="step"><span class="stn">1</span><span class="stt"><strong>Set boundary conditions</strong> at \(r_0=10^{-8}\) fm from regularity: \(u(r_0)=r_0^{L+1}\), \(u'(r_0)=(L+1)r_0^L\).</span></div>
+<div class="step"><span class="stn">2</span><span class="stt"><strong>RK4 outward integration</strong> in complex arithmetic from \(r_0\) to \(r_{\max}\) with step \(h\), evaluating \(g(r)=L(L+1)/r^2 + 2\mu V(r)/\hbar^2 - k^2\) at each step.</span></div>
+<div class="step"><span class="stn">3</span><span class="stt"><strong>Node count check:</strong> count sign changes of \(\text{Re}[u(r)]\) in \((r_0+0.1, R_M)\). Reject if \(\neq n_r\).</span></div>
+<div class="step"><span class="stn">4</span><span class="stt"><strong>Matching function</strong> \(f(E)=R_L(E)-R_R(E)\) evaluated at current complex \(E\).</span></div>
+<div class="step"><span class="stn">5</span><span class="stt"><strong>Complex secant iteration</strong> updates \(E\) until \(|f(E)|<10^{-7}\).</span></div>
+<div class="step"><span class="stn">6</span><span class="stt"><strong>Full wave function</strong> computed at \(E_{\rm res}\) and normalized by trapezoidal integration of \(|u|^2\).</span></div>
+</div>
+<h3>1 — Fourth-Order Runge–Kutta</h3>
+<p>The ODE \(u''=g(r)u\) is written as a first-order system \(\mathbf{y}=(u,v)^\top\), \(v=u'\). Since the equation is linear, only \(g\) at three points per step is needed. The classical RK4 update:</p>
+<div class="eq">$$\mathbf{k}_j=h\,\mathbf{F}(\text{appropriate arguments}), \qquad \mathbf{y}_{n+1}=\mathbf{y}_n+\tfrac{h}{6}(\mathbf{k}_1+2\mathbf{k}_2+2\mathbf{k}_3+\mathbf{k}_4)$$</div>
+<p>All arithmetic uses <strong>complex double precision</strong> because both \(g(r)\) (via complex \(E\)) and the wave function are complex-valued. Global error is \(O(h^4)\).</p>
+<h3>2 — Outgoing Wave Functions</h3>
+<p><strong>Neutral (\(Z_p=0\)):</strong> Ricatti–Hankel recurrence for complex \(\rho=kr\):</p>
+<div class="eq">$$\xi_{-1}=e^{i\rho},\;\xi_0=-ie^{i\rho},\;\xi_{L+1}=\frac{2L+1}{\rho}\xi_L-\xi_{L-1};\quad \xi_L'=\xi_{L-1}-\frac{L}{\rho}\xi_L$$</div>
+<p><strong>Charged (\(Z_p\neq 0\)):</strong> Leading-order asymptotic at \(R_M\):</p>
+<div class="eq gd">$$H_L^+\approx e^{i\theta_L},\quad (H_L^+)' \approx i\!\left(1-\frac{\eta}{\rho}\right)e^{i\theta_L},\quad \theta_L=\rho-\eta\ln(2\rho)-\frac{L\pi}{2}+\sigma_L$$</div>
+<p>Coulomb phase shifts \(\sigma_L=\text{Im}[\ln\Gamma(L+1+i\eta)]\) via the Lanczos approximation.</p>
+<h3>3 — Complex Secant Root Finder</h3>
+<p>Starting from \(E_0 = E_r^{(0)}-i\Gamma_0/2\) and \(E_1=1.04E_0\):</p>
+<div class="eq mn">$$E_{n+1}=E_n - f(E_n)\cdot\frac{E_n-E_{n-1}}{f(E_n)-f(E_{n-1})}$$</div>
+<p>Convergence when \(|f(E)|<10^{-7}\). Typically 10–30 iterations.</p>
+<h3>4 — Normalization</h3>
+<p>Trapezoidal integration over stored samples \(\{r_j,u_j\}\):</p>
+<div class="eq">$$\mathcal{N}^2=\sum_j \frac{|u_j|^2+|u_{j+1}|^2}{2}(r_{j+1}-r_j)$$</div>
+<h3>Accuracy Table</h3>
+<table class="dtab">
+<thead><tr><th>Parameter</th><th>Default</th><th>Effect on accuracy</th></tr></thead>
+<tbody>
+<tr><td>Step \(h\)</td><td>0.01 fm</td><td>Global \(O(h^4)\) error; use 0.002–0.005 for high precision</td></tr>
+<tr><td>\(R_M\)</td><td>20 fm</td><td>Must exceed nuclear range (~8–10 fm for Pb); larger is safer</td></tr>
+<tr><td>\(r_{\max}\)</td><td>30 fm</td><td>Norm truncation; larger captures more of the growing tail</td></tr>
+<tr><td>Tolerance</td><td>10⁻⁷</td><td>7-digit accuracy in \(E_{\rm res}\); tighten for publication results</td></tr>
+</tbody>
+</table>
+</div></div></div><!-- pMeth -->
+<!-- ══════════════ GUIDE ══════════════ -->
+<div id="pGuide" class="panel doc"><div class="ds"><div class="di">
+<h2>User Guide</h2>
+<h3>Quick Start</h3>
+<div class="steps">
+<div class="step"><span class="stn">1</span><span class="stt">Set projectile (\(A_p, Z_p\)) and target (\(A_t, Z_t\)). The reduced mass \(\mu c^2\) updates automatically.</span></div>
+<div class="step"><span class="stn">2</span><span class="stt">Choose \(L\) (angular momentum) and \(n_r\) (number of nodes of Re[ψ] inside \(R_M\)). \(n_r=0\) gives the deepest quasi-bound state.</span></div>
+<div class="step"><span class="stn">3</span><span class="stt">Select a potential form and set its parameters. The potential curve is previewed immediately (live update).</span></div>
+<div class="step"><span class="stn">4</span><span class="stt">Provide initial energy guess: \(E_r^{(0)}\) (expected resonance position) and \(\Gamma_0/2\) (expected half-width). These define \(E_0 = E_r^{(0)}-i\Gamma_0/2\) in the complex plane.</span></div>
+<div class="step"><span class="stn">5</span><span class="stt">Click <strong>Compute Gamow State</strong>. Watch the status bar — green = converged.</span></div>
+<div class="step"><span class="stn">6</span><span class="stt">Toggle plot layers (Re/Im/|ψ|²/potentials) using the checkboxes. Set custom axis ranges and click Apply. The dashed vertical line marks \(R_M\).</span></div>
+</div>
+<h3>Parameter Reference</h3>
+<table class="dtab">
+<thead><tr><th>Field</th><th>Symbol</th><th>Unit</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td>Aₚ, Zₚ</td><td>\(A_p,Z_p\)</td><td>amu, —</td><td>Projectile mass and charge. Zₚ=0 for neutron; Zₚ=1 for proton; Zₚ=2 for alpha.</td></tr>
+<tr><td>A_t, Z_t</td><td>\(A_t,Z_t\)</td><td>amu, —</td><td>Target nucleus. E.g. ²⁰⁸Pb: At=208, Zt=82.</td></tr>
+<tr><td>L</td><td>\(L\)</td><td>ℏ</td><td>Orbital angular momentum. L=0 (s-wave), 1 (p-wave), 2 (d-wave), …</td></tr>
+<tr><td>nᵣ</td><td>\(n_r\)</td><td>—</td><td>Number of nodes of Re(ψ) inside R_M. Identifies the resonance level in the spectrum.</td></tr>
+<tr><td>h</td><td>\(h\)</td><td>fm</td><td>Radial step. Typical: 0.005–0.02 fm. Smaller = more accurate, slower.</td></tr>
+<tr><td>r_max</td><td>\(r_{\max}\)</td><td>fm</td><td>Integration boundary. Must be much larger than the nuclear radius (\(\gg R\)).</td></tr>
+<tr><td>R_M</td><td>\(R_M\)</td><td>fm</td><td>Matching radius — must lie in the classically asymptotic region. Rule of thumb: \(R_M > R + 5a_v\).</td></tr>
+<tr><td>V₀</td><td>\(V_0\)</td><td>MeV</td><td>Real nuclear depth (attractive: positive value → −V₀ in the potential).</td></tr>
+<tr><td>V₂</td><td>\(V_2\)</td><td>MeV</td><td>Surface WS term depth (WS Vol+Surf only).</td></tr>
+<tr><td>rᵥ, aᵥ</td><td>\(r_v,a_v\)</td><td>fm</td><td>Radius parameter (\(R=r_v A_t^{1/3}\)) and surface diffuseness.</td></tr>
+<tr><td>W</td><td>\(W\)</td><td>MeV</td><td>Imaginary (absorptive) WS depth for optical model calculations.</td></tr>
+<tr><td>Eᵣ₀, Γ₀/2</td><td>\(E_r^{(0)},\Gamma_0/2\)</td><td>MeV</td><td>Starting point in the complex plane for the secant solver: \(E_0=E_r^{(0)}-i\Gamma_0/2\).</td></tr>
+</tbody>
+</table>
+<h3>Troubleshooting</h3>
+<table class="dtab">
+<thead><tr><th>Problem</th><th>Cause</th><th>Solution</th></tr></thead>
+<tbody>
+<tr><td>Not converged</td><td>Initial guess far from the pole</td><td>Adjust Eᵣ₀ and Γ₀/2; try smaller h; check nᵣ</td></tr>
+<tr><td>Wrong resonance</td><td>Solver jumped to different pole</td><td>Change nᵣ; tighten initial guess</td></tr>
+<tr><td>R_M error</td><td>R_M ≥ r_max</td><td>Increase r_max or decrease R_M</td></tr>
+<tr><td>Diverging wavefunction</td><td>Very wide resonance; large r_max</td><td>Reduce r_max; decrease h</td></tr>
+<tr><td>Norm ≠ 1</td><td>Truncation at r_max</td><td>Decrease h; always approximate for Gamow states</td></tr>
+</tbody>
+</table>
+<h3>Physical Constants</h3>
+<table class="dtab">
+<thead><tr><th>Constant</th><th>Value</th><th>Unit</th></tr></thead>
+<tbody>
+<tr><td>\(\hbar c\)</td><td>197.329</td><td>MeV·fm</td></tr>
+<tr><td>\(m_u c^2\)</td><td>931.49410372</td><td>MeV</td></tr>
+<tr><td>\(e^2/(4\pi\varepsilon_0)\)</td><td>1.439976</td><td>MeV·fm</td></tr>
+<tr><td>\(\hbar\)</td><td>6.582 × 10⁻²²</td><td>MeV·s</td></tr>
+</tbody>
+</table>
+<h3>Key References</h3>
+<ul>
+<li>G.A. Gamow, Z. Phys. <strong>51</strong>, 204 (1928) — original Gamow tunnelling paper</li>
+<li>A.F.J. Siegert, Phys. Rev. <strong>56</strong>, 750 (1939) — outgoing-wave boundary conditions</li>
+<li>N. Moiseyev, <em>Non-Hermitian Quantum Mechanics</em>, Cambridge (2011)</li>
+<li>A.M. Lane & R.G. Thomas, Rev. Mod. Phys. <strong>30</strong>, 257 (1958) — R-matrix theory</li>
+<li>P. Descouvemont & D. Baye, Rep. Prog. Phys. <strong>73</strong>, 036301 (2010)</li>
+</ul>
+</div></div></div><!-- pGuide -->
+</div><!-- #app -->
+<script>
+"use strict";
+// ─── CONSTANTS ─────────────────────────────────
+const HBARC=197.329, AMU=931.49410372, KE=1.439976, HBAR=6.582119569e-22;
+
+// ─── GLOBAL STATE ─────────────────────────────────
+let chart = null;
+let isSolved = false;
+
+// ─── COMPLEX ARITHMETIC ────────────────────────
+class C {
+  constructor(r,i=0){this.r=r;this.i=i}
+  add(b){b=C.c(b);return new C(this.r+b.r,this.i+b.i)}
+  sub(b){b=C.c(b);return new C(this.r-b.r,this.i-b.i)}
+  mul(b){b=C.c(b);return new C(this.r*b.r-this.i*b.i,this.r*b.i+this.i*b.r)}
+  div(b){b=C.c(b);const d=b.r**2+b.i**2;if(d<1e-300)return new C(1e15,1e15);return new C((this.r*b.r+this.i*b.i)/d,(this.i*b.r-this.r*b.i)/d)}
+  scale(s){return new C(this.r*s,this.i*s)}
+  abs(){return Math.hypot(this.r,this.i)}
+  arg(){return Math.atan2(this.i,this.r)}
+  exp(){const e=Math.exp(this.r);return new C(e*Math.cos(this.i),e*Math.sin(this.i))}
+  log(){return new C(.5*Math.log(this.r**2+this.i**2),Math.atan2(this.i,this.r))}
+  sqrt(){const m=this.abs(),a=this.arg()/2;return new C(Math.sqrt(m)*Math.cos(a),Math.sqrt(m)*Math.sin(a))}
+  static c(x){return x instanceof C?x:new C(x)}
+  static i(y){return new C(0,y)}
+}
+// ─── LANCZOS ln Γ (complex) ────────────────────
+function lnGam(z){
+  const co=[.99999999999980993,676.5203681218851,-1259.1392167224028,
+    771.32342877765313,-176.61502916214059,12.507343278686905,
+    -.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(z.r<.5){
+    const pz=new C(Math.PI).mul(z);
+    const s=new C(Math.sin(pz.r)*Math.cosh(pz.i),Math.cos(pz.r)*Math.sinh(pz.i));
+    return new C(Math.log(Math.PI)).sub(s.log()).sub(lnGam(new C(1-z.r,-z.i)));
+  }
+  let s=new C(co[0]);const zm=z.sub(1);
+  for(let i=1;i<9;i++)s=s.add(new C(co[i]).div(zm.add(new C(i))));
+  const t=zm.add(new C(7.5));
+  return new C(.5*Math.log(2*Math.PI)).add(zm.add(new C(.5)).mul(t.log())).sub(t).add(s.log());
+}
+// ─── RICATTI-HANKEL (neutral, complex rho) ─────
+function ricH(L,rho){
+  const ei=C.i(1).mul(rho).exp();
+  let a=ei, b=C.i(-1).mul(ei);
+  if(L===0)return{xi:b,dxi:a};
+  for(let l=0;l<L;l++){const n=b.scale(2*l+1).div(rho).sub(a);a=b;b=n;}
+  return{xi:b,dxi:a.sub(b.scale(L).div(rho))};
+}
+// ─── COULOMB ASYMPTOTIC (charged, at R_M) ──────
+function coulA(L,eta,rho){
+  const zArg=new C(L+1).add(C.i(1).mul(eta));
+  const sigL=lnGam(zArg).i;
+  const tL=rho.sub(eta.mul(rho.scale(2).log())).sub(new C(L*Math.PI/2)).add(new C(sigL));
+  const H=C.i(1).mul(tL).exp();
+  const dH=C.i(1).mul(new C(1).sub(eta.div(rho))).mul(H);
+  return{xi:H,dxi:dH};
+}
+// ─── POTENTIAL ─────────────────────────────────
+const PDEFS={
+  wsvs:{label:'WS Vol+Surface',info:'−V₀·f(r) + 4V₂·eˣ/(1+eˣ)², x=(r−R)/a',
+    fields:[['V₀ (MeV)','V0','65'],['V₂ (MeV)','V2','25'],['rᵥ (fm)','rv','1.19'],['aᵥ (fm)','av','0.75']]},
+  wsv:{label:'WS Volume',info:'−V₀ / (1+exp((r−R)/a))',
+    fields:[['V₀ (MeV)','V0','65'],['rᵥ (fm)','rv','1.19'],['aᵥ (fm)','av','0.65']]},
+  gauss:{label:'Gaussian',info:'−V₀ · exp(−(r/R)²)',
+    fields:[['V₀ (MeV)','V0','65'],['rᵥ (fm)','rv','1.19']]},
+  square:{label:'Square Well',info:'−V₀ for r ≤ R, else 0',
+    fields:[['V₀ (MeV)','V0','65'],['rᵥ (fm)','rv','1.19']]},
+  yukawa:{label:'Yukawa',info:'−V₀·R·exp(−r/R) / r',
+    fields:[['V₀ (MeV)','V0','65'],['rᵥ (fm)','rv','1.19']]},
+  ho:{label:'Harmonic Osc.',info:'−V₀(1−(r/R)²) for r ≤ R',
+    fields:[['V₀ (MeV)','V0','65'],['rᵥ (fm)','rv','1.19']]}
+};
+function rebuildPot(){
+  const t=document.getElementById('potForm').value, d=PDEFS[t];
+  const c=document.getElementById('potFlds');
+  const two=d.fields.length>=3;
+  let h=`<div class="hint">${d.info}</div>`;
+  if(two)h+='<div class="g2">';
+  d.fields.forEach(([l,id,v])=>h+=`<div class="f"><label>${l}</label><input class="fn" id="${id}" type="number" value="${v}" step="any"></div>`);
+  if(two)h+='</div>';
+  c.innerHTML=h;
+
+  // Attach live preview listeners to newly created potential fields
+  const inputs = c.querySelectorAll('.fn');
+  inputs.forEach(inp => {
+    inp.addEventListener('input', () => {
+      if(!isSolved) previewPot();
+    });
+  });
+
+  previewPot();
+}
+function onImagTog(){
+  const blk = document.getElementById('imagBlk');
+  blk.style.display = document.getElementById('chkW').checked ? 'block' : 'none';
+  if(!isSolved) previewPot();
+}
+// ─── READ PARAMS ────────────────────────────────
+function getPar(){
+  const v=id=>{const e=document.getElementById(id);return e?+e.value:0};
+  const Ap=v('Ap'),At=v('At'),Zp=v('Zp'),Zt=v('Zt');
+  const L=Math.round(v('qL')),nr=Math.round(v('qnr'));
+  const h=v('gh'),rmax=v('rmax'),RM=v('RM');
+  const Er0=v('Er0'),Gi0=v('Gi0'),p=1e-8;
+  const mu=Ap*At/(Ap+At)*AMU;
+  const pt=document.getElementById('potForm').value;
+  const useW=document.getElementById('chkW').checked;
+  const V0=v('V0'),V2=v('V2')||0,rv=v('rv'),av=v('av')||0.65;
+  const WI=useW?v('WI'):0,ri=v('ri'),ai=v('ai');
+  return{Ap,At,Zp,Zt,L,nr,mu,h,rmax,RM,Er0,Gi0,p,pt,V0,V2,rv,av,WI,ri,ai};
+}
+// ─── POTENTIAL FUNCTION ─────────────────────────
+function mkPot(par){
+  const{At,Zp,Zt,V0,V2,rv,av,WI,ri,ai,pt}=par;
+  const R=rv*Math.pow(At,1/3),Ri=ri*Math.pow(At,1/3),RC=rv*Math.pow(At,1/3);
+  const ws=x=>1/(1+Math.exp(Math.max(-700,Math.min(700,x))));
+  return r=>{
+    const Vc=Zp===0?0: r<=RC?Zp*Zt*KE/(2*RC)*(3-(r/RC)**2):Zp*Zt*KE/r;
+    let Vn=0;
+    const x=(r-R)/av, ex=Math.exp(Math.max(-700,Math.min(700,x)));
+    if(pt==='wsvs'){Vn=-V0*ws(x)+4*V2*ex/((1+ex)**2);}
+    else if(pt==='wsv'){Vn=-V0*ws(x);}
+    else if(pt==='gauss'){Vn=-V0*Math.exp(-((r/R)**2));}           // ← FIXED: added parens around exponentiation
+    else if(pt==='square'){Vn=r<=R?-V0:0;}
+    else if(pt==='yukawa'){Vn=r<0.05?-V0:-V0*R*Math.exp(-r/R)/r;}
+    else if(pt==='ho'){Vn=r<=R?-V0*(1-(r/R)**2):0;}
+    const Vi=WI===0?0:-WI*ws((r-Ri)/av);
+    return{Vc,Vn,Vr:Vc+Vn,Vi};
+  };
+}
+// ─── WAVE NUMBER ────────────────────────────────
+function knum(E,mu){return new C(2*mu*E.r/HBARC**2,2*mu*E.i/HBARC**2).sqrt();}
+// ─── RK4 INTEGRATION ───────────────────────────
+function rk4(E,par,store){
+  const{L,mu,p,rmax,RM,h}=par, pot=mkPot(par);
+  const k2r=2*mu*E.r/HBARC**2, k2i=2*mu*E.i/HBARC**2;
+  function G(r){const{Vr,Vi}=pot(r),sc=2*mu/HBARC**2;return new C(L*(L+1)/r**2+sc*Vr-k2r,sc*Vi-k2i);}
+  let u=new C(p**(L+1)), v=new C((L+1)*p**L);
+  let uRM=null,vRM=null;
+  const rA=[],uA=[];
+  const SKIP=store?Math.max(1,Math.round(0.04/h)):1e9;
+  const n=Math.ceil((rmax-p)/h);
+  let r=p;
+  for(let i=0;i<n;i++){
+    if(store&&i%SKIP===0){rA.push(r);uA.push({r:u.r,i:u.i});}
+    if(uRM===null&&Math.abs(r-RM)<h*.51){uRM=new C(u.r,u.i);vRM=new C(v.r,v.i);}
+    const g0=G(r),g1=G(r+h*.5),g2=G(r+h);
+    const k1u=v,k1v=g0.mul(u);
+    const u2=u.add(k1u.scale(h*.5)),v2=v.add(k1v.scale(h*.5));
+    const k2u=v2,k2v=g1.mul(u2);
+    const u3=u.add(k2u.scale(h*.5)),v3=v.add(k2v.scale(h*.5));
+    const k3u=v3,k3v=g1.mul(u3);
+    const u4=u.add(k3u.scale(h)),v4=v.add(k3v.scale(h));
+    const k4u=v4,k4v=g2.mul(u4);
+    u=u.add(k1u.add(k2u.scale(2)).add(k3u.scale(2)).add(k4u).scale(h/6));
+    v=v.add(k1v.add(k2v.scale(2)).add(k3v.scale(2)).add(k4v).scale(h/6));
+    r+=h;
+  }
+  if(store){rA.push(r);uA.push({r:u.r,i:u.i});}
+  return{rA,uA,uRM:uRM||u,vRM:vRM||v};
+}
+// ─── NODE COUNT ─────────────────────────────────
+function nodes(E,par){
+  const{L,mu,p,RM,h}=par, pot=mkPot(par);
+  const k2r=2*mu*E.r/HBARC**2, k2i=2*mu*E.i/HBARC**2;
+  function G(r){const{Vr,Vi}=pot(r),sc=2*mu/HBARC**2;return new C(L*(L+1)/r**2+sc*Vr-k2r,sc*Vi-k2i);}
+  let u=new C(p**(L+1)),v=new C((L+1)*p**L);
+  const n=Math.ceil((RM-p)/h);let r=p,sg=0,nd=0;
+  for(let i=0;i<n;i++){
+    const g0=G(r),g1=G(r+h*.5),g2=G(r+h);
+    const k1u=v,k1v=g0.mul(u);const u2=u.add(k1u.scale(h*.5)),v2=v.add(k1v.scale(h*.5));
+    const k2u=v2,k2v=g1.mul(u2);const u3=u.add(k2u.scale(h*.5)),v3=v.add(k2v.scale(h*.5));
+    const k3u=v3,k3v=g1.mul(u3);const u4=u.add(k3u.scale(h)),v4=v.add(k3v.scale(h));
+    const k4u=v4,k4v=g2.mul(u4);
+    u=u.add(k1u.add(k2u.scale(2)).add(k3u.scale(2)).add(k4u).scale(h/6));
+    v=v.add(k1v.add(k2v.scale(2)).add(k3v.scale(2)).add(k4v).scale(h/6));
+    r+=h;
+    if(r>=p+0.1){const s=Math.sign(u.r);if(s!==0&&sg!==0&&s!==sg)nd++;if(s!==0)sg=s;}
+  }
+  return nd;
+}
+// ─── OUTER RR ───────────────────────────────────
+function RR(E,par){
+  const{L,RM,Zp,Zt,mu}=par, k=knum(E,mu), rM=k.scale(RM);
+  let xi,dxi;
+  if(Zp===0){({xi,dxi}=ricH(L,rM));}
+  else{const eta=new C(Zp*Zt*KE*mu/HBARC**2).div(k);({xi,dxi}=coulA(L,eta,rM));}
+  if(dxi.abs()<1e-100)return new C(1e15);
+  return xi.div(k.mul(dxi));
+}
+// ─── MATCHING FUNCTION ──────────────────────────
+function mF(E,par){
+  if(Math.abs(E.i)<2&&nodes(E,par)!==par.nr)return new C(1e6);
+  const{uRM,vRM}=rk4(E,par,false);
+  if(vRM.abs()<1e-100)return new C(1e6);
+  return uRM.div(vRM).sub(RR(E,par));
+}
+// ─── SECANT SOLVER ──────────────────────────────
+function findPole(par,Er0,Gi0){
+  let E0=new C(Er0,-Gi0), E1=new C(Er0*1.04,-Gi0*0.97);
+  let f0=mF(E0,par), f1=mF(E1,par);
+  const tol=1e-7, mx=60; let it=0;
+  for(;it<mx;it++){
+    const df=f1.sub(f0);if(df.abs()<1e-22)break;
+    const E2=E1.sub(f1.mul(E1.sub(E0)).div(df));
+    E0=E1;f0=f1;E1=E2;f1=mF(E1,par);
+    if(f1.abs()<tol)return{Eres:E1,ok:true,it:it+1,res:f1.abs()};
+  }
+  return{Eres:E1,ok:f1.abs()<1e-4,it,res:f1.abs()};
+}
+// ─── WAVE FUNCTION & NORM ──────────────────────
+function buildWF(Eres,par){
+  const{L,RM,mu,Zp,Zt}=par, k=knum(Eres,mu);
+  const{rA,uA,uRM}=rk4(Eres,par,true);
+  const rM=k.scale(RM);
+  let xi;
+  if(Zp===0){({xi}=ricH(L,rM));}else{const eta=new C(Zp*Zt*KE*mu/HBARC**2).div(k);({xi}=coulA(L,eta,rM));}
+  const Ac=xi.abs()>1e-100?uRM.div(xi):new C(1);
+  let nm=0;
+  for(let i=0;i<rA.length-1;i++){const dr=rA[i+1]-rA[i],u0=uA[i],u1=uA[i+1];nm+=.5*((u0.r**2+u0.i**2)+(u1.r**2+u1.i**2))*dr;}
+  const N=nm>0?1/Math.sqrt(nm):1;
+  return{rA,uA,N,k,Ac,nc:nm*N*N};
+}
+// ─── POTENTIAL CURVE ────────────────────────────
+function potC(par){
+  const pot=mkPot(par);
+  const rA=[],Vr=[],Vi=[],Vc=[],Vn=[];
+  for(let r=0.05;r<=par.rmax+.01;r+=.1){const p=pot(r);rA.push(r);Vr.push(p.Vr);Vi.push(p.Vi);Vc.push(p.Vc);Vn.push(p.Vn);}
+  return{rA,Vr,Vi,Vc,Vn};
+}
+// ─── CHART ──────────────────────────────────────
+const CLR=['#29c5f6','#0ff0a0','#f0c060','#ff6b50','#c080ff','#ff9060','#6090ff'];
+function mkChart(wf,pots,par){
+  const{N,rA:wr,uA}=wf;
+  const mx=650,sk=Math.max(1,Math.floor(wr.length/mx));
+  const rx=[],re=[],im=[],ab=[];
+  for(let i=0;i<wr.length;i+=sk){const u=uA[i];rx.push(wr[i]);re.push(N*u.r);im.push(N*u.i);ab.push(N*N*(u.r**2+u.i**2));}
+  const yv=id=>{const v=document.getElementById(id).value;return v===''||v==='auto'?undefined:+v};
+  const ds=[
+    {label:'Re(ψ)',data:rx.map((r,i)=>({x:r,y:re[i]})),borderColor:CLR[0],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,yAxisID:'y',hidden:!document.getElementById('tb0').querySelector('input').checked},
+    {label:'Im(ψ)',data:rx.map((r,i)=>({x:r,y:im[i]})),borderColor:CLR[1],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,yAxisID:'y',hidden:!document.getElementById('tb1').querySelector('input').checked},
+    {label:'|ψ|²',data:rx.map((r,i)=>({x:r,y:ab[i]})),borderColor:CLR[2],backgroundColor:'rgba(240,192,96,.07)',borderWidth:2,pointRadius:0,fill:true,yAxisID:'y',hidden:!document.getElementById('tb2').querySelector('input').checked},
+    {label:'V_total (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vr[i]})),borderColor:CLR[3],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,borderDash:[6,3],yAxisID:'yV',hidden:!document.getElementById('tb3').querySelector('input').checked},
+    {label:'Im V (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vi[i]})),borderColor:CLR[4],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,borderDash:[3,3],yAxisID:'yV',hidden:!document.getElementById('tb4').querySelector('input').checked},
+    {label:'V_Coulomb (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vc[i]})),borderColor:CLR[5],backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,borderDash:[4,4],yAxisID:'yV',hidden:!document.getElementById('tb5').querySelector('input').checked},
+    {label:'V_nuclear (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vn[i]})),borderColor:CLR[6],backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,borderDash:[2,4],yAxisID:'yV',hidden:!document.getElementById('tb6').querySelector('input').checked},
+  ];
+  const rmPlugin={id:'rm',afterDraw(ch){
+    const ctx=ch.ctx,xs=ch.scales.x,ca=ch.chartArea;
+    const x=xs.getPixelForValue(par.RM);
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=1;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(x,ca.top);ctx.lineTo(x,ca.bottom);ctx.stroke();
+    ctx.fillStyle='rgba(200,220,234,.35)';ctx.font="9px 'JetBrains Mono',monospace";
+    ctx.fillText('R_M',x+3,ca.top+13);ctx.restore();
+  }};
+  const opts={
+    animation:false,responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{labels:{color:'#7aa0bc',font:{family:"'JetBrains Mono',monospace",size:10},boxWidth:16,padding:9}},
+      tooltip:{backgroundColor:'rgba(6,16,31,.96)',borderColor:'#1e3a5a',borderWidth:1,
+        titleColor:'#29c5f6',bodyColor:'#8ab8cc',padding:9,
+        callbacks:{title:it=>`r = ${it[0].parsed.x.toFixed(3)} fm`,
+          label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toExponential(4)}`}}
+    },
+    scales:{
+      x:{type:'linear',min:0,max:par.rmax,
+        title:{display:true,text:'r (fm)',color:'#4e7290',font:{size:11}},
+        ticks:{color:'#4e7290',font:{family:"'JetBrains Mono',monospace",size:9}},
+        grid:{color:'rgba(255,255,255,.03)'}},
+      y:{position:'left',min:yv('yPn'),max:yv('yPx'),
+        title:{display:true,text:'ψ(r) [normalized]',color:CLR[0],font:{size:10}},
+        ticks:{color:'#4e7290',font:{family:"'JetBrains Mono',monospace",size:9}},
+        grid:{color:'rgba(255,255,255,.04)'}},
+      yV:{position:'right',min:yv('yVn'),max:yv('yVx'),
+        title:{display:true,text:'V(r) (MeV)',color:CLR[3],font:{size:10}},
+        ticks:{color:'#4e7290',font:{family:"'JetBrains Mono',monospace",size:9}},
+        grid:{drawOnChartArea:false}}
+    }
+  };
+  const el=document.getElementById('mainC').getContext('2d');
+  if(chart)chart.destroy();
+  chart=new Chart(el,{type:'line',data:{datasets:ds},options:opts,plugins:[rmPlugin]});
+}
+function dsTog(idx){
+  if(!chart)return;
+  const m=chart.getDatasetMeta(idx);m.hidden=!m.hidden;
+  document.getElementById('tb'+idx).classList.toggle('lit',!m.hidden);
+  chart.update();
+}
+function applyAx(){
+  if(!chart)return;
+  const yv=id=>{const v=document.getElementById(id).value;return v===''||v==='auto'?undefined:+v};
+  chart.options.scales.y.min=yv('yPn');chart.options.scales.y.max=yv('yPx');
+  chart.options.scales.yV.min=yv('yVn');chart.options.scales.yV.max=yv('yVx');
+  chart.update();
+}
+function autoAx(){
+  if(!chart)return;
+  ['yPn','yPx','yVn','yVx'].forEach(id=>document.getElementById(id).value='');
+  chart.options.scales.y.min=undefined;chart.options.scales.y.max=undefined;
+  chart.options.scales.yV.min=undefined;chart.options.scales.yV.max=undefined;
+  chart.update();
+}
+// ─── RESULTS ───────────────────────────────────
+function showRes(Er,wf,par,it,res){
+  const Ei=Er.i,Gr=-Ei,G=2*Gr;
+  const k=wf.k,eta=par.Zp===0?'—':(par.Zp*par.Zt*KE*par.mu/HBARC**2/k.r).toFixed(4);
+  const tau=G>0?(HBAR/G).toExponential(3):'∞';
+  document.getElementById('rEr').textContent=Er.r.toFixed(7)+' MeV';
+  document.getElementById('rGm').textContent=G.toFixed(7)+' MeV';
+  document.getElementById('rGH').textContent=Gr.toFixed(7)+' MeV';
+  document.getElementById('rTau').textContent=tau+' s';
+  document.getElementById('rEres').textContent=`${Er.r.toFixed(6)} ${Ei>=0?'+':''} ${Ei.toFixed(6)} i`;
+  document.getElementById('rK').textContent=`${k.r.toFixed(5)} ${k.i>=0?'+':''} ${k.i.toFixed(5)} i`;
+  document.getElementById('rEta').textContent=eta;
+  document.getElementById('rNm').textContent=wf.nc.toFixed(6);
+  document.getElementById('rIt').textContent=it;
+}
+// ─── STATUS ────────────────────────────────────
+function setStat(m,t=''){const el=document.getElementById('stat');el.className=t;el.innerHTML=t==='run'?`<span class="spin"></span>${m}`:m;}
+function setPg(p){const w=document.getElementById('pgW'),f=document.getElementById('pgF');w.style.display='block';f.style.width=p+'%';}
+// ─── MAIN SOLVE ────────────────────────────────
+async function solve(){
+  const btn=document.getElementById('btnSolve');btn.disabled=true;
+  setStat('Setting up computation…','run');setPg(5);
+  await tick(20);
+  try{
+    const par=getPar();
+    if(par.RM>=par.rmax)throw new Error(`R_M(${par.RM}) must be less than r_max(${par.rmax})`);
+    if(par.h<=0||par.h>0.3)throw new Error('Step h must be in (0, 0.3]');
+    if(par.L<0||par.nr<0)throw new Error('L and nᵣ must be ≥ 0');
+    setStat('Searching Gamow pole (secant iterations)…','run');setPg(18);
+    await tick(20);
+    const t0=performance.now();
+    const{Eres,ok,it,res}=findPole(par,par.Er0,par.Gi0);
+    setPg(65);await tick(10);
+    setStat('Building full wave function…','run');
+    const wf=buildWF(Eres,par);
+    setPg(85);await tick(10);
+    const pots=potC(par);
+    mkChart(wf,pots,par);
+    showRes(Eres,wf,par,it,res);
+    setPg(100);
+    const dt=(performance.now()-t0).toFixed(0);
+    if(!ok)setStat(`⚠ Not fully converged (iter=${it}, |f|=${res.toExponential(2)}) — try a different initial guess`,'wn');
+    else setStat(`✓ Converged in ${it} iterations (${dt} ms) · |f| = ${res.toExponential(2)}`,'ok');
+    isSolved = true; // prevent accidental preview overwrite
+  }catch(e){setStat(`✗ ${e.message}`,'er');document.getElementById('pgW').style.display='none';console.error(e);}
+  btn.disabled=false;
+  setTimeout(()=>{document.getElementById('pgW').style.display='none';},1400);
+}
+function tick(ms){return new Promise(r=>setTimeout(r,ms));}
+// ─── POTENTIAL PREVIEW (LIVE BEFORE SOLVE) ─────
+function previewPot(){
+  if(isSolved) return; // never overwrite a solved full chart
+  const par=getPar(), pots=potC(par);
+  const el=document.getElementById('mainC').getContext('2d');
+  if(chart)chart.destroy();
+  chart=new Chart(el,{type:'line',data:{datasets:[
+    {label:'V_total (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vr[i]})),borderColor:CLR[3],backgroundColor:'transparent',borderWidth:1.5,pointRadius:0,borderDash:[6,3],yAxisID:'yV'},
+    {label:'V_nuclear (MeV)',data:pots.rA.map((r,i)=>({x:r,y:pots.Vn[i]})),borderColor:CLR[6],backgroundColor:'transparent',borderWidth:1.2,pointRadius:0,borderDash:[2,4],yAxisID:'yV'},
+  ]},options:{animation:false,responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#7aa0bc',font:{family:"'JetBrains Mono',monospace",size:10}}},
+      tooltip:{backgroundColor:'rgba(6,16,31,.96)',borderColor:'#1e3a5a',borderWidth:1,titleColor:'#29c5f6',bodyColor:'#8ab8cc',
+        callbacks:{title:it=>`r = ${it[0].parsed.x.toFixed(2)} fm`}}},
+    scales:{x:{type:'linear',min:0,max:par.rmax,title:{display:true,text:'r (fm)',color:'#4e7290',font:{size:11}},
+      ticks:{color:'#4e7290',font:{family:"'JetBrains Mono',monospace",size:9}},grid:{color:'rgba(255,255,255,.03)'}},
+      y:{display:false},
+      yV:{position:'right',title:{display:true,text:'V(r) (MeV)',color:CLR[3],font:{size:10}},
+        ticks:{color:'#4e7290',font:{family:"'JetBrains Mono',monospace",size:9}},grid:{color:'rgba(255,255,255,.04)'}}}}});
+}
+// ─── LIVE HINTS ────────────────────────────────
+function updHints(){
+  const Ap=+document.getElementById('Ap').value, At=+document.getElementById('At').value;
+  const mu=Ap*At/(Ap+At)*AMU;
+  document.getElementById('mucLine').textContent=`μc² = ${mu.toFixed(3)} MeV`;
+  const Er=+document.getElementById('Er0').value, Gi=+document.getElementById('Gi0').value;
+  document.getElementById('guessLine').textContent=`E₀ = ${Er.toFixed(4)} − ${Gi.toFixed(4)} i MeV`;
+}
+// ─── TAB ───────────────────────────────────────
+function gotoTab(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById(id).classList.add('on');btn.classList.add('on');
+}
+// ─── INIT ──────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  rebuildPot(); // also calls previewPot() inside
+  updHints();
+
+  // Live hints for reduced mass & guess
+  ['Ap','At','Er0','Gi0'].forEach(id=>document.getElementById(id)?.addEventListener('input',updHints));
+
+  // Live potential preview for main nuclear parameters
+  const livePotUpdate = () => { if(!isSolved) previewPot(); };
+  ['Ap','At','Zp','Zt'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', livePotUpdate);
+  });
+
+  // Delegation for dynamic potFlds + imagBlk
+  const potContainer = document.getElementById('potFlds');
+  if(potContainer) potContainer.addEventListener('input', livePotUpdate);
+  const imagContainer = document.getElementById('imagBlk');
+  if(imagContainer) imagContainer.addEventListener('input', livePotUpdate);
+});
+</script>
+</body>
+</html> 

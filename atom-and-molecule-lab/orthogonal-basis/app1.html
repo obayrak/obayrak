@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Two-Body Radial Schrödinger Solver — Basis Expansion Method</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0f18; --panel: #111827; --border: #1e293b;
+      --text: #e2e8f0; --text2: #94a3b8;
+      --accent: #06b6d4; --accent2: #8b5cf6;
+      --gold: #f59e0b; --green: #10b981; --red: #ef4444;
+      --magenta: #d946ef; --cyan: #22d3ee;
+      --input-bg: #1e293b; --btn-bg: #1e3a5f; --btn-hover: #2563eb;
+      --font: 'Segoe UI', system-ui, sans-serif;
+      --mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--font);
+      height: 100vh; display: flex; flex-direction: column;
+      overflow: hidden; user-select: none;
+    }
+    header {
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: 8px 16px; display: flex; align-items: center;
+      gap: 12px; flex-shrink: 0; z-index: 10;
+    }
+    header h1 { font-size: 1.1em; font-weight: 600; letter-spacing: .02em; white-space: nowrap; }
+    header h1 span { color: var(--accent); }
+    .preset-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-left: 12px; }
+    .preset-btn {
+      font-size: .7em; padding: 4px 10px; border-radius: 14px;
+      border: 1px solid var(--border); background: var(--input-bg);
+      color: var(--text2); cursor: pointer; white-space: nowrap;
+      transition: .15s; font-family: var(--font);
+    }
+    .preset-btn:hover, .preset-btn.active {
+      background: var(--btn-bg); border-color: var(--accent); color: var(--accent);
+    }
+    .main-layout { display: flex; flex: 1; overflow: hidden; }
+    .sidebar {
+      width: 380px; min-width: 380px; background: var(--panel);
+      border-right: 1px solid var(--border); overflow-y: auto;
+      padding: 12px; display: flex; flex-direction: column;
+      gap: 10px; flex-shrink: 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 5px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .tab-row {
+      display: flex; border-bottom: 1px solid var(--border);
+      flex-shrink: 0; background: var(--panel); padding: 0 8px;
+      overflow-x: auto;
+    }
+    .tab-row::-webkit-scrollbar { height: 3px; }
+    .tab-row::-webkit-scrollbar-thumb { background: #334155; }
+    .tab-btn {
+      padding: 10px 16px; border: none; background: transparent;
+      color: var(--text2); cursor: pointer; font-size: .82em;
+      font-family: var(--font); border-bottom: 2px solid transparent;
+      transition: .15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    /* ── KEY FIX: tab-content as flex column, overflow hidden so child plots fill space ── */
+    .tab-content {
+      flex: 1; overflow: hidden; padding: 8px;
+      display: none; flex-direction: column; gap: 8px;
+    }
+    .tab-content.active { display: flex; }
+    .plot-container {
+      flex: 1; min-height: 0; background: #0d1117;
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .plot-row { display: flex; gap: 8px; flex: 1; min-height: 0; }
+    .plot-row .plot-container { flex: 1; }
+    .section-title {
+      font-size: .8em; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text2); margin: 4px 0; font-weight: 600;
+    }
+    select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--input-bg);
+      color: var(--text); font-family: var(--font); font-size: .85em; cursor: pointer;
+    }
+    select optgroup { color: var(--text2); background: var(--input-bg); font-style: normal; }
+    select option { background: var(--input-bg); }
+    select:focus { border-color: var(--accent); outline: none; }
+    .param-group { display: flex; flex-direction: column; gap: 6px; }
+    .param-row { display: flex; align-items: center; gap: 8px; }
+    .param-row label {
+      font-size: .75em; color: var(--text2); width: 60px;
+      flex-shrink: 0; text-align: right; font-family: var(--mono);
+    }
+    .param-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; }
+    .param-row input[type="number"] {
+      width: 70px; padding: 4px 6px; border-radius: 4px;
+      border: 1px solid var(--border); background: var(--input-bg);
+      color: var(--text); font-family: var(--mono); font-size: .8em; text-align: center;
+    }
+    .param-row input[type="number"]:focus { border-color: var(--accent); outline: none; }
+    .param-row .unit { font-size: .7em; color: var(--text2); width: 30px; flex-shrink: 0; }
+    .btn {
+      padding: 8px 16px; border-radius: 6px; border: 1px solid var(--accent);
+      background: var(--btn-bg); color: var(--accent); cursor: pointer;
+      font-family: var(--font); font-size: .85em; font-weight: 500;
+      transition: .15s; white-space: nowrap;
+    }
+    .btn:hover { background: var(--btn-hover); color: #fff; }
+    .btn.primary { background: var(--accent); color: #000; font-weight: 600; }
+    .btn.primary:hover { background: #08c5e0; }
+    .btn.small { padding: 4px 10px; font-size: .7em; }
+    .btn.ghost { background: transparent; border-color: var(--border); color: var(--text2); }
+    .btn.ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--btn-bg); }
+    #status-bar {
+      background: #0d1117; border-top: 1px solid var(--border);
+      padding: 6px 16px; display: flex; align-items: center;
+      gap: 12px; font-size: .75em; color: var(--text2);
+      flex-shrink: 0; font-family: var(--mono); z-index: 10;
+    }
+    #status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+    }
+    #status-dot.computing { background: var(--cyan); }
+    #status-dot.converged { background: var(--green); animation: none; }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+    .eig-table {
+      width: 100%; border-collapse: collapse;
+      font-size: .78em; font-family: var(--mono);
+    }
+    .eig-table th, .eig-table td {
+      padding: 6px 8px; text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .eig-table th {
+      color: var(--text2); font-weight: 500;
+      position: sticky; top: 0; background: var(--panel);
+    }
+    .eig-table tr:hover td { background: #1a2740; }
+    .convergence-strip { display: flex; gap: 8px; min-height: 0; flex: 1; }
+    .convergence-strip .plot-container { flex: 1; min-height: 0; }
+    
+
+    /* pot-controls row: fixed height, plot fills the rest */
+    .pot-controls {
+      display: flex; gap: 8px; align-items: center;
+      flex-wrap: wrap; flex-shrink: 0; padding-bottom: 4px;
+    }
+    .pot-controls label { font-size: .78em; color: var(--text2); }
+    .pot-controls input[type="checkbox"] { accent-color: var(--accent); }
+
+    /* ─── MODAL ─── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,10,0.88);
+      z-index: 2000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; width: min(960px, 96vw); height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,.7);
+    }
+    .modal-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+      background: #0d1117;
+    }
+    .modal-header h2 { font-size: .95em; color: var(--accent); margin-right: auto; }
+    .modal-tabs { display: flex; gap: 4px; }
+    .modal-tab-btn {
+      padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border);
+      background: transparent; color: var(--text2); cursor: pointer;
+      font-family: var(--font); font-size: .78em; transition: .15s;
+    }
+    .modal-tab-btn.active { background: var(--btn-bg); color: var(--accent); border-color: var(--accent); }
+    .modal-tab-btn:hover:not(.active) { color: var(--text); border-color: #334155; }
+    .modal-close {
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: transparent; color: var(--text2); cursor: pointer;
+      font-family: var(--font); font-size: .8em; transition: .15s;
+    }
+    .modal-close:hover { background: #ef44441a; color: var(--red); border-color: var(--red); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 24px 28px; }
+    .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .modal-tab-content { display: none; }
+    .modal-tab-content.active { display: block; }
+
+    /* theory content */
+    .th-section { margin-bottom: 32px; }
+    .th-section > h2 {
+      font-size: .92em; color: var(--accent); letter-spacing: .04em;
+      border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px;
+    }
+    .th-section > h3 { font-size: .85em; color: var(--cyan); margin: 16px 0 8px; }
+    .th-section p { color: var(--text2); font-size: .83em; line-height: 1.75; margin: 6px 0; }
+    .th-section .eq-block {
+      text-align: center; margin: 14px 0; padding: 12px 16px;
+      background: #0d1117; border-radius: 8px; border-left: 3px solid var(--accent);
+      overflow-x: auto;
+    }
+    .th-section .eq-inline { display: inline-block; }
+    .th-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .th-row .eq-block { flex: 1; min-width: 200px; }
+
+    /* theory tables */
+    .th-table { width: 100%; border-collapse: collapse; font-size: .78em; margin: 10px 0; }
+    .th-table th {
+      color: var(--accent); text-align: left; padding: 8px 10px;
+      border-bottom: 2px solid var(--border); font-weight: 600; background: #0d1117;
+    }
+    .th-table td { padding: 7px 10px; border-bottom: 1px solid #1a2535; color: var(--text2); vertical-align: top; }
+    .th-table tr:hover td { background: #1a2740; }
+    .th-table td:first-child { color: var(--cyan); font-family: var(--mono); font-size: .95em; }
+    .th-table td .exact { color: var(--green); font-family: var(--mono); }
+    .th-table td .no-exact { color: #475569; font-style: italic; }
+
+    /* basis cards */
+    .basis-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin: 10px 0; }
+    .basis-card {
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .basis-card .bc-tag {
+      display: inline-block; font-size: .65em; padding: 2px 7px;
+      border-radius: 10px; background: var(--btn-bg); color: var(--accent);
+      font-family: var(--mono); font-weight: 600; margin-bottom: 8px;
+    }
+    .basis-card .bc-tag.b { background: #1a2f1a; color: var(--green); }
+    .basis-card .bc-tag.c { background: #2a1a2f; color: var(--magenta); }
+    .basis-card h4 { font-size: .82em; color: var(--text); margin-bottom: 4px; }
+    .basis-card .bc-formula {
+      font-family: var(--mono); font-size: .72em; color: var(--cyan);
+      background: #060a10; padding: 5px 8px; border-radius: 4px;
+      margin: 6px 0; word-break: break-all;
+    }
+    .basis-card .bc-desc { font-size: .75em; color: var(--text2); line-height: 1.5; margin-top: 5px; }
+    .basis-card .bc-use { font-size: .72em; color: var(--gold); margin-top: 4px; }
+
+    /* manual */
+    .manual-section { margin-bottom: 28px; }
+    .manual-section h2 { font-size: .9em; color: var(--accent); margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .manual-section h3 { font-size: .82em; color: var(--cyan); margin: 14px 0 7px; }
+    .manual-section p { font-size: .82em; color: var(--text2); line-height: 1.7; margin: 5px 0; }
+    .manual-section ul { padding-left: 18px; }
+    .manual-section li { font-size: .82em; color: var(--text2); line-height: 1.7; margin: 3px 0; }
+    .manual-section li strong { color: var(--text); }
+    .manual-step {
+      display: flex; gap: 12px; padding: 10px 14px; background: #0d1117;
+      border-radius: 8px; margin: 8px 0; border-left: 3px solid var(--accent2);
+    }
+    .manual-step .step-num {
+      width: 24px; height: 24px; border-radius: 50%; background: var(--accent2);
+      color: #000; font-size: .75em; font-weight: 700; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .manual-step .step-body { flex: 1; }
+    .manual-step .step-body strong { font-size: .82em; color: var(--text); display: block; margin-bottom: 3px; }
+    .manual-step .step-body p { font-size: .78em; margin: 0; }
+    .tip-box {
+      background: #0a1a2f; border: 1px solid #1e3a5f; border-radius: 8px;
+      padding: 10px 14px; margin: 8px 0;
+    }
+    .tip-box .tip-label { font-size: .7em; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .tip-box p { font-size: .8em; color: var(--text2); margin: 4px 0; }
+    .warn-box {
+      background: #1a100a; border: 1px solid #3a2010; border-radius: 8px;
+      padding: 10px 14px; margin: 8px 0;
+    }
+    .warn-box .tip-label { color: var(--red); }
+
+    @media (max-width: 1000px) {
+      .sidebar { width: 300px; min-width: 300px; }
+      .plot-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚛️ <span>RadialSE</span> Solver</h1>
+  <div class="preset-bar" id="preset-bar">
+    <button class="preset-btn active" data-preset="hydrogen">H atom</button>
+    <button class="preset-btn" data-preset="positronium">Positronium</button>
+    <button class="preset-btn" data-preset="muonium">Muonium</button>
+    <button class="preset-btn" data-preset="deuterium">Deuterium</button>
+    <button class="preset-btn" data-preset="pp">p-p</button>
+    <button class="preset-btn" data-preset="np">n-p</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-left:auto;">
+    <button class="btn small ghost" onclick="openModal('theory')">∂ THEORY</button>
+    <button class="btn small ghost" onclick="openModal('manual')">📘 MANUAL</button>
+  </div>
+</header>
+
+<div class="main-layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="section-title">🔬 Two-Body System</div>
+    <div class="param-row">
+      <label>m₁ (mₑ):</label>
+      <input type="number" id="mass1" value="1.0" step="0.0001" onchange="updateMasses()">
+      <label>m₂ (mₑ):</label>
+      <input type="number" id="mass2" value="1836.1527" step="0.0001" onchange="updateMasses()">
+    </div>
+    <div class="param-row">
+      <label>μ =</label>
+      <span style="font-family:var(--mono);color:var(--accent);" id="mu-display">0.9995 mₑ</span>
+      <label>ℓ =</label>
+      <input type="number" id="ang-momentum" value="0" min="0" max="10" step="1"
+             style="width:50px;" onchange="updateL()">
+    </div>
+
+    <div class="section-title">📐 Potential</div>
+    <select id="potential-select" onchange="updatePotentialParams()">
+      <option value="coulomb">Coulomb / Hydrogen-like</option>
+      <option value="harmonic">Harmonic Oscillator</option>
+      <option value="morse">Morse Potential</option>
+      <option value="kratzer">Kratzer Potential</option>
+      <option value="isw">Infinite Square Well</option>
+      <option value="fsw">Finite Square Well</option>
+      <option value="yukawa">Yukawa (Screened Coulomb)</option>
+      <option value="woods-saxon">Woods-Saxon</option>
+      <option value="poschl-teller">Pöschl-Teller</option>
+      <option value="gaussian">Gaussian Well</option>
+      <option value="power">Power-law: k·rⁿ</option>
+    </select>
+    <div id="potential-params" class="param-group"></div>
+
+    <div class="section-title">🧮 Basis Set</div>
+    <select id="basis-select" onchange="updateBasisControls()">
+      <optgroup label="── Group A: Laguerre-type ──">
+        <option value="sto">STO — Slater-type orbitals</option>
+        <option value="gto">GTO — Gaussian-type orbitals</option>
+        <option value="ho">HO — Harmonic Oscillator</option>
+        <option value="lag">LAG — Associated Laguerre</option>
+        <option value="hylleraas">HYLLERAAS — Hylleraas-type</option>
+      </optgroup>
+      <optgroup label="── Group B: Sine / DVR ──">
+        <option value="sine" selected >SINE — Particle-in-box</option>
+        <option value="sinc">SINC — Sinc DVR</option>
+        <option value="bessel">BESSEL — Spherical Bessel</option>
+      </optgroup>
+      <optgroup label="── Group C: Polynomial-type ──">
+        <option value="legendre">LEGENDRE — Shifted Legendre</option>
+        <option value="cheby">CHEBY — Chebyshev T</option>
+        <option value="hermite">HERMITE — Hermite-Gauss</option>
+        <option value="jacobi">JACOBI — Jacobi polynomials</option>
+      </optgroup>
+    </select>
+    <div id="basis-params" class="param-group"></div>
+    <div class="param-row">
+      <label>N basis:</label>
+      <input type="range" id="basis-size" min="5" max="150" value="30" step="1"
+             oninput="document.getElementById('basis-size-val').textContent=this.value">
+      <span id="basis-size-val" style="font-family:var(--mono);color:var(--accent);">30</span>
+    </div>
+    <div class="param-row">
+      <label>R<sub>max</sub>:</label>
+      <input type="range" id="rmax-slider" min="5" max="200" value="40" step="1"
+             oninput="document.getElementById('rmax-val').textContent=this.value+' a₀'">
+      <span id="rmax-val" style="font-family:var(--mono);color:var(--accent);">40 a₀</span>
+    </div>
+    <div class="param-row">
+      <label>Grid:</label>
+      <input type="range" id="grid-size" min="500" max="8000" value="2001" step="100"
+             oninput="document.getElementById('grid-val').textContent=this.value">
+      <span id="grid-val" style="font-family:var(--mono);color:var(--accent);">2001</span>
+    </div>
+    <div class="param-row">
+      <label>States:</label>
+      <input type="number" id="num-states" value="5" min="1" max="20" step="1" style="width:50px;">
+    </div>
+
+    <button class="btn primary" onclick="runSolver()" style="width:100%;margin-top:4px;">⚡ SOLVE</button>
+    <button class="btn" onclick="plotPotentialStandalone()" style="width:100%;">📈 Plot Potential</button>
+    <button class="btn" onclick="runConvergence()" style="width:100%;">📊 Convergence Scan</button>
+    <button class="btn small" onclick="exportData()" style="width:100%;">💾 Export Results (CSV)</button>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <div class="tab-row">
+      <button class="tab-btn active" data-tab="tab-wavefn">🌊 Wavefunctions</button>
+      <button class="tab-btn" data-tab="tab-potential">📈 Potential</button>
+      <button class="tab-btn" data-tab="tab-matrix">🔢 Matrix</button>
+      <button class="tab-btn" data-tab="tab-table">📋 Eigenvalues</button>
+      <button class="tab-btn" data-tab="tab-convergence">📊 Convergence</button>
+    </div>
+
+    <!-- Wavefunctions tab -->
+    <div class="tab-content active" id="tab-wavefn">
+      <div class="plot-row">
+        <div class="plot-container" id="plot-wavefn"></div>
+        <div class="plot-container" id="plot-density"></div>
+      </div>
+      <div class="plot-container" id="plot-coeffs" style="flex:0 0 160px;"></div>
+    </div>
+
+    <!-- Potential tab: controls row + plot fills remaining space -->
+    <div class="tab-content" id="tab-potential">
+      <div class="pot-controls">
+        <label><input type="checkbox" id="chk-show-v" checked> V(r)</label>
+        <label><input type="checkbox" id="chk-show-cent" checked> Centrifugal</label>
+        <label><input type="checkbox" id="chk-show-veff" checked> V<sub>eff</sub>(r)</label>
+        <label><input type="checkbox" id="chk-show-levels" checked> Energy levels</label>
+        <button class="btn small" onclick="plotPotentialStandalone()" style="margin-left:8px;">↻ Refresh</button>
+      </div>
+       <div class="plot-container"
+     id="plot-potential"
+     style="flex:1;width:120%;min-height:650px;height:80vh;width:80vh;">
+</div>
+    </div>
+
+    <!-- Matrix tab -->
+    <div class="tab-content" id="tab-matrix">
+      <div style="display:flex;gap:6px;margin-bottom:4px;flex-shrink:0;">
+        <button class="btn small active matrix-toggle" data-matrix="H">H (Hamiltonian)</button>
+        <button class="btn small matrix-toggle" data-matrix="T">T (Kinetic)</button>
+        <button class="btn small matrix-toggle" data-matrix="V">V (Potential)</button>
+        <button class="btn small matrix-toggle" data-matrix="S">S (Overlap)</button>
+      </div>
+      <div class="plot-container" id="plot-matrix"></div>
+    </div>
+
+    <!-- Eigenvalues tab -->
+    <div class="tab-content" id="tab-table" style="overflow-y:auto;">
+      <table class="eig-table" id="eig-table">
+        <thead>
+          <tr><th>n</th><th>ℓ</th><th>E<sub>basis</sub> (eV)</th>
+              <th>E<sub>exact</sub> (eV)</th><th>Error (eV)</th><th>N</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Convergence tab -->
+    <div class="tab-content" id="tab-convergence">
+      <div class="convergence-strip">
+        <div class="plot-container" id="plot-conv-e0"></div>
+        <div class="plot-container" id="plot-conv-e1"></div>
+        <div class="plot-container" id="plot-conv-coeffs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="status-bar">
+  <span id="status-dot" class="converged"></span>
+  <span id="status-msg">Ready. Select parameters and click SOLVE.</span>
+  <span style="margin-left:auto;">Grid: <span id="status-grid">2001</span></span>
+  <span>|</span>
+  <span>Basis N: <span id="status-basis">30</span></span>
+  <span>|</span>
+  <span>μ = <span id="status-mu">0.9995</span> mₑ</span>
+  <span>|</span>
+  <span>ℓ = <span id="status-l">0</span></span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOnBackdrop(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modal-title">Theory Reference</h2>
+      <div class="modal-tabs" id="modal-tabs">
+        <button class="modal-tab-btn active" data-mtab="theory-ham">Hamiltonian</button>
+        <button class="modal-tab-btn" data-mtab="theory-pot">Potentials</button>
+        <button class="modal-tab-btn" data-mtab="theory-basis">Basis Sets</button>
+        <button class="modal-tab-btn" data-mtab="theory-method">Method</button>
+        <button class="modal-tab-btn" data-mtab="manual">📘 Manual</button>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕ Close</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- content injected by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  PHYSICS CONSTANTS (atomic units unless noted)
+// ============================================================
+const EH  = 27.2114;   // eV per Hartree
+const A0  = 0.0529177; // Bohr radius in nm
+
+// ============================================================
+//  GLOBAL STATE
+// ============================================================
+const state = {
+  mass1: 1.0, mass2: 1836.1527, mu: 0.9995,
+  l: 0, potential: 'coulomb', potParams: { Z1: 1, Z2: 1 },
+  basisType: 'sine', basisParams: {}, basisN: 30,
+  rmax: 40, gridN: 2001, numStates: 5,
+  results: null, convergenceData: null, activeMatrix: 'H',
+};
+
+const PRESETS = {
+  hydrogen:    { m1: 1.0,       m2: 1836.1527, label: 'H atom'      },
+  positronium: { m1: 1.0,       m2: 1.0,       label: 'Positronium' },
+  muonium:     { m1: 206.768,   m2: 1.0,       label: 'Muonium'     },
+  deuterium:   { m1: 1.0,       m2: 3670.483,  label: 'Deuterium'   },
+  pp:          { m1: 1836.1527, m2: 1836.1527, label: 'p-p'         },
+  np:          { m1: 1838.683,  m2: 1836.1527, label: 'n-p'         },
+};
+
+// ============================================================
+//  MATH HELPERS
+// ============================================================
+function sphericalBesselJ(l, x) {
+  if (Math.abs(x) < 1e-15) return l === 0 ? 1.0 : 0.0;
+  if (l === 0) return Math.sin(x) / x;
+  if (l === 1) return Math.sin(x)/(x*x) - Math.cos(x)/x;
+  let j0 = Math.sin(x)/x, j1 = Math.sin(x)/(x*x) - Math.cos(x)/x;
+  for (let ll = 1; ll < l; ll++) {
+    const j2 = ((2*ll+1)/x)*j1 - j0;
+    j0 = j1; j1 = j2;
+  }
+  return j1;
+}
+
+const _besselZerosCache = {};
+function sphericalBesselZeros(l, N) {
+  const key = `${l}_${N}`;
+  if (_besselZerosCache[key]) return _besselZerosCache[key];
+  const zeros = [];
+  const step  = 0.005;
+  const maxX  = (N + l + 10) * Math.PI + 20;
+  let x = step, fPrev = sphericalBesselJ(l, x);
+  x += step;
+  while (zeros.length < N && x < maxX) {
+    const f = sphericalBesselJ(l, x);
+    if (fPrev * f < 0) {
+      let a = x - step, b = x;
+      for (let it = 0; it < 60; it++) {
+        const mid = (a+b)/2;
+        if (sphericalBesselJ(l,a)*sphericalBesselJ(l,mid) <= 0) b = mid; else a = mid;
+      }
+      zeros.push((a+b)/2);
+    }
+    fPrev = f; x += step;
+  }
+  while (zeros.length < N) {
+    const nz = zeros.length + 1;
+    zeros.push((nz + l/2)*Math.PI);
+  }
+  _besselZerosCache[key] = zeros;
+  return zeros;
+}
+
+function chebyshevT(n, x) {
+  if (n === 0) return 1.0;
+  if (n === 1) return x;
+  let T0 = 1.0, T1 = x;
+  for (let k = 1; k < n; k++) { const T2 = 2*x*T1-T0; T0=T1; T1=T2; }
+  return T1;
+}
+
+function hermiteH(n, x) {
+  if (n === 0) return 1.0;
+  if (n === 1) return 2*x;
+  let H0=1.0, H1=2*x;
+  for (let k=1; k<n; k++) { const H2=2*x*H1-2*k*H0; H0=H1; H1=H2; }
+  return H1;
+}
+
+function jacobiP(n, alpha, beta, x) {
+  if (n === 0) return 1.0;
+  const apb = alpha + beta;
+  if (n === 1) return 0.5*(apb+2)*x + 0.5*(alpha-beta);
+  let P0 = 1.0, P1 = 0.5*(apb+2)*x + 0.5*(alpha-beta);
+  for (let k = 2; k <= n; k++) {
+    const a1 = 2*k*(k+apb)*(2*k+apb-2);
+    const a2 = (2*k+apb-1)*(alpha*alpha - beta*beta);
+    const a3 = (2*k+apb-2)*(2*k+apb-1)*(2*k+apb);
+    const a4 = 2*(k+alpha-1)*(k+beta-1)*(2*k+apb);
+    const P2 = ((a2 + a3*x)*P1 - a4*P0) / a1;
+    P0=P1; P1=P2;
+  }
+  return P1;
+}
+
+function associatedLaguerre(n, alpha, x) {
+  if (n === 0) return 1.0;
+  if (n === 1) return 1.0 + alpha - x;
+  let L0=1.0, L1=1.0+alpha-x;
+  for (let k=1; k<n; k++) {
+    const L2=((2*k+1+alpha-x)*L1-(k+alpha)*L0)/(k+1);
+    L0=L1; L1=L2;
+  }
+  return L1;
+}
+
+function legendreP(n, x) {
+  if (n === 0) return 1.0;
+  if (n === 1) return x;
+  let P0=1.0, P1=x;
+  for (let k=1; k<n; k++) {
+    const P2=((2*k+1)*x*P1-k*P0)/(k+1);
+    P0=P1; P1=P2;
+  }
+  return P1;
+}
+
+// ============================================================
+//  POTENTIALS (atomic units: r in a₀, E in Eₕ)
+// ============================================================
+function getPotential(r, potType, params) {
+  const eps = 1e-12;
+  switch (potType) {
+    case 'coulomb':
+      return -(params.Z1 * params.Z2) / Math.max(r, eps);
+    case 'harmonic': {
+      const omega = params.omega ?? 1.0, req = params.req ?? 2.0;
+      return 0.5 * state.mu * omega * omega * (r - req) * (r - req);
+    }
+    case 'morse': {
+      const De=params.De??0.2, a=params.a??1.2, re=params.re??1.8;
+      const t = 1 - Math.exp(-a*(r-re));
+      return De*t*t - De;
+    }
+    case 'kratzer': {
+      const De=params.De??0.5, re=params.re??2.0;
+      if (r < eps) return 1e10;
+      return De*Math.pow(1-re/r,2) - De;
+    }
+    case 'isw': return 0.0;
+    case 'fsw': {
+      const V0=params.V0??10, a=params.a??5;
+      return r < a ? -V0 : 0.0;
+    }
+    case 'yukawa': {
+      const V0=params.V0??1.0, alpha=params.alpha??0.5, r0=params.r0??1.0;
+      if (r < eps) return -V0*r0*alpha;
+      return -V0*r0*Math.exp(-alpha*r)/r;
+    }
+    case 'woods-saxon': {
+      const V0=params.V0_ws??1.837, R=params.R??75.6, a=params.a_ws??9.45;
+      return -V0/(1+Math.exp((r-R)/a));
+    }
+    case 'poschl-teller': {
+      const V0=params.V0_pt??5.0, alp=params.alpha_pt??1.0, r0=params.r0_pt??3.0;
+      const ch=Math.cosh(alp*(r-r0));
+      return -V0/(ch*ch);
+    }
+    case 'gaussian': {
+      const V0=params.V0_g??5.0, sig=params.sigma??1.5, r0=params.r0_g??0.0;
+      return -V0*Math.exp(-(r-r0)*(r-r0)/(2*sig*sig));
+    }
+    case 'power': {
+      const k=params.k??1.0, n=params.n??2.0;
+      return k*Math.pow(r,n);
+    }
+    default: return 0.0;
+  }
+}
+
+function getVeff(r, potType, params, l, mu) {
+  const centrifugal = (l > 0) ? l*(l+1)/(2.0*mu*r*r) : 0.0;
+  if (potType === 'isw') {
+    const a = params.a ?? 5;
+    return r < a ? centrifugal : 1e12;
+  }
+  return getPotential(r, potType, params) + centrifugal;
+}
+
+function getCentrifugal(r, l, mu) {
+  return (l > 0) ? l*(l+1)/(2.0*mu*r*r) : 0.0;
+}
+
+// ============================================================
+//  EXACT ENERGIES (Eₕ)
+// ============================================================
+function getExactEnergy(n_radial, l, potType, params, mu) {
+  switch (potType) {
+    case 'coulomb': {
+      const N = n_radial + l;
+      const Z = Math.abs(params.Z1 * params.Z2);
+      return -mu * Z * Z / (2.0 * N * N);
+    }
+    case 'harmonic': {
+      const omega = params.omega ?? 1.0;
+      const n_r   = n_radial - 1;
+      return omega * (2*n_r + l + 1.5);
+    }
+    case 'isw': {
+      const a = params.a ?? 5;
+      if (l === 0) return (n_radial*n_radial*Math.PI*Math.PI)/(2*mu*a*a);
+      const beta   = (n_radial + l/2.0)*Math.PI;
+      const mu1    = 4*l*l - 1;
+      const z_approx = beta - mu1/(8*beta);
+      return (z_approx*z_approx)/(2*mu*a*a);
+    }
+    case 'morse': {
+      const De=params.De??0.2, a_m=params.a??1.2;
+      const omega_e = a_m*Math.sqrt(2*De/mu);
+      const v = n_radial - 1;
+      if (v < 0) return -De;
+      const term = De - omega_e*(v+0.5);
+      return term > 0 ? -(term*term)/(4*De) : null;
+    }
+    case 'kratzer': {
+      const De=params.De??0.5, re=params.re??2.0;
+      const lambda = Math.sqrt(l*(l+1) + 2*mu*De*re*re);
+      const v = n_radial - 1;
+      const denom = v + 0.5 + lambda;
+      return -2*mu*De*De*re*re/(denom*denom);
+    }
+    default: return null;
+  }
+}
+
+// ============================================================
+//  BASIS FUNCTIONS
+// ============================================================
+function evaluateBasis(r, basisType, basisParams, n, l, rmax) {
+  const eps = 1e-14;
+  switch (basisType) {
+    case 'sto': {
+      const zeta0=basisParams.zeta0??1.5, beta=basisParams.beta??1.3;
+      const zeta=zeta0*Math.pow(beta, n-1);
+      return Math.pow(r, l+1)*Math.exp(-zeta*r);
+    }
+    case 'gto': {
+      const alpha0=basisParams.alpha0??0.5, beta_g=basisParams.beta_g??1.4;
+      const alpha=alpha0*Math.pow(beta_g, n-1);
+      return Math.pow(r, l+1)*Math.exp(-alpha*r*r);
+    }
+    case 'ho': {
+      const alp=basisParams.alpha_ho??0.8;
+      const x=alp*r*r;
+      const lag=associatedLaguerre(n-1, l+0.5, x);
+      return Math.pow(r, l+1)*Math.exp(-x/2.0)*lag;
+    }
+    case 'lag': {
+      const Z=basisParams.Z_lag??1.0;
+      const neff=n+l;
+      const x=2.0*Z*r/neff;
+      const lag=associatedLaguerre(n-1, 2*l+2, x);
+      return Math.pow(r, l)*Math.exp(-x/2.0)*lag;
+    }
+    case 'hylleraas': {
+      const zeta=basisParams.zeta_h??1.0, k=Math.round(basisParams.k_h??1);
+      return Math.pow(r, l+n)*Math.pow(1+r, k)*Math.exp(-zeta*r);
+    }
+    case 'sine': {
+      if (r <= 0 || r >= rmax) return 0;
+      return Math.sqrt(2.0/rmax)*Math.sin(n*Math.PI*r/rmax);
+    }
+    case 'sinc': {
+      const dr_s = rmax / (basisParams._basisN || 30 + 1);
+      const r_n  = n * dr_s;
+      if (r <= 0 || r >= rmax) return 0;
+      const x = (r - r_n) / dr_s;
+      if (Math.abs(x) < 1e-12) return 1.0 / Math.sqrt(dr_s);
+      return Math.sin(Math.PI*x) / (Math.PI*x*Math.sqrt(dr_s));
+    }
+    case 'bessel': {
+      if (r <= 0 || r >= rmax) return 0;
+      const zeros = sphericalBesselZeros(l, Math.max(n, 10));
+      if (n-1 >= zeros.length) return 0;
+      const kn = zeros[n-1] / rmax;
+      return r * sphericalBesselJ(l, kn*r);
+    }
+    case 'legendre': {
+      if (r <= 0 || r >= rmax) return 0;
+      const x = 2.0*r/rmax - 1.0;
+      const P = legendreP(n-1, x);
+      return P * r * (rmax-r) / (rmax*rmax);
+    }
+    case 'cheby': {
+      if (r <= 0 || r >= rmax) return 0;
+      const x = 2.0*r/rmax - 1.0;
+      const T = chebyshevT(n-1, x);
+      return T * Math.sqrt(r*(rmax-r)) / rmax;
+    }
+    case 'hermite': {
+      if (r <= 0 || r >= rmax) return 0;
+      const alp = basisParams.alpha_herm ?? 0.25;
+      const H   = hermiteH(n-1, alp*r);
+      return H * Math.exp(-alp*alp*r*r/2.0) * r*(rmax-r)/(rmax*rmax);
+    }
+    case 'jacobi': {
+      if (r <= 0 || r >= rmax) return 0;
+      const ap = basisParams.alpha_j ?? 0.0;
+      const bp = basisParams.beta_j  ?? 0.0;
+      const x  = 2.0*r/rmax - 1.0;
+      const P  = jacobiP(n-1, ap, bp, x);
+      return P * Math.pow(r, l+1) * (rmax-r);
+    }
+    default: return 0;
+  }
+}
+
+function evaluateBasisDeriv(r, basisType, basisParams, n, l, rmax) {
+  const dr = 1e-5;
+  const fp = evaluateBasis(r+dr, basisType, basisParams, n, l, rmax);
+  const fm = evaluateBasis(r-dr, basisType, basisParams, n, l, rmax);
+  return (fp-fm)/(2.0*dr);
+}
+
+// ============================================================
+//  MATRIX ASSEMBLY
+// ============================================================
+function assembleMatrices(basisType, basisParams, basisN, l, mu, rmax, gridN, potType, potParams) {
+  basisParams._basisN = basisN;
+  const dr = rmax/(gridN-1);
+  const r  = new Array(gridN);
+  for (let i=0; i<gridN; i++) r[i] = Math.max(i*dr, 1e-10);
+
+  const phi=[], dphi=[];
+  for (let n=0; n<basisN; n++) {
+    phi[n]  = new Float64Array(gridN);
+    dphi[n] = new Float64Array(gridN);
+    for (let i=0; i<gridN; i++) {
+      phi[n][i]  = evaluateBasis(     r[i], basisType, basisParams, n+1, l, rmax);
+      dphi[n][i] = evaluateBasisDeriv(r[i], basisType, basisParams, n+1, l, rmax);
+    }
+  }
+
+  const veff = new Float64Array(gridN);
+  for (let i=0; i<gridN; i++) veff[i] = getVeff(r[i], potType, potParams, l, mu);
+
+  const w = new Float64Array(gridN);
+  for (let i=0; i<gridN; i++) {
+    if      (i===0||i===gridN-1) w[i] = dr/3.0;
+    else if (i%2===1)            w[i] = 4.0*dr/3.0;
+    else                         w[i] = 2.0*dr/3.0;
+  }
+
+  const H=numeric.rep([basisN,basisN],0), S=numeric.rep([basisN,basisN],0);
+  const T=numeric.rep([basisN,basisN],0), V=numeric.rep([basisN,basisN],0);
+  const hbar2_2mu = 0.5/mu;
+
+  for (let n=0; n<basisN; n++) {
+    for (let m=n; m<basisN; m++) {
+      let s_sum=0, t_sum=0, v_sum=0;
+      for (let i=0; i<gridN; i++) {
+        const pn=phi[n][i], pm=phi[m][i], dn=dphi[n][i], dm=dphi[m][i], wi=w[i];
+        s_sum += wi*pn*pm;
+        t_sum += wi*dn*dm*hbar2_2mu;
+        const vi = Math.min(veff[i], 1e8);
+        v_sum += wi*pn*vi*pm;
+      }
+      S[n][m]=S[m][n]=s_sum; T[n][m]=T[m][n]=t_sum;
+      V[n][m]=V[m][n]=v_sum; H[n][m]=H[m][n]=t_sum+v_sum;
+    }
+  }
+  return { H, S, T, V, r: Array.from(r), veff: Array.from(veff), dr };
+}
+
+// ============================================================
+//  GENERALIZED EIGENVALUE
+// ============================================================
+function solveGeneralizedEigen(H, S, numEig) {
+  const n = H.length;
+  let L = choleskyDecompose(S);
+  if (!L) {
+    for (let i=0; i<n; i++) S[i][i] += 1e-9;
+    L = choleskyDecompose(S);
+    if (!L) return solveStandardEigen(H, numEig);
+  }
+  const Linv = invertLowerTriangular(L);
+  const A    = numeric.rep([n,n],0);
+  for (let i=0; i<n; i++) {
+    for (let j=i; j<n; j++) {
+      let sum=0;
+      for (let k=0; k<n; k++) for (let p=0; p<n; p++) sum+=Linv[i][k]*H[k][p]*Linv[j][p];
+      A[i][j]=A[j][i]=sum;
+    }
+  }
+  const eig   = numeric.eig(A);
+  const evals = eig.lambda.x;
+  const evecs = eig.E.x;
+  const order = evals.map((_,i)=>i).sort((a,b)=>evals[a]-evals[b]);
+  const eigenvalues=[], eigenvectors=[];
+  for (let idx=0; idx<Math.min(numEig,n); idx++) {
+    const k = order[idx];
+    eigenvalues.push(evals[k]);
+    const y = evecs.map(row=>row[k]);
+    const c = new Array(n).fill(0);
+    for (let i=0; i<n; i++) for (let j=0; j<n; j++) c[i]+=Linv[j][i]*y[j];
+    let norm=0; for (let i=0; i<n; i++) norm+=c[i]*c[i];
+    norm=Math.sqrt(norm)||1; for (let i=0; i<n; i++) c[i]/=norm;
+    eigenvectors.push(c);
+  }
+  return { eigenvalues, eigenvectors };
+}
+
+function solveStandardEigen(H, numEig) {
+  const n=H.length, eig=numeric.eig(H), ev=eig.lambda.x;
+  const order=ev.map((_,i)=>i).sort((a,b)=>ev[a]-ev[b]);
+  const eigenvalues=[], eigenvectors=[];
+  for (let idx=0; idx<Math.min(numEig,n); idx++) {
+    const k=order[idx];
+    eigenvalues.push(ev[k]);
+    eigenvectors.push(eig.E.x.map(row=>row[k]));
+  }
+  return { eigenvalues, eigenvectors };
+}
+
+function choleskyDecompose(A) {
+  const n=A.length, L=numeric.rep([n,n],0);
+  for (let i=0; i<n; i++) {
+    for (let j=0; j<=i; j++) {
+      let sum=0; for (let k=0; k<j; k++) sum+=L[i][k]*L[j][k];
+      if (i===j) {
+        const val=A[i][i]-sum; if (val<=1e-15) return null;
+        L[i][j]=Math.sqrt(val);
+      } else L[i][j]=(A[i][j]-sum)/L[j][j];
+    }
+  }
+  return L;
+}
+
+function invertLowerTriangular(L) {
+  const n=L.length, inv=numeric.rep([n,n],0);
+  for (let i=0; i<n; i++) {
+    inv[i][i]=1.0/L[i][i];
+    for (let j=0; j<i; j++) {
+      let sum=0; for (let k=j; k<i; k++) sum+=L[i][k]*inv[k][j];
+      inv[i][j]=-sum/L[i][i];
+    }
+  }
+  return inv;
+}
+
+// ============================================================
+//  WAVEFUNCTION RECONSTRUCTION
+// ============================================================
+function reconstructWavefunction(r, basisType, basisParams, basisN, l, rmax, coeffs) {
+  const gridN=r.length, dr=r[1]-r[0];
+  const psi=new Float64Array(gridN);
+  for (let i=0; i<gridN; i++) {
+    let val=0;
+    for (let n=0; n<basisN; n++) val+=coeffs[n]*evaluateBasis(r[i],basisType,basisParams,n+1,l,rmax);
+    psi[i]=val;
+  }
+  let norm=0;
+  for (let i=0; i<gridN; i++) {
+    let wi; if (i===0||i===gridN-1) wi=dr/3.0; else if (i%2===1) wi=4.0*dr/3.0; else wi=2.0*dr/3.0;
+    norm+=wi*psi[i]*psi[i];
+  }
+  if (norm>0) { const s=1/Math.sqrt(norm); for (let i=0; i<gridN; i++) psi[i]*=s; }
+  let firstNZ=0;
+  for (let i=1; i<gridN; i++) { if (Math.abs(psi[i])>1e-10) { firstNZ=i; break; } }
+  if (psi[firstNZ]<0) for (let i=0; i<gridN; i++) psi[i]=-psi[i];
+  return Array.from(psi);
+}
+
+// ============================================================
+//  MAIN SOLVER
+// ============================================================
+function runSolver() {
+  syncState();
+  setStatus('computing','Assembling matrices…');
+  const { basisType, basisParams, basisN, l, mu, rmax, gridN, potential, potParams, numStates } = state;
+
+  setTimeout(() => {
+    const mats = assembleMatrices(basisType, basisParams, basisN, l, mu, rmax, gridN, potential, potParams);
+    setStatus('computing','Diagonalising Hamiltonian…');
+    const sol = solveGeneralizedEigen(mats.H, mats.S, numStates);
+    const wavefunctions = sol.eigenvectors.map(c =>
+      reconstructWavefunction(mats.r, basisType, basisParams, basisN, l, rmax, c));
+    state.results = { ...mats, eigenvalues: sol.eigenvalues, eigenvectors: sol.eigenvectors, wavefunctions };
+    setStatus('converged',`Done — ${sol.eigenvalues.length} states computed.`);
+    refreshAllPlots();
+    updateStatusBar();
+  }, 30);
+}
+
+// ============================================================
+//  CONVERGENCE SCAN
+// ============================================================
+function runConvergence() {
+  syncState();
+  setStatus('computing','Starting convergence scan…');
+  const { basisType, basisParams, l, mu, rmax, gridN, potential, potParams } = state;
+  const Nvals=[5,10,15,20,25,30,40,50,60,80,100];
+  const convData={ Nvals, E0:[], E1:[], coeffDecay:[] };
+  function step(idx) {
+    if (idx>=Nvals.length) {
+      state.convergenceData=convData;
+      setStatus('converged','Convergence scan complete.');
+      updateConvergencePlots(); return;
+    }
+    const N=Nvals[idx];
+    setStatus('computing',`Convergence scan: N = ${N}…`);
+    const mats=assembleMatrices(basisType, basisParams, N, l, mu, rmax, gridN, potential, potParams);
+    const sol=solveGeneralizedEigen(mats.H, mats.S, Math.min(5,N));
+    convData.E0.push(sol.eigenvalues[0]??NaN);
+    convData.E1.push(sol.eigenvalues[1]??NaN);
+    if (sol.eigenvectors[0]) {
+      const c=sol.eigenvectors[0], sum=c.reduce((a,ci)=>a+ci*ci,0)||1;
+      convData.coeffDecay.push(c.map(ci=>ci*ci/sum));
+    }
+    setTimeout(()=>step(idx+1), 20);
+  }
+  setTimeout(()=>step(0), 30);
+}
+
+// ============================================================
+//  STATE SYNCHRONISATION
+// ============================================================
+function syncState() {
+  state.mass1    = parseFloat(document.getElementById('mass1').value)||1.0;
+  state.mass2    = parseFloat(document.getElementById('mass2').value)||1836.1527;
+  state.mu       = (state.mass1*state.mass2)/(state.mass1+state.mass2);
+  state.l        = parseInt(document.getElementById('ang-momentum').value)||0;
+  state.potential= document.getElementById('potential-select').value;
+  state.basisType= document.getElementById('basis-select').value;
+  state.basisN   = parseInt(document.getElementById('basis-size').value)||30;
+  state.rmax     = parseInt(document.getElementById('rmax-slider').value)||40;
+  state.gridN    = parseInt(document.getElementById('grid-size').value)||2001;
+  state.numStates= parseInt(document.getElementById('num-states').value)||5;
+  state.potParams  = readParams('potential-params');
+  state.basisParams= readParams('basis-params');
+  document.getElementById('mu-display').textContent = state.mu.toFixed(4)+' mₑ';
+}
+
+function readParams(containerId) {
+  const p={};
+  document.querySelectorAll(`#${containerId} [data-key]`).forEach(el=>{p[el.dataset.key]=parseFloat(el.value);});
+  return p;
+}
+
+function setStatus(mode, msg) {
+  document.getElementById('status-dot').className = mode;
+  document.getElementById('status-msg').textContent = msg;
+}
+
+function updateStatusBar() {
+  document.getElementById('status-grid').textContent  = state.gridN;
+  document.getElementById('status-basis').textContent = state.basisN;
+  document.getElementById('status-mu').textContent    = state.mu.toFixed(4);
+  document.getElementById('status-l').textContent     = state.l;
+}
+
+// ============================================================
+//  PLOTS
+// ============================================================
+const COLORS=['#22d3ee','#f59e0b','#d946ef','#10b981','#f43f5e','#8b5cf6','#06b6d4','#84cc16'];
+const DARK_LAYOUT = {
+  plot_bgcolor:'#0d1117', paper_bgcolor:'#0d1117',
+  font:{ color:'#e2e8f0', size:11 },
+  xaxis:{ gridcolor:'#1e293b', color:'#94a3b8', zerolinecolor:'#334155' },
+  yaxis:{ gridcolor:'#1e293b', color:'#94a3b8', zerolinecolor:'#334155' },
+  legend:{ x:1.02, y:1, font:{ size:9 } },
+  margin:{ t:35, r:120, b:40, l:55 },
+};
+
+function refreshAllPlots() {
+  plotWavefunctions(); plotDensity(); plotCoefficients();
+  plotMatrix(state.activeMatrix); updateEigTable();
+  plotPotentialStandalone();
+}
+
+// ── FIX 1: Wavefunction plot — y-range anchored to eigenvalue spread ──────────
+function plotWavefunctions() {
+  const res=state.results; if (!res) return;
+  const { r, veff, eigenvalues, wavefunctions } = res;
+
+  // Build y-range from eigenvalues — immune to Coulomb singularity blow-up
+  const Emin = Math.min(...eigenvalues);
+  const Emax = Math.max(...eigenvalues);
+  const Espan = Math.max(Math.abs(Emax - Emin), Math.abs(Emin) * 0.3, 0.1);
+  const ylo = Emin - 1.6 * Espan;
+  const yhi = Emax + 1.0 * Espan;
+
+  // Clamp Veff to a reasonable display window (3× the y-range)
+  const vClamped = veff.map(v => {
+    if (!isFinite(v) || v > yhi * 4 || v < ylo * 4) return null;
+    return Math.max(ylo * 2.5, Math.min(yhi * 2.5, v));
+  });
+
+  const traces = [{
+    x: r, y: vClamped,
+    type: 'scatter', mode: 'lines', connectgaps: false,
+    fill: 'tozeroy', fillcolor: 'rgba(100,100,120,0.15)',
+    line: { color: 'rgba(150,150,170,0.5)', width: 1 },
+    name: 'V<sub>eff</sub>',
+  }];
+
+  // Scale wavefunctions so their amplitude is ~40% of Espan
+  const scale = 0.4 * Espan;
+  for (let s = 0; s < Math.min(wavefunctions.length, 8); s++) {
+    const E = eigenvalues[s], psi = wavefunctions[s];
+    traces.push({
+      x: r, y: psi.map(p => p * scale + E),
+      type: 'scatter', mode: 'lines',
+      line: { color: COLORS[s], width: 1.8 },
+      name: `ψ<sub>${s+1}</sub> (${(E*EH).toFixed(3)} eV)`,
+    });
+    traces.push({
+      x: [0, state.rmax], y: [E, E],
+      type: 'scatter', mode: 'lines',
+      line: { color: COLORS[s], width: 0.8, dash: 'dash' },
+      showlegend: false,
+    });
+  }
+
+  Plotly.react('plot-wavefn', traces, {
+    ...DARK_LAYOUT,
+    title: { text: 'Wavefunctions ψ(r) & V<sub>eff</sub>(r)', font: { size: 13, color: '#e2e8f0' } },
+    xaxis: { ...DARK_LAYOUT.xaxis, title: 'r (a₀)', range: [0, state.rmax] },
+    yaxis: { ...DARK_LAYOUT.yaxis, title: 'Energy (Eₕ) / ψ(r)', range: [ylo, yhi] },
+  }, { responsive: true });
+}
+
+function plotDensity() {
+  const res=state.results; if (!res) return;
+  const { r, wavefunctions } = res;
+  const traces=[];
+  for (let s=0; s<Math.min(wavefunctions.length,5); s++) {
+    const psi=wavefunctions[s], col=COLORS[s];
+    const dens=psi.map((p,i)=>p*p*r[i]*r[i]);
+    traces.push({ x:r, y:dens, type:'scatter', mode:'lines',
+      fill:'tozeroy', fillcolor:col+'4d', line:{color:col,width:1.6},
+      name:`|ψ<sub>${s+1}</sub>|²·r²` });
+  }
+  Plotly.react('plot-density', traces, { ...DARK_LAYOUT,
+    title:{text:'Radial Probability Density |ψ|²·r²',font:{size:13,color:'#e2e8f0'}},
+    xaxis:{...DARK_LAYOUT.xaxis,title:'r (a₀)'},
+    yaxis:{...DARK_LAYOUT.yaxis,title:'|ψ(r)|²·r²'},
+  },{responsive:true});
+}
+
+function plotCoefficients() {
+  const res=state.results; if (!res) return;
+  const traces=[];
+  for (let s=0; s<Math.min(res.eigenvectors.length,5); s++) {
+    const c=res.eigenvectors[s];
+    traces.push({ x:c.map((_,i)=>i+1), y:c.map(ci=>ci*ci), type:'bar',
+      marker:{color:COLORS[s],opacity:0.75}, name:`State ${s+1}` });
+  }
+  Plotly.react('plot-coeffs', traces, { ...DARK_LAYOUT,
+    title:{text:'Expansion Coefficients |c<sub>n</sub>|²',font:{size:13,color:'#e2e8f0'}},
+    xaxis:{...DARK_LAYOUT.xaxis,title:'Basis index n'},
+    yaxis:{...DARK_LAYOUT.yaxis,title:'|c<sub>n</sub>|²',type:'log'},
+    barmode:'group', margin:{t:30,r:120,b:35,l:55},
+  },{responsive:true});
+}
+
+// ── FIX 2: Potential plot — fills container, no broken inline sizes ───────────
+function plotPotentialStandalone() {
+  syncState();
+  const { mu, l, rmax, potential, potParams, gridN } = state;
+  const showV    = document.getElementById('chk-show-v')?.checked ?? true;
+  const showCent = document.getElementById('chk-show-cent')?.checked ?? true;
+  const showVeff = document.getElementById('chk-show-veff')?.checked ?? true;
+  const showLvl  = document.getElementById('chk-show-levels')?.checked ?? true;
+
+  const N = Math.min(gridN, 3000);
+  const dr= rmax / (N-1);
+  const r=[], V_arr=[], Cent_arr=[], Veff_arr=[];
+  const rMin = potential==='coulomb' ? 0.1 : 0.02;
+
+  for (let i=0; i<N; i++) {
+    const ri = Math.max(i*dr, rMin);
+    r.push(ri);
+    V_arr.push(getPotential(ri, potential, potParams));
+    Cent_arr.push(getCentrifugal(ri, l, mu));
+    Veff_arr.push(getVeff(ri, potential, potParams, l, mu));
+  }
+
+  const finite = Veff_arr.filter(v=>isFinite(v)&&Math.abs(v)<500);
+  const ymin = finite.length ? Math.min(...finite)*1.3 : -20;
+  const ymax = finite.length ? Math.max(0, Math.max(...finite)*1.3+1) : 5;
+
+  const clamp = arr => arr.map(v => isFinite(v)&&v<1e8 ? Math.max(ymin*1.5, Math.min(ymax*1.5, v)) : null);
+
+  const traces=[];
+  if (showV)    traces.push({ x:r, y:clamp(V_arr),    type:'scatter', mode:'lines', line:{color:'#f59e0b',width:2,dash:'dot'},      name:'V(r)', connectgaps:false });
+  if (showCent) traces.push({ x:r, y:clamp(Cent_arr), type:'scatter', mode:'lines', line:{color:'#8b5cf6',width:1.5,dash:'dash'},    name:'Centrifugal', connectgaps:false, visible: l>0 ? true : 'legendonly' });
+  if (showVeff) traces.push({ x:r, y:clamp(Veff_arr), type:'scatter', mode:'lines', line:{color:'#22d3ee',width:2.5},                name:'V<sub>eff</sub>(r)',
+    fill:'tozeroy', fillcolor:'rgba(6,182,212,0.07)', connectgaps:false });
+
+  if (showLvl && state.results) {
+    state.results.eigenvalues.forEach((E, s) => {
+      if (E > ymin && E < ymax) {
+        traces.push({ x:[r[0],r[r.length-1]], y:[E,E], type:'scatter', mode:'lines',
+          line:{color:COLORS[s],width:1,dash:'dot'}, name:`E${s+1}=${(E*EH).toFixed(2)} eV`, showlegend:true });
+      }
+    });
+  }
+
+  Plotly.react('plot-potential', traces, {
+    ...DARK_LAYOUT,
+    title:{text:`Potential: ${potential}  (ℓ = ${l})`,font:{size:13,color:'#e2e8f0'}},
+    xaxis:{...DARK_LAYOUT.xaxis, title:'r (a₀)', range:[0, rmax]},
+    yaxis:{...DARK_LAYOUT.yaxis, title:'Energy (Eₕ)', range:[ymin, ymax]},
+    margin:{t:35,r:160,b:40,l:60},
+  },{responsive:true});
+
+  // Switch to potential tab
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  const potBtn = document.querySelector('.tab-btn[data-tab="tab-potential"]');
+  if (potBtn) potBtn.classList.add('active');
+  document.getElementById('tab-potential').classList.add('active');
+}
+
+function plotMatrix(matrixType) {
+  const res=state.results; if (!res) return;
+  state.activeMatrix=matrixType;
+  const mat=res[matrixType]??res.H, n=mat.length;
+  const z=mat.slice(0,n).map(row=>row.slice(0,n));
+  const txt=z.map(row=>row.map(v=>v.toFixed(5)));
+  Plotly.react('plot-matrix',[{ z, text:txt, type:'heatmap',
+    colorscale:[[0,'#000'],[0.3,'#7c3aed'],[0.5,'#0d1117'],[0.7,'#06b6d4'],[1,'#22d3ee']],
+    zmid:0, hovertemplate:'(%{x},%{y}) = %{text}<extra></extra>' }],
+    { ...DARK_LAYOUT,
+      title:{text:`${matrixType} Matrix  (N = ${n})`,font:{size:13,color:'#e2e8f0'}},
+      xaxis:{...DARK_LAYOUT.xaxis,title:'Column',scaleanchor:'y'},
+      yaxis:{...DARK_LAYOUT.yaxis,title:'Row',autorange:'reversed'},
+      margin:{t:35,r:20,b:50,l:55}, legend:{},
+    },{responsive:true});
+}
+
+function updateEigTable() {
+  const res=state.results; if (!res) return;
+  const tbody=document.querySelector('#eig-table tbody');
+  let html='';
+  for (let s=0; s<res.eigenvalues.length; s++) {
+    const Eb=res.eigenvalues[s]*EH;
+    const Eex=getExactEnergy(s+1, state.l, state.potential, state.potParams, state.mu);
+    const EeV=Eex!==null?Eex*EH:NaN;
+    const err=isNaN(EeV)?NaN:Math.abs(Eb-EeV);
+    const errColor=isNaN(err)?'#94a3b8':err<0.01?'#10b981':err<1?'#f59e0b':'#ef4444';
+    html+=`<tr><td>${s+1}</td><td>${state.l}</td><td>${Eb.toFixed(6)}</td>
+      <td>${isNaN(EeV)?'N/A':EeV.toFixed(6)}</td>
+      <td style="color:${errColor}">${isNaN(err)?'N/A':err.toExponential(3)}</td>
+      <td>${state.basisN}</td></tr>`;
+  }
+  tbody.innerHTML=html;
+}
+
+function updateConvergencePlots() {
+  const conv=state.convergenceData; if (!conv) return;
+  const { Nvals }=conv;
+  const E0_eV=conv.E0.map(e=>e*EH), E1_eV=conv.E1.map(e=>e*EH);
+  const E0_exact=getExactEnergy(1,state.l,state.potential,state.potParams,state.mu);
+  const E1_exact=getExactEnergy(2,state.l,state.potential,state.potParams,state.mu);
+  const bL={ ...DARK_LAYOUT, margin:{t:30,r:15,b:38,l:52}, showlegend:true, legend:{x:.01,y:.99,font:{size:9}} };
+  const t0=[{ x:Nvals,y:E0_eV,type:'scatter',mode:'lines+markers',marker:{color:'#22d3ee',size:6},line:{color:'#22d3ee',width:1.5},name:'E₀(N)' }];
+  if (E0_exact!==null) t0.push({ x:[Nvals[0],Nvals.at(-1)],y:[E0_exact*EH,E0_exact*EH],type:'scatter',mode:'lines',line:{color:'#f59e0b',width:1,dash:'dash'},name:'Exact' });
+  Plotly.react('plot-conv-e0',t0,{ ...bL,title:'E₀ Convergence',xaxis:{...bL.xaxis,title:'N'},yaxis:{...bL.yaxis,title:'E (eV)'} },{responsive:true});
+  const t1=[{ x:Nvals,y:E1_eV,type:'scatter',mode:'lines+markers',marker:{color:'#d946ef',size:6},line:{color:'#d946ef',width:1.5},name:'E₁(N)' }];
+  if (E1_exact!==null) t1.push({ x:[Nvals[0],Nvals.at(-1)],y:[E1_exact*EH,E1_exact*EH],type:'scatter',mode:'lines',line:{color:'#f59e0b',width:1,dash:'dash'},name:'Exact' });
+  Plotly.react('plot-conv-e1',t1,{ ...bL,title:'E₁ Convergence',xaxis:{...bL.xaxis,title:'N'},yaxis:{...bL.yaxis,title:'E (eV)'} },{responsive:true});
+  const lastCoeffs=conv.coeffDecay.at(-1)??[];
+  Plotly.react('plot-conv-coeffs',[{ x:lastCoeffs.map((_,i)=>i+1),y:lastCoeffs,type:'scatter',mode:'lines+markers',marker:{color:'#10b981',size:5},line:{color:'#10b981',width:1.5},name:'|cₙ|²' }],
+    { ...bL,title:'Coefficient Decay (largest N)',xaxis:{...bL.xaxis,title:'Index n'},yaxis:{...bL.yaxis,title:'|cₙ|²',type:'log'} },{responsive:true});
+}
+
+// ============================================================
+//  UI — POTENTIAL & BASIS PARAM PANELS
+// ============================================================
+const POT_PARAMS = {
+  coulomb:        [{ key:'Z1',label:'Z₁',min:.1,max:100,step:.1,val:1,unit:''     },
+                   { key:'Z2',label:'Z₂',min:.1,max:100,step:.1,val:1,unit:''     }],
+  harmonic:       [{ key:'omega',label:'ω',  min:.1,max:10,step:.1,val:1.0,unit:'Eₕ/ħ'},
+                   { key:'req',  label:'rₑq',min:.1,max:20,step:.1,val:2.0,unit:'a₀'  }],
+  morse:          [{ key:'De',label:'Dₑ',min:.01,max:2,step:.01,val:.2, unit:'Eₕ'   },
+                   { key:'a', label:'a', min:.1, max:5,step:.1, val:1.2,unit:'a₀⁻¹' },
+                   { key:'re',label:'rₑ',min:.1, max:10,step:.1,val:1.8,unit:'a₀'   }],
+  kratzer:        [{ key:'De',label:'Dₑ',min:.01,max:2,step:.01,val:.5,unit:'Eₕ'  },
+                   { key:'re',label:'rₑ',min:.1, max:10,step:.1,val:2.0,unit:'a₀' }],
+  isw:            [{ key:'a', label:'a', min:.5,max:50,step:.5,val:5.0,unit:'a₀' }],
+  fsw:            [{ key:'V0',label:'V₀',min:.5,max:100,step:.5,val:10, unit:'Eₕ'},
+                   { key:'a', label:'a', min:.5,max:50, step:.5,val:5.0,unit:'a₀'}],
+  yukawa:         [{ key:'V0',   label:'V₀',min:.1,max:20,step:.1,val:1, unit:'Eₕ'   },
+                   { key:'alpha',label:'α', min:.05,max:5,step:.05,val:.5,unit:'a₀⁻¹'},
+                   { key:'r0',   label:'r₀',min:.1,max:10,step:.1,val:1, unit:'a₀'   }],
+  'woods-saxon':  [{ key:'V0_ws',label:'V₀',min:.1, max:10, step:.1, val:1.837,unit:'Eₕ'},
+                   { key:'R',    label:'R', min:.5, max:200,step:.5, val:75.6, unit:'a₀'},
+                   { key:'a_ws', label:'a', min:.1, max:20, step:.1, val:9.45, unit:'a₀'}],
+  'poschl-teller':[{ key:'V0_pt',   label:'V₀',min:.5,max:50,step:.5,val:5,unit:'Eₕ'   },
+                   { key:'alpha_pt',label:'α', min:.1,max:5, step:.1,val:1,unit:'a₀⁻¹' },
+                   { key:'r0_pt',   label:'r₀',min:0, max:20,step:.5,val:3,unit:'a₀'   }],
+  gaussian:       [{ key:'V0_g', label:'V₀',min:.5,max:50,step:.5, val:5,  unit:'Eₕ'},
+                   { key:'sigma',label:'σ', min:.1,max:10,step:.1, val:1.5,unit:'a₀'},
+                   { key:'r0_g', label:'r₀',min:0, max:20,step:.5, val:0,  unit:'a₀'}],
+  power:          [{ key:'k',label:'k',min:.01,max:10,step:.01,val:1,unit:'Eₕ/a₀ⁿ'},
+                   { key:'n',label:'n',min:.5, max:6, step:.5, val:2,unit:''        }],
+};
+
+const BASIS_PARAMS = {
+  sto:       [{ key:'zeta0', label:'ζ₀',min:.1,  max:5,  step:.1,  val:1.5,unit:''  },
+              { key:'beta',  label:'β', min:1.05,max:2,  step:.05, val:1.3,unit:''  }],
+  gto:       [{ key:'alpha0',label:'α₀',min:.05, max:3,  step:.05, val:.5, unit:''  },
+              { key:'beta_g',label:'β', min:1.05,max:2,  step:.05, val:1.4,unit:''  }],
+  ho:        [{ key:'alpha_ho', label:'α',min:.1,max:5,  step:.1,  val:.8, unit:''  }],
+  lag:       [{ key:'Z_lag',   label:'Z', min:.1,max:10, step:.1,  val:1.0,unit:''  }],
+  hylleraas: [{ key:'zeta_h',  label:'ζ', min:.1,max:5,  step:.1,  val:1.0,unit:''  },
+              { key:'k_h',     label:'k', min:0, max:5,  step:1,   val:1,  unit:''  }],
+  hermite:   [{ key:'alpha_herm',label:'α',min:.05,max:2,step:.05, val:.25,unit:''  }],
+  jacobi:    [{ key:'alpha_j',label:'α',  min:0, max:3,  step:.1,  val:0,  unit:''  },
+              { key:'beta_j', label:'β',  min:0, max:3,  step:.1,  val:0,  unit:''  }],
+};
+
+function buildParamHTML(params) {
+  if (!params||!params.length)
+    return '<span style="font-size:.75em;color:var(--text2);">No extra parameters.</span>';
+  return params.map(p=>`
+    <div class="param-row">
+      <label>${p.label}:</label>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}"
+             data-key="${p.key}"
+             oninput="this.nextElementSibling.value=parseFloat(this.value).toFixed(3)">
+      <input type="number" value="${p.val}" step="${p.step}" data-key="${p.key}"
+             style="width:62px;"
+             onchange="this.previousElementSibling.value=parseFloat(this.value).toFixed(3)">
+      <span class="unit">${p.unit}</span>
+    </div>`).join('');
+}
+
+function updatePotentialParams() { document.getElementById('potential-params').innerHTML = buildParamHTML(POT_PARAMS[document.getElementById('potential-select').value]); }
+function updateBasisControls()   { document.getElementById('basis-params').innerHTML    = buildParamHTML(BASIS_PARAMS[document.getElementById('basis-select').value]);  }
+function updateMasses() {
+  const m1=parseFloat(document.getElementById('mass1').value)||1.0;
+  const m2=parseFloat(document.getElementById('mass2').value)||1836.1527;
+  state.mass1=m1; state.mass2=m2; state.mu=(m1*m2)/(m1+m2);
+  document.getElementById('mu-display').textContent = state.mu.toFixed(4)+' mₑ';
+  updateStatusBar();
+}
+function updateL() { state.l=parseInt(document.getElementById('ang-momentum').value)||0; updateStatusBar(); }
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportData() {
+  if (!state.results) { alert('Run the solver first.'); return; }
+  let csv='n_radial,l,E_basis_eV,E_exact_eV,error_eV,N_basis\n';
+  state.results.eigenvalues.forEach((E_au,s)=>{
+    const Eb=E_au*EH, Eex=getExactEnergy(s+1,state.l,state.potential,state.potParams,state.mu);
+    const EeV=Eex!==null?Eex*EH:NaN;
+    const err=isNaN(EeV)?'':Math.abs(Eb-EeV).toExponential(4);
+    csv+=`${s+1},${state.l},${Eb.toFixed(6)},${isNaN(EeV)?'':EeV.toFixed(6)},${err},${state.basisN}\n`;
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='radialse_results.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+//  TAB SWITCHING
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    btn.classList.add('active');
+    const id=btn.dataset.tab;
+    document.getElementById(id).classList.add('active');
+    setTimeout(()=>{
+      if (id==='tab-wavefn')    { plotWavefunctions(); plotDensity(); plotCoefficients(); }
+      if (id==='tab-potential')   plotPotentialStandalone();
+      if (id==='tab-matrix')      plotMatrix(state.activeMatrix);
+      if (id==='tab-convergence') updateConvergencePlots();
+      if (id==='tab-table')       updateEigTable();
+    },80);
+  });
+});
+
+document.querySelectorAll('.matrix-toggle').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.matrix-toggle').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); plotMatrix(btn.dataset.matrix);
+  });
+});
+
+document.querySelectorAll('.preset-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const p=PRESETS[btn.dataset.preset];
+    if (p) { document.getElementById('mass1').value=p.m1; document.getElementById('mass2').value=p.m2; updateMasses(); }
+  });
+});
+
+// ============================================================
+//  MODAL — THEORY & MANUAL
+// ============================================================
+function openModal(section) {
+  buildModalContent();
+  document.getElementById('modal-overlay').classList.add('open');
+  const tabMap = { theory:'theory-ham', manual:'manual' };
+  const target = tabMap[section] || 'theory-ham';
+  document.querySelectorAll('.modal-tab-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mtab===target);
+  });
+  document.querySelectorAll('.modal-tab-content').forEach(c=>{
+    c.classList.toggle('active', c.id==='mtab-'+target);
+  });
+  document.getElementById('modal-title').textContent = section==='manual' ? '📘 User Manual' : 'Theory Reference';
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOnBackdrop(e) { if (e.target===document.getElementById('modal-overlay')) closeModal(); }
+
+let _modalBuilt = false;
+function buildModalContent() {
+  if (_modalBuilt) return;
+  _modalBuilt = true;
+  const K=(tex,d=false)=>katex.renderToString(tex,{throwOnError:false,displayMode:d});
+
+  const body = document.getElementById('modal-body');
+
+  const hamHTML = `
+<div class="th-section">
+  <h2>Two-Body Problem & Centre-of-Mass Reduction</h2>
+  <p>A two-particle system with masses m₁, m₂ and interaction potential V(|r₁−r₂|) separates exactly into centre-of-mass (free particle) and relative motion. The relative motion obeys a one-body Schrödinger equation with <em>reduced mass</em>:</p>
+  <div class="eq-block">${K('\\mu = \\dfrac{m_1 m_2}{m_1+m_2}',true)}</div>
+</div>
+<div class="th-section">
+  <h2>Radial Schrödinger Equation</h2>
+  <p>Writing the wavefunction ${K('\\Psi(\\mathbf{r}) = r^{-1}u(r)\\,Y_\\ell^m(\\hat{r})')} with ${K('u(0)=0')}, the radial equation becomes:</p>
+  <div class="eq-block">${K('\\left[-\\dfrac{\\hbar^2}{2\\mu}\\dfrac{d^2}{dr^2} + V_{\\!\\rm eff}(r)\\right]u(r) = E\\,u(r)',true)}</div>
+  <p>where the <strong>effective potential</strong> includes the centrifugal barrier:</p>
+  <div class="eq-block">${K('V_{\\!\\rm eff}(r) = V(r) + \\dfrac{\\hbar^2\\,\\ell(\\ell+1)}{2\\mu r^2}',true)}</div>
+  <p>All equations are expressed in <strong>atomic units</strong> (ħ = mₑ = e = 1) so energies are in Hartree (Eₕ = 27.2114 eV) and lengths in Bohr (a₀ = 0.0529 nm).</p>
+</div>
+<div class="th-section">
+  <h2>Normalization</h2>
+  <div class="eq-block">${K('\\int_0^\\infty |u(r)|^2\\,dr = 1 \\;\\Longleftrightarrow\\; \\int_0^\\infty |R_\\ell(r)|^2 r^2\\,dr = 1',true)}</div>
+  <p>Radial probability density: ${K('P(r)\\,dr = |u(r)|^2\\,dr = r^2|R_\\ell(r)|^2\\,dr')}</p>
+</div>`;
+
+  const potHTML = `
+<div class="th-section">
+  <h2>Supported Potentials</h2>
+  <table class="th-table">
+    <thead><tr><th>ID</th><th>Formula V(r)</th><th>Parameters</th><th>Exact E_n</th></tr></thead>
+    <tbody>
+      <tr><td>COULOMB</td><td>${K('-Z_1 Z_2/r')}</td><td>Z₁, Z₂ (charges)</td>
+          <td class="exact">${K('E_n = -\\mu Z^2/(2n^2)')}</td></tr>
+      <tr><td>HARMONIC</td><td>${K('\\tfrac{1}{2}\\mu\\omega^2(r-r_{\\rm eq})^2')}</td><td>ω, r_eq</td>
+          <td class="exact">${K('E_{n_r} = \\omega(2n_r+\\ell+\\tfrac{3}{2})')}</td></tr>
+      <tr><td>MORSE</td><td>${K('D_e[(1-e^{-a(r-r_e)})^2 - 1]')}</td><td>Dₑ, a, rₑ</td>
+          <td class="exact">${K('E_v = -(D_e - \\omega_e(v+\\tfrac{1}{2}))^2/(4D_e)')}</td></tr>
+      <tr><td>KRATZER</td><td>${K('D_e(1-r_e/r)^2 - D_e')}</td><td>Dₑ, rₑ</td>
+          <td class="exact">${K('E = -2\\mu D_e^2 r_e^2 / (v+\\tfrac{1}{2}+\\lambda)^2')}</td></tr>
+      <tr><td>ISW</td><td>0 inside [0,a], ∞ outside</td><td>a (well width)</td>
+          <td class="exact">${K('E_n = (x_{\\ell,n})^2/(2\\mu a^2)')}</td></tr>
+      <tr><td>FSW</td><td>−V₀ for r&lt;a, 0 outside</td><td>V₀, a</td>
+          <td class="no-exact">Numerical</td></tr>
+      <tr><td>YUKAWA</td><td>${K('-V_0 r_0 e^{-\\alpha r}/r')}</td><td>V₀, α, r₀</td>
+          <td class="no-exact">Numerical</td></tr>
+      <tr><td>WOODS-SAXON</td><td>${K('-V_0 / [1+e^{(r-R)/a}]')}</td><td>V₀, R, a</td>
+          <td class="no-exact">Numerical</td></tr>
+      <tr><td>PÖSCHL-TELLER</td><td>${K('-V_0/\\cosh^2[\\alpha(r-r_0)]')}</td><td>V₀, α, r₀</td>
+          <td class="no-exact">Numerical</td></tr>
+      <tr><td>GAUSSIAN</td><td>${K('-V_0 e^{-(r-r_0)^2/(2\\sigma^2)}')}</td><td>V₀, σ, r₀</td>
+          <td class="no-exact">Numerical</td></tr>
+      <tr><td>POWER</td><td>${K('k\\,r^n')}</td><td>k, n</td>
+          <td class="no-exact">n=2: HO limit</td></tr>
+    </tbody>
+  </table>
+</div>`;
+
+  const basisHTML = `
+<div class="th-section">
+  <h2>Basis Function Expansion</h2>
+  <p>The radial function ${K('u(r)')} is expanded in N basis functions:</p>
+  <div class="eq-block">${K('u(r) = \\sum_{n=1}^{N} c_n\\,\\phi_n(r)',true)}</div>
+  <p>All basis functions must satisfy ${K('\\phi_n(0)=0')} (regularity) and ideally ${K('\\phi_n(R_{\\rm max})\\approx 0')} (box BC).</p>
+</div>
+<div class="th-section">
+  <h2>Group A — Laguerre-type</h2>
+  <div class="basis-grid">
+    <div class="basis-card"><span class="bc-tag">STO</span><h4>Slater-Type Orbitals</h4>
+      <div class="bc-formula">φₙ(r) = r^(l+1) · exp(−ζₙ r)  ;  ζₙ = ζ₀·β^(n−1)</div>
+      <div class="bc-use">✓ Best for: Coulomb, Yukawa, bound states</div></div>
+    <div class="basis-card"><span class="bc-tag">GTO</span><h4>Gaussian-Type Orbitals</h4>
+      <div class="bc-formula">φₙ(r) = r^(l+1) · exp(−αₙ r²)  ;  αₙ = α₀·β^(n−1)</div>
+      <div class="bc-use">✓ Best for: Harmonic oscillator, smooth potentials</div></div>
+    <div class="basis-card"><span class="bc-tag">HO</span><h4>Harmonic Oscillator</h4>
+      <div class="bc-formula">φₙ(r) = r^(l+1) · L^(l+½)_{n−1}(αr²) · exp(−αr²/2)</div>
+      <div class="bc-use">✓ Best for: Harmonic, confinement problems</div></div>
+    <div class="basis-card"><span class="bc-tag">LAG</span><h4>Associated Laguerre</h4>
+      <div class="bc-formula">φₙ(r) = r^l · L^(2l+2)_{n−1}(2Zr/n) · exp(−Zr/n)</div>
+      <div class="bc-use">✓ Best for: Hydrogen-like, Kratzer</div></div>
+  </div>
+</div>
+<div class="th-section">
+  <h2>Group B — Sine / DVR</h2>
+  <div class="basis-grid">
+    <div class="basis-card"><span class="bc-tag b">SINE</span><h4>Particle-in-Box Sine</h4>
+      <div class="bc-formula">φₙ(r) = √(2/R)·sin(nπr/R)</div>
+      <div class="bc-use">✓ Best for: General use, any potential in box</div></div>
+    <div class="basis-card"><span class="bc-tag b">SINC</span><h4>Sinc DVR</h4>
+      <div class="bc-formula">φₙ(r) = (1/√Δr)·sinc[π(r−rₙ)/Δr]</div>
+      <div class="bc-use">✓ Best for: Local features, DVR comparison</div></div>
+    <div class="basis-card"><span class="bc-tag b">BESSEL</span><h4>Spherical Bessel</h4>
+      <div class="bc-formula">φₙ(r) = r·j_l(kₙr)  ;  kₙ = n-th zero of j_l / R</div>
+      <div class="bc-use">✓ Best for: ISW with ℓ>0, nuclear potentials</div></div>   
+  </div>
+</div>
+
+      <div class="th-section">
+  <h2>Group C — Polynomial-type</h2>
+  <div class="basis-grid">
+    <div class="basis-card"><span class="bc-tag c">LEGENDRE</span><h4>Shifted Legendre</h4>
+      <div class="bc-formula">φₙ(r) = P_{n−1}(2r/R − 1) · r(R−r)/R²</div>
+      <div class="bc-desc">Shifted to [0,R], multiplied by r(R−r) to enforce boundary conditions. Orthogonal with weight 1.</div>
+      <div class="bc-use">✓ Best for: smooth, bounded potentials; moderate accuracy</div></div>
+    <div class="basis-card"><span class="bc-tag c">CHEBY</span><h4>Chebyshev T (first kind)</h4>
+      <div class="bc-formula">φₙ(r) = T_{n−1}(2r/R − 1) · √(r(R−r)) / R</div>
+      <div class="bc-desc">Near-minimax polynomial approximation. Chebyshev weight (1−x²)^(−½) is absorbed into the basis. Spectral convergence for analytic potentials.</div>
+      <div class="bc-use">✓ Best for: Analytic smooth potentials, fast spectral convergence</div></div>
+    <div class="basis-card"><span class="bc-tag c">HERMITE</span><h4>Hermite-Gauss</h4>
+      <div class="bc-formula">φₙ(r) = H_{n−1}(αr) · exp(−α²r²/2) · r(R−r)/R²</div>
+      <div class="bc-desc">Physicist's Hermite polynomials with Gaussian envelope, then multiplied by a box window r(R−r)/R² to enforce BCs. Scale α controls spatial compression.</div>
+      <div class="bc-use">✓ Best for: Gaussian well, Morse, smooth symmetric potentials</div></div>
+    <div class="basis-card"><span class="bc-tag c">JACOBI</span><h4>Jacobi Polynomials P^(α,β)</h4>
+      <div class="bc-formula">φₙ(r) = P^(α,β)_{n−1}(2r/R − 1) · r^(l+1) · (R−r)</div>
+      <div class="bc-desc">Two-parameter generalisation of Legendre (α=β=0), Chebyshev (α=β=−½), and Gegenbauer polynomials. Tuning α,β can match the natural weight of the potential.</div>
+      <div class="bc-use">✓ Best for: Problems with known boundary singularity behaviour; nuclear potentials</div></div>
+
+  </div>
+</div>`;
+
+ const methodHTML = `
+<div class="th-section">
+  <h2>Matrix Element Assembly</h2>
+  <p>Each basis function φₙ is evaluated on a uniform grid of N_grid points in [0, R_max].
+  Kinetic matrix elements use the <em>derivative form</em> (integration by parts, boundary terms vanish):</p>
+  <div class="th-row">
+    <div class="eq-block">${K('S_{nm} = \\int_0^{R} \\phi_n\\,\\phi_m\\,dr',true)}</div>
+    <div class="eq-block">${K('T_{nm} = \\dfrac{1}{2\\mu}\\int_0^{R} \\phi_n\'\\,\\phi_m\'\\,dr',true)}</div>
+    <div class="eq-block">${K('V_{nm} = \\int_0^{R} \\phi_n\\,V_{\\!\\rm eff}\\,\\phi_m\\,dr',true)}</div>
+  </div>
+  <p>All integrals use <strong>composite Simpson's rule</strong> (4th-order, requires odd N_grid). The Hamiltonian matrix is ${K('H = T + V')}.</p>
+</div>
+<div class="th-section">
+  <h2>Generalized Eigenvalue Problem</h2>
+  <p>The Rayleigh-Ritz variational principle with a non-orthogonal basis yields a generalized matrix eigenvalue problem:</p>
+  <div class="eq-block">${K('\\mathbf{H}\\,\\mathbf{c} = E\\,\\mathbf{S}\\,\\mathbf{c}',true)}</div>
+  <p>The overlap matrix <strong>S</strong> is symmetric positive-definite for linearly independent basis functions.
+  Solved by <strong>Cholesky transformation</strong>: factor ${K('\\mathbf{S}=\\mathbf{L}\\mathbf{L}^\\top')}, then define ${K('\\tilde{\\mathbf{c}}=\\mathbf{L}^\\top\\mathbf{c}')} to reduce to a standard symmetric eigenproblem:</p>
+  <div class="eq-block">${K('\\mathbf{A}\\,\\tilde{\\mathbf{c}} = E\\,\\tilde{\\mathbf{c}}, \\qquad \\mathbf{A} = \\mathbf{L}^{-1}\\mathbf{H}(\\mathbf{L}^\\top)^{-1}',true)}</div>
+  <p>If the basis is nearly linearly dependent (S ill-conditioned), diagonal regularisation ${K('S_{ii}\\to S_{ii}+\\epsilon')} is applied before retrying.</p>
+</div>
+<div class="th-section">
+  <h2>Variational Principle & Convergence</h2>
+  <p>By the Rayleigh-Ritz theorem, every computed eigenvalue ${K('E_n^{(N)}')} is an <em>upper bound</em> to the exact energy ${K('E_n')}:</p>
+  <div class="eq-block">${K('E_n^{(N)} \\geq E_n, \\qquad E_n^{(N)} \\searrow E_n \\text{ as } N\\to\\infty',true)}</div>
+  <p>The rate of convergence depends on the smoothness of the exact wavefunction in the basis representation.
+  For a <strong>complete</strong> basis with good overlap of the natural length scale:</p>
+  <div class="eq-block">${K('\\left|E_n^{(N)} - E_n\\right| \\sim \\mathcal{O}(N^{-p})',true)}</div>
+  <p>where p ≥ 2 (algebraic) for piecewise-smooth bases (SINE, SINC) and p = ∞ (exponential/spectral) for analytic bases (GTO, STO, CHEBY) matched to the problem.</p>
+</div>
+<div class="th-section">
+  <h2>Basis Selection Guide</h2>
+  <table class="th-table">
+    <thead><tr><th>Potential type</th><th>Recommended basis</th><th>Key parameter</th></tr></thead>
+    <tbody>
+      <tr><td>Coulomb / hydrogen-like</td><td>STO, LAG</td><td>Match ζ to ionization length ~1/√(2|E|)</td></tr>
+      <tr><td>Harmonic / Morse</td><td>GTO, HO</td><td>Match α to classical turning point</td></tr>
+      <tr><td>Deep square well / ISW</td><td>SINE, BESSEL</td><td>R_max slightly > well width</td></tr>
+      <tr><td>Short-range (Yukawa, Gaussian)</td><td>SINE, STO</td><td>R_max ≥ 5/α</td></tr>
+      <tr><td>Nuclear (Woods-Saxon)</td><td>BESSEL, JACOBI</td><td>R_max ≥ R + 10a</td></tr>
+      <tr><td>General / unknown</td><td>SINE (safe default)</td><td>Scan N for convergence</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="th-section">
+  <h2>Error Sources & Diagnostics</h2>
+  <p>Three independent error sources, diagnosable via the UI:</p>
+  <table class="th-table">
+    <thead><tr><th>Source</th><th>Symptom</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Basis incompleteness (N too small)</td><td>E↘ as N increases; coefficients |cₙ|² still large at n=N</td><td>Increase N; check Convergence tab</td></tr>
+      <tr><td>Box truncation (R_max too small)</td><td>All E shift upward; density non-zero at r=R_max</td><td>Increase R_max until energies plateau</td></tr>
+      <tr><td>Grid coarseness (N_grid too small)</td><td>Matrix elements inaccurate; no systematic improvement with N</td><td>Increase Grid points (≥ 2001 recommended)</td></tr>
+    </tbody>
+  </table>
+</div>`;
+
+  const manualHTML = `
+<div class="manual-section">
+  <h2>🚀 Quick Start</h2>
+  <div class="manual-step"><div class="step-num">1</div><div class="step-body">
+    <strong>Select a preset system</strong><p>Click H atom, Positronium, etc. to auto-fill masses.</p></div></div>
+  <div class="manual-step"><div class="step-num">2</div><div class="step-body">
+    <strong>Choose a potential</strong><p>Select from the dropdown and click 📈 Plot Potential to preview.</p></div></div>
+  <div class="manual-step"><div class="step-num">3</div><div class="step-body">
+    <strong>Choose a basis and set N</strong><p>SINE is the safest all-purpose choice. Increase N until eigenvalues converge.</p></div></div>
+  <div class="manual-step"><div class="step-num">4</div><div class="step-body">
+    <strong>Set R_max</strong><p>Must be large enough that wavefunctions decay to zero.</p></div></div>
+  <div class="manual-step"><div class="step-num">5</div><div class="step-body">
+    <strong>Click ⚡ SOLVE</strong><p>Results appear across all tabs. Check Eigenvalues tab for exact comparisons.</p></div></div>
+</div>
+<div class="manual-section">
+  <h2>⚠️ Common Pitfalls</h2>
+  <div class="warn-box"><div class="tip-label">⚠ R_max too small</div>
+    <p>Wavefunction truncated — all eigenvalues shift upward.</p></div>
+  <div class="warn-box"><div class="tip-label">⚠ N too small</div>
+    <p>Eigenvalues not converged — variational upper bound gives energies too high.</p></div>
+  <div class="tip-box"><div class="tip-label">💡 Coulomb singularity</div>
+    <p>For ℓ=0 Coulomb the grid starts at r=10⁻¹⁰ a₀. Use STO/LAG for best accuracy.</p></div>
+</div>`;
+
+  body.innerHTML = `
+    <div class="modal-tab-content active" id="mtab-theory-ham">${hamHTML}</div>
+    <div class="modal-tab-content" id="mtab-theory-pot">${potHTML}</div>
+    <div class="modal-tab-content" id="mtab-theory-basis">${basisHTML}</div>
+    <div class="modal-tab-content" id="mtab-theory-method">${methodHTML}</div>
+    <div class="modal-tab-content" id="mtab-manual">${manualHTML}</div>`;
+
+  document.querySelectorAll('.modal-tab-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.modal-tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.modal-tab-content').forEach(c=>c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('mtab-'+btn.dataset.mtab)?.classList.add('active');
+    });
+  });
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+function init() {
+  updatePotentialParams(); updateBasisControls(); updateMasses(); updateStatusBar();
+  const emptyL={ ...DARK_LAYOUT,
+    title:{text:'Click  ⚡ SOLVE  to compute',font:{color:'#475569',size:13}},
+    margin:{t:40,r:20,b:40,l:55}, legend:{} };
+  ['plot-wavefn','plot-density','plot-coeffs','plot-matrix'].forEach(id=>Plotly.newPlot(id,[],emptyL,{responsive:true}));
+  ['plot-conv-e0','plot-conv-e1','plot-conv-coeffs'].forEach((id,i)=>{
+    const titles=['E₀ Convergence','E₁ Convergence','Coefficient Decay'];
+    Plotly.newPlot(id,[],{...emptyL,title:{text:titles[i],font:{color:'#475569',size:12}}},{responsive:true});
+  });
+  plotPotentialStandalone();
+  setTimeout(()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.querySelector('.tab-btn[data-tab="tab-wavefn"]').classList.add('active');
+    document.getElementById('tab-wavefn').classList.add('active');
+  },100);
+}
+
+init();
+</script>
+</body>
+</html>

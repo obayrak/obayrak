@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Concentric Charged Shells Simulator</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap');
+
+  :root{
+    --bg:#0f111a;
+    --panel:#1a1d27;
+    --panel2:#141824;
+    --border:#2a2e3d;
+    --text:#e2e8f0;
+    --muted:#94a3b8;
+    --core:#f59e0b;
+    --shellK:#10b981;
+    --shellL:#3b82f6;
+    --accent:#8b5cf6;
+    --danger:#f43f5e;
+    --energy:#eab308;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    padding:20px;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+  }
+
+  .dashboard{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    gap:20px;
+    width:100%;
+    max-width:1500px;
+    margin:auto;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.25);
+  }
+
+  .visuals{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+
+  #canvas-container{
+    height:560px;
+    background:#000;
+    border-radius:16px;
+    border:1px solid var(--border);
+    overflow:hidden;
+    position:relative;
+  }
+
+  .overlay{
+    position:absolute;
+    top:12px;
+    left:12px;
+    z-index:10;
+    background:rgba(15,17,26,0.88);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:12px 14px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    line-height:1.65;
+    min-width:180px;
+    backdrop-filter: blur(6px);
+  }
+
+  .charts-container{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    height:320px;
+  }
+
+  h2{
+    margin:0 0 14px 0;
+    font-size:1.08rem;
+    border-bottom:1px solid var(--border);
+    padding-bottom:10px;
+  }
+
+  h3{
+    margin-top:0;
+    font-size:1.05rem;
+  }
+
+  .control-group{
+    margin-bottom:16px;
+  }
+
+  .control-group label{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.84rem;
+    color:var(--muted);
+    margin-bottom:7px;
+    font-family:'JetBrains Mono',monospace;
+    gap:8px;
+  }
+
+  input[type=range]{
+    width:100%;
+    accent-color:#6366f1;
+  }
+
+  select, button{
+    width:100%;
+    padding:10px 12px;
+    background:var(--panel2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-family:'Inter',sans-serif;
+    font-size:0.95rem;
+  }
+
+  button{
+    cursor:pointer;
+    transition:0.2s ease;
+    margin-top:8px;
+  }
+
+  button:hover{
+    transform:translateY(-1px);
+    border-color:#4f46e5;
+  }
+
+  .small{
+    font-size:0.8rem;
+    color:var(--muted);
+    margin-top:8px;
+    line-height:1.5;
+  }
+
+  .explain{
+    line-height:1.8;
+    font-size:0.98rem;
+  }
+
+  .formula{
+    background:#111521;
+    border-left:4px solid var(--accent);
+    padding:12px 14px;
+    border-radius:10px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.95rem;
+    margin:14px 0;
+    color:#e9ddff;
+    overflow-x:auto;
+  }
+
+  ul{
+    padding-left:20px;
+  }
+
+  li{
+    margin-bottom:10px;
+  }
+
+  .legend-dot{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:6px;
+  }
+
+  @media (max-width: 1100px){
+    .dashboard{
+      grid-template-columns:1fr;
+    }
+    .charts-container{
+      grid-template-columns:1fr;
+      height:auto;
+    }
+    .charts-container .panel{
+      height:280px;
+    }
+    #canvas-container{
+      height:480px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+  <!-- LEFT CONTROLS -->
+  <div class="panel">
+    <h2>Geometry & View</h2>
+
+    <div class="control-group">
+      <label>Layer View</label>
+      <select id="cutView">
+        <option value="full">Full Spheres</option>
+        <option value="half" selected>Half Cutaway</option>
+        <option value="quarter">Quarter Cutaway</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label><span style="color:var(--core)">Core Radius (R₁)</span><span id="val_r1">2.0</span></label>
+      <input type="range" id="sl_r1" min="1" max="3.5" step="0.1" value="2.0">
+    </div>
+
+    <div class="control-group">
+      <label><span style="color:var(--shellK)">Shell K Radius (R₂)</span><span id="val_r2">5.0</span></label>
+      <input type="range" id="sl_r2" min="4" max="6.5" step="0.1" value="5.0">
+    </div>
+
+    <div class="control-group">
+      <label><span style="color:var(--shellL)">Shell L Radius (R₃)</span><span id="val_r3">8.0</span></label>
+      <input type="range" id="sl_r3" min="7" max="10" step="0.1" value="8.0">
+    </div>
+
+    <h2 style="margin-top:24px;">Charges</h2>
+
+    <div class="control-group">
+      <label><span style="color:var(--core)">Core Charge (q₁)</span><span id="val_q1">2.0</span></label>
+      <input type="range" id="sl_q1" min="-5" max="5" step="0.1" value="2.0">
+    </div>
+
+    <div class="control-group">
+      <label><span style="color:var(--shellK)">Shell K Charge (q₂)</span><span id="val_q2">-1.5</span></label>
+      <input type="range" id="sl_q2" min="-5" max="5" step="0.1" value="-1.5">
+    </div>
+
+    <div class="control-group">
+      <label><span style="color:var(--shellL)">Shell L Charge (q₃)</span><span id="val_q3">3.0</span></label>
+      <input type="range" id="sl_q3" min="-5" max="5" step="0.1" value="3.0">
+    </div>
+
+    <h2 style="margin-top:24px;">Projectile / Test Particle</h2>
+
+    <div class="control-group">
+      <label>Projectile Charge (qₚ)<span id="val_qp">1.0</span></label>
+      <input type="range" id="sl_qp" min="-3" max="3" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label>Projectile Mass (m)<span id="val_m">1.0</span></label>
+      <input type="range" id="sl_m" min="0.2" max="5" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+      <label>Start Radius (∞ proxy)<span id="val_rp">14.0</span></label>
+      <input type="range" id="sl_rp" min="9" max="15" step="0.1" value="14.0">
+    </div>
+
+    <div class="control-group">
+      <label>Direction θ (deg)<span id="val_theta">55</span></label>
+      <input type="range" id="sl_theta" min="0" max="180" step="1" value="55">
+    </div>
+
+    <div class="control-group">
+      <label>Direction φ (deg)<span id="val_phi">35</span></label>
+      <input type="range" id="sl_phi" min="0" max="360" step="1" value="35">
+    </div>
+
+    <div class="control-group">
+      <button id="playInward">Play from Infinity → Center</button>
+      <button id="pauseMotion">Pause</button>
+      <button id="resetMotion">Reset Projectile</button>
+      <div class="small">
+        The projectile moves physically along one radial line.
+        Its motion depends on the electric force:
+        <strong>F(r) = qₚE(r)</strong>.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="visuals">
+    <div id="canvas-container">
+      <div class="overlay" id="coordsBox">
+        x = 0.00<br>
+        y = 0.00<br>
+        z = 0.00<br>
+        r = 0.00<br>
+        E = 0.00<br>
+        V = 0.00<br>
+        U = 0.00
+      </div>
+    </div>
+
+    <div class="charts-container">
+      <div class="panel" style="padding:10px;">
+        <canvas id="chartE"></canvas>
+      </div>
+      <div class="panel" style="padding:10px;">
+        <canvas id="chartVU"></canvas>
+      </div>
+    </div>
+
+    <div class="panel explain">
+      <h3>Understanding the Physics</h3>
+
+      <p>
+        Understanding how electric fields and potentials interact across multiple charged layers is a classic and fundamental physics problem.
+        Because the shells are <strong>insulators</strong>, the charge does not flow or redistribute; it remains fixed in place.
+      </p>
+
+      <p>
+        To solve this, we rely on two powerful principles:
+        <strong>Gauss's Law</strong> (to find the electric field) and the
+        <strong>Principle of Superposition</strong> (to find the electric potential).
+      </p>
+
+      <p>
+        Here is the step-by-step physical breakdown of how we obtain the
+        Electric Field <strong>E(r)</strong>, the Electric Potential <strong>V(r)</strong>,
+        and the Potential Energy <strong>U(r)</strong> for a test charge
+        <strong>q<sub>p</sub></strong> moving in from infinity.
+      </p>
+
+      <h3>1. Electric Field E(r) via Gauss's Law</h3>
+
+      <p>
+        Gauss's Law states that the electric flux through a closed spherical Gaussian surface of radius
+        <strong>r</strong> is proportional to the enclosed charge:
+      </p>
+
+      <div class="formula">
+        ∮ E · dA = q<sub>enc</sub> / ε₀
+      </div>
+
+      <p>
+        Because of spherical symmetry, this simplifies to:
+      </p>
+
+      <div class="formula">
+        E(r) = k q<sub>enc</sub> / r²
+      </div>
+
+      <p>
+        where <strong>k = 1 / (4π ε₀)</strong>.
+      </p>
+
+      <p>
+        Assuming we have a solid inner insulating core (radius <strong>R₁</strong>, charge <strong>q₁</strong>),
+        Shell K (radius <strong>R₂</strong>, charge <strong>q₂</strong>), and Shell L
+        (radius <strong>R₃</strong>, charge <strong>q₃</strong>), the field is divided into four distinct regions:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Inside the Core (r &lt; R₁):</strong> Only a fraction of the core's charge is enclosed.
+          <div class="formula">E(r) = k q₁ r / R₁³</div>
+        </li>
+        <li>
+          <strong>Between Core and Shell K (R₁ ≤ r &lt; R₂):</strong> Only the core's charge is enclosed.
+          <div class="formula">E(r) = k q₁ / r²</div>
+        </li>
+        <li>
+          <strong>Between Shell K and Shell L (R₂ ≤ r &lt; R₃):</strong> The core and Shell K charges are enclosed.
+          <div class="formula">E(r) = k (q₁ + q₂) / r²</div>
+        </li>
+        <li>
+          <strong>Outside Shell L (r ≥ R₃):</strong> All charges are enclosed.
+          <div class="formula">E(r) = k (q₁ + q₂ + q₃) / r²</div>
+        </li>
+      </ul>
+
+      <h3>2. Electric Potential V(r) via Superposition</h3>
+
+      <p>
+        The electric potential at a distance <strong>r</strong> is defined as the work done per unit charge
+        to bring a positive test charge from infinity to <strong>r</strong>:
+      </p>
+
+      <div class="formula">
+        V(r) = - ∫<sub>∞</sub><sup>r</sup> E · dr
+      </div>
+
+      <p>
+        Instead of integrating the piecewise electric field directly, it is mathematically much easier to use the
+        <strong>Principle of Superposition</strong>.
+        We calculate the potential created by each object individually as if the others were not there,
+        and simply add them together:
+      </p>
+
+      <div class="formula">
+        V(r) = V<sub>core</sub> + V<sub>K</sub> + V<sub>L</sub>
+      </div>
+
+      <p>
+        For a thin charged shell of radius <strong>R</strong> and charge <strong>Q</strong>:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Outside the shell (r ≥ R):</strong> It acts like a point charge.
+          <div class="formula">V(r) = kQ / r</div>
+        </li>
+        <li>
+          <strong>Inside the shell (r &lt; R):</strong> The electric field is zero, so the potential is constant and equals the value at the surface.
+          <div class="formula">V(r) = kQ / R</div>
+        </li>
+      </ul>
+
+      <p>
+        For the solid uniformly charged insulating core of radius <strong>R₁</strong>:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Outside (r ≥ R₁):</strong>
+          <div class="formula">V(r) = kq₁ / r</div>
+        </li>
+        <li>
+          <strong>Inside (r &lt; R₁):</strong>
+          <div class="formula">V(r) = (kq₁ / 2R₁) (3 - r² / R₁²)</div>
+        </li>
+      </ul>
+
+      <p>
+        To find the total potential <strong>V(r)</strong> at any distance,
+        simply calculate the value for each of the three components at that specific <strong>r</strong>
+        and sum them up.
+      </p>
+
+      <h3>3. Potential Energy U(r)</h3>
+
+      <p>
+        Electric potential <strong>V(r)</strong> is a property of the space created by the shells.
+        When you bring a specific particle with charge <strong>q<sub>p</sub></strong> into this space from infinity,
+        it gains or loses potential energy based on its interaction with that potential.
+      </p>
+
+      <div class="formula">
+        U(r) = q<sub>p</sub> V(r)
+      </div>
+
+      <p>
+        So yes: <strong>Potential energy depends on the projectile charge q<sub>p</sub></strong>.
+        But <strong>electric potential V(r)</strong> does <strong>not</strong> depend on the projectile.
+      </p>
+
+      <hr style="border:0; border-top:1px solid var(--border); margin:24px 0;">
+
+      <h3>Interactive 3D Physics Simulator</h3>
+
+      <p>
+        The simulator above lets you adjust the charges and radii
+        of the core and shells, and instantly plots the resulting
+        <strong>E(r)</strong>, <strong>V(r)</strong>, and <strong>U(r)</strong> graphs.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- UI ---------------- */
+const uis = ['r1','r2','r3','q1','q2','q3','qp','m','rp','theta','phi'];
+const params = {};
+
+uis.forEach(id => {
+  const el = document.getElementById(`sl_${id}`);
+  const valEl = document.getElementById(`val_${id}`);
+  el.addEventListener('input', () => {
+    valEl.innerText = el.value;
+    updateAll();
+  });
+});
+
+document.getElementById('cutView').addEventListener('change', updateAll);
+
+function getParams() {
+  uis.forEach(id => params[id] = parseFloat(document.getElementById(`sl_${id}`).value));
+  params.view = document.getElementById('cutView').value;
+
+  if (params.r2 <= params.r1) params.r2 = params.r1 + 0.5;
+  if (params.r3 <= params.r2) params.r3 = params.r2 + 0.5;
+
+  return params;
+}
+
+/* ---------------- THREE.JS ---------------- */
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+camera.position.set(13, 11, 16);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.localClippingEnabled = true;
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+/* Lights */
+scene.add(new THREE.AmbientLight(0x404040, 1.7));
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(12, 20, 12);
+scene.add(dirLight);
+
+const dirLight2 = new THREE.DirectionalLight(0x88aaff, 0.6);
+dirLight2.position.set(-10, -5, -10);
+scene.add(dirLight2);
+
+/* Clipping */
+const clipX = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+const clipZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+/* Shells */
+const sphereGeo = new THREE.SphereGeometry(1, 72, 72);
+
+const matCore = new THREE.MeshStandardMaterial({
+  color: 0xf59e0b,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.95
+});
+
+const matK = new THREE.MeshStandardMaterial({
+  color: 0x10b981,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.45
+});
+
+const matL = new THREE.MeshStandardMaterial({
+  color: 0x3b82f6,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.28
+});
+
+const meshCore = new THREE.Mesh(sphereGeo, matCore);
+const meshK = new THREE.Mesh(sphereGeo, matK);
+const meshL = new THREE.Mesh(sphereGeo, matL);
+
+scene.add(meshCore, meshK, meshL);
+
+/* Axes */
+const axes = new THREE.AxesHelper(12);
+scene.add(axes);
+
+/* Axis labels */
+function createTextSprite(text, color="#ffffff") {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = "rgba(0,0,0,0)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "bold 52px Arial";
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(1.8, 0.9, 1);
+  return sprite;
+}
+
+const xLabel = createTextSprite("X", "#ff6b6b");
+xLabel.position.set(12.5, 0, 0);
+scene.add(xLabel);
+
+const yLabel = createTextSprite("Y", "#6bff95");
+yLabel.position.set(0, 12.5, 0);
+scene.add(yLabel);
+
+const zLabel = createTextSprite("Z", "#6ba8ff");
+zLabel.position.set(0, 0, 12.5);
+scene.add(zLabel);
+
+/* Projectile */
+const projectile = new THREE.Mesh(
+  new THREE.SphereGeometry(0.28, 32, 32),
+  new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x666666
+  })
+);
+scene.add(projectile);
+
+/* Radial guide line */
+const radialLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ color: 0xffffff })
+);
+scene.add(radialLine);
+
+/* Trail */
+let trailPoints = [];
+let trailGeometry = new THREE.BufferGeometry();
+const trailMaterial = new THREE.LineBasicMaterial({ color: 0xffcc88 });
+const trailLine = new THREE.Line(trailGeometry, trailMaterial);
+scene.add(trailLine);
+
+/* ---------------- CHARTS ---------------- */
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+
+const boundaryPlugin = {
+  id: 'boundaryLines',
+  afterDraw(chart, args, opts) {
+    const radii = opts?.radii || [];
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '11px JetBrains Mono';
+
+    radii.forEach((r, i) => {
+      const x = xScale.getPixelForValue(r);
+      ctx.beginPath();
+      ctx.moveTo(x, chart.chartArea.top);
+      ctx.lineTo(x, chart.chartArea.bottom);
+      ctx.stroke();
+      ctx.fillText(`R${i+1}`, x + 4, chart.chartArea.top + 14);
+    });
+
+    ctx.restore();
+  }
+};
+
+Chart.register(boundaryPlugin);
+
+const chartE = new Chart(document.getElementById('chartE').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: [],
+    datasets: [
+      {
+        label: 'Electric Field E(r)',
+        borderColor: '#f43f5e',
+        borderWidth: 2,
+        pointRadius: 0,
+        data: []
+      },
+      {
+        label: 'Projectile Position',
+        type: 'scatter',
+        data: [{x:0, y:0}],
+        pointRadius: 5,
+        pointHoverRadius: 5,
+        showLine: false,
+        borderColor: '#ffffff',
+        backgroundColor: '#ffffff'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: {
+      boundaryLines: { radii: [2, 5, 8] }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        min: 0,
+        max: 15,
+        title: { display: true, text: 'Distance r' }
+      },
+      y: {
+        title: { display: true, text: 'E(r)' }
+      }
+    }
+  }
+});
+
+const chartVU = new Chart(document.getElementById('chartVU').getContext('2d'), {
+  type: 'line',
+  data: {
+    datasets: [
+      {
+        label: 'Potential V(r)',
+        borderColor: '#a855f7',
+        borderWidth: 2,
+        pointRadius: 0,
+        data: [],
+        parsing: false,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Potential Energy U(r)',
+        borderColor: '#eab308',
+        borderDash: [6, 5],
+        borderWidth: 2,
+        pointRadius: 0,
+        data: [],
+        parsing: false,
+        yAxisID: 'y1'
+      },
+      {
+        label: 'Projectile on V(r)',
+        type: 'scatter',
+        data: [{x:0, y:0}],
+        pointRadius: 5,
+        showLine: false,
+        borderColor: '#ffffff',
+        backgroundColor: '#ffffff',
+        yAxisID: 'y'
+      },
+      {
+        label: 'Projectile on U(r)',
+        type: 'scatter',
+        data: [{x:0, y:0}],
+        pointRadius: 5,
+        showLine: false,
+        borderColor: '#ffd54a',
+        backgroundColor: '#ffd54a',
+        yAxisID: 'y1'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    plugins: {
+      boundaryLines: { radii: [2, 5, 8] }
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        min: 0,
+        max: 15,
+        title: { display: true, text: 'Distance r' }
+      },
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+        title: { display: true, text: 'V(r)' }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        title: { display: true, text: 'U(r)' },
+        grid: { drawOnChartArea: false }
+      }
+    }
+  }
+});
+
+/* ---------------- PHYSICS ---------------- */
+/* k = 1 for visualization */
+const k = 1;
+
+/* Potential of each object */
+function calcPotentialForShell(r, R, Q, isSolid) {
+  const rs = Math.max(r, 0.0001);
+
+  if (isSolid) {
+    if (rs < R) {
+      return (k * Q / (2 * R)) * (3 - (rs * rs) / (R * R));
+    }
+    return k * Q / rs;
+  } else {
+    if (rs < R) return k * Q / R;
+    return k * Q / rs;
+  }
+}
+
+/* Total V(r) */
+function totalPotential(r, p) {
+  return (
+    calcPotentialForShell(r, p.r1, p.q1, true) +
+    calcPotentialForShell(r, p.r2, p.q2, false) +
+    calcPotentialForShell(r, p.r3, p.q3, false)
+  );
+}
+
+/* Total E(r) */
+function totalField(r, p) {
+  const rs = Math.max(r, 0.0001);
+
+  if (rs < p.r1) {
+    return (k * p.q1 * rs) / Math.pow(p.r1, 3);
+  } else if (rs < p.r2) {
+    return (k * p.q1) / (rs * rs);
+  } else if (rs < p.r3) {
+    return (k * (p.q1 + p.q2)) / (rs * rs);
+  } else {
+    return (k * (p.q1 + p.q2 + p.q3)) / (rs * rs);
+  }
+}
+
+/* Spherical to Cartesian */
+function sphericalToCartesian(r, thetaDeg, phiDeg) {
+  const theta = thetaDeg * Math.PI / 180;
+  const phi = phiDeg * Math.PI / 180;
+
+  return {
+    x: r * Math.sin(theta) * Math.cos(phi),
+    y: r * Math.cos(theta),
+    z: r * Math.sin(theta) * Math.sin(phi)
+  };
+}
+
+/* ---------------- MOTION ---------------- */
+const motion = {
+  active: false,
+  r: 14,
+  v: 0
+};
+
+function resetTrail() {
+  trailPoints = [];
+  trailGeometry.dispose();
+  trailGeometry = new THREE.BufferGeometry().setFromPoints([]);
+  trailLine.geometry = trailGeometry;
+}
+
+function updateProjectilePosition(rCurrent, appendTrail = false) {
+  const p = getParams();
+  const pos = sphericalToCartesian(rCurrent, p.theta, p.phi);
+
+  projectile.position.set(pos.x, pos.y, pos.z);
+
+  radialLine.geometry.dispose();
+  radialLine.geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(pos.x, pos.y, pos.z)
+  ]);
+
+  if (appendTrail) {
+    trailPoints.push(new THREE.Vector3(pos.x, pos.y, pos.z));
+    if (trailPoints.length > 500) trailPoints.shift();
+    trailGeometry.dispose();
+    trailGeometry = new THREE.BufferGeometry().setFromPoints(trailPoints);
+    trailLine.geometry = trailGeometry;
+  }
+
+  const E = totalField(rCurrent, p);
+  const V = totalPotential(rCurrent, p);
+  const U = p.qp * V;
+
+  document.getElementById('coordsBox').innerHTML = `
+    x = ${pos.x.toFixed(2)}<br>
+    y = ${pos.y.toFixed(2)}<br>
+    z = ${pos.z.toFixed(2)}<br>
+    r = ${rCurrent.toFixed(2)}<br>
+    E = ${E.toFixed(3)}<br>
+    V = ${V.toFixed(3)}<br>
+    U = ${U.toFixed(3)}
+  `;
+
+  /* Graph markers */
+  chartE.data.datasets[1].data = [{ x: rCurrent, y: E }];
+  chartVU.data.datasets[2].data = [{ x: rCurrent, y: V }];
+  chartVU.data.datasets[3].data = [{ x: rCurrent, y: U }];
+  chartE.update('none');
+  chartVU.update('none');
+}
+
+/* ---------------- UPDATE ALL ---------------- */
+function updateAll() {
+  const p = getParams();
+
+  /* 3D geometry */
+  meshCore.scale.set(p.r1, p.r1, p.r1);
+  meshK.scale.set(p.r2, p.r2, p.r2);
+  meshL.scale.set(p.r3, p.r3, p.r3);
+
+  /* Charge color hint */
+  matCore.color.set(p.q1 >= 0 ? 0xf59e0b : 0xff6b6b);
+  matK.color.set(p.q2 >= 0 ? 0x10b981 : 0xff7ca3);
+  matL.color.set(p.q3 >= 0 ? 0x3b82f6 : 0x8ea2ff);
+
+  let planes = [];
+  if (p.view === 'half') planes = [clipX];
+  if (p.view === 'quarter') planes = [clipX, clipZ];
+
+  matCore.clippingPlanes = planes;
+  matK.clippingPlanes = planes;
+  matL.clippingPlanes = planes;
+
+  /* Chart data */
+  const eData = [];
+  const vData = [];
+  const uData = [];
+
+  for (let r = 0; r <= 15.0001; r += 0.1) {
+    const E = totalField(r, p);
+    const V = totalPotential(r, p);
+    const U = p.qp * V;
+
+    eData.push({ x: r, y: E });
+    vData.push({ x: r, y: V });
+    uData.push({ x: r, y: U });
+  }
+
+  chartE.data.datasets[0].data = eData;
+  chartVU.data.datasets[0].data = vData;
+  chartVU.data.datasets[1].data = uData;
+
+  chartE.options.plugins.boundaryLines.radii = [p.r1, p.r2, p.r3];
+  chartVU.options.plugins.boundaryLines.radii = [p.r1, p.r2, p.r3];
+
+  chartE.update('none');
+  chartVU.update('none');
+
+  if (!motion.active) {
+    motion.r = p.rp;
+    updateProjectilePosition(motion.r, false);
+  }
+}
+
+/* ---------------- BUTTONS ---------------- */
+document.getElementById('playInward').addEventListener('click', () => {
+  const p = getParams();
+  motion.active = true;
+  motion.r = p.rp;
+  motion.v = 0;
+  resetTrail();
+  updateProjectilePosition(motion.r, true);
+});
+
+document.getElementById('pauseMotion').addEventListener('click', () => {
+  motion.active = false;
+});
+
+document.getElementById('resetMotion').addEventListener('click', () => {
+  const p = getParams();
+  motion.active = false;
+  motion.r = p.rp;
+  motion.v = 0;
+  resetTrail();
+  updateProjectilePosition(motion.r, false);
+});
+
+/* ---------------- ANIMATION ---------------- */
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+
+  if (motion.active) {
+    const p = getParams();
+    const dt = 0.03;
+
+    /* Force = qE, acceleration = F/m */
+    const E = totalField(motion.r, p);
+    const a = (p.qp * (-E)) / p.m;
+
+    motion.v += a * dt;
+    motion.r += motion.v * dt;
+
+    /* Stop if it reaches center */
+    if (motion.r <= 0.08) {
+      motion.r = 0.08;
+      motion.v = 0;
+      motion.active = false;
+    }
+
+    /* Stop if it escapes outward */
+    if (motion.r >= 15) {
+      motion.r = 15;
+      motion.v = 0;
+      motion.active = false;
+    }
+
+    document.getElementById('sl_rp').value = motion.r.toFixed(2);
+    document.getElementById('val_rp').innerText = motion.r.toFixed(2);
+
+    updateProjectilePosition(motion.r, true);
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ---------------- RESIZE ---------------- */
+window.addEventListener('resize', () => {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+/* ---------------- INIT ---------------- */
+updateAll();
+animate();
+</script>
+</body>
+</html>

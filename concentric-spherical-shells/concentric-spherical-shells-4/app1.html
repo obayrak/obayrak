@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Concentric Charged Shells — Physics Simulator</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg:          #08090e;
+  --surface-0:   #0d0f18;
+  --surface-1:   #111421;
+  --surface-2:   #161a2a;
+  --surface-3:   #1c2133;
+  --border-dim:  rgba(255,255,255,0.06);
+  --border-med:  rgba(255,255,255,0.11);
+  --text-hi:     #eef0f6;
+  --text-med:    #adb5cc;
+  --text-dim:    #5c6884;
+  --font-sans:   'IBM Plex Sans',  sans-serif;
+  --font-mono:   'IBM Plex Mono',  monospace;
+  --c-core:      #f59e0b;
+  --c-shell-k:   #10b981;
+  --c-shell-l:   #3b82f6;
+  --c-field-pos: #38bdf8;
+  --c-field-neg: #f87171;
+  --c-particle:  #ffffff;
+  --c-force:     #fbbf24;
+  --c-stream:    #a78bfa;
+  --c-V:         #c084fc;
+  --c-U:         #fcd34d;
+  --accent:      #6366f1;
+  --accent-glow: rgba(99,102,241,0.35);
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --gap:         18px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+body {
+  background: var(--bg);
+  color: var(--text-med);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  min-height: 100vh;
+  padding: 20px;
+  line-height: 1.6;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(99,102,241,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 80% 90%, rgba(59,130,246,0.04) 0%, transparent 60%);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: var(--gap);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+.card + .card { margin-top: var(--gap); }
+.card__title {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.control { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.control__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.control__label .symbol { font-weight: 500; font-size: 0.75rem; }
+.control__value {
+  font-weight: 600;
+  color: var(--text-hi);
+  background: var(--surface-3);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  min-width: 48px;
+  text-align: right;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%; height: 3px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  cursor: pointer; transition: transform 0.12s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+input[type="range"].core::-webkit-slider-thumb   { background: var(--c-core);    box-shadow: 0 0 0 3px rgba(245,158,11,0.3); }
+input[type="range"].shellk::-webkit-slider-thumb { background: var(--c-shell-k); box-shadow: 0 0 0 3px rgba(16,185,129,0.3); }
+input[type="range"].shelll::-webkit-slider-thumb { background: var(--c-shell-l); box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
+
+select {
+  width: 100%; padding: 8px 10px;
+  background: var(--surface-2); color: var(--text-hi);
+  border: 1px solid var(--border-med); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.78rem;
+  cursor: pointer; outline: none; transition: border-color 0.2s;
+}
+select:focus { border-color: var(--accent); }
+
+.btn-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 4px; }
+
+button {
+  padding: 9px 12px;
+  background: var(--surface-2); color: var(--text-med);
+  border: 1px solid var(--border-med); border-radius: var(--radius-sm);
+  font-family: var(--font-sans); font-weight: 500; font-size: 0.82rem;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+button:hover { background: var(--surface-3); border-color: var(--accent); color: var(--text-hi); }
+button.btn--primary { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #a5b4fc; }
+button.btn--primary:hover { background: rgba(99,102,241,0.28); color: #e0e7ff; }
+button.btn--danger  { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+button.btn--danger:hover { background: rgba(239,68,68,0.2); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 0.68rem;
+  font-weight: 600; letter-spacing: 0.06em; margin-top: 10px;
+}
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.pill--play   { background: rgba(34,197,94,0.12);  border: 1px solid rgba(34,197,94,0.3);  color: #86efac; }
+.pill--play::before   { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.pill--pause  { background: rgba(234,179,8,0.10);  border: 1px solid rgba(234,179,8,0.3);  color: #fde68a; }
+.pill--pause::before  { background: #fbbf24; }
+
+.scrub-box {
+  margin-top: 14px; padding: 14px;
+  background: var(--surface-0); border: 1px solid var(--border-dim); border-radius: var(--radius-md);
+}
+.scrub-box .hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 8px; line-height: 1.55; }
+
+.formula {
+  background: var(--surface-0);
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-family: var(--font-mono); font-size: 0.80rem;
+  color: #d4d4ff; margin: 10px 0;
+  overflow-x: auto; white-space: nowrap;
+}
+
+.right-pane { display: flex; flex-direction: column; gap: var(--gap); }
+
+.viewport {
+  height: 540px; position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border-dim); border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.viewport canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.hud {
+  position: absolute; z-index: 10;
+  background: rgba(8,9,14,0.88);
+  border: 1px solid var(--border-med); border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.9;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.hud--tl { top: 12px; left: 12px; min-width: 210px; }
+.hud--tr { top: 12px; right: 12px; min-width: 220px; }
+.hud__row { display: flex; justify-content: space-between; gap: 14px; }
+.hud__key   { color: var(--text-dim); }
+.hud__value { color: var(--text-hi); font-weight: 500; text-align: right; }
+.hud__sep   { border: none; border-top: 1px solid var(--border-dim); margin: 6px 0; }
+
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.70rem; color: var(--text-dim); margin-bottom: 4px; }
+.legend-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.legend-rect { width: 20px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+.cp-legend { display: flex; align-items: center; gap: 6px; font-size: 0.64rem; color: var(--text-dim); margin-top: 4px; font-family: var(--font-mono); }
+.cp-bar { flex: 1; height: 7px; border-radius: 4px; background: linear-gradient(90deg, #f87171 0%, #0f1219 50%, #38bdf8 100%); }
+
+.charts-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); height: 290px;
+}
+.chart-card {
+  background: var(--surface-1); border: 1px solid var(--border-dim); border-radius: var(--radius-lg);
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  position: relative; overflow: hidden;
+}
+.chart-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent); opacity: 0.5;
+}
+.chart-card:last-child::before { background: linear-gradient(90deg, var(--c-V), transparent); }
+.chart-card__title { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.08em; flex-shrink: 0; }
+.chart-canvas-wrap { flex: 1; position: relative; min-height: 0; }
+.chart-canvas-wrap canvas { position: absolute; inset: 0; }
+
+.theory-panel { background: var(--surface-1); border: 1px solid var(--border-dim); border-radius: var(--radius-lg); overflow: hidden; }
+.theory-tabs { display: flex; border-bottom: 1px solid var(--border-dim); padding: 0 20px; }
+.theory-tab {
+  padding: 14px 18px; background: transparent; border: none;
+  border-bottom: 2px solid transparent; border-radius: 0;
+  color: var(--text-dim); font-size: 0.78rem; font-weight: 500;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.theory-tab:hover { color: var(--text-med); background: transparent; }
+.theory-tab.active { color: var(--text-hi); border-bottom-color: var(--accent); background: transparent; }
+.theory-body {
+  padding: 22px 22px 20px; max-height: 420px; overflow-y: auto;
+  font-size: 0.92rem; line-height: 1.8;
+  scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent;
+}
+.theory-body::-webkit-scrollbar { width: 5px; }
+.theory-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+.theory-pane { display: none; }
+.theory-pane.active { display: block; }
+.theory-body h3 { font-size: 0.90rem; font-weight: 600; color: var(--text-hi); margin: 18px 0 8px; }
+.theory-body h3:first-child { margin-top: 0; }
+.theory-body p  { color: var(--text-med); margin-bottom: 10px; }
+.theory-body ul { padding-left: 18px; }
+.theory-body li { margin-bottom: 8px; color: var(--text-med); }
+.theory-body strong { color: var(--text-hi); font-weight: 600; }
+
+@media (max-width: 1160px) {
+  .app { grid-template-columns: 1fr; }
+  .charts-row { grid-template-columns: 1fr; height: auto; }
+  .charts-row .chart-card { height: 260px; }
+  .viewport { height: 460px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════ SIDEBAR ════════════════════════════════════════════════ -->
+  <aside>
+
+    <div class="card">
+      <div class="card__title">Geometry &amp; View</div>
+
+      <div class="control">
+        <div class="control__label"><span>Cross-section view</span></div>
+        <select id="cutView">
+          <option value="full">Full spheres</option>
+          <option value="half" selected>Half cutaway (x ≤ 0)</option>
+          <option value="quarter">Quarter cutaway (x,z ≤ 0)</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-core)">Core radius R₁</span>
+          <span class="control__value" id="val_r1">2.0</span>
+        </div>
+        <input type="range" class="core" id="sl_r1" min="1" max="3.5" step="0.1" value="2.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-shell-k)">Shell K radius R₂</span>
+          <span class="control__value" id="val_r2">5.0</span>
+        </div>
+        <input type="range" class="shellk" id="sl_r2" min="4" max="6.5" step="0.1" value="5.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-shell-l)">Shell L radius R₃</span>
+          <span class="control__value" id="val_r3">8.0</span>
+        </div>
+        <input type="range" class="shelll" id="sl_r3" min="7" max="10" step="0.1" value="8.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Shell wall thickness t</span>
+          <span class="control__value" id="val_thick">0.35</span>
+        </div>
+        <input type="range" id="sl_thick" min="0.10" max="0.80" step="0.05" value="0.35">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">Charges</div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-core)">Core charge q₁</span>
+          <span class="control__value" id="val_q1">+2.0</span>
+        </div>
+        <input type="range" class="core" id="sl_q1" min="-5" max="5" step="0.1" value="2.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-shell-k)">Shell K charge q₂</span>
+          <span class="control__value" id="val_q2">−1.5</span>
+        </div>
+        <input type="range" class="shellk" id="sl_q2" min="-5" max="5" step="0.1" value="-1.5">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span class="symbol" style="color:var(--c-shell-l)">Shell L charge q₃</span>
+          <span class="control__value" id="val_q3">+3.0</span>
+        </div>
+        <input type="range" class="shelll" id="sl_q3" min="-5" max="5" step="0.1" value="3.0">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">Test Particle</div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Charge qₚ</span><span class="control__value" id="val_qp">+1.0</span>
+        </div>
+        <input type="range" id="sl_qp" min="-3" max="3" step="0.1" value="1.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Mass m</span><span class="control__value" id="val_m">1.0</span>
+        </div>
+        <input type="range" id="sl_m" min="0.2" max="5" step="0.1" value="1.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Start radius r₀ (≈ ∞)</span>
+          <span class="control__value" id="val_rp">14.0</span>
+        </div>
+        <input type="range" id="sl_rp" min="9" max="15" step="0.1" value="14.0">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Direction θ (polar °)</span>
+          <span class="control__value" id="val_theta">55</span>
+        </div>
+        <input type="range" id="sl_theta" min="0" max="180" step="1" value="55">
+      </div>
+
+      <div class="control">
+        <div class="control__label">
+          <span>Direction φ (azimuth °)</span>
+          <span class="control__value" id="val_phi">35</span>
+        </div>
+        <input type="range" id="sl_phi" min="0" max="360" step="1" value="35">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__title">Motion</div>
+
+      <div class="btn-row-3">
+        <button class="btn--primary" id="playBtn">▶ Play</button>
+        <button id="pauseBtn">⏸ Pause</button>
+        <button class="btn--danger" id="resetBtn">↺ Reset</button>
+      </div>
+
+      <div class="scrub-box">
+        <div class="control" style="margin-bottom:0;">
+          <div class="control__label">
+            <span>Scrub r(t)</span>
+            <span class="control__value" id="val_scrub">14.00</span>
+          </div>
+          <input type="range" id="scrubSlider" min="0.08" max="15" step="0.01" value="14.0">
+        </div>
+        <div id="playStatePill" class="pill pill--pause">PAUSED</div>
+        <p class="hint">Drag to inspect any radial position while paused.</p>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ════ RIGHT PANE ══════════════════════════════════════════════ -->
+  <div class="right-pane">
+
+    <div class="viewport" id="viewport">
+
+      <!-- Live readout -->
+      <div class="hud hud--tl">
+        <div class="hud__row"><span class="hud__key">x</span><span class="hud__value" id="hud_x">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">y</span><span class="hud__value" id="hud_y">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">z</span><span class="hud__value" id="hud_z">0.000</span></div>
+        <div class="hud__row"><span class="hud__key">r</span><span class="hud__value" id="hud_r">0.000</span></div>
+        <hr class="hud__sep">
+        <div class="hud__row"><span class="hud__key">E(r)</span><span class="hud__value" id="hud_E">—</span></div>
+        <div class="hud__row"><span class="hud__key">V(r)</span><span class="hud__value" id="hud_V">—</span></div>
+        <div class="hud__row"><span class="hud__key">U = qₚV</span><span class="hud__value" id="hud_U">—</span></div>
+        <div class="hud__row"><span class="hud__key">F = qₚE</span><span class="hud__value" id="hud_F">—</span></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="hud hud--tr">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-field-pos)"></div>E field — outward (+)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-field-neg)"></div>E field — inward (−)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-particle)"></div>Test particle</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-force)"></div>Force on particle</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-stream)"></div>Field-line streamlines</div>
+        <hr class="hud__sep">
+        <div class="legend-item"><div class="legend-rect" style="background:var(--c-core)"></div>Core (q₁)</div>
+        <div class="legend-item"><div class="legend-rect" style="background:var(--c-shell-k)"></div>Shell K (q₂) — with thickness t</div>
+        <div class="legend-item"><div class="legend-rect" style="background:var(--c-shell-l)"></div>Shell L (q₃) — with thickness t</div>
+        <hr class="hud__sep">
+        <div style="font-size:0.64rem;color:var(--text-dim);margin-bottom:3px;">Cut-face colour plate — E(r)</div>
+        <div class="cp-legend">
+          <span>− E</span>
+          <div class="cp-bar"></div>
+          <span>+ E</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-card__title">ELECTRIC FIELD  E(r)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartE"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card__title">POTENTIAL V(r)  &amp;  ENERGY U(r) = qₚV(r)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartVU"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Theory -->
+    <div class="theory-panel">
+      <div class="theory-tabs">
+        <button class="theory-tab active" data-pane="panePhysics">Physics derivation</button>
+        <button class="theory-tab"        data-pane="paneGuide">How to read</button>
+      </div>
+      <div class="theory-body">
+
+        <div id="panePhysics" class="theory-pane active">
+          <h3>Setup</h3>
+          <p>A solid insulating sphere (core, radius R₁, charge q₁) is surrounded by two concentric
+          insulating shells of finite wall thickness t. Shell K carries charge q₂ (inner radius R₂−t,
+          outer radius R₂); Shell L carries q₃ (inner R₃−t, outer R₃). Charges are fixed.</p>
+
+          <h3>1 · Electric Field E(r) — Gauss's Law</h3>
+          <div class="formula">∮ E · dA = q_enc / ε₀  →  E(r) = k · q_enc / r²</div>
+          <ul>
+            <li><strong>r &lt; R₁</strong> (inside core): <div class="formula">E(r) = k · q₁ · r / R₁³</div></li>
+            <li><strong>R₁ ≤ r &lt; R₂</strong>: <div class="formula">E(r) = k · q₁ / r²</div></li>
+            <li><strong>R₂ ≤ r &lt; R₃</strong>: <div class="formula">E(r) = k · (q₁ + q₂) / r²</div></li>
+            <li><strong>r ≥ R₃</strong>: <div class="formula">E(r) = k · (q₁ + q₂ + q₃) / r²</div></li>
+          </ul>
+
+          <h3>2 · Potential V(r) — Superposition</h3>
+          <div class="formula">V(r) = V_core(r) + V_K(r) + V_L(r)</div>
+          <div class="formula">Shell (r ≥ R): V = kQ/r  |  Shell (r &lt; R): V = kQ/R</div>
+          <div class="formula">Core inside: V = (k q₁ / 2R₁)(3 − r²/R₁²)</div>
+
+          <h3>3 · Potential Energy and Force</h3>
+          <div class="formula">U(r) = qₚ · V(r)      F(r) = qₚ · E(r)</div>
+          <p>V(r) is a property of the shell system only; U and F depend on the test charge qₚ.</p>
+        </div>
+
+        <div id="paneGuide" class="theory-pane">
+          <h3>Reading the simulation</h3>
+          <ul>
+            <li><strong>White sphere</strong> — test charge moving radially under the Coulomb force.</li>
+            <li><strong>Yellow arrow</strong> — force F = qₚE. Reverses when qₚ or E changes sign.</li>
+            <li><strong>Blue/red arrows</strong> — E field vectors; blue = outward (+E), red = inward (−E).</li>
+            <li><strong>Colour-coded streamlines</strong> — static field lines coloured by E sign and magnitude (blue–violet = positive field, red–violet = negative).</li>
+            <li><strong>Cut-face colour plate</strong> — the flat disc exposed on the cut face is a vertex-coloured mesh: cyan = strong +E, red = strong −E, dark = near-zero. The distinct colour bands at R₁, R₂, R₃ show the field-jump discontinuities at each shell.</li>
+            <li><strong>Shell thickness</strong> — K and L shells have physical wall thickness t; the coloured annuli on the cut face show the shell cross-sections.</li>
+            <li><strong>Left chart</strong> — E(r) vs r. White dot = particle.</li>
+            <li><strong>Right chart</strong> — V(r) and U(r). Two markers track the particle.</li>
+          </ul>
+          <h3>Tips</h3>
+          <ul>
+            <li>Use <em>Half cutaway</em> or <em>Quarter cutaway</em> to see the colour plate and thick shells.</li>
+            <li>Increase thickness t to make the shell walls more prominent.</li>
+            <li>Set q₁ + q₂ + q₃ = 0 — the plate goes dark outside R₃ (zero net external field).</li>
+            <li>Negative qₚ flips the force arrow without affecting E or V.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const K_E       = 1;
+const MAX_TRAIL = 800;
+const STREAM_STEP = 0.16;
+const CP_RINGS  = 130;    // radial subdivisions for colour plate
+const CP_SEGS   = 128;    // angular subdivisions
+const CP_MAX_R  = 14.5;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const motion = { active: false, r: 14, v: 0 };
+const p = {};
+let trailPoints = [];
+
+// ─── Parameters ───────────────────────────────────────────────────────────────
+function readParams() {
+  ['r1','r2','r3','q1','q2','q3','qp','m','rp','theta','phi','thick'].forEach(
+    id => { p[id] = parseFloat(document.getElementById(`sl_${id}`).value); }
+  );
+  p.view = document.getElementById('cutView').value;
+  if (p.r2 <= p.r1 + 0.3) { p.r2 = p.r1 + 0.3; _setSlider('r2', p.r2); }
+  if (p.r3 <= p.r2 + 0.3) { p.r3 = p.r2 + 0.3; _setSlider('r3', p.r3); }
+  return p;
+}
+
+function _setSlider(id, val) {
+  const v = val.toFixed(1);
+  document.getElementById(`sl_${id}`).value = v;
+  document.getElementById(`val_${id}`).textContent = v;
+}
+
+// ─── Physics ──────────────────────────────────────────────────────────────────
+function electricField(r) {
+  const rs = Math.max(r, 1e-4);
+  if (rs < p.r1) return K_E * p.q1 * rs / Math.pow(p.r1, 3);
+  if (rs < p.r2) return K_E * p.q1 / (rs * rs);
+  if (rs < p.r3) return K_E * (p.q1 + p.q2) / (rs * rs);
+  return K_E * (p.q1 + p.q2 + p.q3) / (rs * rs);
+}
+
+function electricPotential(r) {
+  const rs = Math.max(r, 1e-4);
+  function potCore(r) {
+    return r < p.r1
+      ? (K_E * p.q1 / (2 * p.r1)) * (3 - r * r / (p.r1 * p.r1))
+      : K_E * p.q1 / r;
+  }
+  function potShell(r, R, Q) { return r < R ? K_E * Q / R : K_E * Q / r; }
+  return potCore(rs) + potShell(rs, p.r2, p.q2) + potShell(rs, p.r3, p.q3);
+}
+
+function toCartesian(r, thetaDeg, phiDeg) {
+  const th = thetaDeg * Math.PI / 180;
+  const ph = phiDeg   * Math.PI / 180;
+  return new THREE.Vector3(
+    r * Math.sin(th) * Math.cos(ph),
+    r * Math.cos(th),
+    r * Math.sin(th) * Math.sin(ph)
+  );
+}
+
+// Map E value → [R,G,B] floats in [0,1]
+function eToRGB(E) {
+  const maxE   = 3.0;
+  const t      = Math.min(Math.abs(E) / maxE, 1.0);
+  const bright = 0.08 + 0.92 * t;
+  return E >= 0
+    ? [0.20 * bright, 0.74 * bright, 0.98 * bright]   // cyan
+    : [0.97 * bright, 0.42 * bright, 0.42 * bright];   // red
+}
+
+// ─── THREE.JS setup ───────────────────────────────────────────────────────────
+const container = document.getElementById('viewport');
+const scene     = new THREE.Scene();
+const camera    = new THREE.PerspectiveCamera(44, container.clientWidth / container.clientHeight, 0.05, 120);
+camera.position.set(14, 11, 17);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.localClippingEnabled = true;
+renderer.setClearColor(0x08090e, 1);
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance   = 3;
+controls.maxDistance   = 40;
+
+scene.add(new THREE.AmbientLight(0x304060, 2.4));
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.6);
+sunLight.position.set(14, 20, 14);
+scene.add(sunLight);
+const fillLight = new THREE.DirectionalLight(0x6080ff, 0.6);
+fillLight.position.set(-12, -8, -12);
+scene.add(fillLight);
+
+// Clipping planes — clip geometry where normal·point + d > 0
+const clipPX = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);   // remove x > 0
+const clipPZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);   // remove z > 0
+
+scene.add(new THREE.AxesHelper(13));
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+const geoUnit = new THREE.SphereGeometry(1, 72, 72);
+const matCore = new THREE.MeshStandardMaterial({
+  color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.90, roughness: 0.5
+});
+const meshCore = new THREE.Mesh(geoUnit, matCore);
+scene.add(meshCore);
+
+// ─── Thick shells ─────────────────────────────────────────────────────────────
+/*
+ * Each thick shell = THREE.Group with:
+ *   outer  — sphere at R_outer
+ *   inner  — sphere at R_inner = R_outer − t
+ *   ringYZ — annulus in YZ plane (x = 0), the exposed cut face for half/quarter view
+ *   ringXY — annulus in XY plane (z = 0), only for quarter view
+ *
+ * Clipping:
+ *   outer/inner: standard view clip planes
+ *   ringYZ: visible when half or quarter; in quarter also clip z ≤ 0
+ *   ringXY: visible and clip x ≤ 0 in quarter mode only
+ */
+
+function _stdMat(color, opacity) {
+  return new THREE.MeshStandardMaterial({
+    color, side: THREE.DoubleSide, transparent: true, opacity, roughness: 0.45, metalness: 0.08
+  });
+}
+function _ringFaceMat(color) {
+  return new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide, roughness: 0.30, metalness: 0.12 });
+}
+function _makeRingGeo(rInner, rOuter, axis) {
+  const geo = new THREE.RingGeometry(rInner, rOuter, 80, 1);
+  if (axis === 'YZ') geo.rotateY(Math.PI / 2);   // place in YZ plane (x = 0)
+  // axis === 'XY' → already in XY plane
+  return geo;
+}
+
+// Shell K
+const shellK = {
+  group:  new THREE.Group(),
+  outer:  new THREE.Mesh(geoUnit, _stdMat(0x10b981, 0.42)),
+  inner:  new THREE.Mesh(geoUnit, _stdMat(0x0d9268, 0.42)),
+  matRYZ: _ringFaceMat(0x16c98a),
+  matRXY: _ringFaceMat(0x16c98a),
+  ringYZ: null,   // rebuilt when R or t changes
+  ringXY: null,
+};
+shellK.group.add(shellK.outer, shellK.inner);
+scene.add(shellK.group);
+
+// Shell L
+const shellL = {
+  group:  new THREE.Group(),
+  outer:  new THREE.Mesh(geoUnit, _stdMat(0x3b82f6, 0.28)),
+  inner:  new THREE.Mesh(geoUnit, _stdMat(0x2563c4, 0.28)),
+  matRYZ: _ringFaceMat(0x5090f8),
+  matRXY: _ringFaceMat(0x5090f8),
+  ringYZ: null,
+  ringXY: null,
+};
+shellL.group.add(shellL.outer, shellL.inner);
+scene.add(shellL.group);
+
+function rebuildShellGeometry() {
+  const t  = p.thick;
+  const r2i = Math.max(0.05, p.r2 - t);
+  const r3i = Math.max(0.05, p.r3 - t);
+
+  // Scale spheres
+  shellK.outer.scale.setScalar(p.r2);
+  shellK.inner.scale.setScalar(r2i);
+  shellL.outer.scale.setScalar(p.r3);
+  shellL.inner.scale.setScalar(r3i);
+
+  // Rebuild ring faces
+  function _rebuildRings(sh, rInner, rOuter) {
+    if (sh.ringYZ) { sh.group.remove(sh.ringYZ); sh.ringYZ.geometry.dispose(); }
+    if (sh.ringXY) { sh.group.remove(sh.ringXY); sh.ringXY.geometry.dispose(); }
+    sh.ringYZ = new THREE.Mesh(_makeRingGeo(rInner, rOuter, 'YZ'), sh.matRYZ);
+    sh.ringXY = new THREE.Mesh(_makeRingGeo(rInner, rOuter, 'XY'), sh.matRXY);
+    sh.group.add(sh.ringYZ, sh.ringXY);
+  }
+  _rebuildRings(shellK, r2i, p.r2);
+  _rebuildRings(shellL, r3i, p.r3);
+}
+
+// ─── Apply clipping ───────────────────────────────────────────────────────────
+function _getClipPlanes() {
+  if (p.view === 'half')    return [clipPX];
+  if (p.view === 'quarter') return [clipPX, clipPZ];
+  return [];
+}
+
+function _inCutRegion(pos, planes) {
+  return planes.every(pl => pl.distanceToPoint(pos) <= 0.01);
+}
+
+function applyClipping() {
+  const planes      = _getClipPlanes();
+  const showRings   = p.view !== 'full';
+  const quarterMode = p.view === 'quarter';
+
+  // Core
+  matCore.clippingPlanes = planes;
+
+  // Shells outer + inner surfaces
+  [shellK.outer.material, shellK.inner.material,
+   shellL.outer.material, shellL.inner.material].forEach(m => { m.clippingPlanes = planes; });
+
+  // Ring faces
+  function _applyRings(sh) {
+    sh.ringYZ.visible = showRings;
+    sh.ringYZ.material.clippingPlanes = quarterMode ? [clipPZ] : [];
+
+    sh.ringXY.visible = quarterMode;
+    sh.ringXY.material.clippingPlanes = quarterMode ? [clipPX] : [];
+  }
+  _applyRings(shellK);
+  _applyRings(shellL);
+}
+
+// ─── Charge tinting ───────────────────────────────────────────────────────────
+function tintByCharge() {
+  matCore.color.setHex(p.q1 >= 0 ? 0xf59e0b : 0xef4444);
+
+  const kPos = p.q2 >= 0;
+  shellK.outer.material.color.setHex(kPos ? 0x10b981 : 0xf87171);
+  shellK.inner.material.color.setHex(kPos ? 0x0d9268 : 0xd05050);
+  shellK.matRYZ.color.setHex(kPos ? 0x16c98a : 0xff9999);
+  shellK.matRXY.color.setHex(kPos ? 0x16c98a : 0xff9999);
+
+  const lPos = p.q3 >= 0;
+  shellL.outer.material.color.setHex(lPos ? 0x3b82f6 : 0x818cf8);
+  shellL.inner.material.color.setHex(lPos ? 0x2563c4 : 0x6060c8);
+  shellL.matRYZ.color.setHex(lPos ? 0x5090f8 : 0xc4b5fd);
+  shellL.matRXY.color.setHex(lPos ? 0x5090f8 : 0xc4b5fd);
+}
+
+// ─── Colour-plate disc ────────────────────────────────────────────────────────
+/*
+ * A vertex-coloured flat mesh revealing the E(r) distribution on the cut face.
+ * Built as a series of thin concentric rings, each coloured by E at its radius.
+ * One disc in YZ (x=0) for half/quarter; second in XY (z=0) for quarter only.
+ */
+const cpGroup = new THREE.Group();
+scene.add(cpGroup);
+let cpMeshX = null, cpMeshZ = null;
+
+function _buildCPGeo(axis) {
+  const rings = CP_RINGS, segs = CP_SEGS;
+  const pos = [], col = [], idx = [];
+
+  for (let ri = 0; ri <= rings; ri++) {
+    const r = (ri / rings) * CP_MAX_R;
+    const [cr, cg, cb] = eToRGB(electricField(r));
+    for (let si = 0; si <= segs; si++) {
+      const phi = (si / segs) * 2 * Math.PI;
+      const a   = r * Math.cos(phi);
+      const b   = r * Math.sin(phi);
+      if (axis === 'YZ') pos.push(0, a, b);   // YZ plane (x = 0)
+      else               pos.push(a, b, 0);   // XY plane (z = 0)
+      col.push(cr, cg, cb);
+    }
+  }
+
+  for (let ri = 0; ri < rings; ri++) {
+    for (let si = 0; si < segs; si++) {
+      const a = ri * (segs + 1) + si;
+      const b = a + 1;
+      const c = a + (segs + 1);
+      const d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildColorPlates() {
+  if (cpMeshX) { cpMeshX.geometry.dispose(); cpGroup.remove(cpMeshX); cpMeshX = null; }
+  if (cpMeshZ) { cpMeshZ.geometry.dispose(); cpGroup.remove(cpMeshZ); cpMeshZ = null; }
+
+  if (p.view === 'full') return;
+
+  const baseMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
+
+  // YZ disc (x = 0)
+  const matX = baseMat.clone();
+  matX.clippingPlanes = (p.view === 'quarter') ? [clipPZ] : [];
+  cpMeshX = new THREE.Mesh(_buildCPGeo('YZ'), matX);
+  cpMeshX.renderOrder = 1;
+  cpGroup.add(cpMeshX);
+
+  // XY disc (z = 0) — quarter only
+  if (p.view === 'quarter') {
+    const matZ = baseMat.clone();
+    matZ.clippingPlanes = [clipPX];
+    cpMeshZ = new THREE.Mesh(_buildCPGeo('XY'), matZ);
+    cpMeshZ.renderOrder = 1;
+    cpGroup.add(cpMeshZ);
+  }
+}
+
+// ─── Test particle ────────────────────────────────────────────────────────────
+const particleMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.30, 32, 32),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x888888, roughness: 0.2 })
+);
+scene.add(particleMesh);
+
+const radialLineMat = new THREE.LineDashedMaterial({ color: 0x334466, dashSize: 0.4, gapSize: 0.25 });
+const radialLineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1,0,0)]);
+const radialLine    = new THREE.Line(radialLineGeo, radialLineMat);
+radialLine.computeLineDistances();
+scene.add(radialLine);
+
+const forceArrow = new THREE.ArrowHelper(
+  new THREE.Vector3(1,0,0), new THREE.Vector3(), 1.5, 0xfbbf24, 0.38, 0.20
+);
+scene.add(forceArrow);
+
+let trailGeo = new THREE.BufferGeometry();
+const trailLine = new THREE.Line(
+  trailGeo,
+  new THREE.LineBasicMaterial({ color: 0xffd580, transparent: true, opacity: 0.55 })
+);
+scene.add(trailLine);
+
+// ─── Field arrows ─────────────────────────────────────────────────────────────
+const fieldGroup = new THREE.Group();
+scene.add(fieldGroup);
+let fieldArrows = [];
+
+function _fibPts(r, n) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const theta = Math.acos(1 - 2 * (i + 0.5) / n);
+    const phi   = 2 * Math.PI * i * 1.618033988749895;
+    pts.push(new THREE.Vector3(
+      r * Math.sin(theta) * Math.cos(phi),
+      r * Math.cos(theta),
+      r * Math.sin(theta) * Math.sin(phi)
+    ));
+  }
+  return pts;
+}
+
+function buildFieldArrows() {
+  while (fieldGroup.children.length) fieldGroup.remove(fieldGroup.children[0]);
+  fieldArrows = [];
+
+  [
+    { r: p.r1 * 0.60,             n: 18 },
+    { r: p.r1 * 1.04,             n: 24 },
+    { r: (p.r1 + p.r2) * 0.50,   n: 20 },
+    { r: p.r2 * 1.04,             n: 28 },
+    { r: (p.r2 + p.r3) * 0.50,   n: 24 },
+    { r: p.r3 * 1.04,             n: 30 },
+    { r: Math.min(14.5, p.r3+2.2),n: 26 },
+  ].forEach(({ r, n }) => {
+    _fibPts(r, n).forEach(pos => {
+      const arrow = new THREE.ArrowHelper(pos.clone().normalize(), pos.clone(), 0.8, 0x38bdf8, 0.22, 0.13);
+      arrow.line.material.transparent = true;
+      arrow.cone.material.transparent = true;
+      fieldGroup.add(arrow);
+      fieldArrows.push({ arrow, pos: pos.clone() });
+    });
+  });
+}
+
+function updateFieldArrows() {
+  const planes = _getClipPlanes();
+  fieldArrows.forEach(({ arrow, pos }) => {
+    const r   = pos.length();
+    const E   = electricField(r);
+    const dir = pos.clone().normalize();
+    if (E < 0) dir.negate();
+    arrow.setDirection(dir);
+    arrow.setLength(Math.min(1.8, 0.30 + 0.45 * Math.abs(E)), 0.24, 0.13);
+    arrow.setColor(new THREE.Color(E >= 0 ? 0x38bdf8 : 0xf87171));
+    arrow.position.copy(pos);
+    const vis = _inCutRegion(pos, planes);
+    arrow.visible = vis;
+    arrow.line.material.opacity = vis ? 0.72 : 0;
+    arrow.cone.material.opacity = vis ? 0.72 : 0;
+  });
+}
+
+// ─── Static vertex-coloured streamlines ───────────────────────────────────────
+const streamGroup = new THREE.Group();
+scene.add(streamGroup);
+
+function _traceFieldLine(seed, maxSteps) {
+  const pts = [seed.clone()];
+  let pos = seed.clone();
+  for (let i = 0; i < maxSteps; i++) {
+    const r = pos.length();
+    if (r < 0.10 || r > 15.5) break;
+    const E   = electricField(r);
+    const dir = pos.clone().normalize();
+    if (E < 0) dir.negate();
+    if (Math.abs(E) < 1e-7) break;
+    pos = pos.clone().addScaledVector(dir, STREAM_STEP);
+    pts.push(pos.clone());
+  }
+  return pts;
+}
+
+function buildStreamlines() {
+  while (streamGroup.children.length) streamGroup.remove(streamGroup.children[0]);
+
+  [
+    { r: p.r1 * 1.03, n: 14 },
+    { r: p.r2 * 1.03, n: 18 },
+    { r: p.r3 * 1.03, n: 20 },
+    { r: Math.min(14.5, p.r3 + 2.0), n: 14 },
+  ].forEach(({ r, n }) => {
+    _fibPts(r, n).forEach(seed => {
+      const fwd = _traceFieldLine(seed, 150);
+
+      // trace backward
+      const bwd = [];
+      let pos = seed.clone();
+      for (let s = 0; s < 150; s++) {
+        const rr = pos.length();
+        if (rr < 0.10 || rr > 15.5) break;
+        const E = electricField(rr);
+        const dir = pos.clone().normalize();
+        if (E < 0) dir.negate();
+        if (Math.abs(E) < 1e-7) break;
+        pos = pos.clone().addScaledVector(dir, -STREAM_STEP);
+        bwd.push(pos.clone());
+      }
+      bwd.reverse();
+
+      const allPts = [...bwd, ...fwd];
+      if (allPts.length < 3) return;
+
+      // Vertex colours: blend E-colour with a violet tint for visual cohesion
+      const positions = new Float32Array(allPts.length * 3);
+      const colors    = new Float32Array(allPts.length * 3);
+      allPts.forEach((pt, i) => {
+        positions[i*3]   = pt.x;
+        positions[i*3+1] = pt.y;
+        positions[i*3+2] = pt.z;
+        const [cr, cg, cb] = eToRGB(electricField(pt.length()));
+        // blend 55% E-colour + 45% violet (0.65, 0.47, 0.98)
+        colors[i*3]   = 0.55 * cr + 0.45 * 0.65;
+        colors[i*3+1] = 0.55 * cg + 0.45 * 0.47;
+        colors[i*3+2] = 0.55 * cb + 0.45 * 0.98;
+      });
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('color',    new THREE.Float32BufferAttribute(colors, 3));
+      streamGroup.add(new THREE.Line(
+        geo,
+        new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55 })
+      ));
+    });
+  });
+}
+
+// ─── Charts ───────────────────────────────────────────────────────────────────
+Chart.defaults.color       = '#5c6884';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size   = 10;
+
+const boundaryPlugin = {
+  id: 'boundaries',
+  afterDraw(chart, _args, opts) {
+    if (!opts?.radii) return;
+    const { ctx, chartArea: ca, scales: { x } } = chart;
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1;
+    opts.radii.forEach((r, i) => {
+      const xPx = x.getPixelForValue(r);
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      ctx.beginPath(); ctx.moveTo(xPx, ca.top); ctx.lineTo(xPx, ca.bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.40)';
+      ctx.fillText(`R${i+1}`, xPx + 3, ca.top + 12);
+    });
+    ctx.restore();
+  }
+};
+Chart.register(boundaryPlugin);
+
+const _sb = { ticks: { color: '#5c6884' }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' } };
+const _chartBase = {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: {
+    boundaries: { radii: [2, 5, 8] },
+    legend: { labels: { color: '#5c6884', font: { size: 10 }, boxWidth: 14, boxHeight: 2, padding: 10 } },
+    tooltip: { backgroundColor: 'rgba(13,15,24,0.92)', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, titleColor: '#adb5cc', bodyColor: '#adb5cc', padding: 9 }
+  },
+  scales: {
+    x: { type: 'linear', min: 0, max: 15, ..._sb, title: { display: true, text: 'Radius r', color: '#5c6884' } },
+    y: { ..._sb }
+  }
+};
+
+const chartE = new Chart(
+  document.getElementById('chartE').getContext('2d'), {
+    type: 'line',
+    data: { datasets: [
+      { label: 'E(r)',     borderColor: '#f43f5e', borderWidth: 2, pointRadius: 0, data: [] },
+      { label: 'particle', type: 'scatter', data: [{x:0,y:0}], pointRadius: 6,
+        showLine: false, borderColor: '#fff', backgroundColor: '#fff' }
+    ]},
+    options: { ..._chartBase, scales: { ..._chartBase.scales, y: { ..._sb, title: { display: true, text: 'E(r)', color: '#5c6884' } } } }
+  }
+);
+
+const chartVU = new Chart(
+  document.getElementById('chartVU').getContext('2d'), {
+    type: 'line',
+    data: { datasets: [
+      { label: 'V(r)',        borderColor: '#c084fc', borderWidth: 2, pointRadius: 0, data: [], yAxisID: 'y' },
+      { label: 'U(r)=qₚV',   borderColor: '#fcd34d', borderWidth: 2, borderDash: [5,4], pointRadius: 0, data: [], yAxisID: 'y1' },
+      { label: 'particle on V', type: 'scatter', data: [{x:0,y:0}], pointRadius: 6,
+        showLine: false, borderColor: '#fff', backgroundColor: '#fff', yAxisID: 'y' },
+      { label: 'particle on U', type: 'scatter', data: [{x:0,y:0}], pointRadius: 6,
+        showLine: false, borderColor: '#fcd34d', backgroundColor: '#fcd34d', yAxisID: 'y1' }
+    ]},
+    options: { ..._chartBase, scales: {
+      ..._chartBase.scales,
+      y:  { ..._sb, title: { display: true, text: 'V(r)', color: '#5c6884' }, position: 'left' },
+      y1: { ..._sb, title: { display: true, text: 'U(r)', color: '#5c6884' }, position: 'right', grid: { drawOnChartArea: false } }
+    }}
+  }
+);
+
+function rebuildCurves() {
+  const eD = [], vD = [], uD = [];
+  for (let r = 0; r <= 15.05; r += 0.06) {
+    const E = electricField(r), V = electricPotential(r);
+    eD.push({ x: r, y: E });
+    vD.push({ x: r, y: V });
+    uD.push({ x: r, y: p.qp * V });
+  }
+  chartE.data.datasets[0].data  = eD;
+  chartVU.data.datasets[0].data = vD;
+  chartVU.data.datasets[1].data = uD;
+  const radii = [p.r1, p.r2, p.r3];
+  chartE.options.plugins.boundaries.radii  = radii;
+  chartVU.options.plugins.boundaries.radii = radii;
+  chartE.update('none');
+  chartVU.update('none');
+}
+
+// ─── Particle placement ───────────────────────────────────────────────────────
+function placeParticle(r, trail = false) {
+  const pos = toCartesian(r, p.theta, p.phi);
+
+  particleMesh.position.copy(pos);
+
+  radialLine.geometry.dispose();
+  radialLine.geometry = new THREE.BufferGeometry()
+    .setFromPoints([new THREE.Vector3(), pos.clone()]);
+  radialLine.computeLineDistances();
+
+  if (trail) {
+    trailPoints.push(pos.clone());
+    if (trailPoints.length > MAX_TRAIL) trailPoints.shift();
+    trailGeo.dispose();
+    trailGeo = new THREE.BufferGeometry().setFromPoints(trailPoints);
+    trailLine.geometry = trailGeo;
+  }
+
+  const E = electricField(r);
+  const V = electricPotential(r);
+  const U = p.qp * V;
+  const F = p.qp * E;
+
+  const fDir = pos.clone().normalize();
+  if (F < 0) fDir.negate();
+  forceArrow.position.copy(pos);
+  forceArrow.setDirection(fDir);
+  forceArrow.setLength(Math.min(2.8, Math.max(0.22, 0.40 + Math.abs(F) * 0.52)), 0.38, 0.20);
+  forceArrow.visible = Math.abs(F) > 5e-5;
+
+  document.getElementById('hud_x').textContent = pos.x.toFixed(3);
+  document.getElementById('hud_y').textContent = pos.y.toFixed(3);
+  document.getElementById('hud_z').textContent = pos.z.toFixed(3);
+  document.getElementById('hud_r').textContent = r.toFixed(3);
+  document.getElementById('hud_E').textContent = E.toFixed(4);
+  document.getElementById('hud_V').textContent = V.toFixed(4);
+  document.getElementById('hud_U').textContent = U.toFixed(4);
+  document.getElementById('hud_F').textContent = F.toFixed(4);
+
+  chartE.data.datasets[1].data  = [{ x: r, y: E }];
+  chartVU.data.datasets[2].data = [{ x: r, y: V }];
+  chartVU.data.datasets[3].data = [{ x: r, y: U }];
+  chartE.update('none');
+  chartVU.update('none');
+
+  document.getElementById('scrubSlider').value     = r.toFixed(2);
+  document.getElementById('val_scrub').textContent = r.toFixed(2);
+}
+
+// ─── Full scene rebuild ───────────────────────────────────────────────────────
+function updateScene() {
+  readParams();
+  meshCore.scale.setScalar(p.r1);
+  rebuildShellGeometry();
+  tintByCharge();
+  applyClipping();
+  buildColorPlates();
+  rebuildCurves();
+  buildFieldArrows();
+  buildStreamlines();
+  updateFieldArrows();
+  if (!motion.active) placeParticle(motion.r, false);
+}
+
+// ─── Slider wiring ────────────────────────────────────────────────────────────
+['r1','r2','r3','q1','q2','q3','qp','m','rp','theta','phi','thick'].forEach(id => {
+  const el  = document.getElementById(`sl_${id}`);
+  const val = document.getElementById(`val_${id}`);
+  el.addEventListener('input', () => {
+    const n = parseFloat(el.value);
+    if (['q1','q2','q3','qp'].includes(id)) {
+      val.textContent = (n >= 0 ? '+' : '') + n.toFixed(1);
+    } else if (id === 'thick') {
+      val.textContent = n.toFixed(2);
+    } else if (['r1','r2','r3','rp','m'].includes(id)) {
+      val.textContent = n.toFixed(1);
+    } else {
+      val.textContent = n.toFixed(0);
+    }
+    updateScene();
+  });
+});
+
+document.getElementById('cutView').addEventListener('change', updateScene);
+
+// ─── Motion ───────────────────────────────────────────────────────────────────
+function _setPlayState(playing) {
+  motion.active = playing;
+  const pill = document.getElementById('playStatePill');
+  pill.textContent = playing ? 'PLAYING' : 'PAUSED';
+  pill.className   = `pill ${playing ? 'pill--play' : 'pill--pause'}`;
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  readParams(); _setPlayState(true);
+  if (Math.abs(motion.v) < 1e-4) motion.v = -0.18;
+});
+document.getElementById('pauseBtn').addEventListener('click', () => _setPlayState(false));
+document.getElementById('resetBtn').addEventListener('click', () => {
+  readParams(); _setPlayState(false);
+  motion.r = p.rp; motion.v = 0;
+  trailPoints = [];
+  trailGeo.dispose();
+  trailGeo = new THREE.BufferGeometry().setFromPoints([]);
+  trailLine.geometry = trailGeo;
+  placeParticle(motion.r, false);
+});
+
+document.getElementById('scrubSlider').addEventListener('input', function() {
+  _setPlayState(false);
+  motion.r = parseFloat(this.value); motion.v = 0;
+  document.getElementById('val_scrub').textContent = motion.r.toFixed(2);
+  placeParticle(motion.r, false);
+});
+
+// ─── Theory tabs ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.theory-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.theory-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.theory-pane').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.pane).classList.add('active');
+  });
+});
+
+// ─── Render loop ──────────────────────────────────────────────────────────────
+const DT = 0.030;
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+
+  if (motion.active) {
+    readParams();
+    const E = electricField(motion.r);
+    const a = -(p.qp * E) / p.m;
+    motion.v += a * DT;
+    motion.r += motion.v * DT;
+    if (motion.r <= 0.09) { motion.r = 0.09; motion.v = 0; _setPlayState(false); }
+    if (motion.r >= 15.0) { motion.r = 15.0; motion.v = 0; _setPlayState(false); }
+    placeParticle(motion.r, true);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+new ResizeObserver(() => {
+  const w = container.clientWidth, h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}).observe(container);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+readParams();
+updateScene();
+placeParticle(motion.r, false);
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concentric Spherical Shells — Electrostatics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080c10;--s1:#0e1420;--s2:#131b28;--s3:#1a2436;
+  --border:rgba(100,160,255,0.1);--border2:rgba(100,160,255,0.2);
+  --text:#dce8f8;--muted:#6a85a8;--dim:#3a5070;
+  --gold:#e8c84a;--gold2:#c8a830;
+  --blue:#4a9ef8;--cyan:#3adcf0;--green:#3af0a0;
+  --red:#f05060;--orange:#f09040;--purple:#b070f0;
+  --shell-k:rgba(58,220,240,0.85);--shell-l:rgba(176,112,240,0.7);
+  --core:#e8c84a;
+  --r:10px;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Outfit',sans-serif;
+  --serif:'Libre Baskerville',serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* Header */
+.hdr{background:linear-gradient(135deg,#0e1420 0%,#121c30 100%);border-bottom:1px solid var(--border2);padding:1.25rem 2rem;display:flex;align-items:center;gap:1.25rem}
+.hdr-icon{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle,#e8c84a33,#e8c84a11);border:1px solid var(--gold2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.hdr h1{font-family:var(--serif);font-size:1.15rem;color:var(--text);font-weight:700;letter-spacing:0.01em}
+.hdr-sub{font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-top:2px}
+
+.wrap{max-width:1400px;margin:0 auto;padding:1.5rem 1.5rem 3rem}
+
+/* Two-column layout */
+.top-layout{display:grid;grid-template-columns:1fr 380px;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:960px){.top-layout{grid-template-columns:1fr}}
+
+/* Panels */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.panel-hdr{padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
+.panel-hdr-dot{width:8px;height:8px;border-radius:50%}
+.panel-title{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.panel-body{padding:1.25rem}
+
+/* 3D Canvas */
+#canvas3d{width:100%;height:420px;display:block;cursor:grab;background:radial-gradient(ellipse at 50% 40%,#0d1830 0%,#080c10 75%)}
+#canvas3d:active{cursor:grabbing}
+
+/* Controls */
+.ctrl-group{margin-bottom:1.1rem}
+.ctrl-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.4rem;display:flex;justify-content:space-between;align-items:center}
+.ctrl-label .val{color:var(--gold);font-weight:500}
+input[type=range]{width:100%;appearance:none;height:4px;border-radius:2px;background:var(--s3);outline:none;cursor:pointer;margin:4px 0}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid var(--bg)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid var(--bg)}
+
+.charge-display{display:flex;gap:.5rem;margin-bottom:1rem}
+.charge-pill{flex:1;text-align:center;padding:6px 4px;border-radius:6px;font-family:var(--mono);font-size:.75rem;border:1px solid}
+.pill-k{background:rgba(58,220,240,.08);border-color:rgba(58,220,240,.3);color:var(--cyan)}
+.pill-l{background:rgba(176,112,240,.08);border-color:rgba(176,112,240,.3);color:var(--purple)}
+.pill-q{background:rgba(232,200,74,.08);border-color:rgba(232,200,74,.3);color:var(--gold)}
+
+/* Legend */
+.legend{display:flex;flex-direction:column;gap:5px;margin-top:1rem}
+.legend-row{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);font-family:var(--mono)}
+.legend-line{width:22px;height:2px;border-radius:1px;flex-shrink:0}
+.legend-dash{width:22px;height:0;border-top:2px dashed;flex-shrink:0}
+
+/* Equations section */
+.eq-section{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1.25rem}
+.eq-section-title{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem}
+
+.derivation-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.9rem}
+.deriv-card{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.deriv-card-title{font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem}
+.eq{font-family:var(--mono);font-size:.82rem;color:#c8dff8;background:var(--s3);border-left:2px solid var(--gold);padding:.5rem .75rem;border-radius:0 6px 6px 0;margin:.4rem 0;line-height:1.7}
+.eq .hi-g{color:var(--gold)}
+.eq .hi-b{color:var(--cyan)}
+.eq .hi-p{color:var(--purple)}
+.eq .hi-r{color:var(--red)}
+.prose{font-family:var(--serif);font-size:.88rem;color:#8aa8c8;line-height:1.8;margin:.5rem 0}
+.prose strong{color:var(--text)}
+
+/* Region table */
+.region-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.75rem;margin-top:.75rem}
+.region-table th{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border2);color:var(--muted);font-weight:400}
+.region-table td{padding:6px 10px;border-bottom:1px solid var(--border)}
+.region-table tr:last-child td{border-bottom:none}
+.region-table .region-label{color:var(--gold)}
+.region-table .eq-cell{color:#c8dff8}
+td.zone-1{color:var(--cyan)}
+td.zone-2{color:var(--purple)}
+td.zone-3{color:var(--green)}
+
+/* Charts grid */
+.charts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem}
+@media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+.chart-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1rem}
+.chart-card-title{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.6rem}
+.chart-card-eq{font-family:var(--mono);font-size:.7rem;color:var(--gold2);margin-bottom:.5rem;padding:4px 8px;background:var(--s3);border-radius:4px;display:inline-block}
+.chart-wrap{position:relative;height:220px}
+
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.25rem}
+.stat{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem}
+.stat-lbl{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stat-val{font-family:var(--mono);font-size:1.1rem;font-weight:500;margin-top:3px}
+
+/* Probe marker */
+.probe-row{display:flex;align-items:center;gap:.75rem;margin-top:.75rem}
+.probe-badge{font-family:var(--mono);font-size:.72rem;padding:4px 10px;border-radius:20px;border:1px solid rgba(240,90,80,.3);background:rgba(240,90,80,.08);color:var(--red)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-icon">⚛</div>
+  <div>
+    <h1>Concentric Spherical Shells — Electrostatic Simulator</h1>
+    <div class="hdr-sub">Electric Potential V(r) · Field E(r) · Potential Energy U(r) · 3D Visualization</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- TOP: 3D + Controls -->
+<div class="top-layout">
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-hdr-dot" style="background:var(--gold)"></div>
+      <span class="panel-title">3D Geometry — Drag to rotate · Scroll to zoom</span>
+    </div>
+    <canvas id="canvas3d"></canvas>
+    <!-- Probe line -->
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <div style="flex:1">
+        <div class="ctrl-label">Probe radius r <span class="val" id="probeVal">3.00 m</span></div>
+        <input type="range" id="probeSlider" min="0.05" max="10" step="0.05" value="3.00">
+      </div>
+      <div class="probe-badge" id="probeRegion">Region: outside L</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-hdr-dot" style="background:var(--cyan)"></div>
+      <span class="panel-title">Parameters</span>
+    </div>
+    <div class="panel-body">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Inner core radius a <span class="val" id="lbl_a">0.50 m</span></div>
+        <input type="range" id="sl_a" min="0.1" max="1.5" step="0.05" value="0.5">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell K inner radius R₁ <span class="val" id="lbl_R1">1.00 m</span></div>
+        <input type="range" id="sl_R1" min="0.2" max="2.5" step="0.05" value="1.0">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell K outer radius R₂ <span class="val" id="lbl_R2">1.30 m</span></div>
+        <input type="range" id="sl_R2" min="0.3" max="3.0" step="0.05" value="1.3">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell L inner radius R₃ <span class="val" id="lbl_R3">2.00 m</span></div>
+        <input type="range" id="sl_R3" min="0.5" max="4.0" step="0.05" value="2.0">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell L outer radius R₄ <span class="val" id="lbl_R4">2.40 m</span></div>
+        <input type="range" id="sl_R4" min="0.6" max="5.0" step="0.05" value="2.4">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Core charge q₀ (nC) <span class="val" id="lbl_q0">+2.00</span></div>
+        <input type="range" id="sl_q0" min="-5" max="5" step="0.1" value="2.0">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell K charge q₁ (nC) <span class="val" id="lbl_q1">-1.00</span></div>
+        <input type="range" id="sl_q1" min="-5" max="5" step="0.1" value="-1.0">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Shell L charge q₂ (nC) <span class="val" id="lbl_q2">+3.00</span></div>
+        <input type="range" id="sl_q2" min="-5" max="5" step="0.1" value="3.0">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Test charge q_t (nC) <span class="val" id="lbl_qt">+1.00</span></div>
+        <input type="range" id="sl_qt" min="-3" max="3" step="0.1" value="1.0">
+      </div>
+      <div class="charge-display">
+        <div class="charge-pill pill-k">K: <span id="pill_q1">−1 nC</span></div>
+        <div class="charge-pill pill-l">L: <span id="pill_q2">+3 nC</span></div>
+        <div class="charge-pill pill-q">q_t: <span id="pill_qt">+1 nC</span></div>
+      </div>
+      <div class="legend">
+        <div class="legend-row"><div class="legend-line" style="background:var(--gold)"></div>Core (charge q₀)</div>
+        <div class="legend-row"><div class="legend-line" style="background:var(--cyan)"></div>Shell K (q₁)</div>
+        <div class="legend-row"><div class="legend-line" style="background:var(--purple)"></div>Shell L (q₂)</div>
+        <div class="legend-row"><div class="legend-line" style="background:var(--red)"></div>Probe at r</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat"><div class="stat-lbl">V(r) at probe</div><div class="stat-val" id="st_V" style="color:var(--cyan)">—</div></div>
+  <div class="stat"><div class="stat-lbl">E(r) at probe</div><div class="stat-val" id="st_E" style="color:var(--gold)">—</div></div>
+  <div class="stat"><div class="stat-lbl">U(r) at probe</div><div class="stat-val" id="st_U" style="color:var(--purple)">—</div></div>
+  <div class="stat"><div class="stat-lbl">Q_enc at probe</div><div class="stat-val" id="st_Q" style="color:var(--green)">—</div></div>
+  <div class="stat"><div class="stat-lbl">Region</div><div class="stat-val" id="st_reg" style="color:var(--orange);font-size:.85rem">—</div></div>
+</div>
+
+<!-- Graphs -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <div class="chart-card-title">Electric Potential V(r)</div>
+    <div class="chart-card-eq">V = kQ_enc / r</div>
+    <div class="chart-wrap"><canvas id="chartV"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-title">Electric Field E(r)</div>
+    <div class="chart-card-eq">E = kQ_enc / r²</div>
+    <div class="chart-wrap"><canvas id="chartE"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-title">Potential Energy U(r)</div>
+    <div class="chart-card-eq">U = q_t · V(r)</div>
+    <div class="chart-wrap"><canvas id="chartU"></canvas></div>
+  </div>
+</div>
+
+<!-- Derivation / Theory -->
+<div class="eq-section">
+  <div class="eq-section-title">⬡ Physics Derivation — How V(r), E(r), U(r) are obtained</div>
+  <div class="derivation-grid">
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Step 1 · Gauss's Law for E(r)</div>
+      <p class="prose">Gauss's law relates the electric flux through a closed Gaussian surface (sphere of radius r) to the enclosed charge:</p>
+      <div class="eq">∮ <span class="hi-g">E⃗</span> · d<span class="hi-b">A⃗</span> = <span class="hi-r">Q_enc</span> / ε₀</div>
+      <p class="prose">For a spherical shell of radius r, by symmetry E is radial and constant on the surface, so:</p>
+      <div class="eq"><span class="hi-g">E(r)</span> · 4πr² = <span class="hi-r">Q_enc</span>(r) / ε₀</div>
+      <div class="eq"><span class="hi-g">E(r)</span> = k · <span class="hi-r">Q_enc</span>(r) / r²</div>
+      <p class="prose">where k = 1/(4πε₀) ≈ 8.99 × 10⁹ N·m²/C²</p>
+    </div>
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Step 2 · Enclosed charge Q_enc(r)</div>
+      <p class="prose">The enclosed charge changes as we cross each shell boundary. Inside a conductor, E = 0, so charge redistributes on surfaces.</p>
+      <table class="region-table">
+        <tr><th>Region</th><th>Q_enc</th><th>E(r)</th></tr>
+        <tr><td class="zone-1">r &lt; a</td><td class="eq-cell">0</td><td class="eq-cell">0</td></tr>
+        <tr><td class="zone-1">a ≤ r &lt; R₁</td><td class="eq-cell">q₀</td><td class="eq-cell">kq₀/r²</td></tr>
+        <tr><td class="zone-1">R₁ ≤ r &lt; R₂</td><td class="eq-cell">0 (inside K)</td><td class="eq-cell">0</td></tr>
+        <tr><td class="zone-2">R₂ ≤ r &lt; R₃</td><td class="eq-cell">q₀+q₁</td><td class="eq-cell">k(q₀+q₁)/r²</td></tr>
+        <tr><td class="zone-2">R₃ ≤ r &lt; R₄</td><td class="eq-cell">0 (inside L)</td><td class="eq-cell">0</td></tr>
+        <tr><td class="zone-3">r ≥ R₄</td><td class="eq-cell">q₀+q₁+q₂</td><td class="eq-cell">k(q₀+q₁+q₂)/r²</td></tr>
+      </table>
+    </div>
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Step 3 · Electric Potential V(r)</div>
+      <p class="prose">V is obtained by integrating E from infinity inward (choosing V(∞) = 0):</p>
+      <div class="eq"><span class="hi-b">V(r)</span> = −∫<sub>∞</sub><sup>r</sup> <span class="hi-g">E(r')</span> dr'</div>
+      <p class="prose">Outside all shells (r ≥ R₄):</p>
+      <div class="eq"><span class="hi-b">V(r)</span> = k(q₀+q₁+q₂) / r</div>
+      <p class="prose">Between shells, integrate piecewise. Inside a conductor, E=0 so V is <strong>constant</strong> throughout that shell.</p>
+      <div class="eq"><span class="hi-b">V</span><sub>K</sub> = k(q₀+q₁+q₂)/R₄ + k·q₂·(1/R₃−1/R₄)</div>
+      <div class="eq">... + k·q₀·(1/R₁ − 1/R₂) + k·(q₀+q₁)/R₂</div>
+      <p class="prose">Each jump is computed by continuous integration across vacuum gaps.</p>
+    </div>
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Step 4 · Potential Energy U(r)</div>
+      <p class="prose">The <strong>electric potential energy</strong> of a test charge q_t placed at radius r is simply:</p>
+      <div class="eq"><span class="hi-p">U(r)</span> = q_t · <span class="hi-b">V(r)</span></div>
+      <p class="prose">This represents the <strong>work done by an external agent</strong> to bring q_t from infinity to position r, or equivalently, the energy stored in placing it there.</p>
+      <div class="eq">W<sub>ext</sub> = <span class="hi-p">U(r)</span> − U(∞) = q_t · <span class="hi-b">V(r)</span></div>
+      <p class="prose">If U(r) &lt; 0 the particle is <strong>attracted</strong> (lower energy closer), if U(r) &gt; 0 it is <strong>repelled</strong>.</p>
+    </div>
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Continuity & Boundary Conditions</div>
+      <p class="prose"><strong>V(r) is always continuous</strong> across any surface (otherwise infinite E would exist). E(r) can be discontinuous (jump) at a surface charge layer.</p>
+      <div class="eq">V<sub>in</sub>(R) = V<sub>out</sub>(R)  [always]</div>
+      <div class="eq">E<sub>out</sub> − E<sub>in</sub> = σ/ε₀  [surface charge σ]</div>
+      <p class="prose">Inside a conducting shell: <strong>E = 0</strong>, so V = constant equal to the value at the shell surface.</p>
+    </div>
+
+    <div class="deriv-card">
+      <div class="deriv-card-title">Superposition Principle</div>
+      <p class="prose">Because the Laplace/Poisson equation is linear, potentials from each charge superpose:</p>
+      <div class="eq"><span class="hi-b">V<sub>total</sub></span>(r) = <span class="hi-g">V</span><sub>core</sub> + <span class="hi-b">V</span><sub>K</sub> + <span class="hi-p">V</span><sub>L</sub></div>
+      <p class="prose">Each shell contributes <strong>k·q_i/r</strong> outside it, and <strong>k·q_i/R_i</strong> (constant) inside it. The simulation computes this piecewise integral exactly for the current parameters.</p>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+const k_e = 8.99e9;
+
+// ---- Slider wiring ----
+const sliders = {
+  a:  {el:null,lbl:null,min:.1,max:1.5},
+  R1: {el:null,lbl:null,min:.2,max:2.5},
+  R2: {el:null,lbl:null,min:.3,max:3.0},
+  R3: {el:null,lbl:null,min:.5,max:4.0},
+  R4: {el:null,lbl:null,min:.6,max:5.0},
+  q0: {el:null,lbl:null,fmt:'charge'},
+  q1: {el:null,lbl:null,fmt:'charge'},
+  q2: {el:null,lbl:null,fmt:'charge'},
+  qt: {el:null,lbl:null,fmt:'charge'},
+};
+Object.keys(sliders).forEach(id => {
+  sliders[id].el = document.getElementById('sl_'+id);
+  sliders[id].lbl = document.getElementById('lbl_'+id);
+  sliders[id].el.addEventListener('input', () => { update(); });
+});
+
+function getP() {
+  const p = {};
+  Object.keys(sliders).forEach(id => { p[id] = parseFloat(sliders[id].el.value); });
+  // Enforce ordering
+  p.R1 = Math.max(p.a + 0.1, p.R1);
+  p.R2 = Math.max(p.R1 + 0.05, p.R2);
+  p.R3 = Math.max(p.R2 + 0.1, p.R3);
+  p.R4 = Math.max(p.R3 + 0.05, p.R4);
+  return p;
+}
+
+function fmtQ(v) { return (v >= 0 ? '+' : '') + v.toFixed(2); }
+function fmtLabel(id, val) {
+  const s = sliders[id];
+  if (s.fmt === 'charge') { s.lbl.textContent = fmtQ(val); }
+  else { s.lbl.textContent = val.toFixed(2) + ' m'; }
+}
+
+// ---- Physics ----
+function getRegion(r, p) {
+  if (r < p.a)  return 0;  // inside core
+  if (r < p.R1) return 1;  // gap: core to K inner
+  if (r < p.R2) return 2;  // inside conductor K
+  if (r < p.R3) return 3;  // gap: K outer to L inner
+  if (r < p.R4) return 4;  // inside conductor L
+  return 5;                 // outside all
+}
+
+function Qenc(r, p) {
+  const reg = getRegion(r, p);
+  if (reg === 0) return 0;
+  if (reg === 1) return p.q0;
+  if (reg === 2) return 0;       // inside conductor
+  if (reg === 3) return p.q0 + p.q1;
+  if (reg === 4) return 0;       // inside conductor
+  return p.q0 + p.q1 + p.q2;
+}
+
+function Efield(r, p) {
+  if (r < 1e-6) return 0;
+  const reg = getRegion(r, p);
+  if (reg === 2 || reg === 4) return 0; // inside conductor E=0
+  const Q = Qenc(r, p) * 1e-9; // convert nC to C
+  return k_e * Q / (r * r);
+}
+
+// Compute V(r) by integrating from outer reference inward, piecewise
+// V(r) = k*(q0+q1+q2)*1e-9 / r  for r >= R4
+// For r < R4 we integrate E from R4 inward
+function Vpot(r, p) {
+  const Q_total = (p.q0 + p.q1 + p.q2) * 1e-9;
+  const Q_kout  = (p.q0 + p.q1) * 1e-9;
+  const Q_core  = p.q0 * 1e-9;
+
+  // V at R4 (outer surface of L):
+  const V_R4 = k_e * Q_total / p.R4;
+  // V jumps to V_R4 inside L conductor (E=0 in conductor)
+  const V_R3 = V_R4;  // V continuous, same on inner surface of L
+  // Between R2 and R3 (gap), V(r) = V_R3 + k*Q_kout*(1/r - 1/R3)
+  const V_R2 = V_R3 + k_e * Q_kout * (1/p.R2 - 1/p.R3);
+  // Inside K conductor, V = constant = V_R2
+  const V_R1 = V_R2;
+  // Between a and R1 (gap), V(r) = V_R1 + k*Q_core*(1/r - 1/R1)
+  const V_a  = V_R1 + k_e * Q_core * (1/p.a - 1/p.R1);
+  // Inside core (r < a), E=0, V = constant = V_a (treating core as conductor)
+
+  const reg = getRegion(r, p);
+  if (reg === 0) return V_a;
+  if (reg === 1) return V_R1 + k_e * Q_core * (1/r - 1/p.R1);
+  if (reg === 2) return V_R2;
+  if (reg === 3) return V_R3 + k_e * Q_kout * (1/r - 1/p.R3);
+  if (reg === 4) return V_R4;
+  return k_e * Q_total / r;
+}
+
+function Upot(r, p) {
+  return p.qt * 1e-9 * Vpot(r, p);
+}
+
+function regionName(r, p) {
+  const reg = getRegion(r, p);
+  const names = ['Inside core','Core → Shell K','Inside Shell K (conductor)','Shell K → Shell L','Inside Shell L (conductor)','Outside Shell L'];
+  return names[reg];
+}
+
+// ---- Charts ----
+let chartV, chartE, chartU;
+
+function makeChart(id, label, color, yLabel) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label, data: [], borderColor: color, borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false },
+      { label: 'probe', data: [], borderColor: '#f05060', borderWidth: 0, pointRadius: 6,
+        pointBackgroundColor: '#f05060', pointBorderColor: '#ff8090', pointBorderWidth: 2,
+        showLine: false }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toExponential(2) } }
+      },
+      scales: {
+        x: { title: { display: true, text: 'r (m)', color: '#6a85a8', font: { size: 10, family: "'IBM Plex Mono'" } },
+             ticks: { color: '#6a85a8', font: { size: 10 }, maxTicksLimit: 8 },
+             grid: { color: 'rgba(100,160,255,0.06)' }, border: { color: 'rgba(100,160,255,0.15)' } },
+        y: { title: { display: true, text: yLabel, color: '#6a85a8', font: { size: 10, family: "'IBM Plex Mono'" } },
+             ticks: { color: '#6a85a8', font: { size: 10 } },
+             grid: { color: 'rgba(100,160,255,0.06)' }, border: { color: 'rgba(100,160,255,0.15)' } }
+      }
+    }
+  });
+}
+
+function initCharts() {
+  if (chartV) { [chartV, chartE, chartU].forEach(c => c.destroy()); }
+  chartV = makeChart('chartV', 'V(r)', '#3adcf0', 'V (volts)');
+  chartE = makeChart('chartE', 'E(r)', '#e8c84a', 'E (V/m)');
+  chartU = makeChart('chartU', 'U(r)', '#b070f0', 'U (nJ)');
+}
+
+function updateCharts(p, probeR) {
+  const pts = 600;
+  const rMax = p.R4 * 2.5;
+  const labels = [], Vd = [], Ed = [], Ud = [];
+  for (let i = 1; i <= pts; i++) {
+    const r = 0.01 + (rMax - 0.01) * i / pts;
+    labels.push(r.toFixed(2));
+    Vd.push(+Vpot(r, p).toExponential(3));
+    Ed.push(+Efield(r, p).toExponential(3));
+    Ud.push(+(Upot(r, p) * 1e9).toExponential(3));
+  }
+  const pIdx = Math.round((probeR - 0.01) / (rMax - 0.01) * pts);
+  const probeLabel = [labels[pIdx]];
+
+  [chartV, chartE, chartU].forEach((c, ci) => {
+    const arr = [Vd, Ed, Ud][ci];
+    c.data.labels = labels;
+    c.data.datasets[0].data = arr;
+    c.data.datasets[1].data = [{ x: probeLabel[0], y: arr[pIdx] }];
+    c.data.datasets[1].parsing = false;
+    c.update('none');
+  });
+
+  // Add vertical shell lines as annotations manually via plugin — skip, mark on labels instead
+}
+
+// ---- 3D WebGL ----
+const canvas = document.getElementById('canvas3d');
+let gl, prog3d;
+let rotX = 0.4, rotY = 0.5, zoom = 1.0;
+let dragging = false, lastX, lastY;
+
+canvas.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  rotY += (e.clientX - lastX) * 0.01;
+  rotX += (e.clientY - lastY) * 0.008;
+  lastX = e.clientX; lastY = e.clientY;
+  draw3D();
+});
+canvas.addEventListener('mouseup', () => dragging = false);
+canvas.addEventListener('mouseleave', () => dragging = false);
+canvas.addEventListener('wheel', e => { zoom *= e.deltaY > 0 ? 0.93 : 1.07; zoom = Math.max(0.3, Math.min(3, zoom)); draw3D(); e.preventDefault(); }, {passive:false});
+
+canvas.addEventListener('touchstart', e => { if (e.touches.length===1) { dragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; } });
+canvas.addEventListener('touchmove', e => {
+  if (!dragging||e.touches.length!==1) return;
+  rotY += (e.touches[0].clientX - lastX) * 0.012;
+  rotX += (e.touches[0].clientY - lastY) * 0.01;
+  lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  draw3D(); e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', () => dragging=false);
+
+// Simple 3D renderer using 2D canvas (no WebGL dep)
+function draw3D() {
+  const p = getP();
+  const probeR = parseFloat(document.getElementById('probeSlider').value);
+
+  const W = canvas.width = canvas.offsetWidth * Math.min(devicePixelRatio, 2);
+  const H = canvas.height = canvas.offsetHeight * Math.min(devicePixelRatio, 2);
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background subtle grid
+  ctx.strokeStyle = 'rgba(100,160,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 60) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 60) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke(); }
+
+  const cx = W / 2, cy = H / 2;
+  const scale = Math.min(W, H) * 0.14 * zoom;
+
+  function project(x3, y3, z3) {
+    // Simple perspective rotation
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const rx = cosY * x3 + sinY * z3;
+    const ry = sinX * (-sinY * x3 + cosY * z3) + cosX * y3;
+    const rz = cosX * (-sinY * x3 + cosY * z3) - sinX * y3;
+    const fov = 5;
+    const pz = rz / fov + 1;
+    return { x: cx + rx * scale / pz, y: cy - ry * scale / pz, z: rz, depth: pz };
+  }
+
+  function drawEllipse(R, color, lineWidth, dash = [], alpha = 1.0) {
+    // Draw three ellipses (xy, xz, yz planes) for sphere impression
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth * Math.min(devicePixelRatio, 2);
+    ctx.setLineDash(dash);
+
+    // Equatorial ring (xy plane)
+    const N = 120;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      pts.push(project(Math.cos(a) * R, Math.sin(a) * R, 0));
+    }
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+
+    // Meridian ring (xz plane)
+    const pts2 = [];
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      pts2.push(project(Math.cos(a) * R, 0, Math.sin(a) * R));
+    }
+    ctx.beginPath();
+    pts2.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+
+    // Meridian ring (yz plane)
+    const pts3 = [];
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      pts3.push(project(0, Math.cos(a) * R, Math.sin(a) * R));
+    }
+    ctx.beginPath();
+    pts3.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawFilledSphere(R, color, alpha) {
+    // Draw a shaded sphere using radial gradient
+    const pp = project(0, 0, 0);
+    const r2d = R * scale / 1.0; // approximate screen radius
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const grad = ctx.createRadialGradient(pp.x - r2d*0.25, pp.y - r2d*0.25, r2d*0.05, pp.x, pp.y, r2d);
+    grad.addColorStop(0, lighten(color, 0.6));
+    grad.addColorStop(0.5, color + '88');
+    grad.addColorStop(1, color + '22');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(pp.x, pp.y, r2d, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function lighten(hex, amt) {
+    // Crude lighten: just return semi-transparent white blend
+    return '#ffffff';
+  }
+
+  // Draw axes
+  const axes = [[1,0,0,'#f05060','x'],[0,1,0,'#4fc89b','y'],[0,0,1,'#4a9ef8','z']];
+  const axLen = p.R4 * 1.8;
+  axes.forEach(([dx,dy,dz,col,lbl]) => {
+    const p0 = project(0,0,0), p1 = project(dx*axLen, dy*axLen, dz*axLen);
+    ctx.save();
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.4;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.stroke();
+    ctx.globalAlpha = 0.7; ctx.fillStyle = col;
+    ctx.font = `${12 * Math.min(devicePixelRatio,2)}px IBM Plex Mono`;
+    ctx.fillText(lbl, p1.x+6, p1.y);
+    ctx.restore();
+  });
+
+  // Draw shells (outer to inner for painter's algorithm)
+  const rScale = p.R4;
+
+  // Shell L outer (faint fill first)
+  drawFilledSphere(p.R4 / rScale * 2.0, '#6030a0', 0.07);
+  drawEllipse(p.R4 / rScale * 2.0, '#b070f0', 1.0, [], 0.5);
+  drawEllipse(p.R3 / rScale * 2.0, '#b070f0', 1.5, [], 0.7);
+
+  // Shell K
+  drawFilledSphere(p.R2 / rScale * 2.0, '#1060a0', 0.1);
+  drawEllipse(p.R2 / rScale * 2.0, '#3adcf0', 1.0, [], 0.55);
+  drawEllipse(p.R1 / rScale * 2.0, '#3adcf0', 1.5, [], 0.75);
+
+  // Core sphere
+  drawFilledSphere(p.a / rScale * 2.0, '#c89010', 0.55);
+  drawEllipse(p.a / rScale * 2.0, '#e8c84a', 2.0, [], 1.0);
+
+  // Probe circle at r
+  const probeScaled = probeR / rScale * 2.0;
+  drawEllipse(probeScaled, '#f05060', 1.8, [8, 5], 0.9);
+
+  // Draw radial dimension lines
+  const labelRadius = (r, label, color) => {
+    const pA = project(0,0,0);
+    const angle = 0.9; // fixed angle for readability
+    const pB = project(Math.cos(angle)*r/rScale*2, Math.sin(angle)*r/rScale*2, 0);
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(pA.x, pA.y); ctx.lineTo(pB.x, pB.y); ctx.stroke();
+    ctx.globalAlpha = 0.85; ctx.fillStyle = color;
+    ctx.font = `${11 * Math.min(devicePixelRatio,2)}px IBM Plex Mono`;
+    ctx.fillText(label, pB.x + 5, pB.y - 4);
+    ctx.restore();
+  };
+  labelRadius(p.a, 'a='+p.a.toFixed(2)+'m', '#e8c84a');
+  labelRadius(p.R1, 'R₁='+p.R1.toFixed(2)+'m', '#3adcf0');
+  labelRadius(p.R2, 'R₂='+p.R2.toFixed(2)+'m', '#3adcf0');
+  labelRadius(p.R3, 'R₃='+p.R3.toFixed(2)+'m', '#b070f0');
+  labelRadius(p.R4, 'R₄='+p.R4.toFixed(2)+'m', '#b070f0');
+  labelRadius(probeR, 'r='+probeR.toFixed(2)+'m', '#f05060');
+
+  // Charge labels at center
+  const origin = project(0,0,0);
+  ctx.save();
+  ctx.font = `${11 * Math.min(devicePixelRatio,2)}px IBM Plex Mono`;
+  ctx.fillStyle = '#e8c84a'; ctx.textAlign = 'center';
+  ctx.fillText('q₀='+fmtQ(p.q0)+'nC', origin.x, origin.y + 5);
+  ctx.restore();
+
+  // Color-coded field lines (simplified, from center outward)
+  const nLines = 12;
+  for (let i = 0; i < nLines; i++) {
+    const phi = (i / nLines) * Math.PI * 2;
+    const Qtot = (p.q0 + p.q1 + p.q2) * 1e-9;
+    const lineColor = Qtot > 0 ? '#f9c74f55' : '#f0506055';
+    const pts4 = [];
+    for (let s = 0; s <= 20; s++) {
+      const rr = p.R4 * 0.5 + s * p.R4 * 0.1;
+      pts4.push(project(Math.cos(phi) * rr / rScale * 2, Math.sin(phi) * rr / rScale * 2, 0));
+    }
+    ctx.save();
+    ctx.strokeStyle = lineColor; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    pts4.forEach((pp, i) => i === 0 ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Legend overlay
+  const legItems = [
+    ['Core (q₀)', '#e8c84a'],
+    ['Shell K (q₁)', '#3adcf0'],
+    ['Shell L (q₂)', '#b070f0'],
+    ['Probe r', '#f05060'],
+  ];
+  ctx.save();
+  const fs = 11 * Math.min(devicePixelRatio, 2);
+  ctx.font = `${fs}px IBM Plex Mono`;
+  legItems.forEach(([lbl, col], i) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(14, 14 + i * (fs + 6), fs, fs * 0.7);
+    ctx.fillStyle = '#8aa8c8';
+    ctx.fillText(lbl, 14 + fs + 6, 14 + i * (fs + 6) + fs * 0.6);
+  });
+  ctx.restore();
+}
+
+// ---- Main update ----
+function update() {
+  const p = getP();
+  // Update labels
+  Object.keys(sliders).forEach(id => fmtLabel(id, parseFloat(sliders[id].el.value)));
+  // Sync slider values to constraints
+  sliders.R1.el.value = Math.max(p.a + 0.1, p.R1);
+  sliders.R2.el.value = Math.max(p.R1 + 0.05, p.R2);
+  sliders.R3.el.value = Math.max(p.R2 + 0.1, p.R3);
+  sliders.R4.el.value = Math.max(p.R3 + 0.05, p.R4);
+  Object.keys(sliders).forEach(id => fmtLabel(id, parseFloat(sliders[id].el.value)));
+
+  const probeR = parseFloat(document.getElementById('probeSlider').value);
+  document.getElementById('probeVal').textContent = probeR.toFixed(2) + ' m';
+
+  const V = Vpot(probeR, p);
+  const E = Efield(probeR, p);
+  const U = Upot(probeR, p);
+  const Q = Qenc(probeR, p) * 1e-9;
+  const reg = regionName(probeR, p);
+
+  document.getElementById('st_V').textContent = V.toExponential(3) + ' V';
+  document.getElementById('st_E').textContent = E.toExponential(3) + ' V/m';
+  document.getElementById('st_U').textContent = (U * 1e9).toExponential(3) + ' nJ';
+  document.getElementById('st_Q').textContent = (Q * 1e9).toExponential(3) + ' nC';
+  document.getElementById('st_reg').textContent = reg;
+  document.getElementById('probeRegion').textContent = 'Region: ' + reg;
+  document.getElementById('pill_q1').textContent = fmtQ(p.q1) + ' nC';
+  document.getElementById('pill_q2').textContent = fmtQ(p.q2) + ' nC';
+  document.getElementById('pill_qt').textContent = fmtQ(p.qt) + ' nC';
+
+  updateCharts(p, probeR);
+  draw3D();
+}
+
+document.getElementById('probeSlider').addEventListener('input', update);
+
+// Animate 3D on idle
+let lastUserAction = Date.now();
+document.addEventListener('mousemove', () => lastUserAction = Date.now());
+document.addEventListener('touchmove', () => lastUserAction = Date.now());
+function autoRotate() {
+  if (!dragging && Date.now() - lastUserAction > 3000) {
+    rotY += 0.004;
+    draw3D();
+  }
+  requestAnimationFrame(autoRotate);
+}
+
+// Init
+initCharts();
+update();
+autoRotate();
+</script>
+</body>
+</html>

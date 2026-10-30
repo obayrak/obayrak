@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrystalViz Pro — Crystal Systems, Reciprocal Space & Diffraction</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/ConvexHull.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/ConvexGeometry.js"></script>
+<style>
+:root{
+  --bg0:#050810;--bg1:#090e1c;--bg2:#0d1425;--bg3:#131b30;--bg4:#1a2540;
+  --glass:rgba(13,20,37,0.88);--border:rgba(0,229,255,0.10);--border2:rgba(0,229,255,0.22);
+  --text:#e2e8f0;--text2:#6b7fa3;--text3:#94a8c8;
+  --accent:#00e5ff;--accent-glow:rgba(0,229,255,0.28);
+  --green:#00ff9d;--amber:#ff9500;--red:#ff4466;--purple:#a855f7;--violet:#6366f1;
+  --recip:#ffd166;--bz:#a78bfa;--miller:#34d399;--diffr:#f472b6;
+  --panel-w:262px;--info-w:278px;--header-h:46px;--footer-h:34px;
+  --ff-head:'Exo 2',sans-serif;--ff-body:'DM Sans',sans-serif;--ff-mono:'JetBrains Mono',monospace;
+  --shadow:0 8px 32px rgba(0,0,0,0.55);
+}
+[data-theme="light"]{
+  --bg0:#eef2f8;--bg1:#e4eaf4;--bg2:#d8e0ef;--bg3:#ccd5e6;--bg4:#bfcadb;
+  --glass:rgba(228,234,244,0.92);--border:rgba(99,102,241,0.18);--border2:rgba(99,102,241,0.36);
+  --text:#1a2035;--text2:#5a6a8a;--text3:#4a5a7a;
+  --accent:#4f46e5;--accent-glow:rgba(79,70,229,0.22);
+  --green:#059669;--shadow:0 8px 32px rgba(0,0,0,0.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{font-family:var(--ff-body);background:var(--bg0);color:var(--text);display:flex;flex-direction:column}
+
+/* ─── TOPBAR ───────────────────────────────────────── */
+#topbar{
+  height:var(--header-h);flex-shrink:0;
+  background:var(--bg1);border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;padding:0 14px;gap:10px;
+  font-family:var(--ff-head);z-index:100;box-shadow:0 2px 16px rgba(0,229,255,0.05);
+}
+.logo{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:.8px;display:flex;align-items:center;gap:7px}
+.logo-icon{font-size:19px;animation:spin 10s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+#topbar-meta{flex:1;display:flex;gap:10px;align-items:center;padding-left:12px;flex-wrap:nowrap;overflow:hidden}
+.meta-chip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10.5px;color:var(--text3);font-family:var(--ff-mono);white-space:nowrap}
+.meta-chip span{font-weight:500}
+.mode-chip{border-color:var(--mode-col,var(--accent));color:var(--mode-col,var(--accent))}
+#topbar-actions{display:flex;gap:5px;flex-shrink:0}
+.tbtn{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;flex-shrink:0}
+.tbtn:hover{background:var(--accent);color:#000;border-color:var(--accent)}
+.tbtn.active{background:rgba(0,229,255,0.15);border-color:var(--accent);color:var(--accent)}
+
+/* ─── WORKSPACE ──────────────────────────────────── */
+#workspace{flex:1;display:flex;overflow:hidden}
+
+/* ─── LEFT PANEL ─────────────────────────────────── */
+#left-panel{width:var(--panel-w);flex-shrink:0;overflow-y:auto;background:var(--glass);border-right:1px solid var(--border);backdrop-filter:blur(14px)}
+#left-panel::-webkit-scrollbar{width:3px}
+#left-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Mode bar */
+.mode-bar{display:flex;gap:3px;padding:8px 10px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mode-btn{
+  flex:1;min-width:44px;padding:6px 3px 5px;border:1px solid var(--border);border-radius:6px;
+  background:var(--bg3);color:var(--text2);cursor:pointer;font-size:8.5px;font-family:var(--ff-head);
+  font-weight:600;letter-spacing:.6px;text-align:center;transition:all .15s;text-transform:uppercase;
+  display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1;
+}
+.mode-btn .mico{font-size:14px;line-height:1}
+.mode-btn:hover{color:var(--text);border-color:var(--accent)}
+.mode-btn.active{background:rgba(0,229,255,0.10);border-color:var(--accent);color:var(--accent);box-shadow:0 0 8px rgba(0,229,255,0.12)}
+.mode-btn[data-mode="reciprocal"].active{background:rgba(255,209,102,0.08);border-color:var(--recip);color:var(--recip);box-shadow:0 0 8px rgba(255,209,102,0.10)}
+.mode-btn[data-mode="brillouin"].active{background:rgba(167,139,250,0.1);border-color:var(--bz);color:var(--bz);box-shadow:0 0 8px rgba(167,139,250,0.12)}
+.mode-btn[data-mode="miller"].active{background:rgba(52,211,153,0.08);border-color:var(--miller);color:var(--miller);box-shadow:0 0 8px rgba(52,211,153,0.10)}
+.mode-btn[data-mode="diffraction"].active{background:rgba(244,114,182,0.08);border-color:var(--diffr);color:var(--diffr);box-shadow:0 0 8px rgba(244,114,182,0.10)}
+
+.pblock{border-bottom:1px solid var(--border)}
+.pblock-head{padding:8px 13px;font-size:9.5px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:var(--ff-head);user-select:none;transition:color .15s}
+.pblock-head:hover{color:var(--accent)}
+.pblock-head .arrow{font-size:9px;transition:transform .2s}
+.pblock-head.open .arrow{transform:rotate(180deg)}
+.pblock-body{padding:8px 12px 12px}
+.pblock-body.hide{display:none}
+
+.sys-group{margin-bottom:4px}
+.sys-name{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;color:var(--text3);border:1px solid transparent;transition:all .15s;font-family:var(--ff-head)}
+.sys-name:hover{background:var(--bg3);color:var(--text)}
+.sys-name.active{background:rgba(0,229,255,0.07);border-color:var(--border2);color:var(--accent)}
+.sys-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sys-lattices{padding:2px 0 2px 14px}
+.lat-btn{display:block;width:100%;padding:4px 8px;border:1px solid transparent;border-radius:4px;background:none;color:var(--text2);font-size:11px;text-align:left;cursor:pointer;transition:all .12s;margin-bottom:2px;font-family:var(--ff-body)}
+.lat-btn:hover{background:var(--bg3);color:var(--text);border-color:var(--border)}
+.lat-btn.active{background:rgba(0,229,255,0.1);color:var(--accent);border-color:var(--accent)}
+
+.param-row{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.param-sym{width:14px;font-style:italic;font-size:12px;color:var(--text2);flex-shrink:0;font-family:var(--ff-mono);text-align:center}
+.param-slider{flex:1;-webkit-appearance:none;height:3px;background:linear-gradient(to right,var(--accent) var(--pct,50%),var(--bg4) var(--pct,50%));border-radius:2px;outline:none;cursor:pointer}
+.param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 6px var(--accent-glow),0 0 0 2px var(--bg2);transition:transform .1s}
+.param-slider::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.param-slider:disabled{opacity:.3;cursor:not-allowed}
+.param-slider.recip-sl{background:linear-gradient(to right,var(--recip) var(--pct,50%),var(--bg4) var(--pct,50%))}
+.param-slider.recip-sl::-webkit-slider-thumb{background:var(--recip);box-shadow:0 0 6px rgba(255,209,102,0.3),0 0 0 2px var(--bg2)}
+.param-slider.miller-sl{background:linear-gradient(to right,var(--miller) var(--pct,50%),var(--bg4) var(--pct,50%))}
+.param-slider.miller-sl::-webkit-slider-thumb{background:var(--miller);box-shadow:0 0 6px rgba(52,211,153,0.3),0 0 0 2px var(--bg2)}
+.param-slider.diffr-sl{background:linear-gradient(to right,var(--diffr) var(--pct,50%),var(--bg4) var(--pct,50%))}
+.param-slider.diffr-sl::-webkit-slider-thumb{background:var(--diffr);box-shadow:0 0 6px rgba(244,114,182,0.3),0 0 0 2px var(--bg2)}
+.param-input{width:50px;padding:3px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:10px;text-align:center;font-family:var(--ff-mono);outline:none}
+.param-input:focus{border-color:var(--accent)}
+.param-input:disabled{opacity:.3}
+.param-locked{width:14px;font-size:10px;color:var(--text2);flex-shrink:0;text-align:center}
+.param-unit{width:22px;font-size:9px;color:var(--text2);flex-shrink:0;font-family:var(--ff-mono)}
+
+.constraint-info{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:10px;color:var(--text2);font-family:var(--ff-mono);line-height:1.8;margin-bottom:8px}
+.ci-val{color:var(--accent)}
+
+/* Repetitions: xyz separate */
+.rep-xyz{display:grid;grid-template-columns:14px 1fr 34px;align-items:center;gap:6px;margin-bottom:8px}
+.rep-xyz .param-sym{width:auto;font-size:11px}
+.rep-xyz .rep-num{width:32px;padding:3px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--accent);font-size:11px;text-align:center;font-family:var(--ff-mono);outline:none}
+.rep-xyz .rep-num:focus{border-color:var(--accent)}
+.rep-togrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.tog-item{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:11px;color:var(--text2);transition:all .15s;user-select:none}
+.tog-item:hover{border-color:var(--accent);color:var(--text)}
+.tog-item input{display:none}
+.tog-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--text2);flex-shrink:0;transition:all .15s}
+.tog-item input:checked~.tog-dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 5px var(--accent-glow)}
+.tog-item input:checked~span{color:var(--text)}
+.tog-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+
+/* Miller int stepper */
+.miller-row{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.miller-sym{width:14px;font-style:italic;font-size:12px;font-family:var(--ff-mono);color:var(--miller);flex-shrink:0;text-align:center}
+.miller-stepper{display:flex;align-items:center;gap:5px;flex:1}
+.mstep-btn{width:20px;height:20px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--text);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;font-family:var(--ff-mono);flex-shrink:0}
+.mstep-btn:hover{border-color:var(--miller);color:var(--miller)}
+.mstep-val{font-family:var(--ff-mono);font-size:14px;color:var(--miller);width:24px;text-align:center;font-weight:600}
+.miller-info{background:var(--bg3);border:1px solid rgba(52,211,153,0.25);border-radius:5px;padding:7px 10px;font-size:10.5px;color:var(--text2);font-family:var(--ff-mono);line-height:1.8;margin-top:4px}
+.miller-info .mv{color:var(--miller)}
+
+/* Diffraction controls */
+.diffr-info{background:var(--bg3);border:1px solid rgba(244,114,182,0.25);border-radius:5px;padding:7px 10px;font-size:10.5px;color:var(--text2);font-family:var(--ff-mono);line-height:1.8;margin-top:6px}
+.diffr-info .dv{color:var(--diffr)}
+.bragg-list{font-size:9.5px;color:var(--text2);font-family:var(--ff-mono);margin-top:6px;max-height:80px;overflow-y:auto}
+.bragg-list .bp{color:var(--amber);display:block;line-height:1.6}
+
+/* Presets */
+.preset-btn{width:100%;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);text-align:left;cursor:pointer;font-family:var(--ff-body);font-size:11px;margin-bottom:4px;transition:all .15s;display:flex;align-items:center;gap:7px}
+.preset-btn:hover{border-color:var(--accent);background:var(--bg4)}
+.preset-icon{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.preset-info{flex:1}
+.preset-name{font-weight:600;font-size:11px;display:block}
+.preset-sub{font-size:9.5px;color:var(--text2);font-family:var(--ff-mono);display:block}
+
+/* ─── CANVAS ─────────────────────────────────── */
+#canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg0)}
+#canvas-wrap canvas{display:block}
+
+#overlay-btns{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:5px}
+.obtn{width:30px;height:30px;border:1px solid var(--border);border-radius:7px;background:var(--glass);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;backdrop-filter:blur(8px);transition:all .2s}
+.obtn:hover{border-color:var(--accent);color:var(--accent)}
+
+#cell-hud{position:absolute;top:12px;right:12px;background:var(--glass);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;backdrop-filter:blur(12px);min-width:180px;pointer-events:none}
+.hud-title{font-family:var(--ff-head);font-size:12px;font-weight:700;color:var(--accent);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.hud-title .hud-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.hud-row{display:flex;justify-content:space-between;gap:12px;margin-bottom:3px;font-size:10.5px}
+.hud-k{color:var(--text2)}
+.hud-v{color:var(--text);font-family:var(--ff-mono);font-size:10px}
+
+#legend{position:absolute;bottom:44px;left:12px;background:var(--glass);border:1px solid var(--border);border-radius:8px;padding:7px 12px;backdrop-filter:blur(8px);font-size:10px;display:flex;gap:12px;flex-wrap:wrap;max-width:500px}
+.leg-item{display:flex;align-items:center;gap:5px;color:var(--text2)}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+#notif{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--accent);color:var(--accent);padding:6px 16px;border-radius:20px;font-size:11px;opacity:0;pointer-events:none;transition:opacity .3s;font-family:var(--ff-head);white-space:nowrap}
+#notif.show{opacity:1}
+
+/* ─── RIGHT THEORY PANEL ─────────────────────── */
+#right-panel{width:var(--info-w);flex-shrink:0;overflow-y:auto;background:var(--glass);border-left:1px solid var(--border);backdrop-filter:blur(12px);transition:width .28s,opacity .28s}
+#right-panel.collapsed{width:0;opacity:0;overflow:hidden}
+#right-panel::-webkit-scrollbar{width:3px}
+#right-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.theory-section{padding:13px 14px;border-bottom:1px solid var(--border)}
+.theory-section h3{font-family:var(--ff-head);font-size:11.5px;font-weight:700;color:var(--accent);margin-bottom:7px;letter-spacing:.4px}
+.theory-section h3.rh{color:var(--recip)}
+.theory-section h3.bh{color:var(--bz)}
+.theory-section h3.mh{color:var(--miller)}
+.theory-section h3.dh{color:var(--diffr)}
+.theory-section p{font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:7px}
+.eq-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--ff-mono);font-size:10px;color:var(--green);margin:6px 0;line-height:1.9;white-space:pre;overflow-x:auto}
+.hl{color:var(--accent)}.hl2{color:var(--amber)}.hlr{color:var(--recip)}.hlb{color:var(--bz)}.hlm{color:var(--miller)}.hld{color:var(--diffr)}
+
+/* ─── FOOTER ─────────────────────────────────── */
+#footer{height:var(--footer-h);flex-shrink:0;background:var(--bg1);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:16px;font-family:var(--ff-mono);font-size:10.5px;overflow:hidden}
+.fstat{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.fstat-k{color:var(--text2)}.fstat-v{color:var(--accent);font-weight:500}
+.fdivider{width:1px;height:16px;background:var(--border);flex-shrink:0}
+</style>
+</head>
+<body data-theme="dark">
+
+<div id="topbar">
+  <div class="logo"><span class="logo-icon">⬡</span>CrystalViz Pro</div>
+  <div id="topbar-meta">
+    <div class="meta-chip mode-chip" id="hdr-mode" style="--mode-col:var(--accent)">Mode: <span>Real Space</span></div>
+    <div class="meta-chip">System: <span id="hdr-system">Cubic</span></div>
+    <div class="meta-chip">Lattice: <span id="hdr-lattice">Primitive (P)</span></div>
+    <div class="meta-chip">a = <span id="hdr-a">4.000</span> Å</div>
+  </div>
+  <div id="topbar-actions">
+    <button class="tbtn" id="btn-theory" title="Theory Panel">📚</button>
+    <button class="tbtn" id="btn-theme" title="Toggle Theme">🌙</button>
+    <button class="tbtn" id="btn-screenshot" title="Screenshot">📷</button>
+    <button class="tbtn" id="btn-fullscreen" title="Fullscreen">⛶</button>
+  </div>
+</div>
+
+<div id="workspace">
+  <!-- LEFT PANEL -->
+  <aside id="left-panel">
+    <!-- Mode selector -->
+    <div class="mode-bar">
+      <button class="mode-btn active" data-mode="real"><span class="mico">⬡</span>Real</button>
+      <button class="mode-btn" data-mode="reciprocal"><span class="mico">✦</span>Recip.</button>
+      <button class="mode-btn" data-mode="brillouin"><span class="mico">◈</span>B.Zone</button>
+      <button class="mode-btn" data-mode="miller"><span class="mico">≡</span>Miller</button>
+      <button class="mode-btn" data-mode="diffraction"><span class="mico">◎</span>Diffr.</button>
+    </div>
+
+    <!-- Crystal Systems -->
+    <div class="pblock">
+      <div class="pblock-head open" data-target="sys-body">Crystal Systems <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="sys-body"><div id="system-list"></div></div>
+    </div>
+
+    <!-- Lattice Parameters -->
+    <div class="pblock">
+      <div class="pblock-head open" data-target="params-body">Lattice Parameters <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="params-body">
+        <div id="constraint-info" class="constraint-info"></div>
+        <div class="param-row"><span class="param-sym">a</span><input type="range" class="param-slider" id="sl-a" min="1" max="12" step="0.05"><input class="param-input" id="in-a" type="number" min="1" max="12" step="0.05"><span class="param-locked" id="lk-a"></span></div>
+        <div class="param-row"><span class="param-sym">b</span><input type="range" class="param-slider" id="sl-b" min="1" max="12" step="0.05"><input class="param-input" id="in-b" type="number" min="1" max="12" step="0.05"><span class="param-locked" id="lk-b"></span></div>
+        <div class="param-row"><span class="param-sym">c</span><input type="range" class="param-slider" id="sl-c" min="1" max="12" step="0.05"><input class="param-input" id="in-c" type="number" min="1" max="12" step="0.05"><span class="param-locked" id="lk-c"></span></div>
+        <div style="height:7px;border-top:1px solid var(--border);margin-bottom:7px"></div>
+        <div class="param-row"><span class="param-sym">α</span><input type="range" class="param-slider" id="sl-alpha" min="20" max="160" step="0.5"><input class="param-input" id="in-alpha" type="number" min="20" max="160" step="0.5"><span class="param-locked" id="lk-alpha"></span></div>
+        <div class="param-row"><span class="param-sym">β</span><input type="range" class="param-slider" id="sl-beta" min="20" max="160" step="0.5"><input class="param-input" id="in-beta" type="number" min="20" max="160" step="0.5"><span class="param-locked" id="lk-beta"></span></div>
+        <div class="param-row"><span class="param-sym">γ</span><input type="range" class="param-slider" id="sl-gamma" min="20" max="160" step="0.5"><input class="param-input" id="in-gamma" type="number" min="20" max="160" step="0.5"><span class="param-locked" id="lk-gamma"></span></div>
+      </div>
+    </div>
+
+    <!-- Repetitions -->
+    <div class="pblock" id="rep-block">
+      <div class="pblock-head open" data-target="rep-body">Repetitions <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="rep-body">
+        <div id="rep-xyz-section">
+          <div class="rep-xyz">
+            <span class="param-sym" style="color:var(--red)">x</span>
+            <input type="range" class="param-slider" id="sl-nx" min="1" max="8" step="1" style="--pct:28%">
+            <input class="rep-num" id="in-nx" type="number" min="1" max="8" step="1" value="3">
+          </div>
+          <div class="rep-xyz">
+            <span class="param-sym" style="color:var(--green)">y</span>
+            <input type="range" class="param-slider" id="sl-ny" min="1" max="8" step="1" style="--pct:28%">
+            <input class="rep-num" id="in-ny" type="number" min="1" max="8" step="1" value="3">
+          </div>
+          <div class="rep-xyz">
+            <span class="param-sym" style="color:#4488ff">z</span>
+            <input type="range" class="param-slider" id="sl-nz" min="1" max="8" step="1" style="--pct:28%">
+            <input class="rep-num" id="in-nz" type="number" min="1" max="8" step="1" value="3">
+          </div>
+        </div>
+        <div class="rep-togrow" style="gap:5px">
+          <label class="tog-item" style="flex:1"><input type="checkbox" id="t-origin-only"><span class="tog-dot"></span><span>Origin only</span></label>
+          <label class="tog-item" style="flex:1"><input type="checkbox" id="t-animate" checked><span class="tog-dot"></span><span>Auto-rotate</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Miller Indices (hidden unless miller mode) -->
+    <div class="pblock" id="miller-block" style="display:none">
+      <div class="pblock-head open" data-target="miller-body">Miller Indices (hkl) <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="miller-body">
+        <div class="miller-row">
+          <span class="miller-sym">h</span>
+          <div class="miller-stepper">
+            <button class="mstep-btn" data-idx="0" data-dir="-1">−</button>
+            <span class="mstep-val" id="mv-h">1</span>
+            <button class="mstep-btn" data-idx="0" data-dir="1">+</button>
+            <input type="range" class="param-slider miller-sl" id="sl-h" min="-6" max="6" step="1" value="1" style="--pct:58%">
+          </div>
+        </div>
+        <div class="miller-row">
+          <span class="miller-sym">k</span>
+          <div class="miller-stepper">
+            <button class="mstep-btn" data-idx="1" data-dir="-1">−</button>
+            <span class="mstep-val" id="mv-k">0</span>
+            <button class="mstep-btn" data-idx="1" data-dir="1">+</button>
+            <input type="range" class="param-slider miller-sl" id="sl-k" min="-6" max="6" step="1" value="0" style="--pct:50%">
+          </div>
+        </div>
+        <div class="miller-row">
+          <span class="miller-sym">l</span>
+          <div class="miller-stepper">
+            <button class="mstep-btn" data-idx="2" data-dir="-1">−</button>
+            <span class="mstep-val" id="mv-l">0</span>
+            <button class="mstep-btn" data-idx="2" data-dir="1">+</button>
+            <input type="range" class="param-slider miller-sl" id="sl-l" min="-6" max="6" step="1" value="0" style="--pct:50%">
+          </div>
+        </div>
+        <div class="miller-info" id="miller-info">
+          <span style="color:var(--text2)">Set (hkl) above</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diffraction controls (hidden unless diffraction mode) -->
+    <div class="pblock" id="diffr-block" style="display:none">
+      <div class="pblock-head open" data-target="diffr-body">Diffraction / Ewald <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="diffr-body">
+        <div class="param-row">
+          <span class="param-sym" style="color:var(--diffr)">λ</span>
+          <input type="range" class="param-slider diffr-sl" id="sl-lambda" min="0.4" max="4.0" step="0.02" value="1.54">
+          <input class="param-input" id="in-lambda" type="number" min="0.4" max="4.0" step="0.02" value="1.54">
+          <span class="param-unit">Å</span>
+        </div>
+        <div class="param-row">
+          <span class="param-sym" style="color:var(--diffr)">θ</span>
+          <input type="range" class="param-slider diffr-sl" id="sl-itheta" min="0" max="90" step="1" value="20">
+          <input class="param-input" id="in-itheta" type="number" min="0" max="90" step="1" value="20">
+          <span class="param-unit">°</span>
+        </div>
+        <div class="param-row">
+          <span class="param-sym" style="color:var(--diffr)">φ</span>
+          <input type="range" class="param-slider diffr-sl" id="sl-iphi" min="0" max="360" step="5" value="0">
+          <input class="param-input" id="in-iphi" type="number" min="0" max="360" step="5" value="0">
+          <span class="param-unit">°</span>
+        </div>
+        <div class="diffr-info">
+          k = <span class="dv" id="dv-k">4.08</span> Å⁻¹<br>
+          d-min = <span class="dv" id="dv-dmin">0.77</span> Å<br>
+          Active peaks: <span class="dv" id="dv-peaks">–</span>
+        </div>
+        <div class="bragg-list" id="bragg-list"></div>
+      </div>
+    </div>
+
+    <!-- Visibility -->
+    <div class="pblock">
+      <div class="pblock-head open" data-target="tog-body">Visibility <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="tog-body">
+        <div class="tog-grid" id="vis-grid">
+          <label class="tog-item"><input type="checkbox" id="t-atoms" checked><span class="tog-dot"></span><span>Atoms</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-edges" checked><span class="tog-dot"></span><span>Edges</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-axes" checked><span class="tog-dot"></span><span>Axes</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-faces"><span class="tog-dot"></span><span>Faces</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-vectors" checked><span class="tog-dot"></span><span>Vectors</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-glow" checked><span class="tog-dot"></span><span>Glow</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-origin" checked><span class="tog-dot"></span><span>Origin</span></label>
+          <label class="tog-item"><input type="checkbox" id="t-wireframe"><span class="tog-dot"></span><span>Wireframe</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presets -->
+    <div class="pblock">
+      <div class="pblock-head open" data-target="preset-body">Crystal Presets <span class="arrow">▼</span></div>
+      <div class="pblock-body" id="preset-body"><div id="presets-list"></div></div>
+    </div>
+  </aside>
+
+  <!-- 3D Canvas -->
+  <main id="canvas-wrap">
+    <div id="overlay-btns">
+      <button class="obtn" id="btn-reset" title="Reset Camera">↺</button>
+      <button class="obtn" id="btn-anim" title="Toggle Rotation">⏸</button>
+    </div>
+    <div id="cell-hud">
+      <div class="hud-title"><span class="hud-dot"></span><span id="hud-name">Simple Cubic</span></div>
+      <div class="hud-row"><span class="hud-k">System</span><span class="hud-v" id="hud-sys">Cubic</span></div>
+      <div class="hud-row"><span class="hud-k">Centering</span><span class="hud-v" id="hud-ctr">P</span></div>
+      <div class="hud-row"><span class="hud-k">Pts/cell</span><span class="hud-v" id="hud-pts">1</span></div>
+      <div class="hud-row"><span class="hud-k">Volume</span><span class="hud-v" id="hud-vol">64.00 Å³</span></div>
+      <div class="hud-row"><span class="hud-k">Symmetry</span><span class="hud-v" id="hud-sym">m3̄m</span></div>
+      <div class="hud-row" id="hud-extra-row" style="display:none"><span class="hud-k" id="hud-extra-k">—</span><span class="hud-v" id="hud-extra-v">—</span></div>
+    </div>
+    <div id="legend"></div>
+    <div id="notif">Done!</div>
+  </main>
+
+  <!-- RIGHT THEORY PANEL -->
+  <aside id="right-panel" class="collapsed">
+    <div id="theory-content"></div>
+  </aside>
+</div>
+
+<footer id="footer">
+  <div class="fstat"><span class="fstat-k">Type:</span><span class="fstat-v" id="ft-type">Cubic P</span></div>
+  <div class="fdivider"></div>
+  <div class="fstat"><span class="fstat-k">a=</span><span class="fstat-v" id="ft-a">4.000</span></div>
+  <div class="fstat"><span class="fstat-k">b=</span><span class="fstat-v" id="ft-b">4.000</span></div>
+  <div class="fstat"><span class="fstat-k">c=</span><span class="fstat-v" id="ft-c">4.000</span></div>
+  <div class="fdivider"></div>
+  <div class="fstat"><span class="fstat-k">α=</span><span class="fstat-v" id="ft-alpha">90°</span></div>
+  <div class="fstat"><span class="fstat-k">β=</span><span class="fstat-v" id="ft-beta">90°</span></div>
+  <div class="fstat"><span class="fstat-k">γ=</span><span class="fstat-v" id="ft-gamma">90°</span></div>
+  <div class="fdivider"></div>
+  <div class="fstat"><span class="fstat-k">V=</span><span class="fstat-v" id="ft-vol">64.00</span><span class="fstat-k"> Å³</span></div>
+  <div class="fdivider"></div>
+  <div class="fstat"><span class="fstat-k">Cells=</span><span class="fstat-v" id="ft-cells">27</span></div>
+  <div class="fdivider"></div>
+  <div class="fstat"><span class="fstat-k">Mode:</span><span class="fstat-v" id="ft-mode">Real Space</span></div>
+</footer>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CRYSTAL DATA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const SYSTEMS = [
+  {id:'cubic',name:'Cubic',color:'#6366f1',constraints:{b:'a',c:'a',alpha:90,beta:90,gamma:90},defaults:{a:4,b:4,c:4,alpha:90,beta:90,gamma:90},symLabel:'m3̄m',lattices:[{id:'cubic_P',name:'Primitive (P)',centering:'P',pts:1},{id:'cubic_I',name:'Body-Centered (BCC)',centering:'I',pts:2},{id:'cubic_F',name:'Face-Centered (FCC)',centering:'F',pts:4}]},
+  {id:'tetragonal',name:'Tetragonal',color:'#3b82f6',constraints:{b:'a',alpha:90,beta:90,gamma:90},defaults:{a:3.5,b:3.5,c:6,alpha:90,beta:90,gamma:90},symLabel:'4/mmm',lattices:[{id:'tet_P',name:'Primitive (P)',centering:'P',pts:1},{id:'tet_I',name:'Body-Centered (I)',centering:'I',pts:2}]},
+  {id:'orthorhombic',name:'Orthorhombic',color:'#10b981',constraints:{alpha:90,beta:90,gamma:90},defaults:{a:3,b:4.5,c:6,alpha:90,beta:90,gamma:90},symLabel:'mmm',lattices:[{id:'ort_P',name:'Primitive (P)',centering:'P',pts:1},{id:'ort_C',name:'Base-Centered (C)',centering:'C',pts:2},{id:'ort_I',name:'Body-Centered (I)',centering:'I',pts:2},{id:'ort_F',name:'Face-Centered (F)',centering:'F',pts:4}]},
+  {id:'monoclinic',name:'Monoclinic',color:'#f59e0b',constraints:{alpha:90,gamma:90},defaults:{a:3.5,b:4.5,c:5.5,alpha:90,beta:105,gamma:90},symLabel:'2/m',lattices:[{id:'mon_P',name:'Primitive (P)',centering:'P',pts:1},{id:'mon_C',name:'Base-Centered (C)',centering:'C',pts:2}]},
+  {id:'triclinic',name:'Triclinic',color:'#ef4444',constraints:{},defaults:{a:3,b:4,c:5,alpha:75,beta:80,gamma:85},symLabel:'1̄',lattices:[{id:'tri_P',name:'Primitive (P)',centering:'P',pts:1}]},
+  {id:'hexagonal',name:'Hexagonal',color:'#ec4899',constraints:{b:'a',alpha:90,beta:90,gamma:120},defaults:{a:3,b:3,c:6,alpha:90,beta:90,gamma:120},symLabel:'6/mmm',lattices:[{id:'hex_P',name:'Primitive (P)',centering:'P',pts:1}]},
+  {id:'rhombohedral',name:'Rhombohedral',color:'#8b5cf6',constraints:{b:'a',c:'a',beta:'alpha',gamma:'alpha'},defaults:{a:4,b:4,c:4,alpha:70,beta:70,gamma:70},symLabel:'3̄m',lattices:[{id:'rho_R',name:'Rhombohedral (R)',centering:'P',pts:1}]},
+];
+
+const CENTERING_POINTS = {
+  P:[[0,0,0]],
+  I:[[0,0,0],[.5,.5,.5]],
+  F:[[0,0,0],[.5,.5,0],[.5,0,.5],[0,.5,.5]],
+  C:[[0,0,0],[.5,.5,0]],
+};
+
+const PRESETS = [
+  {name:'Copper',formula:'Cu',icon:'🟠',lattice:'cubic_F',a:3.61,b:3.61,c:3.61,alpha:90,beta:90,gamma:90,note:'FCC a=3.615 Å'},
+  {name:'Iron',formula:'Fe',icon:'⚙️',lattice:'cubic_I',a:2.87,b:2.87,c:2.87,alpha:90,beta:90,gamma:90,note:'BCC a=2.87 Å'},
+  {name:'Diamond',formula:'C',icon:'💎',lattice:'cubic_F',a:3.57,b:3.57,c:3.57,alpha:90,beta:90,gamma:90,note:'FCC a=3.57 Å'},
+  {name:'NaCl',formula:'NaCl',icon:'🧂',lattice:'cubic_F',a:5.64,b:5.64,c:5.64,alpha:90,beta:90,gamma:90,note:'Rocksalt a=5.64 Å'},
+  {name:'Graphite',formula:'C',icon:'✏️',lattice:'hex_P',a:2.46,b:2.46,c:6.71,alpha:90,beta:90,gamma:120,note:'Hexagonal layered'},
+  {name:'Quartz',formula:'SiO₂',icon:'🔮',lattice:'hex_P',a:4.91,b:4.91,c:5.40,alpha:90,beta:90,gamma:120,note:'Trigonal/Hex'},
+  {name:'Ice Ih',formula:'H₂O',icon:'❄️',lattice:'hex_P',a:4.52,b:4.52,c:7.36,alpha:90,beta:90,gamma:120,note:'Hexagonal ice'},
+  {name:'Polonium',formula:'Po',icon:'⚪',lattice:'cubic_P',a:3.35,b:3.35,c:3.35,alpha:90,beta:90,gamma:90,note:'Simple cubic'},
+  {name:'Calcite',formula:'CaCO₃',icon:'🪨',lattice:'rho_R',a:4.99,b:4.99,c:4.99,alpha:46,beta:46,gamma:46,note:'Rhombohedral'},
+  {name:'Titanium',formula:'Ti',icon:'🔩',lattice:'hex_P',a:2.95,b:2.95,c:4.68,alpha:90,beta:90,gamma:120,note:'HCP metal'},
+];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// THEORY CONTENT (HTML per mode)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const THEORY = {
+real:`
+<div class="theory-section"><h3>⬡ Crystal Lattice</h3><p>An infinite periodic arrangement of points in 3D, defining translational symmetry. Each point has an identical environment.</p><div class="eq-box">r = n₁<span class="hl">a₁</span> + n₂<span class="hl">a₂</span> + n₃<span class="hl">a₃</span>,  n∈ℤ</div></div>
+<div class="theory-section"><h3>📦 Unit Cell & Centering</h3><p>The smallest repeating unit. Conventional centerings:</p><div class="eq-box"><span class="hl">P</span> Primitive:    1 pt/cell
+<span class="hl">I</span> Body-center:  2 pts/cell (+½½½)
+<span class="hl">F</span> Face-center:  4 pts/cell (+all faces)
+<span class="hl">C</span> Base-center:  2 pts/cell (+½½0)</div></div>
+<div class="theory-section"><h3>📐 Parameters</h3><div class="eq-box">Edges: a, b, c  (Ångströms)
+Angles: α(b∧c), β(a∧c), γ(a∧b)</div></div>
+<div class="theory-section"><h3>📊 Cell Volume</h3><div class="eq-box">V = abc√(1−cos²α−cos²β−cos²γ
+      + 2cosα·cosβ·cosγ)</div><p>Cubic: V=a³ &nbsp; Hexagonal: V=(√3/2)a²c</p></div>
+<div class="theory-section"><h3>🔷 7 Crystal Systems</h3><div class="eq-box"><span class="hl">Cubic</span>:       a=b=c, α=β=γ=90°
+<span class="hl">Tetragonal</span>:  a=b≠c, α=β=γ=90°
+<span class="hl">Orthorhombic</span>: a≠b≠c, α=β=γ=90°
+<span class="hl">Monoclinic</span>:  a≠b≠c, α=γ=90°,β≠
+<span class="hl">Triclinic</span>:   all unequal
+<span class="hl">Hexagonal</span>:   a=b≠c, γ=120°
+<span class="hl">Rhombohedral</span>: a=b=c, α=β=γ≠90°</div></div>
+<div class="theory-section"><h3>🔢 14 Bravais Lattices</h3><p>7 crystal systems × allowed centerings = <span class="hl">14 unique</span> 3D Bravais lattices, proven by Bravais (1848).</p></div>
+<div class="theory-section"><h3>💎 Examples</h3><div class="eq-box"><span class="hl">NaCl</span>:   FCC, a=5.64 Å, ionic
+<span class="hl">Diamond</span>: FCC, a=3.57 Å, covalent
+<span class="hl">Iron</span>:   BCC, a=2.87 Å, metallic
+<span class="hl">Graphite</span>:Hex, a=2.46, c=6.71 Å</div></div>`,
+
+reciprocal:`
+<div class="theory-section"><h3 class="rh">✦ Reciprocal Lattice</h3><p>The <span class="hlr">reciprocal lattice</span> is the Fourier dual of the direct lattice. It lives in momentum/k-space (units Å⁻¹) and underpins diffraction and band theory.</p></div>
+<div class="theory-section"><h3 class="rh">📐 Reciprocal Vectors</h3><div class="eq-box"><span class="hlr">b₁</span> = 2π (a₂×a₃) / V
+<span class="hlr">b₂</span> = 2π (a₃×a₁) / V
+<span class="hlr">b₃</span> = 2π (a₁×a₂) / V
+
+V = a₁·(a₂×a₃)  [unit cell volume]</div><p>These satisfy the duality relation: <span class="hlr">aᵢ·bⱼ = 2π δᵢⱼ</span></p></div>
+<div class="theory-section"><h3 class="rh">📊 Reciprocal Volume</h3><div class="eq-box">V* = b₁·(b₂×b₃) = (2π)³/V</div><p>The reciprocal lattice volume is inversely proportional to the real-space volume.</p></div>
+<div class="theory-section"><h3 class="rh">🔢 Reciprocal Points</h3><p>General reciprocal lattice vector:</p><div class="eq-box">G = h·b₁ + k·b₂ + l·b₃
+(h, k, l) ∈ ℤ  (Miller indices)</div></div>
+<div class="theory-section"><h3 class="rh">🔄 Special Cases</h3><div class="eq-box"><span class="hl">Cubic a</span>:  |b| = 2π/a, b∥a
+<span class="hl">Hexagonal</span>: b₁,b₂ at 60°, |b|=4π/a√3
+<span class="hl">Orthorhombic</span>: b∥a, |bᵢ|=2π/aᵢ</div></div>
+<div class="theory-section"><h3 class="rh">🌊 Physical Meaning</h3><p>The reciprocal lattice encodes all periodicities of the crystal. Any plane wave <span class="hlr">e^{iG·r}</span> with G a reciprocal vector has the full crystal periodicity. This is why diffraction peaks occur only at reciprocal lattice points.</p></div>`,
+
+brillouin:`
+<div class="theory-section"><h3 class="bh">◈ Brillouin Zone</h3><p>The <span class="hlb">first Brillouin zone (BZ)</span> is the Wigner–Seitz cell of the reciprocal lattice — the region of k-space closer to Γ=(0,0,0) than to any other reciprocal lattice point.</p></div>
+<div class="theory-section"><h3 class="bh">🔨 Construction</h3><p>For each neighbor G of the origin, draw the <span class="hlb">perpendicular bisector plane</span>:</p><div class="eq-box">G·r = |G|²/2
+
+BZ = {r : G·r ≤ |G|²/2 for all G≠0}</div><p>The BZ is the convex polytope bounded by all such planes.</p></div>
+<div class="theory-section"><h3 class="bh">📐 Volume</h3><div class="eq-box">V_BZ = (2π)³/V_cell
+
+= V* (same as reciprocal unit cell)</div><p>Every BZ has the same volume regardless of crystal system.</p></div>
+<div class="theory-section"><h3 class="bh">🎯 High-Symmetry Points</h3><div class="eq-box"><span class="hl">Cubic P</span>: Γ(0,0,0), R(½½½),
+         X(0½0), M(½½0)
+<span class="hl">FCC/cF</span>: Γ, X(½0½), L(½½½),
+         K(⅜⅜¾), W(½¼¾)
+<span class="hl">BCC/cI</span>: Γ, H(½-½½), N(0½0),
+         P(¼¼¼)</div></div>
+<div class="theory-section"><h3 class="bh">⚡ Bloch Theorem</h3><p>Electronic states are labeled by k in the BZ. The <span class="hlb">reduced zone scheme</span> folds all bands into the first BZ via crystal momentum conservation.</p><div class="eq-box">ψ_{n,k}(r) = e^{ik·r} u_{n,k}(r)
+E(k) = E(k + G) for any G</div></div>
+<div class="theory-section"><h3 class="bh">🔷 BZ by System</h3><div class="eq-box"><span class="hl">Cubic P</span>:  Cube
+<span class="hl">FCC (cF)</span>: Truncated octahedron
+<span class="hl">BCC (cI)</span>: Rhombic dodecahedron
+<span class="hl">Hexagonal</span>: Hexagonal prism
+<span class="hl">Tetragonal</span>: Tetragonal prism</div></div>`,
+
+miller:`
+<div class="theory-section"><h3 class="mh">≡ Miller Indices (hkl)</h3><p><span class="hlm">Miller indices</span> (h,k,l) label a family of parallel crystal planes. They are the reciprocals of the fractional intercepts on the three axes, cleared of fractions.</p></div>
+<div class="theory-section"><h3 class="mh">📐 Plane Equation</h3><p>Planes in the family satisfy:</p><div class="eq-box">h·u + k·v + l·w = n,  n ∈ ℤ
+
+(u,v,w): fractional coordinates
+
+In Cartesian: <span class="hlm">G_{hkl}</span>·r = 2π·n
+where G = h·b₁ + k·b₂ + l·b₃</div></div>
+<div class="theory-section"><h3 class="mh">📏 d-Spacing</h3><p>Interplanar spacing between adjacent planes:</p><div class="eq-box">d_{hkl} = 2π / |G_{hkl}|
+
+Cubic: d = a / √(h²+k²+l²)
+Ortho: 1/d² = (h/a)²+(k/b)²+(l/c)²</div></div>
+<div class="theory-section"><h3 class="mh">🔎 Bragg's Law</h3><p>X-rays diffract constructively when the path difference is an integer multiple of λ:</p><div class="eq-box">2d·sin(θ) = n·λ  (Bragg, 1913)
+
+Equivalent to: k_f - k_i = G_{hkl}
+(Laue condition)</div></div>
+<div class="theory-section"><h3 class="mh">🔷 Common Planes</h3><div class="eq-box"><span class="hl">(100)</span>: perpendicular to a-axis
+<span class="hl">(110)</span>: diagonal face plane
+<span class="hl">(111)</span>: body diagonal plane
+<span class="hl">(200)</span>: half-spacing of (100)
+<span class="hl">(hkl̄)</span>: barred = negative index</div></div>
+<div class="theory-section"><h3 class="mh">📊 Selection Rules</h3><div class="eq-box"><span class="hl">FCC</span>: h,k,l all even or all odd
+<span class="hl">BCC</span>: h+k+l must be even
+<span class="hl">Diamond</span>: FCC + h,k,l all odd
+         or all even with h+k+l=4n</div></div>`,
+
+diffraction:`
+<div class="theory-section"><h3 class="dh">◎ Ewald Sphere</h3><p>The <span class="hld">Ewald sphere</span> is a geometric construction in reciprocal space identifying which crystal planes satisfy the Bragg condition for a given incident beam and wavelength.</p></div>
+<div class="theory-section"><h3 class="dh">🌐 Construction</h3><div class="eq-box">1. Draw G-lattice (reciprocal lattice)
+2. Place incident vector <span class="hld">k_i</span>, |k_i|=2π/λ
+3. Sphere center: C = −k_i
+4. Sphere radius: R = |k_i| = 2π/λ
+5. Any G on sphere → Bragg condition!</div></div>
+<div class="theory-section"><h3 class="dh">⚡ Bragg / Laue</h3><div class="eq-box"><span class="hl">Bragg</span>:  2d·sin(θ) = nλ
+<span class="hl">Laue</span>:   k_f = k_i + G_{hkl}
+         |k_f| = |k_i| (elastic)
+
+Sphere passes through G iff:
+|k_i + G|² = |k_i|²
+⟺  G·k_i = −|G|²/2</div></div>
+<div class="theory-section"><h3 class="dh">🔎 Structure Factor</h3><p>Intensity of diffraction peak G:</p><div class="eq-box">F(G) = Σⱼ fⱼ · e^{iG·rⱼ}
+
+I(G) ∝ |F(G)|²
+
+fⱼ: atomic scattering factor
+rⱼ: atomic position in basis</div></div>
+<div class="theory-section"><h3 class="dh">📊 Scattering Vector</h3><div class="eq-box">Q = k_f − k_i = G
+|Q| = 4π·sin(θ)/λ
+d = 2π/|Q| (d-spacing)</div></div>
+<div class="theory-section"><h3 class="dh">🔷 Wavelengths</h3><div class="eq-box"><span class="hl">CuKα</span>:  λ=1.541 Å (X-ray)
+<span class="hl">MoKα</span>:  λ=0.711 Å (X-ray)
+<span class="hl">Neutron</span>: λ≈1–3 Å (thermal)
+<span class="hl">Electron</span>: λ≈0.02 Å (100 keV)</div></div>`
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const S = {
+  mode:'real',
+  systemId:'cubic', latticeId:'cubic_P', centering:'P',
+  a:4, b:4, c:4, alpha:90, beta:90, gamma:90,
+  Nx:3, Ny:3, Nz:3, originOnly:false, autoRotate:true,
+  showAtoms:true, showEdges:true, showAxes:true, showFaces:false,
+  showVectors:true, showGlow:true, showOrigin:true, wireframe:false,
+  theme:'dark', theoryOpen:false,
+  // Miller
+  h:1, k:0, l:0,
+  // Diffraction
+  wavelength:1.54, incidentTheta:20, incidentPhi:0,
+};
+
+const MODES = {REAL:'real',RECIPROCAL:'reciprocal',BRILLOUIN:'brillouin',MILLER:'miller',DIFFRACTION:'diffraction'};
+const MODE_LABELS = {real:'Real Space',reciprocal:'Reciprocal',brillouin:'Brillouin Zone',miller:'Miller Planes',diffraction:'Diffraction'};
+const MODE_COLORS = {real:'var(--accent)',reciprocal:'var(--recip)',brillouin:'var(--bz)',miller:'var(--miller)',diffraction:'var(--diffr)'};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MATH HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function d2r(d){return d*Math.PI/180}
+
+function getLatticeVectors(){
+  const{a,b,c,alpha,beta,gamma}=S;
+  const ar=d2r(alpha),br=d2r(beta),gr=d2r(gamma);
+  const ca=Math.cos(ar),cb=Math.cos(br),cg=Math.cos(gr),sg=Math.sin(gr);
+  const v1=new THREE.Vector3(a,0,0);
+  const v2=new THREE.Vector3(b*cg,b*sg,0);
+  const cx=c*cb, cy=c*(ca-cb*cg)/sg;
+  const cz=Math.sqrt(Math.max(0,c*c-cx*cx-cy*cy));
+  return{v1,v2,v3:new THREE.Vector3(cx,cy,cz)};
+}
+
+function computeVolume(){
+  const{a,b,c,alpha,beta,gamma}=S;
+  const ca=Math.cos(d2r(alpha)),cb=Math.cos(d2r(beta)),cg=Math.cos(d2r(gamma));
+  return a*b*c*Math.sqrt(Math.max(0,1-ca*ca-cb*cb-cg*cg+2*ca*cb*cg));
+}
+
+function computeReciprocalVectors(){
+  const{v1,v2,v3}=getLatticeVectors();
+  const vol=v1.dot(new THREE.Vector3().crossVectors(v2,v3));
+  if(Math.abs(vol)<1e-10) return null;
+  const b1=new THREE.Vector3().crossVectors(v2,v3).multiplyScalar(2*Math.PI/vol);
+  const b2=new THREE.Vector3().crossVectors(v3,v1).multiplyScalar(2*Math.PI/vol);
+  const b3=new THREE.Vector3().crossVectors(v1,v2).multiplyScalar(2*Math.PI/vol);
+  return{b1,b2,b3,vol};
+}
+
+function det3(m){
+  return m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+        -m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+        +m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);
+}
+
+function intersectBisectors(G1,G2,G3){
+  const d1=G1.lengthSq()/2, d2=G2.lengthSq()/2, d3=G3.lengthSq()/2;
+  const mat=[[G1.x,G1.y,G1.z],[G2.x,G2.y,G2.z],[G3.x,G3.y,G3.z]];
+  const D=det3(mat);
+  if(Math.abs(D)<1e-12) return null;
+  const x=det3([[d1,G1.y,G1.z],[d2,G2.y,G2.z],[d3,G3.y,G3.z]])/D;
+  const y=det3([[G1.x,d1,G1.z],[G2.x,d2,G2.z],[G3.x,d3,G3.z]])/D;
+  const z=det3([[G1.x,G1.y,d1],[G2.x,G2.y,d2],[G3.x,G3.y,d3]])/D;
+  return new THREE.Vector3(x,y,z);
+}
+
+function isInBZ(r,Gs,tol=1e-5){
+  for(const G of Gs){
+    if(r.dot(G)>G.lengthSq()/2+tol) return false;
+  }
+  return true;
+}
+
+function constructBZVertices(rv){
+  const{b1,b2,b3}=rv;
+  const Gs=[];
+  for(let h=-3;h<=3;h++) for(let k=-3;k<=3;k++) for(let l=-3;l<=3;l++){
+    if(h===0&&k===0&&l===0) continue;
+    Gs.push(b1.clone().multiplyScalar(h).add(b2.clone().multiplyScalar(k)).add(b3.clone().multiplyScalar(l)));
+  }
+  Gs.sort((a,b)=>a.lengthSq()-b.lengthSq());
+  const shell1len=Gs[0].length();
+  const planes=Gs.filter(g=>g.length()<shell1len*2.0+0.01);
+
+  const verts=[];
+  const N=planes.length;
+  for(let i=0;i<N;i++) for(let j=i+1;j<N;j++) for(let k=j+1;k<N;k++){
+    const v=intersectBisectors(planes[i],planes[j],planes[k]);
+    if(!v) continue;
+    if(v.length()>shell1len*1.5) continue;
+    if(isInBZ(v,Gs.slice(0,30))){
+      // Deduplicate
+      let dup=false;
+      for(const u of verts){if(v.distanceTo(u)<0.001){dup=true;break;}}
+      if(!dup) verts.push(v.clone());
+    }
+  }
+  return{verts,Gs,planes};
+}
+
+function getCenteringPoints(ctr){return CENTERING_POINTS[ctr]||[[0,0,0]];}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// THREE.JS SETUP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let renderer,scene,camera,controls,clock;
+let sceneObjects=[];
+
+function initThree(){
+  const wrap=document.getElementById('canvas-wrap');
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(wrap.clientWidth,wrap.clientHeight);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+  wrap.appendChild(renderer.domElement);
+
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(42,wrap.clientWidth/wrap.clientHeight,0.01,2000);
+  camera.position.set(20,16,20);
+
+  controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=0.06;
+  controls.minDistance=1;controls.maxDistance=300;
+  controls.autoRotate=S.autoRotate;controls.autoRotateSpeed=0.7;
+
+  const amb=new THREE.AmbientLight(0xffffff,0.5);scene.add(amb);
+  const dir=new THREE.DirectionalLight(0xffffff,0.85);dir.position.set(20,30,20);scene.add(dir);
+  const pt1=new THREE.PointLight(0x00e5ff,0.5,80);pt1.position.set(-15,10,10);scene.add(pt1);
+  const pt2=new THREE.PointLight(0x7c3aed,0.35,80);pt2.position.set(15,-5,-10);scene.add(pt2);
+
+  clock=new THREE.Clock();
+  window.addEventListener('resize',onResize);
+}
+
+function onResize(){
+  const w=document.getElementById('canvas-wrap');
+  camera.aspect=w.clientWidth/w.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w.clientWidth,w.clientHeight);
+}
+
+function clearScene(){
+  sceneObjects.forEach(o=>{scene.remove(o);disposeObj(o);});
+  sceneObjects=[];
+}
+
+function disposeObj(o){
+  if(!o)return;
+  if(o.geometry)o.geometry.dispose();
+  if(o.material){Array.isArray(o.material)?o.material.forEach(m=>m.dispose()):o.material.dispose();}
+  if(o.children)o.children.forEach(disposeObj);
+}
+
+function addToScene(o){sceneObjects.push(o);scene.add(o);return o;}
+
+// Sprite label helper
+function makeLabel(text,pos,color=0x00e5ff){
+  const c=document.createElement('canvas');c.width=128;c.height=48;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,128,48);
+  ctx.font='bold 24px JetBrains Mono, monospace';
+  ctx.fillStyle='#'+color.toString(16).padStart(6,'0');
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(text,64,24);
+  const tex=new THREE.CanvasTexture(c);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
+  const sp=new THREE.Sprite(mat);
+  sp.position.copy(pos);sp.scale.set(1.2,0.45,1);
+  return sp;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SCENE BUILDERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildScene(){
+  clearScene();
+  switch(S.mode){
+    case MODES.REAL:        buildRealLattice();    break;
+    case MODES.RECIPROCAL:  buildReciprocalLattice(); break;
+    case MODES.BRILLOUIN:   buildBrillouinZone();  break;
+    case MODES.MILLER:      buildMillerPlanes();   break;
+    case MODES.DIFFRACTION: buildDiffraction();    break;
+  }
+  updateHUD();
+  updateFooter();
+  updateLegend();
+}
+
+// ── REAL LATTICE ──────────────────────────────────
+function buildRealLattice(){
+  const{v1,v2,v3}=getLatticeVectors();
+  const Nx=S.originOnly?1:S.Nx;
+  const Ny=S.originOnly?1:S.Ny;
+  const Nz=S.originOnly?1:S.Nz;
+  const cps=getCenteringPoints(S.centering);
+
+  if(S.showAtoms){
+    const seen=new Set(),cornerPts=[],centerPts=[];
+    const key=(p)=>`${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`;
+    for(let ix=0;ix<=Nx;ix++) for(let iy=0;iy<=Ny;iy++) for(let iz=0;iz<=Nz;iz++){
+      for(const[fx,fy,fz]of cps){
+        const pos=v1.clone().multiplyScalar(ix+fx).add(v2.clone().multiplyScalar(iy+fy)).add(v3.clone().multiplyScalar(iz+fz));
+        const k=key(pos); if(seen.has(k)) continue; seen.add(k);
+        (fx===0&&fy===0&&fz===0?cornerPts:centerPts).push(pos);
+      }
+    }
+    const sg=new THREE.SphereBufferGeometry(S.showGlow?0.14:0.11,16,16);
+    const makeMesh=(pts,col,emcol)=>{
+      if(!pts.length)return null;
+      const mat=new THREE.MeshPhysicalMaterial({color:col,emissive:emcol,emissiveIntensity:S.showGlow?0.55:0.1,metalness:0.3,roughness:0.2,wireframe:S.wireframe});
+      const m=new THREE.InstancedMesh(sg,mat,pts.length);
+      const d=new THREE.Object3D();
+      pts.forEach((p,i)=>{d.position.copy(p);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+      m.instanceMatrix.needsUpdate=true;
+      return m;
+    };
+    const grp=new THREE.Group();
+    const cm=makeMesh(cornerPts,0x00e5ff,new THREE.Color(0x003344));
+    const dm=makeMesh(centerPts,0xff9500,new THREE.Color(0x331100));
+    if(cm)grp.add(cm); if(dm)grp.add(dm);
+    addToScene(grp);
+  }
+
+  if(S.showEdges){
+    const verts=[],originVerts=[];
+    for(let ix=0;ix<Nx;ix++) for(let iy=0;iy<Ny;iy++) for(let iz=0;iz<Nz;iz++){
+      const P=v1.clone().multiplyScalar(ix).add(v2.clone().multiplyScalar(iy)).add(v3.clone().multiplyScalar(iz));
+      const c=[P.clone(),P.clone().add(v1),P.clone().add(v2),P.clone().add(v3),P.clone().add(v1).add(v2),P.clone().add(v1).add(v3),P.clone().add(v2).add(v3),P.clone().add(v1).add(v2).add(v3)];
+      const pairs=[[0,1],[2,4],[3,5],[6,7],[0,2],[1,4],[3,6],[5,7],[0,3],[1,5],[2,6],[4,7]];
+      const target=(ix===0&&iy===0&&iz===0&&S.showOrigin)?originVerts:verts;
+      pairs.forEach(([a,b])=>{target.push(c[a].x,c[a].y,c[a].z,c[b].x,c[b].y,c[b].z);});
+    }
+    if(verts.length){
+      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+      addToScene(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x2a3a55,opacity:0.75,transparent:true})));
+    }
+    if(originVerts.length){
+      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(originVerts,3));
+      addToScene(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0xa855f7,linewidth:2})));
+    }
+  }
+
+  if(S.showFaces){
+    const fg=new THREE.Group();
+    const P=new THREE.Vector3(0,0,0);
+    const c0=P,c1=P.clone().add(v1),c2=P.clone().add(v2),c3=P.clone().add(v3);
+    const c4=c1.clone().add(v2),c5=c1.clone().add(v3),c6=c2.clone().add(v3),c7=c4.clone().add(v3);
+    [[c0,c1,c4,c2],[c3,c5,c7,c6],[c0,c1,c5,c3],[c2,c4,c7,c6],[c0,c2,c6,c3],[c1,c4,c7,c5]].forEach(([a,b,d,e])=>{
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.Float32BufferAttribute([a.x,a.y,a.z,b.x,b.y,b.z,d.x,d.y,d.z,a.x,a.y,a.z,d.x,d.y,d.z,e.x,e.y,e.z],3));
+      geo.computeVertexNormals();
+      fg.add(new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0x6366f1,transparent:true,opacity:0.07,side:THREE.DoubleSide})));
+    });
+    addToScene(fg);
+  }
+
+  if(S.showVectors){
+    const vg=new THREE.Group();
+    [{vec:v1,color:0xff4455},{vec:v2,color:0x44ff88},{vec:v3,color:0x4488ff}].forEach(({vec,color})=>{
+      const len=vec.length();if(len<0.01)return;
+      vg.add(new THREE.ArrowHelper(vec.clone().normalize(),new THREE.Vector3(0,0,0),len,color,len*0.15,len*0.1));
+    });
+    addToScene(vg);
+  }
+
+  if(S.showAxes){
+    const al=Math.max(S.a,S.b,S.c)*Math.max(Nx,Ny,Nz)*0.45;
+    addToScene(new THREE.AxesHelper(al));
+  }
+}
+
+// ── RECIPROCAL LATTICE ───────────────────────────
+function buildReciprocalLattice(){
+  const rv=computeReciprocalVectors();if(!rv)return;
+  const{b1,b2,b3}=rv;
+  const N=3;
+
+  // Generate reciprocal lattice points
+  const pts=[],shell0=[];
+  const b1l=b1.length();
+  for(let h=-N;h<=N;h++) for(let k=-N;k<=N;k++) for(let l=-N;l<=N;l++){
+    const G=b1.clone().multiplyScalar(h).add(b2.clone().multiplyScalar(k)).add(b3.clone().multiplyScalar(l));
+    const len=G.length();
+    pts.push({G,len,hkl:[h,k,l],isOrigin:(h===0&&k===0&&l===0)});
+    if(h===0&&k===0&&l===0) continue;
+    if(len<b1l*1.1) shell0.push(G.clone());
+  }
+  pts.sort((a,b)=>a.len-b.len);
+
+  // Color by shell
+  const shellColors=[0x00e5ff,0xffd166,0x06d6a0,0xa855f7,0xff4466,0x3b82f6];
+  const shellLens=[];
+  pts.forEach(p=>{
+    if(p.isOrigin) return;
+    let found=false;
+    for(const sl of shellLens){if(Math.abs(p.len-sl)<0.01){found=true;break;}}
+    if(!found) shellLens.push(p.len);
+  });
+  shellLens.sort((a,b)=>a-b);
+
+  const sg=new THREE.SphereBufferGeometry(0.07,12,12);
+  const grp=new THREE.Group();
+  const colorGroups={};
+  pts.forEach(({G,len,isOrigin})=>{
+    let col=0xffffff;
+    if(isOrigin){col=0xffffff;}
+    else{
+      const si=shellLens.findIndex(sl=>Math.abs(len-sl)<0.01);
+      col=shellColors[si%shellColors.length];
+    }
+    const key=col.toString(16);
+    if(!colorGroups[key]) colorGroups[key]={color:col,positions:[]};
+    colorGroups[key].positions.push(G);
+  });
+
+  Object.values(colorGroups).forEach(({color,positions})=>{
+    const mat=new THREE.MeshPhysicalMaterial({color,emissive:new THREE.Color(color),emissiveIntensity:0.5,metalness:0.2,roughness:0.3});
+    const m=new THREE.InstancedMesh(sg,mat,positions.length);
+    const d=new THREE.Object3D();
+    positions.forEach((p,i)=>{d.position.copy(p);d.scale.setScalar(p.length()<0.01?1.6:1);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+    m.instanceMatrix.needsUpdate=true;
+    grp.add(m);
+  });
+  addToScene(grp);
+
+  // b vectors as arrows
+  const vg=new THREE.Group();
+  [{vec:b1,color:0xff4455,lbl:'b₁'},{vec:b2,color:0x44ff88,lbl:'b₂'},{vec:b3,color:0x4488ff,lbl:'b₃'}].forEach(({vec,color,lbl})=>{
+    const len=vec.length();if(len<0.001)return;
+    const dir=vec.clone().normalize();
+    vg.add(new THREE.ArrowHelper(dir,new THREE.Vector3(0,0,0),len,color,len*0.18,len*0.11));
+    const sp=makeLabel(lbl,vec.clone().multiplyScalar(1.25),color);
+    vg.add(sp);
+  });
+  addToScene(vg);
+
+  if(S.showAxes){
+    const al=b1.length()*N*0.6;
+    addToScene(new THREE.AxesHelper(al));
+  }
+}
+
+// ── BRILLOUIN ZONE ────────────────────────────────
+function buildBrillouinZone(){
+  const rv=computeReciprocalVectors();if(!rv)return;
+  const{b1,b2,b3,Gs}=rv;
+
+  // Background reciprocal lattice (faint)
+  const N=2;const pts=[];
+  for(let h=-N;h<=N;h++) for(let k=-N;k<=N;k++) for(let l=-N;l<=N;l++){
+    pts.push(b1.clone().multiplyScalar(h).add(b2.clone().multiplyScalar(k)).add(b3.clone().multiplyScalar(l)));
+  }
+  const sg2=new THREE.SphereBufferGeometry(0.04,8,8);
+  const mat2=new THREE.MeshBasicMaterial({color:0x334466});
+  const grp2=new THREE.Group();
+  pts.forEach(p=>{
+    const m=new THREE.Mesh(sg2,mat2);m.position.copy(p);grp2.add(m);
+  });
+  addToScene(grp2);
+
+  // BZ construction
+  const{verts,Gs:allGs}=constructBZVertices(rv);
+
+  if(verts.length>=4){
+    try{
+      const geo=new THREE.ConvexGeometry(verts);
+      // Solid face mesh
+      const mat=new THREE.MeshPhongMaterial({color:0x6366f1,emissive:new THREE.Color(0x2a1870),emissiveIntensity:0.3,transparent:true,opacity:0.18,side:THREE.DoubleSide});
+      addToScene(new THREE.Mesh(geo,mat));
+      // Wireframe
+      const wg=new THREE.WireframeGeometry(geo);
+      const wm=new THREE.LineBasicMaterial({color:0xa78bfa,opacity:0.85,transparent:true});
+      addToScene(new THREE.LineSegments(wg,wm));
+    }catch(e){
+      // Fallback: show BZ planes as perpendicular bisector wireframes
+      buildBZFallback(allGs,rv);
+    }
+  } else {
+    buildBZFallback(allGs,rv);
+  }
+
+  // High-symmetry points
+  buildSymPoints(rv);
+
+  // b vectors
+  const vg=new THREE.Group();
+  [{vec:b1,color:0xff4455},{vec:b2,color:0x44ff88},{vec:b3,color:0x4488ff}].forEach(({vec,color})=>{
+    const len=vec.length();if(len<0.001)return;
+    vg.add(new THREE.ArrowHelper(vec.clone().normalize(),new THREE.Vector3(0,0,0),len*0.5,color,len*0.1,len*0.07));
+  });
+  addToScene(vg);
+
+  if(S.showAxes){
+    const al=b1.length()*1.5;addToScene(new THREE.AxesHelper(al));
+  }
+}
+
+function buildBZFallback(allGs,rv){
+  // Show first few bisector planes as circles
+  const Gs=allGs.slice(0,14);
+  Gs.forEach(G=>{
+    const len=G.length();
+    const center=G.clone().multiplyScalar(0.5);
+    const normal=G.clone().normalize();
+    const geo=new THREE.RingGeometry(0,len*0.7,32);
+    const mat=new THREE.MeshBasicMaterial({color:0xa78bfa,transparent:true,opacity:0.15,side:THREE.DoubleSide});
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.copy(center);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);
+    addToScene(mesh);
+  });
+}
+
+function buildSymPoints(rv){
+  const{b1,b2,b3}=rv;
+  const grp=new THREE.Group();
+  // Γ always
+  const gSg=new THREE.SphereBufferGeometry(0.08,12,12);
+  const gMat=new THREE.MeshPhysicalMaterial({color:0xffd700,emissive:new THREE.Color(0xffd700),emissiveIntensity:0.8});
+  const gMesh=new THREE.Mesh(gSg,gMat);
+  grp.add(gMesh);
+  grp.add(makeLabel('Γ',new THREE.Vector3(0.25,0.2,0),0xffd700));
+
+  // Crystal-system specific points
+  const sysId=S.systemId;
+  const symPts=[];
+  if(sysId==='cubic'){
+    const ctr=S.centering;
+    if(ctr==='P'){
+      symPts.push({pos:b1.clone().add(b2).add(b3).multiplyScalar(0.5),lbl:'R'});
+      symPts.push({pos:b2.clone().multiplyScalar(0.5),lbl:'X'});
+      symPts.push({pos:b1.clone().add(b2).multiplyScalar(0.5),lbl:'M'});
+    } else if(ctr==='F'){
+      const X=b1.clone().multiplyScalar(0.5).add(b3.clone().multiplyScalar(0.5));
+      symPts.push({pos:X,lbl:'X'});
+      const L=b1.clone().add(b2).add(b3).multiplyScalar(0.5);
+      symPts.push({pos:L,lbl:'L'});
+    } else if(ctr==='I'){
+      const H=b1.clone().multiplyScalar(0.5).sub(b2.clone().multiplyScalar(0.5)).add(b3.clone().multiplyScalar(0.5));
+      symPts.push({pos:H,lbl:'H'});
+      const N=b2.clone().multiplyScalar(0.5);
+      symPts.push({pos:N,lbl:'N'});
+    }
+  } else if(sysId==='hexagonal'){
+    const M=b1.clone().add(b2).multiplyScalar(0.5);
+    const K=b1.clone().multiplyScalar(2/3).add(b2.clone().multiplyScalar(1/3));
+    symPts.push({pos:M,lbl:'M'});
+    symPts.push({pos:K,lbl:'K'});
+    symPts.push({pos:b3.clone().multiplyScalar(0.5),lbl:'A'});
+  }
+
+  const sg=new THREE.SphereBufferGeometry(0.065,10,10);
+  const colors=[0x06d6a0,0xff9500,0xa855f7,0xff4466];
+  symPts.forEach(({pos,lbl},i)=>{
+    const col=colors[i%colors.length];
+    const m=new THREE.Mesh(sg,new THREE.MeshPhysicalMaterial({color:col,emissive:new THREE.Color(col),emissiveIntensity:0.6}));
+    m.position.copy(pos);grp.add(m);
+    const sp=makeLabel(lbl,pos.clone().multiplyScalar(1.3),col);
+    grp.add(sp);
+  });
+  addToScene(grp);
+}
+
+// ── MILLER PLANES ────────────────────────────────
+function buildMillerPlanes(){
+  const rv=computeReciprocalVectors();if(!rv)return;
+  const{b1,b2,b3}=rv;
+  const{v1,v2,v3}=getLatticeVectors();
+
+  // Background real lattice (small, semi-transparent)
+  const Nx=Math.min(S.Nx,2),Ny=Math.min(S.Ny,2),Nz=Math.min(S.Nz,2);
+  const cps=getCenteringPoints(S.centering);
+  const seen=new Set(),cornerPts=[];
+  const key=(p)=>`${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`;
+  for(let ix=0;ix<=Nx;ix++) for(let iy=0;iy<=Ny;iy++) for(let iz=0;iz<=Nz;iz++){
+    for(const[fx,fy,fz]of cps){
+      const pos=v1.clone().multiplyScalar(ix+fx).add(v2.clone().multiplyScalar(iy+fy)).add(v3.clone().multiplyScalar(iz+fz));
+      const k=key(pos);if(seen.has(k))continue;seen.add(k);
+      cornerPts.push(pos);
+    }
+  }
+  if(cornerPts.length){
+    const sg=new THREE.SphereBufferGeometry(0.08,12,12);
+    const mat=new THREE.MeshPhysicalMaterial({color:0x3a5a8a,emissive:new THREE.Color(0x112233),emissiveIntensity:0.3,transparent:true,opacity:0.7});
+    const m=new THREE.InstancedMesh(sg,mat,cornerPts.length);
+    const d=new THREE.Object3D();
+    cornerPts.forEach((p,i)=>{d.position.copy(p);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+    m.instanceMatrix.needsUpdate=true;
+    addToScene(m);
+  }
+
+  // Draw unit cell edges
+  if(S.showEdges){
+    const P=new THREE.Vector3(0,0,0);
+    const c=[P,P.clone().add(v1),P.clone().add(v2),P.clone().add(v3),
+             P.clone().add(v1).add(v2),P.clone().add(v1).add(v3),
+             P.clone().add(v2).add(v3),P.clone().add(v1).add(v2).add(v3)];
+    const pairs=[[0,1],[2,4],[3,5],[6,7],[0,2],[1,4],[3,6],[5,7],[0,3],[1,5],[2,6],[4,7]];
+    const ev=[];
+    pairs.forEach(([a,b])=>{ev.push(c[a].x,c[a].y,c[a].z,c[b].x,c[b].y,c[b].z);});
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(ev,3));
+    addToScene(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x334466,opacity:0.6,transparent:true})));
+  }
+
+  const{h,k,l}=S;
+  if(h===0&&k===0&&l===0){
+    updateMillerInfo('(0,0,0) undefined');return;
+  }
+
+  // G_hkl = h*b1 + k*b2 + l*b3
+  const G=b1.clone().multiplyScalar(h).add(b2.clone().multiplyScalar(k)).add(b3.clone().multiplyScalar(l));
+  const Glen=G.length();
+  const dSpacing=(2*Math.PI)/Glen;
+  const Ghat=G.clone().normalize();
+
+  // Range of planes: from -extent to +extent along G
+  const extent=Math.max(S.a*Nx,S.b*Ny,S.c*Nz)*1.2;
+  const nMin=Math.floor(-extent/dSpacing)-1;
+  const nMax=Math.ceil(extent/dSpacing)+1;
+
+  // Plane size (large disc)
+  const planeR=Math.max(S.a,S.b,S.c)*Math.max(Nx,Ny,Nz)*0.9;
+  const planeGeo=new THREE.CircleGeometry(planeR,48);
+  const planeMat=new THREE.MeshBasicMaterial({color:0x34d399,transparent:true,opacity:0.18,side:THREE.DoubleSide});
+  const edgeMat=new THREE.LineBasicMaterial({color:0x34d399,opacity:0.5,transparent:true});
+
+  for(let n=nMin;n<=nMax;n++){
+    const pos=Ghat.clone().multiplyScalar(n*dSpacing);
+    if(pos.length()>extent+dSpacing*2) continue;
+    const mesh=new THREE.Mesh(planeGeo,planeMat.clone());
+    mesh.position.copy(pos);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),Ghat);
+    addToScene(mesh);
+    // Edge ring
+    const ring=new THREE.RingGeometry(planeR*0.98,planeR,48);
+    const rm=new THREE.Mesh(ring,new THREE.MeshBasicMaterial({color:0x34d399,transparent:true,opacity:0.35,side:THREE.DoubleSide}));
+    rm.position.copy(pos);rm.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),Ghat);
+    addToScene(rm);
+  }
+
+  // Normal vector (G_hkl direction)
+  const arrowLen=dSpacing*2.5;
+  const ag=new THREE.Group();
+  ag.add(new THREE.ArrowHelper(Ghat,new THREE.Vector3(0,0,0),arrowLen,0xffd166,arrowLen*0.2,arrowLen*0.12));
+  const lp=Ghat.clone().multiplyScalar(arrowLen*1.15);
+  ag.add(makeLabel(`G(${h}${k}${l})`,lp,0xffd166));
+  addToScene(ag);
+
+  // d-spacing indicator
+  const d0=new THREE.Vector3(0,0,0);
+  const d1=Ghat.clone().multiplyScalar(dSpacing);
+  const dArr=[];dArr.push(d0.x,d0.y,d0.z,d1.x,d1.y,d1.z);
+  const dGeo=new THREE.BufferGeometry();dGeo.setAttribute('position',new THREE.Float32BufferAttribute(dArr,3));
+  addToScene(new THREE.LineSegments(dGeo,new THREE.LineBasicMaterial({color:0xffd166,opacity:0.7,transparent:true})));
+
+  if(S.showAxes){
+    addToScene(new THREE.AxesHelper(Math.max(S.a,S.b,S.c)*1.5));
+  }
+
+  updateMillerInfo(`d = ${dSpacing.toFixed(3)} Å, |G| = ${Glen.toFixed(3)} Å⁻¹`);
+}
+
+function updateMillerInfo(msg){
+  const el=document.getElementById('miller-info');
+  if(!el) return;
+  const{h,k,l}=S;
+  const hkl=`(${h>=0?h:h̄(h)} ${k>=0?k:k̄(k)} ${l>=0?l:l̄(l)})`;
+  el.innerHTML=`Plane <span class="mv">(${h},${k},${l})</span><br>${msg.replace(/Å/g,'<span style="color:var(--text3)">Å</span>')}`;
+}
+
+function h̄(n){return`<span style="text-decoration:overline">${Math.abs(n)}</span>`}
+function k̄(n){return`<span style="text-decoration:overline">${Math.abs(n)}</span>`}
+function l̄(n){return`<span style="text-decoration:overline">${Math.abs(n)}</span>`}
+
+// ── DIFFRACTION / EWALD SPHERE ──────────────────
+function buildDiffraction(){
+  const rv=computeReciprocalVectors();if(!rv)return;
+  const{b1,b2,b3}=rv;
+  const k=2*Math.PI/S.wavelength;
+
+  // Incident direction
+  const tRad=d2r(S.incidentTheta);
+  const pRad=d2r(S.incidentPhi);
+  const kiHat=new THREE.Vector3(
+    Math.sin(tRad)*Math.cos(pRad),
+    Math.cos(tRad),
+    Math.sin(tRad)*Math.sin(pRad)
+  );
+  const ki=kiHat.clone().multiplyScalar(k);
+  const sphereCenter=ki.clone().negate(); // C = -k_i
+
+  // Ewald sphere
+  const sGeo=new THREE.SphereGeometry(k,40,40);
+  const sMat=new THREE.MeshPhongMaterial({color:0xf472b6,transparent:true,opacity:0.07,side:THREE.DoubleSide,depthWrite:false});
+  const sMesh=new THREE.Mesh(sGeo,sMat);
+  sMesh.position.copy(sphereCenter);
+  addToScene(sMesh);
+
+  // Ewald sphere wireframe
+  const swGeo=new THREE.WireframeGeometry(new THREE.SphereGeometry(k,20,20));
+  const swMat=new THREE.LineBasicMaterial({color:0xf472b6,opacity:0.15,transparent:true});
+  const swMesh=new THREE.LineSegments(swGeo,swMat);
+  swMesh.position.copy(sphereCenter);
+  addToScene(swMesh);
+
+  // Reciprocal lattice points
+  const N=5;
+  const bragGPts=[];
+  const pts=[];
+  const b1l=b1.length();
+  for(let h=-N;h<=N;h++) for(let kk=-N;kk<=N;kk++) for(let l=-N;l<=N;l++){
+    const G=b1.clone().multiplyScalar(h).add(b2.clone().multiplyScalar(kk)).add(b3.clone().multiplyScalar(l));
+    if(G.length()>k*2.5) continue; // Beyond accessible
+    const dist=G.distanceTo(sphereCenter);
+    const tol=k*0.07;
+    const isBragg=Math.abs(dist-k)<tol;
+    pts.push({G,isBragg,hkl:[h,kk,l]});
+    if(isBragg) bragGPts.push({G,hkl:[h,kk,l],dist});
+  }
+
+  // Regular reciprocal lattice points
+  const regularPts=pts.filter(p=>!p.isBragg);
+  if(regularPts.length){
+    const sg=new THREE.SphereBufferGeometry(0.05,10,10);
+    const mat=new THREE.MeshBasicMaterial({color:0x334466});
+    const m=new THREE.InstancedMesh(sg,mat,regularPts.length);
+    const d=new THREE.Object3D();
+    regularPts.forEach(({G},i)=>{d.position.copy(G);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+    m.instanceMatrix.needsUpdate=true;
+    addToScene(m);
+  }
+
+  // Bragg peaks (highlighted)
+  bragGPts.forEach(({G,hkl})=>{
+    const sg=new THREE.SphereBufferGeometry(0.12,14,14);
+    const mat=new THREE.MeshPhysicalMaterial({color:0xff9500,emissive:new THREE.Color(0xff6600),emissiveIntensity:0.8,transparent:false});
+    const m=new THREE.Mesh(sg,mat);
+    m.position.copy(G);
+    addToScene(m);
+    // Diffracted beam arrow: from sphere center to G
+    const kfDir=G.clone().sub(sphereCenter).normalize();
+    const ag=new THREE.Group();
+    ag.add(new THREE.ArrowHelper(kfDir,sphereCenter.clone(),k,0x06d6a0,k*0.08,k*0.05));
+    addToScene(ag);
+    // Label
+    const lp=G.clone().add(new THREE.Vector3(0.15,0.15,0));
+    addToScene(makeLabel(`(${hkl.join('')})`,lp,0xff9500));
+  });
+
+  // Incident beam arrow
+  const ig=new THREE.Group();
+  ig.add(new THREE.ArrowHelper(kiHat,sphereCenter.clone(),k,0x00e5ff,k*0.1,k*0.07));
+  addToScene(ig);
+  addToScene(makeLabel('k_i',sphereCenter.clone().add(kiHat.clone().multiplyScalar(k*0.5)).add(new THREE.Vector3(0,0.3,0)),0x00e5ff));
+  addToScene(makeLabel('C=−k_i',sphereCenter.clone().add(new THREE.Vector3(0.2,-0.4,0)),0xf472b6));
+
+  // Origin marker
+  const oSg=new THREE.SphereBufferGeometry(0.08,12,12);
+  const oMat=new THREE.MeshPhysicalMaterial({color:0xffffff,emissive:new THREE.Color(0xffffff),emissiveIntensity:0.6});
+  addToScene(new THREE.Mesh(oSg,oMat));
+  addToScene(makeLabel('Γ',new THREE.Vector3(0.2,0.2,0),0xffd700));
+
+  if(S.showAxes){
+    addToScene(new THREE.AxesHelper(k*0.6));
+  }
+
+  // Update diffraction controls
+  const kVal=(2*Math.PI/S.wavelength).toFixed(3);
+  const dMin=(S.wavelength/2).toFixed(3);
+  const el_k=document.getElementById('dv-k');const el_d=document.getElementById('dv-dmin');
+  const el_p=document.getElementById('dv-peaks');const el_bl=document.getElementById('bragg-list');
+  if(el_k) el_k.textContent=kVal;
+  if(el_d) el_d.textContent=dMin;
+  if(el_p) el_p.textContent=bragGPts.length;
+  if(el_bl){
+    el_bl.innerHTML=bragGPts.length===0?'<span style="color:var(--text2)">No peaks (adjust λ or angle)</span>':
+      bragGPts.slice(0,10).map(({hkl,G})=>{
+        const twoTheta=2*Math.asin(G.length()/(2*k));
+        return `<span class="bp">(${hkl.join('')})  2θ=${(twoTheta*180/Math.PI).toFixed(1)}°  d=${(2*Math.PI/G.length()).toFixed(3)}Å</span>`;
+      }).join('');
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HUD & FOOTER & LEGEND
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getLatticeObj(){
+  for(const sys of SYSTEMS){const lat=sys.lattices.find(l=>l.id===S.latticeId);if(lat)return{sys,lat};}return null;
+}
+
+function updateHUD(){
+  const lo=getLatticeObj();if(!lo)return;
+  const vol=computeVolume();
+  const pts=getCenteringPoints(S.centering).length;
+  const rv=computeReciprocalVectors();
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('hud-name',lo.lat.name);
+  set('hud-sys',lo.sys.name);
+  set('hud-ctr',S.centering);
+  set('hud-pts',pts);
+  set('hud-vol',vol.toFixed(2)+' Å³');
+  set('hud-sym',lo.sys.symLabel);
+  set('hdr-system',lo.sys.name);
+  set('hdr-lattice',S.centering==='P'?'Primitive (P)':lo.lat.name);
+  set('hdr-a',S.a.toFixed(3));
+
+  // Extra row
+  const er=document.getElementById('hud-extra-row');
+  const ek=document.getElementById('hud-extra-k');
+  const ev=document.getElementById('hud-extra-v');
+  if(S.mode===MODES.RECIPROCAL||S.mode===MODES.BRILLOUIN){
+    if(rv&&er&&ek&&ev){
+      er.style.display='flex';
+      ek.textContent='V*';
+      ev.textContent=((2*Math.PI)**3/vol).toFixed(3)+' Å⁻³';
+    }
+  } else if(S.mode===MODES.MILLER){
+    const{h,k,l}=S;
+    if(h===0&&k===0&&l===0){er&&(er.style.display='none');}
+    else if(rv&&er&&ek&&ev){
+      const G=rv.b1.clone().multiplyScalar(h).add(rv.b2.clone().multiplyScalar(k)).add(rv.b3.clone().multiplyScalar(l));
+      er.style.display='flex';
+      ek.textContent='d(hkl)';
+      ev.textContent=((2*Math.PI)/G.length()).toFixed(3)+' Å';
+    }
+  } else if(S.mode===MODES.DIFFRACTION){
+    if(er&&ek&&ev){
+      er.style.display='flex';ek.textContent='λ';ev.textContent=S.wavelength.toFixed(3)+' Å';
+    }
+  } else {er&&(er.style.display='none');}
+
+  const hd=document.querySelector('.hud-dot');
+  if(hd){hd.style.background=MODE_COLORS[S.mode].replace('var(--','').replace(')','');hd.style.boxShadow=`0 0 8px ${MODE_COLORS[S.mode]}`;}
+}
+
+function updateFooter(){
+  const lo=getLatticeObj();if(!lo)return;
+  const vol=computeVolume();
+  const cells=S.originOnly?1:S.Nx*S.Ny*S.Nz;
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('ft-type',lo.sys.name+' '+S.centering);
+  set('ft-a',S.a.toFixed(3));set('ft-b',S.b.toFixed(3));set('ft-c',S.c.toFixed(3));
+  set('ft-alpha',S.alpha.toFixed(1)+'°');set('ft-beta',S.beta.toFixed(1)+'°');set('ft-gamma',S.gamma.toFixed(1)+'°');
+  set('ft-vol',vol.toFixed(2));
+  set('ft-cells',cells);
+  set('ft-mode',MODE_LABELS[S.mode]);
+}
+
+function updateLegend(){
+  const el=document.getElementById('legend');if(!el)return;
+  const modes={
+    real:`<div class="leg-item"><div class="leg-dot" style="background:#00e5ff;box-shadow:0 0 5px #00e5ff"></div>Corner atoms</div><div class="leg-item"><div class="leg-dot" style="background:#ff9500;box-shadow:0 0 5px #ff9500"></div>Centering atoms</div><div class="leg-item"><div class="leg-dot" style="background:#a855f7"></div>Origin cell</div>`,
+    reciprocal:`<div class="leg-item"><div class="leg-dot" style="background:#fff"></div>Γ (origin)</div><div class="leg-item"><div class="leg-dot" style="background:#00e5ff"></div>1st shell</div><div class="leg-item"><div class="leg-dot" style="background:#ffd166"></div>2nd shell</div><div class="leg-item"><div class="leg-dot" style="background:#ff4455"></div>b₁</div><div class="leg-item"><div class="leg-dot" style="background:#44ff88"></div>b₂</div><div class="leg-item"><div class="leg-dot" style="background:#4488ff"></div>b₃</div>`,
+    brillouin:`<div class="leg-item"><div class="leg-dot" style="background:#a78bfa"></div>1st BZ</div><div class="leg-item"><div class="leg-dot" style="background:#ffd700"></div>Γ point</div><div class="leg-item"><div class="leg-dot" style="background:#06d6a0"></div>Sym. points</div>`,
+    miller:`<div class="leg-item"><div class="leg-dot" style="background:#34d399"></div>(hkl) planes</div><div class="leg-item"><div class="leg-dot" style="background:#ffd166"></div>G_(hkl) vector</div><div class="leg-item"><div class="leg-dot" style="background:#3a5a8a"></div>Lattice atoms</div>`,
+    diffraction:`<div class="leg-item"><div class="leg-dot" style="background:#f472b6"></div>Ewald sphere</div><div class="leg-item"><div class="leg-dot" style="background:#00e5ff"></div>k_i (incident)</div><div class="leg-item"><div class="leg-dot" style="background:#ff9500"></div>Bragg peaks</div><div class="leg-item"><div class="leg-dot" style="background:#06d6a0"></div>Diffracted beams</div>`,
+  };
+  el.innerHTML=modes[S.mode]||modes.real;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UI BUILDING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function buildSystemList(){
+  const cont=document.getElementById('system-list');cont.innerHTML='';
+  SYSTEMS.forEach(sys=>{
+    const grp=document.createElement('div');grp.className='sys-group';
+    const head=document.createElement('div');
+    head.className='sys-name'+(sys.id===S.systemId?' active':'');
+    head.dataset.sys=sys.id;
+    head.innerHTML=`<span class="sys-dot" style="background:${sys.color}"></span>${sys.name}`;
+    head.addEventListener('click',()=>selectSystem(sys.id));
+    grp.appendChild(head);
+    const lats=document.createElement('div');lats.className='sys-lattices';lats.style.display=sys.id===S.systemId?'block':'none';
+    sys.lattices.forEach(lat=>{
+      const btn=document.createElement('button');
+      btn.className='lat-btn'+(lat.id===S.latticeId?' active':'');
+      btn.textContent=lat.name;
+      btn.addEventListener('click',e=>{e.stopPropagation();selectLattice(sys.id,lat.id,lat.centering);});
+      lats.appendChild(btn);
+    });
+    grp.appendChild(lats);cont.appendChild(grp);
+  });
+}
+
+function buildPresets(){
+  const cont=document.getElementById('presets-list');cont.innerHTML='';
+  PRESETS.forEach(p=>{
+    const btn=document.createElement('button');btn.className='preset-btn';
+    btn.innerHTML=`<span class="preset-icon">${p.icon}</span><span class="preset-info"><span class="preset-name">${p.name} <span style="color:var(--text2);font-weight:400">(${p.formula})</span></span><span class="preset-sub">${p.note}</span></span>`;
+    btn.addEventListener('click',()=>applyPreset(p));
+    cont.appendChild(btn);
+  });
+}
+
+function selectSystem(sysId){
+  const sys=SYSTEMS.find(s=>s.id===sysId);if(!sys)return;
+  S.systemId=sysId;
+  const fl=sys.lattices[0];S.latticeId=fl.id;S.centering=fl.centering;
+  applySystemDefaults(sys);buildSystemList();updateConstraintUI();buildScene();
+}
+
+function selectLattice(sysId,latId,centering){
+  S.systemId=sysId;S.latticeId=latId;S.centering=centering;
+  buildSystemList();buildScene();
+}
+
+function applySystemDefaults(sys){
+  const d=sys.defaults;S.a=d.a;S.b=d.b;S.c=d.c;S.alpha=d.alpha;S.beta=d.beta;S.gamma=d.gamma;
+  syncParamUI();
+}
+
+function applyPreset(p){
+  for(const sys of SYSTEMS){const lat=sys.lattices.find(l=>l.id===p.lattice);if(lat){S.systemId=sys.id;S.latticeId=lat.id;S.centering=lat.centering;break;}}
+  const sc=1.2;S.a=p.a*sc;S.b=p.b*sc;S.c=p.c*sc;S.alpha=p.alpha;S.beta=p.beta;S.gamma=p.gamma;
+  buildSystemList();syncParamUI();updateConstraintUI();buildScene();notify(`Loaded: ${p.name}`);
+}
+
+function syncParamUI(){
+  const sys=SYSTEMS.find(s=>s.id===S.systemId);if(!sys)return;
+  const con=sys.constraints;
+  if(con.b==='a')S.b=S.a;if(con.c==='a')S.c=S.a;
+  if(typeof con.alpha==='number')S.alpha=con.alpha;
+  if(typeof con.beta==='number')S.beta=con.beta;
+  if(typeof con.gamma==='number')S.gamma=con.gamma;
+  if(con.beta==='alpha')S.beta=S.alpha;if(con.gamma==='alpha')S.gamma=S.alpha;
+  setSlider('sl-a','in-a',S.a,1,12);setSlider('sl-b','in-b',S.b,1,12);setSlider('sl-c','in-c',S.c,1,12);
+  setSlider('sl-alpha','in-alpha',S.alpha,20,160);setSlider('sl-beta','in-beta',S.beta,20,160);setSlider('sl-gamma','in-gamma',S.gamma,20,160);
+}
+
+function setSlider(slId,inId,val,mn,mx){
+  const sl=document.getElementById(slId);const inp=document.getElementById(inId);
+  if(sl){sl.value=val;updateSliderGradient(sl,val,mn,mx);}
+  if(inp)inp.value=val.toFixed(slId.includes('sl-a')||slId.includes('sl-b')||slId.includes('sl-c')?3:1);
+}
+
+function updateSliderGradient(sl,val,mn,mx){
+  const pct=((val-mn)/(mx-mn)*100).toFixed(1);sl.style.setProperty('--pct',pct+'%');
+}
+
+function updateConstraintUI(){
+  const sys=SYSTEMS.find(s=>s.id===S.systemId);if(!sys)return;
+  const con=sys.constraints;
+  const params=['a','b','c','alpha','beta','gamma'];
+  params.forEach(p=>{
+    const sl=document.getElementById(`sl-${p}`);const inp=document.getElementById(`in-${p}`);const lk=document.getElementById(`lk-${p}`);
+    let locked=(p==='b'&&con.b==='a')||(p==='c'&&con.c==='a')||(p==='beta'&&con.beta==='alpha')||(p==='gamma'&&con.gamma==='alpha')||typeof con[p]==='number';
+    if(sl)sl.disabled=locked;if(inp)inp.disabled=locked;if(lk)lk.textContent=locked?'🔒':'';
+  });
+  const info=document.getElementById('constraint-info');if(!info)return;
+  const lines=[];
+  if(con.b==='a')lines.push('b=a');if(con.c==='a')lines.push('c=a');
+  if(typeof con.alpha==='number')lines.push(`α=${con.alpha}°`);
+  if(typeof con.beta==='number')lines.push(`β=${con.beta}°`);
+  if(typeof con.gamma==='number')lines.push(`γ=${con.gamma}°`);
+  if(con.beta==='alpha')lines.push('β=α');if(con.gamma==='alpha')lines.push('γ=α');
+  info.innerHTML=lines.length?lines.map(l=>`<span class="ci-val">${l}</span>`).join('  '):'<span style="color:var(--text2)">All parameters free</span>';
+}
+
+function initParamControls(){
+  const params=[{id:'a',min:1,max:12},{id:'b',min:1,max:12},{id:'c',min:1,max:12},{id:'alpha',min:20,max:160},{id:'beta',min:20,max:160},{id:'gamma',min:20,max:160}];
+  params.forEach(({id,min,max})=>{
+    const sl=document.getElementById(`sl-${id}`);const inp=document.getElementById(`in-${id}`);
+    if(!sl||!inp)return;
+    const onChange=()=>{
+      const v=parseFloat(sl.value);S[id]=v;
+      inp.value=v.toFixed(id==='a'||id==='b'||id==='c'?3:1);
+      updateSliderGradient(sl,v,min,max);
+      const sys=SYSTEMS.find(s=>s.id===S.systemId);
+      if(sys){const con=sys.constraints;
+        if(con.b==='a'){S.b=S.a;setSlider('sl-b','in-b',S.b,1,12);}
+        if(con.c==='a'){S.c=S.a;setSlider('sl-c','in-c',S.c,1,12);}
+        if(con.beta==='alpha'){S.beta=S.alpha;setSlider('sl-beta','in-beta',S.beta,20,160);}
+        if(con.gamma==='alpha'){S.gamma=S.alpha;setSlider('sl-gamma','in-gamma',S.gamma,20,160);}
+      }
+      buildScene();
+    };
+    sl.addEventListener('input',onChange);
+    inp.addEventListener('change',()=>{sl.value=inp.value;onChange();});
+  });
+}
+
+function initRepControls(){
+  ['nx','ny','nz'].forEach(id=>{
+    const key=id.toUpperCase();
+    const sl=document.getElementById(`sl-${id}`);
+    const inp=document.getElementById(`in-${id}`);
+    if(!sl||!inp)return;
+    const update=()=>{
+      const v=Math.max(1,Math.min(8,parseInt(sl.value)||1));
+      S[key]=v;inp.value=v;sl.value=v;
+      updateSliderGradient(sl,v,1,8);
+      buildScene();
+    };
+    sl.addEventListener('input',update);
+    inp.addEventListener('change',update);
+    // Init gradient
+    updateSliderGradient(sl,S[key],1,8);
+  });
+}
+
+function initMillerControls(){
+  const hklIds=['h','k','l'];
+  // Steppers
+  document.querySelectorAll('.mstep-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const dir=parseInt(btn.dataset.dir);
+      const id=hklIds[idx];
+      S[id]=Math.max(-6,Math.min(6,S[id]+dir));
+      updateMillerUI();buildScene();
+    });
+  });
+  // Sliders
+  ['h','k','l'].forEach(id=>{
+    const sl=document.getElementById(`sl-${id}`);
+    if(!sl)return;
+    sl.addEventListener('input',()=>{
+      S[id]=parseInt(sl.value);
+      updateMillerUI();buildScene();
+    });
+  });
+}
+
+function updateMillerUI(){
+  ['h','k','l'].forEach(id=>{
+    const mv=document.getElementById(`mv-${id}`);
+    const sl=document.getElementById(`sl-${id}`);
+    if(mv) mv.textContent=S[id];
+    if(sl){sl.value=S[id];updateSliderGradient(sl,S[id],-6,6);}
+  });
+}
+
+function initDiffractionControls(){
+  const slLambda=document.getElementById('sl-lambda');
+  const inLambda=document.getElementById('in-lambda');
+  const slTheta=document.getElementById('sl-itheta');
+  const inTheta=document.getElementById('in-itheta');
+  const slPhi=document.getElementById('sl-iphi');
+  const inPhi=document.getElementById('in-iphi');
+
+  const updateLambda=()=>{S.wavelength=parseFloat(slLambda.value);if(inLambda)inLambda.value=S.wavelength.toFixed(3);updateSliderGradient(slLambda,S.wavelength,0.4,4.0);buildScene();};
+  const updateTheta=()=>{S.incidentTheta=parseFloat(slTheta.value);if(inTheta)inTheta.value=S.incidentTheta;updateSliderGradient(slTheta,S.incidentTheta,0,90);buildScene();};
+  const updatePhi=()=>{S.incidentPhi=parseFloat(slPhi.value);if(inPhi)inPhi.value=S.incidentPhi;updateSliderGradient(slPhi,S.incidentPhi,0,360);buildScene();};
+
+  if(slLambda){slLambda.addEventListener('input',updateLambda);if(inLambda)inLambda.addEventListener('change',()=>{slLambda.value=inLambda.value;updateLambda();});}
+  if(slTheta){slTheta.addEventListener('input',updateTheta);if(inTheta)inTheta.addEventListener('change',()=>{slTheta.value=inTheta.value;updateTheta();});}
+  if(slPhi){slPhi.addEventListener('input',updatePhi);if(inPhi)inPhi.addEventListener('change',()=>{slPhi.value=inPhi.value;updatePhi();});}
+
+  // Init gradients
+  if(slLambda)updateSliderGradient(slLambda,S.wavelength,0.4,4.0);
+  if(slTheta)updateSliderGradient(slTheta,S.incidentTheta,0,90);
+  if(slPhi)updateSliderGradient(slPhi,S.incidentPhi,0,360);
+}
+
+function initToggleControls(){
+  const map={
+    't-atoms':()=>{S.showAtoms=!S.showAtoms;buildScene();},
+    't-edges':()=>{S.showEdges=!S.showEdges;buildScene();},
+    't-axes':()=>{S.showAxes=!S.showAxes;buildScene();},
+    't-faces':()=>{S.showFaces=!S.showFaces;buildScene();},
+    't-vectors':()=>{S.showVectors=!S.showVectors;buildScene();},
+    't-glow':()=>{S.showGlow=!S.showGlow;buildScene();},
+    't-origin':()=>{S.showOrigin=!S.showOrigin;buildScene();},
+    't-wireframe':()=>{S.wireframe=!S.wireframe;buildScene();},
+    't-origin-only':()=>{S.originOnly=!S.originOnly;buildScene();},
+    't-animate':()=>{S.autoRotate=!S.autoRotate;controls.autoRotate=S.autoRotate;},
+  };
+  Object.entries(map).forEach(([id,fn])=>{const el=document.getElementById(id);if(el)el.addEventListener('change',fn);});
+}
+
+function initModeButtons(){
+  document.querySelectorAll('.mode-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const mode=btn.dataset.mode;
+      if(mode===S.mode) return;
+      S.mode=mode;
+      document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      // Show/hide mode-specific panels
+      document.getElementById('miller-block').style.display=mode===MODES.MILLER?'block':'none';
+      document.getElementById('diffr-block').style.display=mode===MODES.DIFFRACTION?'block':'none';
+      // Update header chip
+      const hm=document.getElementById('hdr-mode');
+      if(hm){hm.style.setProperty('--mode-col',MODE_COLORS[mode]);hm.innerHTML=`Mode: <span>${MODE_LABELS[mode]}</span>`;}
+      // Update theory panel
+      updateTheoryPanel();
+      buildScene();
+    });
+  });
+}
+
+function updateTheoryPanel(){
+  const tc=document.getElementById('theory-content');
+  if(tc) tc.innerHTML=THEORY[S.mode]||THEORY.real;
+}
+
+function initPanelToggles(){
+  document.querySelectorAll('.pblock-head').forEach(h=>{
+    h.addEventListener('click',()=>{
+      const target=h.dataset.target;const body=document.getElementById(target);if(!body)return;
+      const open=!body.classList.contains('hide');
+      body.classList.toggle('hide',open);h.classList.toggle('open',!open);
+    });
+    h.classList.add('open');
+  });
+}
+
+function initTopbarButtons(){
+  document.getElementById('btn-theory').addEventListener('click',()=>{
+    S.theoryOpen=!S.theoryOpen;
+    document.getElementById('right-panel').classList.toggle('collapsed',!S.theoryOpen);
+    document.getElementById('btn-theory').classList.toggle('active',S.theoryOpen);
+    setTimeout(onResize,300);
+  });
+  document.getElementById('btn-theme').addEventListener('click',()=>{
+    S.theme=S.theme==='dark'?'light':'dark';
+    document.body.dataset.theme=S.theme;
+    document.getElementById('btn-theme').textContent=S.theme==='dark'?'🌙':'☀️';
+  });
+  document.getElementById('btn-screenshot').addEventListener('click',()=>{
+    renderer.render(scene,camera);
+    const link=document.createElement('a');link.download='crystalviz_pro.png';link.href=renderer.domElement.toDataURL('image/png');link.click();
+    notify('Screenshot saved!');
+  });
+  document.getElementById('btn-fullscreen').addEventListener('click',()=>{
+    if(!document.fullscreenElement)document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  });
+  document.getElementById('btn-reset').addEventListener('click',()=>{
+    camera.position.set(20,16,20);camera.lookAt(0,0,0);controls.reset();
+  });
+  document.getElementById('btn-anim').addEventListener('click',()=>{
+    S.autoRotate=!S.autoRotate;controls.autoRotate=S.autoRotate;
+    document.getElementById('btn-anim').textContent=S.autoRotate?'⏸':'▶';
+  });
+}
+
+let notifTimer=null;
+function notify(msg){
+  const el=document.getElementById('notif');el.textContent=msg;el.classList.add('show');
+  if(notifTimer)clearTimeout(notifTimer);
+  notifTimer=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ANIMATION LOOP
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  // Glow pulse for atoms in real mode
+  if(S.mode===MODES.REAL&&S.showAtoms&&S.showGlow){
+    sceneObjects.forEach(o=>{
+      if(o instanceof THREE.Group){
+        o.children.forEach((m,i)=>{
+          if(m.material&&m.material.emissiveIntensity!==undefined){
+            m.material.emissiveIntensity=0.35+Math.sin(t*1.3+i*0.6)*0.18;
+          }
+        });
+      }
+    });
+  }
+  controls.update();
+  renderer.render(scene,camera);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function init(){
+  initThree();
+  buildSystemList();
+  buildPresets();
+  initPanelToggles();
+  initParamControls();
+  initRepControls();
+  initToggleControls();
+  initModeButtons();
+  initMillerControls();
+  initDiffractionControls();
+  initTopbarButtons();
+  syncParamUI();
+  updateConstraintUI();
+  updateMillerUI();
+  updateTheoryPanel();
+  buildScene();
+  animate();
+}
+
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

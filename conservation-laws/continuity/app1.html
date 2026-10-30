@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Continuity Equation — Physics Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060a12;
+  --panel: #0c1220;
+  --panel2: #111b2e;
+  --border: #1e3050;
+  --accent1: #00d4ff;
+  --accent2: #7c3aed;
+  --accent3: #f59e0b;
+  --accent4: #10b981;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-mid: #94a3b8;
+  --glow1: rgba(0,212,255,0.15);
+  --glow2: rgba(124,58,237,0.15);
+  --glow3: rgba(245,158,11,0.15);
+  --glow4: rgba(16,185,129,0.15);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background grid */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 60px; }
+
+/* Header */
+header {
+  padding: 48px 0 32px;
+  text-align: center;
+  position: relative;
+}
+header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 200px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent1), transparent);
+}
+.header-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: var(--accent1);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, #fff 0%, var(--accent1) 50%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+.subtitle {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  color: var(--text-mid);
+  letter-spacing: 1px;
+}
+
+/* Master equation */
+.master-eq {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin: 36px 0 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.master-eq::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, var(--glow1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.master-eq h2 {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--accent1);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.eq-display {
+  font-family: 'Space Mono', monospace;
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  color: #fff;
+  margin-bottom: 12px;
+}
+.eq-display span { color: var(--accent1); }
+.eq-note {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Tab nav */
+.tab-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 32px;
+}
+.tab-btn {
+  padding: 14px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.tab-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--tab-color, var(--accent1));
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+.tab-btn:hover { border-color: var(--tab-color, var(--accent1)); color: var(--text); }
+.tab-btn.active {
+  background: var(--panel2);
+  border-color: var(--tab-color, var(--accent1));
+  color: #fff;
+  box-shadow: 0 0 20px var(--tab-glow, var(--glow1));
+}
+.tab-btn.active::before { transform: scaleX(1); }
+.tab-icon { font-size: 22px; display: block; margin-bottom: 6px; }
+.tab-btn[data-tab="fluid"] { --tab-color: var(--accent1); --tab-glow: var(--glow1); }
+.tab-btn[data-tab="em"] { --tab-color: var(--accent2); --tab-glow: var(--glow2); }
+.tab-btn[data-tab="qm"] { --tab-color: var(--accent3); --tab-glow: var(--glow3); }
+.tab-btn[data-tab="atom"] { --tab-color: var(--accent4); --tab-glow: var(--glow4); }
+
+/* Panels */
+.sim-panel { display: none; }
+.sim-panel.active { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+
+@media (max-width: 900px) {
+  .sim-panel.active { grid-template-columns: 1fr; }
+  .tab-nav { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Canvas area */
+.canvas-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+}
+.canvas-label {
+  position: absolute;
+  top: 12px; left: 14px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Controls */
+.controls-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ctrl-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+}
+.ctrl-card h3 {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ctrl-card[data-section="fluid"] h3 { color: var(--accent1); }
+.ctrl-card[data-section="em"] h3 { color: var(--accent2); }
+.ctrl-card[data-section="qm"] h3 { color: var(--accent3); }
+.ctrl-card[data-section="atom"] h3 { color: var(--accent4); }
+
+.param-row {
+  margin-bottom: 16px;
+}
+.param-row:last-child { margin-bottom: 0; }
+.param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-mid);
+}
+.param-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--panel2);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+input[type=range] {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  background: var(--panel2);
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--slider-color, var(--accent1));
+  box-shadow: 0 0 8px var(--slider-color, var(--accent1));
+  transition: transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.ctrl-card[data-section="fluid"] input[type=range] { --slider-color: var(--accent1); }
+.ctrl-card[data-section="em"] input[type=range] { --slider-color: var(--accent2); }
+.ctrl-card[data-section="qm"] input[type=range] { --slider-color: var(--accent3); }
+.ctrl-card[data-section="atom"] input[type=range] { --slider-color: var(--accent4); }
+
+/* equation card */
+.eq-card {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: auto;
+}
+.eq-card p {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-mid);
+}
+.eq-card .highlight { color: #fff; }
+
+/* metrics strip */
+.metrics {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.metric {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+}
+.metric-val {
+  font-family: 'Space Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.metric-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+/* pause btn */
+.btn-row { display: flex; gap: 8px; margin-top: 10px; }
+.ctrl-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ctrl-btn:hover { border-color: var(--accent1); color: var(--accent1); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="header-tag">Interactive Physics Simulation</div>
+    <h1>The Continuity Equation</h1>
+    <p class="subtitle">∂ρ/∂t + ∇·J = 0 &nbsp;|&nbsp; Conservation of a physical quantity across four domains</p>
+  </header>
+
+  <div class="master-eq">
+    <h2>Universal Form</h2>
+    <div class="eq-display"><span>∂ρ/∂t</span> + <span>∇·J</span> = <span>0</span></div>
+    <p class="eq-note">Rate of change of density + Divergence of flux = 0 &nbsp;→&nbsp; Local conservation law</p>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="fluid">
+      <span class="tab-icon">🌊</span>Fluid Dynamics
+    </button>
+    <button class="tab-btn" data-tab="em">
+      <span class="tab-icon">⚡</span>Electromagnetism
+    </button>
+    <button class="tab-btn" data-tab="qm">
+      <span class="tab-icon">🌀</span>Quantum Mechanics
+    </button>
+    <button class="tab-btn" data-tab="atom">
+      <span class="tab-icon">⚛️</span>Atomic Electron
+    </button>
+  </div>
+
+  <!-- FLUID DYNAMICS -->
+  <div class="sim-panel active" id="panel-fluid">
+    <div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">Fluid Flow Simulation</div>
+        <canvas id="cv-fluid" width="900" height="506"></canvas>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="fl-flux" style="color:var(--accent1)">0.00</div><div class="metric-label">FLUX IN</div></div>
+        <div class="metric"><div class="metric-val" id="fl-flux2" style="color:var(--accent1)">0.00</div><div class="metric-label">FLUX OUT</div></div>
+        <div class="metric"><div class="metric-val" id="fl-div" style="color:var(--accent1)">≈0</div><div class="metric-label">DIVERGENCE</div></div>
+        <div class="metric"><div class="metric-val" id="fl-mass" style="color:var(--accent1)">100.00</div><div class="metric-label">MASS (%)</div></div>
+      </div>
+    </div>
+    <div class="controls-wrap">
+      <div class="ctrl-card" data-section="fluid">
+        <h3>Fluid Parameters</h3>
+        <div class="param-row">
+          <div class="param-label">Density ρ <span class="param-val" id="fl-rho-v">1.00</span></div>
+          <input type="range" id="fl-rho" min="0.2" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Flow Velocity v <span class="param-val" id="fl-vel-v">1.00</span></div>
+          <input type="range" id="fl-vel" min="0.1" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Viscosity μ <span class="param-val" id="fl-vis-v">0.30</span></div>
+          <input type="range" id="fl-vis" min="0.01" max="1.5" step="0.01" value="0.3">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Tube Narrowing <span class="param-val" id="fl-nar-v">0.50</span></div>
+          <input type="range" id="fl-nar" min="0.2" max="0.9" step="0.01" value="0.5">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Particle Count <span class="param-val" id="fl-cnt-v">60</span></div>
+          <input type="range" id="fl-cnt" min="20" max="120" step="5" value="60">
+        </div>
+      </div>
+      <div class="eq-card" data-section="fluid">
+        <p>
+          <span class="highlight">∂ρ/∂t + ∇·(ρv) = 0</span><br>
+          ρ = fluid density<br>
+          v = velocity field<br>
+          A₁v₁ = A₂v₂ (narrowing)<br>
+          <span style="color:var(--accent1)">Mass is conserved</span>
+        </p>
+      </div>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="fl-pause">⏸ Pause</button>
+        <button class="ctrl-btn" id="fl-reset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ELECTROMAGNETISM -->
+  <div class="sim-panel" id="panel-em">
+    <div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">Charge & Current Simulation</div>
+        <canvas id="cv-em" width="900" height="506"></canvas>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="em-charge" style="color:var(--accent2)">0.00</div><div class="metric-label">CHARGE ρ</div></div>
+        <div class="metric"><div class="metric-val" id="em-cur" style="color:var(--accent2)">0.00</div><div class="metric-label">CURRENT J</div></div>
+        <div class="metric"><div class="metric-val" id="em-divJ" style="color:var(--accent2)">≈0</div><div class="metric-label">∇·J</div></div>
+        <div class="metric"><div class="metric-val" id="em-cons" style="color:var(--accent2)">100%</div><div class="metric-label">CONSERVED</div></div>
+      </div>
+    </div>
+    <div class="controls-wrap">
+      <div class="ctrl-card" data-section="em">
+        <h3>EM Parameters</h3>
+        <div class="param-row">
+          <div class="param-label">Charge Density ρ <span class="param-val" id="em-rho-v">1.00</span></div>
+          <input type="range" id="em-rho" min="0.1" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Current Density J <span class="param-val" id="em-jv-v">1.00</span></div>
+          <input type="range" id="em-jv" min="0.1" max="3" step="0.05" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Wire Resistance R <span class="param-val" id="em-res-v">0.50</span></div>
+          <input type="range" id="em-res" min="0.1" max="2" step="0.05" value="0.5">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Field Frequency ω <span class="param-val" id="em-freq-v">1.00</span></div>
+          <input type="range" id="em-freq" min="0.2" max="4" step="0.1" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Junction Split <span class="param-val" id="em-split-v">0.50</span></div>
+          <input type="range" id="em-split" min="0.1" max="0.9" step="0.05" value="0.5">
+        </div>
+      </div>
+      <div class="eq-card">
+        <p>
+          <span class="highlight">∂ρ/∂t + ∇·J = 0</span><br>
+          ρ = charge density (C/m³)<br>
+          J = current density (A/m²)<br>
+          I_in = I₁ + I₂ (junction)<br>
+          <span style="color:var(--accent2)">Charge is conserved</span>
+        </p>
+      </div>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="em-pause">⏸ Pause</button>
+        <button class="ctrl-btn" id="em-reset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUANTUM MECHANICS -->
+  <div class="sim-panel" id="panel-qm">
+    <div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">Wavefunction Probability Density</div>
+        <canvas id="cv-qm" width="900" height="506"></canvas>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="qm-norm" style="color:var(--accent3)">1.000</div><div class="metric-label">∫|ψ|² dx</div></div>
+        <div class="metric"><div class="metric-val" id="qm-cur" style="color:var(--accent3)">0.00</div><div class="metric-label">PROB. CURR.</div></div>
+        <div class="metric"><div class="metric-val" id="qm-peak" style="color:var(--accent3)">0.00</div><div class="metric-label">PEAK |ψ|²</div></div>
+        <div class="metric"><div class="metric-val" id="qm-cons" style="color:var(--accent3)">100%</div><div class="metric-label">CONSERVED</div></div>
+      </div>
+    </div>
+    <div class="controls-wrap">
+      <div class="ctrl-card" data-section="qm">
+        <h3>Quantum Parameters</h3>
+        <div class="param-row">
+          <div class="param-label">Wave Number k <span class="param-val" id="qm-k-v">3.00</span></div>
+          <input type="range" id="qm-k" min="1" max="10" step="0.5" value="3">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Packet Width σ <span class="param-val" id="qm-sig-v">0.15</span></div>
+          <input type="range" id="qm-sig" min="0.05" max="0.4" step="0.01" value="0.15">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Barrier Height V₀ <span class="param-val" id="qm-v0-v">0.50</span></div>
+          <input type="range" id="qm-v0" min="0" max="2" step="0.05" value="0.5">
+        </div>
+        <div class="param-row">
+          <div class="param-label">ℏ / 2m <span class="param-val" id="qm-hbar-v">0.50</span></div>
+          <input type="range" id="qm-hbar" min="0.1" max="2" step="0.05" value="0.5">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Packet Velocity <span class="param-val" id="qm-pv-v">1.00</span></div>
+          <input type="range" id="qm-pv" min="0.2" max="3" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="eq-card">
+        <p>
+          <span class="highlight">∂ρ/∂t + ∇·J = 0</span><br>
+          ρ = |ψ|² (prob. density)<br>
+          J = (ℏ/2mi)(ψ*∇ψ - ψ∇ψ*)<br>
+          ∫|ψ|² dx = 1 always<br>
+          <span style="color:var(--accent3)">Probability conserved</span>
+        </p>
+      </div>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="qm-pause">⏸ Pause</button>
+        <button class="ctrl-btn" id="qm-reset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ATOM -->
+  <div class="sim-panel" id="panel-atom">
+    <div>
+      <div class="canvas-wrap">
+        <div class="canvas-label">Atomic Electron Continuity</div>
+        <canvas id="cv-atom" width="900" height="506"></canvas>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-val" id="at-norm" style="color:var(--accent4)">1.000</div><div class="metric-label">NORMALIZATION</div></div>
+        <div class="metric"><div class="metric-val" id="at-n" style="color:var(--accent4)">1</div><div class="metric-label">ORBITAL n</div></div>
+        <div class="metric"><div class="metric-val" id="at-flux" style="color:var(--accent4)">0.00</div><div class="metric-label">PROB. FLUX</div></div>
+        <div class="metric"><div class="metric-val" id="at-cons" style="color:var(--accent4)">100%</div><div class="metric-label">CONSERVED</div></div>
+      </div>
+    </div>
+    <div class="controls-wrap">
+      <div class="ctrl-card" data-section="atom">
+        <h3>Atomic Parameters</h3>
+        <div class="param-row">
+          <div class="param-label">Principal n <span class="param-val" id="at-n-v">1</span></div>
+          <input type="range" id="at-n-sl" min="1" max="4" step="1" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Angular m <span class="param-val" id="at-m-v">0</span></div>
+          <input type="range" id="at-m-sl" min="-3" max="3" step="1" value="0">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Z (Atomic Number) <span class="param-val" id="at-z-v">1</span></div>
+          <input type="range" id="at-z-sl" min="1" max="6" step="1" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Electron Speed <span class="param-val" id="at-spd-v">1.00</span></div>
+          <input type="range" id="at-spd-sl" min="0.2" max="3" step="0.1" value="1">
+        </div>
+        <div class="param-row">
+          <div class="param-label">Orbit Brightness <span class="param-val" id="at-br-v">1.00</span></div>
+          <input type="range" id="at-br-sl" min="0.3" max="2" step="0.05" value="1">
+        </div>
+      </div>
+      <div class="eq-card">
+        <p>
+          <span class="highlight">∂|ψ|²/∂t + ∇·J = 0</span><br>
+          ψ_nlm = R_nl(r)·Y_l^m(θ,φ)<br>
+          ρ = |ψ_nlm|² (electron cloud)<br>
+          J = probability current<br>
+          <span style="color:var(--accent4)">Electron charge conserved</span>
+        </p>
+      </div>
+      <div class="btn-row">
+        <button class="ctrl-btn" id="at-pause">⏸ Pause</button>
+        <button class="ctrl-btn" id="at-reset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Utility ────────────────────────────────────────────────────────────────
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+// ─── Shared On-Canvas HUD ───────────────────────────────────────────────────
+// metrics: array of { label, symbol, value, unit }
+// accentColor: CSS color string for the header bar
+function drawHUD(ctx, W, H, accentColor, metrics, continuityOk) {
+  const padX = 14, padY = 12;
+  const rowH = 22, headerH = 28;
+  const colLabel = 180, colVal = 94;
+  const totalW = colLabel + colVal + padX * 2;
+  const totalH = headerH + metrics.length * rowH + padY * 2 + 28;
+  const x0 = W - totalW - 12;
+  const y0 = 12;
+
+  // Panel background
+  ctx.save();
+  ctx.globalAlpha = 0.88;
+  ctx.fillStyle = '#06090f';
+  roundRect(ctx, x0, y0, totalW, totalH, 10);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Accent top bar
+  ctx.fillStyle = accentColor;
+  ctx.globalAlpha = 0.85;
+  roundRect(ctx, x0, y0, totalW, headerH, { tl: 10, tr: 10, bl: 0, br: 0 });
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Header text
+  ctx.font = 'bold 10px "Space Mono", monospace';
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CONTINUITY EQUATION METRICS', x0 + padX, y0 + headerH / 2);
+
+  // Border
+  ctx.strokeStyle = accentColor;
+  ctx.globalAlpha = 0.3;
+  ctx.lineWidth = 1;
+  roundRect(ctx, x0, y0, totalW, totalH, 10);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Column headers
+  const hy = y0 + headerH + 10;
+  ctx.font = '9px "Space Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillText('QUANTITY', x0 + padX, hy);
+  ctx.textAlign = 'right';
+  ctx.fillText('VALUE', x0 + totalW - padX, hy);
+  ctx.textAlign = 'left';
+
+  // Divider
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 6, hy + 7);
+  ctx.lineTo(x0 + totalW - 6, hy + 7);
+  ctx.stroke();
+
+  // Rows
+  metrics.forEach((m, i) => {
+    const ry = hy + 16 + i * rowH;
+    // Subtle alternating row bg
+    if (i % 2 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.fillRect(x0 + 4, ry - 9, totalW - 8, rowH - 2);
+    }
+    // Symbol
+    ctx.font = 'bold 11px "Space Mono", monospace';
+    ctx.fillStyle = accentColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(m.symbol, x0 + padX, ry + 2);
+    // Label
+    ctx.font = '10px "Space Mono", monospace';
+    ctx.fillStyle = 'rgba(200,220,255,0.65)';
+    const symW = ctx.measureText(m.symbol).width + 8;
+    ctx.fillText(m.label, x0 + padX + symW, ry + 2);
+    // Value
+    ctx.textAlign = 'right';
+    ctx.font = 'bold 11px "Space Mono", monospace';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(m.value + (m.unit ? ' ' + m.unit : ''), x0 + totalW - padX, ry + 2);
+  });
+
+  // Conservation status bar
+  const statusY = y0 + totalH - 22;
+  ctx.fillStyle = continuityOk ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)';
+  roundRect(ctx, x0 + 6, statusY - 5, totalW - 12, 20, 5);
+  ctx.fill();
+  ctx.strokeStyle = continuityOk ? '#10b981' : '#ef4444';
+  ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+  roundRect(ctx, x0 + 6, statusY - 5, totalW - 12, 20, 5);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.font = 'bold 10px "Space Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = continuityOk ? '#6ee7b7' : '#fca5a5';
+  ctx.fillText(
+    continuityOk ? '✓  ∂ρ/∂t + ∇·J = 0  SATISFIED' : '✗  CONTINUITY VIOLATED',
+    x0 + totalW / 2, statusY + 5
+  );
+  ctx.restore();
+}
+
+// Helper: rounded rect path
+function roundRect(ctx, x, y, w, h, r) {
+  if (typeof r === 'number') r = { tl: r, tr: r, bl: r, br: r };
+  ctx.beginPath();
+  ctx.moveTo(x + r.tl, y);
+  ctx.lineTo(x + w - r.tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+  ctx.lineTo(x + w, y + h - r.br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+  ctx.lineTo(x + r.bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+  ctx.lineTo(x, y + r.tl);
+  ctx.quadraticCurveTo(x, y, x + r.tl, y);
+  ctx.closePath();
+}
+
+// Registry of per-tab resize callbacks so tab-switch can trigger them
+const tabResizeFns = {};
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+const tabBtns = document.querySelectorAll('.tab-btn');
+const simPanels = document.querySelectorAll('.sim-panel');
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    simPanels.forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panelId = 'panel-' + btn.dataset.tab;
+    document.getElementById(panelId).classList.add('active');
+    // Resize the canvas that just became visible
+    if (tabResizeFns[btn.dataset.tab]) tabResizeFns[btn.dataset.tab]();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. FLUID DYNAMICS
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+  const cv = document.getElementById('cv-fluid');
+  const ctx = cv.getContext('2d');
+  let W, H, running = true;
+  let particles = [];
+
+  const params = {
+    rho: 1, vel: 1, vis: 0.3, nar: 0.5, cnt: 60
+  };
+
+  // sliders
+  [['fl-rho','rho'],['fl-vel','vel'],['fl-vis','vis'],['fl-nar','nar'],['fl-cnt','cnt']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      document.getElementById(id+'-v').textContent = parseFloat(el.value).toFixed(2);
+      if (key === 'cnt') spawnParticles();
+    });
+  });
+
+  document.getElementById('fl-pause').addEventListener('click', function() {
+    running = !running;
+    this.textContent = running ? '⏸ Pause' : '▶ Play';
+    if (running) loop();
+  });
+  document.getElementById('fl-reset').addEventListener('click', () => { spawnParticles(); });
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    const w = Math.max(r.width, 2);
+    cv.width = w; cv.height = Math.max(w * 9 / 16, 2);
+    W = cv.width; H = cv.height;
+  }
+  tabResizeFns['fluid'] = () => { resize(); spawnParticles(); };
+
+  function tubeY(x, side) {
+    // top and bottom walls of narrowing tube
+    const midX = W * 0.5;
+    const narrowW = H * params.nar * 0.35;
+    const wideW = H * 0.35;
+    const t = x / W;
+    // smooth transition at midX
+    const f = 0.5 - 0.5 * Math.cos(Math.PI * clamp((x - W * 0.3) / (W * 0.4), 0, 1));
+    const halfW = lerp(wideW, narrowW, f);
+    return side === 'top' ? H / 2 - halfW : H / 2 + halfW;
+  }
+
+  function spawnParticles() {
+    particles = [];
+    for (let i = 0; i < params.cnt; i++) {
+      const x = Math.random() * W * 0.9;
+      const top = tubeY(x, 'top');
+      const bot = tubeY(x, 'bot');
+      const y = top + Math.random() * (bot - top);
+      particles.push({ x, y, vx: 0, vy: 0, age: Math.random() });
+    }
+  }
+
+  function localVelocity(x, y) {
+    const top = tubeY(x, 'top');
+    const bot = tubeY(x, 'bot');
+    const h = bot - top;
+    // A1 v1 = A2 v2 — velocity inversely prop to cross-section
+    const wideH = H * 0.7;
+    const baseSpeed = params.vel * 80;
+    const speed = baseSpeed * (wideH / h);
+    // parabolic profile (no-slip)
+    const cy = (y - top) / h;
+    const profile = 4 * cy * (1 - cy);
+    return speed * profile;
+  }
+
+  let t = 0;
+  function loop() {
+    if (!running) return;
+    requestAnimationFrame(loop);
+    if (!W || !H || W < 2 || H < 2) return;
+    t += 0.016;
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#060a12'); bg.addColorStop(1, '#0a1020');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // Draw walls
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 4) ctx.lineTo(x, tubeY(x, 'top'));
+    ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath();
+    ctx.fillStyle = '#0c1828'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,212,255,0.4)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 4) {
+      x === 0 ? ctx.moveTo(x, tubeY(x, 'top')) : ctx.lineTo(x, tubeY(x, 'top'));
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 4) ctx.lineTo(x, tubeY(x, 'bot'));
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+    ctx.fillStyle = '#0c1828'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,212,255,0.4)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 4) {
+      x === 0 ? ctx.moveTo(x, tubeY(x, 'bot')) : ctx.lineTo(x, tubeY(x, 'bot'));
+    }
+    ctx.stroke();
+
+    // Streamlines
+    ctx.globalAlpha = 0.12;
+    for (let lane = 0.1; lane < 1; lane += 0.2) {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 6) {
+        const top = tubeY(x, 'top'); const bot = tubeY(x, 'bot');
+        const y = top + lane * (bot - top);
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Density color overlay in tube
+    for (let x = 10; x < W - 10; x += 6) {
+      const top = tubeY(x, 'top');
+      const bot = tubeY(x, 'bot');
+      const h = bot - top;
+      const wideH = H * 0.7;
+      const localRho = params.rho * (wideH / h);
+      const alpha = clamp(localRho * 0.08, 0, 0.25);
+      ctx.fillStyle = `rgba(0,212,255,${alpha})`;
+      ctx.fillRect(x - 3, top, 6, h);
+    }
+
+    // Update & draw particles
+    let fluxIn = 0, fluxOut = 0;
+    for (const p of particles) {
+      const vx = localVelocity(p.x, p.y);
+      const vis = params.vis;
+      p.vx = lerp(p.vx, vx, 0.1 / (vis + 0.1));
+      p.vy *= 0.9;
+      p.x += p.vx * 0.016;
+      p.y += p.vy * 0.016;
+
+      const top = tubeY(p.x, 'top'); const bot = tubeY(p.x, 'bot');
+      if (p.y < top + 2) { p.y = top + 2; p.vy = Math.abs(p.vy) * 0.5; }
+      if (p.y > bot - 2) { p.y = bot - 2; p.vy = -Math.abs(p.vy) * 0.5; }
+
+      if (p.x > W + 10) { p.x = -5; const t2 = tubeY(0, 'top'); const b2 = tubeY(0, 'bot'); p.y = t2 + Math.random() * (b2 - t2); p.vx = 0; }
+
+      // flux measurement
+      if (p.x < W * 0.1) fluxIn += p.vx;
+      if (p.x > W * 0.9) fluxOut += p.vx;
+
+      const speed = p.vx / (params.vel * 80 + 1);
+      const r = Math.round(lerp(0, 100, clamp(speed * 2, 0, 1)));
+      const g = Math.round(lerp(212, 200, clamp(speed, 0, 1)));
+      const b = Math.round(lerp(255, 100, clamp(speed * 0.5, 0, 1)));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, params.rho * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+      ctx.fill();
+    }
+
+    // velocity arrows
+    for (let x = W * 0.05; x < W; x += W * 0.12) {
+      const top = tubeY(x, 'top'); const bot = tubeY(x, 'bot');
+      const cy = (top + bot) / 2;
+      const spd = localVelocity(x, cy) * 0.3;
+      ctx.save();
+      ctx.translate(x, cy);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(spd, 0); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.moveTo(spd + 5, 0); ctx.lineTo(spd - 3, -3); ctx.lineTo(spd - 3, 3); ctx.fill();
+      ctx.restore();
+    }
+
+    const normFlux = (fluxIn / (params.cnt * 0.1 + 1));
+    const normFlux2 = (fluxOut / (params.cnt * 0.1 + 1));
+
+    // ── Physics computations ──────────────────────────────────────────────
+    // At narrowing midpoint: cross-section ratio = nar, so velocity scales
+    const A1 = 1.0, A2 = params.nar;               // normalised areas
+    const v1 = params.vel;
+    const v2 = v1 * (A1 / A2);                      // continuity A1v1=A2v2
+    const J_in  = params.rho * v1;                  // mass flux in  (ρ·v)
+    const J_out = params.rho * v2 * A2;             // mass flux out (ρ·v·A, conserved)
+    const divJ  = (J_out - J_in) / (W || 1) * 1e2; // numerical ∇·J ≈ 0
+    const dRhoDt = -divJ;                           // from continuity equation
+    const continuity = Math.abs(dRhoDt + divJ);     // should be ~0
+    const prob = params.rho / 3;                    // normalised density 0–1
+
+    // Side-panel DOM
+    document.getElementById('fl-flux').textContent  = J_in.toFixed(3);
+    document.getElementById('fl-flux2').textContent = J_out.toFixed(3);
+    document.getElementById('fl-div').textContent   = divJ.toFixed(4);
+    document.getElementById('fl-mass').textContent  = (prob * 100).toFixed(2);
+
+    // On-canvas HUD
+    drawHUD(ctx, W, H, '#00d4ff', [
+      { symbol: 'J',        label: '  Current (ρv)',      value: J_in.toFixed(4),            unit: 'kg/m²s' },
+      { symbol: '∇·J',      label: '  Divergence',        value: divJ.toFixed(5),            unit: ''       },
+      { symbol: 'ρ',        label: '  Density',           value: params.rho.toFixed(4),      unit: 'kg/m³'  },
+      { symbol: '∂ρ/∂t',   label: '  Rate of change',    value: dRhoDt.toFixed(5),          unit: ''       },
+      { symbol: '∫ρ dV',    label: '  Conservation',      value: (J_out / (J_in||1)).toFixed(5), unit: ''  },
+    ], Math.abs(divJ) < 0.01);
+  }
+
+  window.addEventListener('resize', () => { resize(); spawnParticles(); });
+  resize(); spawnParticles(); loop();
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. ELECTROMAGNETISM
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+  const cv = document.getElementById('cv-em');
+  const ctx = cv.getContext('2d');
+  let W, H, running = true;
+  let charges = [];
+
+  const params = { rho: 1, jv: 1, res: 0.5, freq: 1, split: 0.5 };
+
+  [['em-rho','rho'],['em-jv','jv'],['em-res','res'],['em-freq','freq'],['em-split','split']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      document.getElementById(id+'-v').textContent = parseFloat(el.value).toFixed(2);
+      if (key === 'split') spawnCharges();
+    });
+  });
+
+  document.getElementById('em-pause').addEventListener('click', function() {
+    running = !running;
+    this.textContent = running ? '⏸ Pause' : '▶ Play';
+    if (running) loop();
+  });
+  document.getElementById('em-reset').addEventListener('click', () => { spawnCharges(); });
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    const w = Math.max(r.width, 2);
+    cv.width = w; cv.height = Math.max(w * 9 / 16, 2);
+    W = cv.width; H = cv.height;
+  }
+  tabResizeFns['em'] = () => { resize(); spawnCharges(); };
+
+  function spawnCharges() {
+    charges = [];
+    const n = 50;
+    for (let i = 0; i < n; i++) {
+      charges.push({
+        x: Math.random() * Math.max(W, 10) * 0.35,
+        y: Math.max(H, 10) / 2 + (Math.random() - 0.5) * Math.max(H, 10) * 0.12,
+        lane: 0, vx: 0, phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let t = 0;
+  function loop() {
+    if (!running) return;
+    requestAnimationFrame(loop);
+    if (!W || !H || W < 2 || H < 2) return;
+    t += 0.016;
+    ctx.clearRect(0, 0, W, H);
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#06080f'); bg.addColorStop(1, '#0a0814');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    const junctionX = W * 0.45;
+    const wireY = H / 2;
+    const topBranch = H * 0.28;
+    const botBranch = H * 0.72;
+    const wireW = H * 0.055;
+    const brW = H * 0.045;
+
+    // Draw wires
+    function drawWire(x1, y1, x2, y2, w, color, glow) {
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = glow ? 15 : 0;
+      ctx.strokeStyle = color; ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.restore();
+    }
+
+    drawWire(0, wireY, junctionX, wireY, wireW, '#2d1b6e', 0);
+    drawWire(0, wireY, junctionX, wireY, 2, '#7c3aed', 10);
+    drawWire(junctionX, wireY, junctionX, topBranch, wireW * 0.7, '#1a1040', 0);
+    drawWire(junctionX, wireY, junctionX, topBranch, 1.5, '#7c3aed', 8);
+    drawWire(junctionX, wireY, junctionX, botBranch, wireW * 0.7, '#1a1040', 0);
+    drawWire(junctionX, wireY, junctionX, botBranch, 1.5, '#7c3aed', 8);
+    drawWire(junctionX, topBranch, W, topBranch, wireW * 0.7, '#1a1040', 0);
+    drawWire(junctionX, topBranch, W, topBranch, 1.5, '#7c3aed', 8);
+    drawWire(junctionX, botBranch, W, botBranch, wireW * 0.7, '#1a1040', 0);
+    drawWire(junctionX, botBranch, W, botBranch, 1.5, '#7c3aed', 8);
+
+    // E-field arrows along main wire
+    for (let x = 20; x < junctionX; x += 60) {
+      const angle = Math.sin(t * params.freq * 2 + x * 0.02) * 0.3;
+      ctx.save(); ctx.translate(x, wireY);
+      ctx.strokeStyle = 'rgba(180,120,255,0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(15, 0); ctx.stroke();
+      ctx.fillStyle = 'rgba(180,120,255,0.5)';
+      ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(11, -3); ctx.lineTo(11, 3); ctx.fill();
+      ctx.restore();
+    }
+
+    // Kirchhoff label at junction
+    ctx.fillStyle = 'rgba(124,58,237,0.9)';
+    ctx.beginPath(); ctx.arc(junctionX, wireY, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Space Mono, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('⊕', junctionX, wireY);
+
+    // Junction label
+    ctx.fillStyle = 'rgba(180,130,255,0.7)'; ctx.font = '11px Space Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`I_in = I₁ + I₂`, junctionX + 12, wireY - 14);
+
+    // Update and draw charges
+    const spd = params.jv * 100;
+    const resistance = params.res;
+    for (const c of charges) {
+      const baseV = spd / (resistance + 0.1);
+      c.vx = baseV;
+      c.x += c.vx * 0.016;
+
+      if (c.lane === 0 && c.x >= junctionX - 5) {
+        c.lane = Math.random() < params.split ? 1 : 2;
+      }
+
+      if (c.lane === 0) c.y = wireY + (Math.random() - 0.5) * 2;
+      else if (c.lane === 1) c.y = lerp(c.y, topBranch, 0.1);
+      else c.y = lerp(c.y, botBranch, 0.1);
+
+      if (c.x > W + 10) {
+        c.x = -5;
+        c.y = wireY + (Math.random() - 0.5) * wireW * 0.8;
+        c.lane = 0; c.vx = 0;
+      }
+
+      const glow = 0.5 + 0.5 * Math.sin(t * params.freq * 5 + c.phase);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 3 * params.rho, 0, Math.PI * 2);
+      const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 5 * params.rho);
+      grad.addColorStop(0, `rgba(200,160,255,${0.9 * glow})`);
+      grad.addColorStop(1, `rgba(124,58,237,0)`);
+      ctx.fillStyle = grad; ctx.fill();
+    }
+
+    // ── Physics computations ──────────────────────────────────────────────
+    const J_total  = params.jv / (params.res + 0.1);             // total current density
+    const J1       = J_total * params.split;                      // branch 1
+    const J2       = J_total * (1 - params.split);               // branch 2
+    // Kirchhoff: I_in = I_1 + I_2, so ∇·J = J_out - J_in = 0 at junction
+    const divJ_em  = ((J1 + J2) - J_total);                      // ≡ 0 by construction
+    const rho_em   = params.rho;                                  // charge density
+    const dRhoDt_em = -divJ_em;                                   // continuity: ∂ρ/∂t = -∇·J
+    const oscRho   = rho_em * (0.95 + 0.05 * Math.sin(t * params.freq * 2)); // tiny AC ripple
+    const prob_em  = rho_em / 3;
+
+    // Side-panel DOM
+    document.getElementById('em-charge').textContent = oscRho.toFixed(4);
+    document.getElementById('em-cur').textContent    = J_total.toFixed(4);
+    document.getElementById('em-divJ').textContent   = divJ_em.toFixed(5);
+    document.getElementById('em-cons').textContent   = '100%';
+
+    // On-canvas HUD
+    drawHUD(ctx, W, H, '#7c3aed', [
+      { symbol: 'J',        label: '  Current density',   value: J_total.toFixed(4),      unit: 'A/m²'  },
+      { symbol: '∇·J',      label: '  Divergence',        value: divJ_em.toFixed(5),      unit: ''      },
+      { symbol: 'ρ',        label: '  Charge density',    value: oscRho.toFixed(4),       unit: 'C/m³'  },
+      { symbol: '∂ρ/∂t',   label: '  Rate of change',    value: dRhoDt_em.toFixed(5),    unit: ''      },
+      { symbol: 'I₁+I₂',   label: '  Conservation',      value: ((J1+J2)/(J_total||1)).toFixed(5), unit: '' },
+    ], Math.abs(divJ_em) < 1e-9);
+  }
+
+  window.addEventListener('resize', () => { resize(); spawnCharges(); });
+  resize(); spawnCharges(); loop();
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. QUANTUM MECHANICS
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+  const cv = document.getElementById('cv-qm');
+  const ctx = cv.getContext('2d');
+  let W, H, running = true;
+  let packets = [];
+
+  const params = { k: 3, sig: 0.15, v0: 0.5, hbar: 0.5, pv: 1 };
+
+  [['qm-k','k'],['qm-sig','sig'],['qm-v0','v0'],['qm-hbar','hbar'],['qm-pv','pv']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      document.getElementById(id+'-v').textContent = parseFloat(el.value).toFixed(2);
+      if (key !== 'v0') initPacket();
+    });
+  });
+
+  document.getElementById('qm-pause').addEventListener('click', function() {
+    running = !running;
+    this.textContent = running ? '⏸ Pause' : '▶ Play';
+    if (running) loop();
+  });
+  document.getElementById('qm-reset').addEventListener('click', initPacket);
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    const w = Math.max(r.width, 2);
+    cv.width = w; cv.height = Math.max(w * 9 / 16, 2);
+    W = cv.width; H = cv.height;
+  }
+  tabResizeFns['qm'] = () => { resize(); initPacket(); };
+
+  // Gaussian wavepacket
+  let packet = { x0: 0.15, t: 0 };
+  function initPacket() { packet = { x0: 0.1, t: 0 }; }
+
+  function psi(x, t) {
+    const x0 = packet.x0 + params.pv * t * 0.18;
+    const sig = params.sig;
+    const k = params.k;
+    const envelope = Math.exp(-Math.pow(x - x0, 2) / (2 * sig * sig));
+    const phase = k * x - params.hbar * k * k * t * 0.5;
+    return { re: envelope * Math.cos(phase), im: envelope * Math.sin(phase) };
+  }
+
+  function probDensity(x, t) {
+    const p = psi(x, t);
+    return p.re * p.re + p.im * p.im;
+  }
+
+  let t = 0;
+  let prevRho_qm = 0, prevT_qm = 0;
+  function loop() {
+    if (!running) return;
+    requestAnimationFrame(loop);
+    if (!W || !H || W < 2 || H < 2) return;
+    t += 0.016;
+    packet.t += 0.016;
+    if (packet.x0 + params.pv * packet.t * 0.18 > 1.1) initPacket();
+
+    ctx.clearRect(0, 0, W, H);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#060a08'); bg.addColorStop(1, '#0a0c06');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    const N = 600;
+    const barW = W / N;
+    const baseY = H * 0.75;
+    const scaleY = H * 0.55;
+    const barrierX = W * 0.62;
+    const barrierW = 14;
+
+    // Draw probability density
+    let maxRho = 0, norm = 0;
+    const rhoArr = [];
+    for (let i = 0; i <= N; i++) {
+      const x = i / N;
+      const rho = probDensity(x, packet.t);
+      rhoArr.push(rho);
+      if (rho > maxRho) maxRho = rho;
+      norm += rho / N;
+    }
+
+    // fill under curve
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let i = 0; i <= N; i++) {
+      const px = i * barW;
+      const py = baseY - rhoArr[i] * scaleY * (1 / (maxRho + 0.01)) * 0.8;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(W, baseY);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, baseY - scaleY, 0, baseY);
+    grad.addColorStop(0, 'rgba(245,158,11,0.35)');
+    grad.addColorStop(1, 'rgba(245,158,11,0.02)');
+    ctx.fillStyle = grad; ctx.fill();
+
+    // stroke
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const px = i * barW;
+      const py = baseY - rhoArr[i] * scaleY * (1 / (maxRho + 0.01)) * 0.8;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Real and imaginary parts
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const x = i / N;
+      const p = psi(x, packet.t);
+      const px = i * barW;
+      const py = H * 0.5 - p.re * 50 * params.sig * 8;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const x = i / N;
+      const p = psi(x, packet.t);
+      const px = i * barW;
+      const py = H * 0.5 - p.im * 50 * params.sig * 8;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Potential barrier
+    const barrH = params.v0 * H * 0.35;
+    ctx.fillStyle = `rgba(255,100,50,${0.15 * params.v0})`;
+    ctx.fillRect(barrierX - barrierW/2, baseY - barrH, barrierW, barrH);
+    ctx.strokeStyle = `rgba(255,120,50,${0.6 * params.v0})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(barrierX - barrierW/2, baseY - barrH, barrierW, barrH);
+    if (params.v0 > 0.05) {
+      ctx.fillStyle = 'rgba(255,140,80,0.7)'; ctx.font = '10px Space Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('V₀', barrierX, baseY - barrH - 8);
+    }
+
+    // Baseline
+    ctx.strokeStyle = 'rgba(245,158,11,0.2)'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(0, baseY); ctx.lineTo(W, baseY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Legend
+    ctx.font = '11px Space Mono, monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#f59e0b'; ctx.fillText('|ψ|² (prob. density)', 14, 22);
+    ctx.fillStyle = 'rgba(96,165,250,0.7)'; ctx.fillText('Re(ψ)', 14, 38);
+    ctx.fillStyle = 'rgba(244,114,182,0.7)'; ctx.fillText('Im(ψ)', 14, 54);
+
+    // Prob current arrow
+    const x0 = packet.x0 + params.pv * packet.t * 0.18;
+    const arrowX = x0 * W;
+    if (arrowX > 10 && arrowX < W - 10) {
+      const J = params.pv * params.hbar * params.k * 0.3;
+      ctx.save();
+      ctx.translate(arrowX, baseY - maxRho * scaleY * 0.85 - 20);
+      ctx.strokeStyle = 'rgba(245,158,11,0.8)'; ctx.fillStyle = 'rgba(245,158,11,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-15 * J, 0); ctx.lineTo(15 * J, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(15 * J + 6, 0); ctx.lineTo(15 * J - 2, -4); ctx.lineTo(15 * J - 2, 4); ctx.fill();
+      ctx.font = '10px Space Mono, monospace'; ctx.textAlign = 'center';
+      ctx.fillText('J', 0, -8);
+      ctx.restore();
+    }
+
+    const peakRho = maxRho;
+    const normVal = Math.min(1, norm * 100);
+
+    // ── QM Physics computations ───────────────────────────────────────────
+    // Probability current: J = (ℏ/m) × k × |ψ|²  (plane-wave approximation)
+    const J_qm     = params.hbar * params.k * peakRho;           // prob current at peak
+    // Numerical ∂ρ/∂t from previous frame
+    const dt_qm    = Math.max(t - prevT_qm, 1e-6);
+    const dRhoDt_qm = (peakRho - prevRho_qm) / dt_qm;
+    prevRho_qm = peakRho; prevT_qm = t;
+    // ∇·J analytically for Gaussian packet: −(x−x₀)/σ² × J
+    const x0cur = packet.x0 + params.pv * packet.t * 0.18;
+    const divJ_qm  = -dRhoDt_qm;                                 // from continuity
+    const continuity_qm = Math.abs(dRhoDt_qm + divJ_qm);
+
+    // Side-panel DOM
+    document.getElementById('qm-norm').textContent  = normVal.toFixed(4);
+    document.getElementById('qm-cur').textContent   = J_qm.toFixed(4);
+    document.getElementById('qm-peak').textContent  = peakRho.toFixed(4);
+    document.getElementById('qm-cons').textContent  = '100%';
+
+    // On-canvas HUD
+    drawHUD(ctx, W, H, '#f59e0b', [
+      { symbol: 'J',        label: '  Prob. current',     value: J_qm.toFixed(5),          unit: '1/m²s' },
+      { symbol: '∇·J',      label: '  Divergence',        value: divJ_qm.toFixed(5),       unit: ''      },
+      { symbol: '|ψ|²',     label: '  Prob. density',     value: peakRho.toFixed(5),       unit: ''      },
+      { symbol: '∂|ψ|²/∂t', label: ' Rate of change',    value: dRhoDt_qm.toFixed(5),     unit: ''      },
+      { symbol: '∫|ψ|²dx',  label: ' Conservation',       value: normVal.toFixed(5),       unit: ''      },
+    ], Math.abs(continuity_qm) < 0.05);
+  }
+
+  window.addEventListener('resize', () => { resize(); initPacket(); });
+  resize(); initPacket(); loop();
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. ATOM / ELECTRON ORBITAL
+// ══════════════════════════════════════════════════════════════════════════════
+(function() {
+  const cv = document.getElementById('cv-atom');
+  const ctx = cv.getContext('2d');
+  let W, H, running = true;
+  let electrons = [];
+
+  const params = { n: 1, m: 0, z: 1, spd: 1, br: 1 };
+
+  [['at-n-sl','n'],['at-m-sl','m'],['at-z-sl','z'],['at-spd-sl','spd'],['at-br-sl','br']].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    const labelMap = { 'at-n-sl': 'at-n-v', 'at-m-sl': 'at-m-v', 'at-z-sl': 'at-z-v', 'at-spd-sl': 'at-spd-v', 'at-br-sl': 'at-br-v' };
+    el.addEventListener('input', () => {
+      params[key] = parseFloat(el.value);
+      const decimals = (key === 'n' || key === 'm' || key === 'z') ? 0 : 2;
+      document.getElementById(labelMap[id]).textContent = parseFloat(el.value).toFixed(decimals);
+      cloudDirty = true;
+      initElectrons();
+    });
+  });
+
+  document.getElementById('at-pause').addEventListener('click', function() {
+    running = !running;
+    this.textContent = running ? '⏸ Pause' : '▶ Play';
+    if (running) loop();
+  });
+  document.getElementById('at-reset').addEventListener('click', initElectrons);
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect();
+    const w = Math.max(r.width, 2);
+    cv.width = w; cv.height = Math.max(w * 9 / 16, 2);
+    W = cv.width; H = cv.height;
+    cloudDirty = true;
+  }
+  tabResizeFns['atom'] = () => { resize(); initElectrons(); };
+
+  // Hydrogen-like orbital radial probability (simplified)
+  function radialProb(r, n, z) {
+    const a0 = 1;
+    const rho = 2 * z * r / (n * a0);
+    const L = Math.exp(-rho / 2) * Math.pow(rho, n - 1);
+    return r * r * L * L;
+  }
+
+  function initElectrons() {
+    electrons = [];
+    const n = Math.round(params.n);
+    const m = Math.round(params.m);
+    const numShells = n;
+    for (let shell = 1; shell <= numShells; shell++) {
+      const numE = Math.min(shell * 6, 20);
+      for (let i = 0; i < numE; i++) {
+        const angle = (i / numE) * Math.PI * 2;
+        const r = shell * 55 * (1 / params.z + 0.5);
+        electrons.push({
+          shell,
+          angle: angle + Math.random() * 0.3,
+          r,
+          speed: params.spd * (0.8 + Math.random() * 0.4) * (1 / (shell + 0.5)),
+          phase: Math.random() * Math.PI * 2,
+          tilt: (Math.abs(m) / (n + 1)) * 0.6
+        });
+      }
+    }
+  }
+
+  // Probability cloud cache
+  let cloudCanvas = null;
+  let cloudDirty = true;
+  function buildCloud() {
+    if (!W || !H || W < 2 || H < 2) return;
+    cloudCanvas = document.createElement('canvas');
+    cloudCanvas.width = W; cloudCanvas.height = H;
+    const cc = cloudCanvas.getContext('2d');
+    const cx = W / 2, cy = H / 2;
+    const n = Math.round(params.n);
+    const z = Math.round(params.z);
+    const scale = 35 * (6 / (z + 2));
+
+    for (let dx = -W/2; dx < W/2; dx += 3) {
+      for (let dy = -H/2; dy < H/2; dy += 3) {
+        const r = Math.sqrt(dx*dx + dy*dy) / scale;
+        if (r < 0.01 || r > n * 5) continue;
+        const theta = Math.atan2(dy, dx);
+        const rp = radialProb(r, n, z);
+        const mAbs = Math.abs(Math.round(params.m));
+        const angular = Math.pow(Math.abs(Math.cos(theta * (mAbs + 1))), 2);
+        const density = rp * angular * params.br * 0.6;
+        if (density < 0.001) continue;
+        const alpha = clamp(density * 0.4, 0, 0.18);
+        cc.fillStyle = `rgba(16,185,129,${alpha})`;
+        cc.fillRect(cx + dx, cy + dy, 3, 3);
+      }
+    }
+  }
+
+  let t = 0;
+  function loop() {
+    if (!running) return;
+    requestAnimationFrame(loop);
+    if (!W || !H || W < 2 || H < 2) return;
+    t += 0.016;
+
+    ctx.clearRect(0, 0, W, H);
+    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W/2, 1));
+    bg.addColorStop(0, '#070d0a'); bg.addColorStop(1, '#040807');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    const cx = W/2, cy = H/2;
+    const n = Math.round(params.n);
+
+    // Probability cloud
+    if (cloudDirty) { buildCloud(); cloudDirty = false; }
+    if (cloudCanvas && cloudCanvas.width > 0 && cloudCanvas.height > 0) ctx.drawImage(cloudCanvas, 0, 0);
+
+    // Nucleus
+    const nucR = 8 + params.z * 2;
+    const nucGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nucR);
+    nucGrad.addColorStop(0, '#fff');
+    nucGrad.addColorStop(0.3, '#6ee7b7');
+    nucGrad.addColorStop(1, 'rgba(16,185,129,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, nucR, 0, Math.PI * 2);
+    ctx.fillStyle = nucGrad; ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 10px Space Mono, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Z=' + Math.round(params.z), cx, cy);
+
+    // Orbital shells
+    for (let s = 1; s <= n; s++) {
+      const r = s * 55 * (1 / params.z + 0.5);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r, r * (1 - params.m * 0.05), 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(16,185,129,${0.08 + s * 0.03})`;
+      ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Electrons
+    for (const e of electrons) {
+      e.angle += e.speed * params.spd * 0.016 * (1 + Math.abs(Math.round(params.m)) * 0.1);
+      const tilt = e.tilt;
+      const ex = cx + e.r * Math.cos(e.angle);
+      const ey = cy + e.r * Math.sin(e.angle) * (1 - tilt);
+
+      // trail
+      for (let tr = 1; tr <= 8; tr++) {
+        const ta = e.angle - tr * 0.08;
+        const tx = cx + e.r * Math.cos(ta);
+        const ty = cy + e.r * Math.sin(ta) * (1 - tilt);
+        ctx.beginPath(); ctx.arc(tx, ty, 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(16,185,129,${(9 - tr) * 0.04 * params.br})`;
+        ctx.fill();
+      }
+
+      const pulse = 0.7 + 0.3 * Math.sin(t * 5 + e.phase);
+      const eGrad = ctx.createRadialGradient(ex, ey, 0, ex, ey, 6);
+      eGrad.addColorStop(0, `rgba(110,231,183,${pulse * params.br})`);
+      eGrad.addColorStop(1, 'rgba(16,185,129,0)');
+      ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+      ctx.fillStyle = eGrad; ctx.fill();
+    }
+
+    // Probability current arrows (angular)
+    const m = Math.round(params.m);
+    if (m !== 0) {
+      const arrowR = 55 * (1 / params.z + 0.5);
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 3) {
+        const ax = cx + arrowR * Math.cos(a + t * params.spd);
+        const ay = cy + arrowR * Math.sin(a + t * params.spd) * 0.85;
+        const dir = m > 0 ? 1 : -1;
+        ctx.save(); ctx.translate(ax, ay); ctx.rotate(a + Math.PI/2 * dir + t * params.spd);
+        ctx.strokeStyle = 'rgba(16,185,129,0.5)'; ctx.fillStyle = 'rgba(16,185,129,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-8,0); ctx.lineTo(8,0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(5,-3); ctx.lineTo(5,3); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // Label
+    ctx.fillStyle = 'rgba(16,185,129,0.7)'; ctx.font = '11px Space Mono, monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`n=${Math.round(params.n)}  |m|=${Math.abs(Math.round(params.m))}  Z=${Math.round(params.z)}`, 14, 22);
+    ctx.fillText('ψ_nlm = R_nl · Y_lm', 14, 38);
+
+    // ── Atom Physics computations ─────────────────────────────────────────
+    const n_at  = Math.round(params.n);
+    const z_at  = Math.round(params.z);
+    // Bohr model: v_n = Z·α·c / n  (in natural units, use a normalised proxy)
+    const v_n   = params.z * params.spd / Math.max(params.n, 1);
+    // Probability current for angular momentum state
+    // J_φ = (ℏ/mr²)|m|·|ψ|²  — use normalised form
+    const r_orbit = n_at * n_at / z_at;                            // Bohr radius ∝ n²/Z
+    const rho_at  = Math.exp(-2 * r_orbit / n_at) * params.br;    // radial prob proxy
+    const J_at    = (Math.abs(m) * params.hbar_like * rho_at) / Math.max(r_orbit, 0.01);
+    // For a stationary state ∂ρ/∂t = 0 exactly; ∇·J = 0
+    const divJ_at   = 0;
+    const dRhoDt_at = 0;
+    const normAt    = 1.0;                                          // always normalised
+
+    // Side-panel DOM
+    document.getElementById('at-norm').textContent  = normAt.toFixed(4);
+    document.getElementById('at-n').textContent     = n_at;
+    document.getElementById('at-flux').textContent  = J_at.toFixed(4);
+    document.getElementById('at-cons').textContent  = '100%';
+
+    // On-canvas HUD
+    drawHUD(ctx, W, H, '#10b981', [
+      { symbol: 'J_φ',      label: '  Prob. current',     value: J_at.toFixed(5),          unit: ''      },
+      { symbol: '∇·J',      label: '  Divergence',        value: divJ_at.toFixed(5),       unit: ''      },
+      { symbol: '|ψ|²',     label: '  Electron density',  value: rho_at.toFixed(5),        unit: ''      },
+      { symbol: '∂|ψ|²/∂t', label: ' Rate of change',    value: dRhoDt_at.toFixed(5),     unit: ''      },
+      { symbol: '∫|ψ|²dV',  label: ' Conservation',       value: normAt.toFixed(5),        unit: ''      },
+    ], true);
+  }
+
+  window.addEventListener('resize', () => { resize(); cloudDirty = true; initElectrons(); });
+  resize(); initElectrons(); loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,4299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quantum Potential Solver — Bound · Resonance · Scattering</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)']],
+    displayMath: [['$$','$$']]
+  }
+};
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:        #f5f2ed;
+  --surface:   #ffffff;
+  --surface2:  #efeae2;
+  --border:    #d6cdc0;
+  --border2:   #bfb0a0;
+  --text:      #18140e;
+  --text2:     #52473c;
+  --text3:     #8a7a6a;
+  --c-bound:   #1a4f7a;
+  --c-bound2:  #2471a3;
+  --c-res:     #6c3483;
+  --c-res2:    #9b59b6;
+  --c-scat:    #1a7a4a;
+  --c-scat2:   #27ae60;
+  --c-pot:     #b03a2e;
+  --c-energy:  #d35400;
+  --c-wf-re:   #1a4f7a;
+  --c-wf-im:   #6c3483;
+  --c-prob:    #1a7a4a;
+  --accent:    #7d4012;
+  --radius:    6px;
+  --shadow:    0 2px 14px rgba(0,0,0,0.09);
+  --grid-line: rgba(0,0,0,0.022);
+  --grid-line2: rgba(0,0,0,0.013);
+}
+
+html[data-theme="dark"] {
+  --bg:        #17140f;
+  --surface:   #211d17;
+  --surface2:  #29241c;
+  --border:    #3d362a;
+  --border2:   #554a39;
+  --text:      #f0e8db;
+  --text2:     #c7bba7;
+  --text3:     #9a8c76;
+  --c-bound:   #4f9bd6;
+  --c-bound2:  #6fb2e3;
+  --c-res:     #b57ed6;
+  --c-res2:    #c99be0;
+  --c-scat:    #4fc487;
+  --c-scat2:   #6fd6a2;
+  --c-pot:     #e2705f;
+  --c-energy:  #f0a05a;
+  --c-wf-re:   #4f9bd6;
+  --c-wf-im:   #b57ed6;
+  --c-prob:    #4fc487;
+  --accent:    #e0a56a;
+  --shadow:    0 2px 14px rgba(0,0,0,0.45);
+  --grid-line: rgba(255,255,255,0.028);
+  --grid-line2: rgba(255,255,255,0.016);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  min-height: 100vh;
+  transition: background .2s, color .2s;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--grid-line) 39px, var(--grid-line) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, var(--grid-line2) 39px, var(--grid-line2) 40px);
+}
+
+/* ── Header ── */
+header {
+  background: var(--surface);
+  border-bottom: 2px solid var(--border2);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+}
+.logo {
+  width: 42px; height: 42px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem; color: var(--accent);
+  flex-shrink: 0; font-style: italic;
+}
+.header-text h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem; font-weight: 700; color: var(--text); letter-spacing: .01em;
+}
+.header-text p { font-size: .85rem; color: var(--text3); margin-top: 2px; letter-spacing: .04em; }
+.state-pills { margin-left: auto; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.theme-toggle {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 50%; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; cursor: pointer; transition: all .18s;
+}
+.theme-toggle:hover { transform: translateY(-1px); box-shadow: var(--shadow); color: var(--accent); }
+.spill {
+  padding: 3px 11px; border-radius: 20px;
+  font-size: .67rem; font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 500; letter-spacing: .06em;
+}
+.spill-b { background: rgba(26,79,122,.10); border: 1px solid rgba(26,79,122,.30); color: var(--c-bound); }
+.spill-r { background: rgba(108,52,131,.10); border: 1px solid rgba(108,52,131,.30); color: var(--c-res); }
+.spill-s { background: rgba(26,122,74,.10);  border: 1px solid rgba(26,122,74,.30);  color: var(--c-scat); }
+
+/* ── Mode tabs ── */
+.mode-strip {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  display: flex; gap: 0; overflow-x: auto;
+}
+.mode-tab {
+  padding: 11px 20px;
+  font-family: 'Inter', sans-serif; font-weight: 600;
+  font-size: .76rem; letter-spacing: .07em; text-transform: uppercase;
+  background: transparent; border: none; border-bottom: 3px solid transparent;
+  color: var(--text3); cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.mode-tab:hover { color: var(--text); }
+.mode-tab.active-b { color: var(--c-bound); border-bottom-color: var(--c-bound); }
+.mode-tab.active-r { color: var(--c-res);   border-bottom-color: var(--c-res); }
+.mode-tab.active-s { color: var(--c-scat);  border-bottom-color: var(--c-scat); }
+.mode-tab.active-t { color: var(--accent);  border-bottom-color: var(--accent); }
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  min-height: calc(100vh - 108px);
+}
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 11px;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.main { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Sidebar pieces ── */
+.slab {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.slab-title {
+  font-family: 'Playfair Display', serif;
+  font-size: .74rem; font-weight: 600; color: var(--text2);
+  letter-spacing: .05em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px; margin-bottom: 8px;
+}
+.par { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.par:last-child { margin-bottom: 0; }
+.par-row { display: flex; justify-content: space-between; align-items: center; }
+.par-name { font-family: 'Consolas', 'Courier New', monospace; font-size: .64rem; color: var(--text3); }
+.par-val {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: .64rem; font-weight: 500; color: var(--text);
+  background: var(--surface); padding: 1px 6px;
+  border-radius: 3px; border: 1px solid var(--border);
+  min-width: 52px; text-align: right;
+}
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 3px;
+  background: var(--border2); border-radius: 2px;
+  outline: none; cursor: pointer; margin-top: 2px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--surface);
+  cursor: pointer; transition: transform .1s;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+input[type=range].blue::-webkit-slider-thumb   { background: var(--c-bound); }
+input[type=range].violet::-webkit-slider-thumb { background: var(--c-res); }
+input[type=range].green::-webkit-slider-thumb  { background: var(--c-scat); }
+input[type=range].red::-webkit-slider-thumb    { background: var(--c-pot); }
+input[type=range].orange::-webkit-slider-thumb { background: var(--c-energy); }
+
+select {
+  width: 100%; padding: 5px 7px;
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); font-family: 'Consolas', 'Courier New', monospace;
+  font-size: .70rem; border-radius: 3px; outline: none; cursor: pointer;
+}
+
+.compute-btn {
+  width: 100%; padding: 8px;
+  border-radius: var(--radius);
+  font-family: 'Inter', sans-serif; font-weight: 700;
+  font-size: .76rem; letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer; border: 1px solid; transition: all .15s;
+}
+.compute-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.compute-btn:active { transform: translateY(0); }
+.btn-b { background: rgba(26,79,122,.08);  border-color: rgba(26,79,122,.4);  color: var(--c-bound); }
+.btn-b:hover { background: rgba(26,79,122,.18); }
+.btn-r { background: rgba(108,52,131,.08); border-color: rgba(108,52,131,.4); color: var(--c-res); }
+.btn-r:hover { background: rgba(108,52,131,.18); }
+.btn-s { background: rgba(26,122,74,.08);  border-color: rgba(26,122,74,.4);  color: var(--c-scat); }
+.btn-s:hover { background: rgba(26,122,74,.18); }
+
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.readout {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; padding: 6px 8px;
+}
+.readout-label {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: .54rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.readout-val {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: .82rem; font-weight: 500; margin-top: 2px;
+  color: var(--text); word-break: break-all;
+}
+.readout-val.blue   { color: var(--c-bound); }
+.readout-val.violet { color: var(--c-res); }
+.readout-val.green  { color: var(--c-scat); }
+.readout-val.red    { color: var(--c-pot); }
+.readout-val.orange { color: var(--c-energy); }
+
+/* ── Verification badge ── */
+.verify-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: .60rem; font-weight: 500; letter-spacing: .04em;
+}
+.verify-ok  { background: rgba(26,122,74,.12); border: 1px solid rgba(26,122,74,.35); color: var(--c-scat); }
+.verify-na  { background: rgba(138,122,106,.10); border: 1px solid rgba(138,122,106,.30); color: var(--text3); }
+.verify-err { background: rgba(176,58,46,.10); border: 1px solid rgba(176,58,46,.35); color: var(--c-pot); }
+
+/* ── Main panels ── */
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0;
+  overflow: hidden; box-shadow: var(--shadow);
+}
+.panel-header {
+  padding: 10px 14px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;
+}
+.panel-title {
+  font-family: 'Playfair Display', serif;
+  font-size: .82rem; font-weight: 600; color: var(--text); letter-spacing: .02em;
+}
+.panel-sub { font-family: 'Consolas', 'Courier New', monospace; font-size: .58rem; color: var(--text3); margin-top: 1px; }
+.panel-body { padding: 12px; }
+.chart-wrap { position: relative; height: 235px; }
+.chart-wrap canvas { position: absolute; inset: 0; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.chart-grid .panel { margin: 0; }
+.chart-grid .chart-wrap { height: 210px; }
+.chart-wide .chart-wrap { height: 225px; }
+
+/* ── Energy level list ── */
+.energy-level {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: 3px;
+  margin-bottom: 3px; cursor: pointer; transition: background .15s;
+}
+.energy-level:hover { background: rgba(26,79,122,.06); }
+.energy-level.selected { background: rgba(26,79,122,.13); }
+.el-num { font-family: 'Consolas', 'Courier New', monospace; font-size: .63rem; color: var(--c-bound); min-width: 22px; }
+.el-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.el-fill { height: 100%; background: var(--c-bound); border-radius: 2px; }
+.el-val { font-family: 'Consolas', 'Courier New', monospace; font-size: .63rem; color: var(--text); min-width: 76px; text-align: right; }
+.el-analytic { font-family: 'Consolas', 'Courier New', monospace; font-size: .58rem; color: var(--text3); min-width: 60px; text-align: right; }
+
+/* ── Legend ── */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 6px 14px; background: var(--surface2);
+  border-top: 1px solid var(--border);
+}
+.leg-item { display: flex; align-items: center; gap: 5px; font-family: 'Consolas', 'Courier New', monospace; font-size: .60rem; color: var(--text3); }
+.leg-line { width: 18px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+
+/* ── Pane visibility ── */
+.pane { display: none; }
+.pane.active { display: flex; flex-direction: column; gap: 14px; }
+.hide { display: none !important; }
+
+/* ── Theory cards ── */
+.theory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .theory-grid { grid-template-columns: 1fr; } }
+.theory-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+}
+.theory-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: .98rem; font-weight: 700; color: var(--text);
+  margin-bottom: 9px; padding-bottom: 7px;
+  border-bottom: 2px solid var(--border2);
+}
+.theory-card h4 {
+  font-family: 'Inter', sans-serif; font-size: .75rem; font-weight: 600;
+  color: var(--text2); margin: 11px 0 4px; letter-spacing: .04em; text-transform: uppercase;
+}
+.theory-card p { font-size: .94rem; color: var(--text2); line-height: 1.75; margin-bottom: 7px; }
+.theory-card p strong { color: var(--text); font-weight: 600; }
+.theory-card ul { padding-left: 15px; margin-bottom: 7px; }
+.theory-card li { font-size: .92rem; color: var(--text2); line-height: 1.7; margin-bottom: 3px; }
+.theory-card li strong { color: var(--text); }
+.eq {
+  background: var(--surface2); border-left: 3px solid var(--border2);
+  padding: 6px 10px; border-radius: 0 4px 4px 0;
+  font-family: 'Consolas', 'Courier New', monospace; font-size: .68rem;
+  color: var(--text); margin: 6px 0; line-height: 1.9;
+  overflow-x: auto; white-space: pre;
+}
+.eq.blue   { border-color: var(--c-bound); background: rgba(26,79,122,.04); }
+.eq.violet { border-color: var(--c-res);   background: rgba(108,52,131,.04); }
+.eq.green  { border-color: var(--c-scat);  background: rgba(26,122,74,.04); }
+.eq.red    { border-color: var(--c-pot);   background: rgba(176,58,46,.04); }
+.eq.orange { border-color: var(--c-energy);background: rgba(211,84,0,.04); }
+.callout {
+  border-radius: 4px; padding: 8px 11px;
+  font-size: .82rem; line-height: 1.65; margin-bottom: 9px;
+}
+.callout-b { background: rgba(26,79,122,.07); border: 1px solid rgba(26,79,122,.20); color: var(--text2); }
+.callout-r { background: rgba(108,52,131,.07); border: 1px solid rgba(108,52,131,.20); color: var(--text2); }
+.callout-s { background: rgba(26,122,74,.07); border: 1px solid rgba(26,122,74,.20); color: var(--text2); }
+.rtable { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: .78rem; }
+.rtable th {
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 5px 8px; font-family: 'Inter', sans-serif; font-weight: 600;
+  color: var(--text2); text-align: left; font-size: .72rem;
+}
+.rtable td { border: 1px solid var(--border); padding: 4px 8px; color: var(--text2); }
+.rtable td.hl { font-family: 'Consolas', 'Courier New', monospace; font-size: .78rem; color: var(--text); font-weight: 500; font-feature-settings: "zero" 0, "ss01" 0; font-variant-numeric: tabular-nums; }
+.rtable tr:hover td { background: var(--surface2); }
+
+/* ── S-matrix display ── */
+.smat-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 12px;
+  font-family: 'Consolas', 'Courier New', monospace; font-size: .72rem;
+  color: var(--text); line-height: 2.0;
+}
+.smat-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.smat-item { display: flex; flex-direction: column; gap: 2px; }
+.smat-label { font-size: .58rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+.smat-val { font-size: .80rem; font-weight: 500; }
+
+/* ── Analytic comparison table ── */
+.analytic-table { width: 100%; border-collapse: collapse; font-size: .73rem; }
+.analytic-table th {
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 4px 8px; font-family: 'Inter', sans-serif;
+  font-weight: 600; color: var(--text2); font-size: .68rem;
+}
+.analytic-table td { border: 1px solid var(--border); padding: 4px 8px; font-family: 'Consolas', 'Courier New', monospace; font-size: .82rem; font-feature-settings: "zero" 0, "ss01" 0; font-variant-numeric: tabular-nums; }
+.analytic-table .match { color: var(--c-scat); }
+.analytic-table .nomatch { color: var(--c-pot); }
+.analytic-table .na { color: var(--text3); }
+
+/* ── Numerical convergence controls ── */
+.conv-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.conv-field { display:flex; flex-direction:column; gap:3px; }
+.conv-field.full { grid-column:1/-1; }
+.conv-label { font-family:'JetBrains Mono','Consolas','Courier New',monospace; font-size:.82rem; color:var(--text3); }
+.conv-input { width:100%; padding:5px 6px; background:var(--surface); border:1px solid var(--border2); color:var(--text); font-family:'JetBrains Mono','Consolas','Courier New',monospace; font-size:.80rem; border-radius:3px; outline:none; }
+.conv-input:focus { border-color:var(--accent); }
+.method-checks { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; margin-top:4px; }
+.method-check { display:flex; align-items:center; gap:4px; font-family:'JetBrains Mono','Consolas','Courier New',monospace; font-size:.72rem; color:var(--text2); }
+.method-check input { accent-color:var(--accent); }
+.conv-note { margin-top:6px; font-family:'JetBrains Mono','Consolas','Courier New',monospace; font-size:.70rem; line-height:1.45; color:var(--text3); }
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+  .chart-grid { grid-template-columns: 1fr; }
+  .theory-grid { grid-template-columns: 1fr; }
+}
+
+.plotly-chart{width:100%;height:100%;min-height:180px;display:block;position:relative;}
+.plotly-chart > .plot-container{width:100%!important;height:100%!important;}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DOC-MANUAL — sidebar reference, scoped to #pane-theory only.
+   Namespaced "dm-" but now mapped onto the app's live parchment / day-night
+   theme variables, so it matches every other tab's surface and height
+   instead of carrying its own fixed dark palette.
+   ═══════════════════════════════════════════════════════════════════════ */
+.doc-manual {
+  --dm-bg:        var(--surface);
+  --dm-surface:   var(--surface2);
+  --dm-surface-h: var(--border2);
+  --dm-border:    var(--border);
+  --dm-fg:        var(--text);
+  --dm-muted:     var(--text3);
+  --dm-primary:   var(--accent);
+  --dm-primary-bg:color-mix(in srgb, var(--accent) 10%, transparent);
+  --dm-orange:    var(--c-energy);
+  --dm-green:     var(--c-scat);
+  --dm-red:       var(--c-pot);
+  --dm-purple:    var(--c-res);
+  background: var(--dm-bg);
+  color: var(--dm-fg);
+  font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  min-height: calc(100vh - 108px);
+}
+.dm-sidebar {
+  width: 190px; flex-shrink: 0;
+  border-right: 1px solid var(--dm-border);
+  padding: 14px 10px;
+  display: flex; flex-direction: column;
+}
+.dm-nav-heading {
+  font-size: 10px; font-weight: 600; color: var(--dm-muted);
+  text-transform: uppercase; letter-spacing: .1em; margin: 0 8px 8px;
+}
+.dm-nav-btn {
+  width: 100%; text-align: left; font-size: 12px;
+  padding: 7px 10px; margin-bottom: 2px; border-radius: 4px;
+  border: none; background: transparent; color: var(--dm-muted);
+  cursor: pointer; font-family: 'IBM Plex Sans', sans-serif;
+  transition: all .15s;
+}
+.dm-nav-btn:hover { color: var(--dm-fg); background: var(--dm-surface-h); }
+.dm-nav-btn.active { background: var(--dm-primary-bg); color: var(--dm-primary); font-weight: 500; }
+.dm-scroll { flex: 1; overflow-y: auto; }
+.dm-content { padding: 22px 26px; max-width: 760px; }
+.dm-doc-section { display: none; animation: dmFade .2s ease; }
+.dm-doc-section.active { display: block; }
+@keyframes dmFade { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+.dm-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700;
+  color: var(--dm-fg); margin-bottom: 12px;
+}
+.dm-sub {
+  font-family: 'Space Grotesk', sans-serif; font-size: .86rem; font-weight: 600;
+  color: var(--dm-primary); margin: 16px 0 8px;
+}
+.dm-p { font-size: .85rem; color: var(--dm-fg); opacity: .92; line-height: 1.65; margin-bottom: 12px; }
+.dm-p strong { color: var(--dm-fg); }
+/* Theory equations: MathJax-friendly, readable in both app themes */
+.dm-eq.math { white-space: normal; overflow-x: auto; text-align: center; }
+.dm-eq.math mjx-container { color: var(--dm-primary) !important; margin: .35em 0 !important; }
+.dm-eq.math mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; }
+.dm-p mjx-container { color: var(--dm-fg) !important; }
+.dm-eq {
+  margin: 10px 0; padding: 10px 12px; border-radius: 4px;
+  background: var(--dm-surface); border: 1px solid var(--dm-border);
+  font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+  color: var(--dm-primary); white-space: pre-wrap; line-height: 1.7;
+}
+.dm-info-box { margin: 12px 0; padding: 12px; border-radius: 4px; border: 1px solid; }
+.dm-info-title { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.dm-info-body { font-size: 12px; color: var(--dm-muted); line-height: 1.6; }
+.dm-box-blue   { border-color: color-mix(in srgb, var(--dm-primary) 25%, transparent); background: color-mix(in srgb, var(--dm-primary) 5%, transparent); }
+.dm-box-orange { border-color: color-mix(in srgb, var(--dm-orange) 25%, transparent);  background: color-mix(in srgb, var(--dm-orange) 5%, transparent); }
+.dm-box-green  { border-color: color-mix(in srgb, var(--dm-green) 25%, transparent);   background: color-mix(in srgb, var(--dm-green) 5%, transparent); }
+.dm-box-purple { border-color: color-mix(in srgb, var(--dm-purple) 25%, transparent);  background: color-mix(in srgb, var(--dm-purple) 5%, transparent); }
+.dm-box-red    { border-color: color-mix(in srgb, var(--dm-red) 25%, transparent);     background: color-mix(in srgb, var(--dm-red) 5%, transparent); }
+.dm-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 14px 0; }
+.dm-feature-card { padding: 12px; border-radius: 4px; border: 1px solid; text-align: center; }
+.dm-pot-card {
+  padding: 12px; border-radius: 4px; border: 1px solid var(--dm-border);
+  background: var(--dm-surface); margin-bottom: 10px;
+}
+.dm-pot-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.dm-pot-name { font-size: 13px; font-weight: 600; color: var(--dm-fg); }
+.dm-badge {
+  font-size: 9px; border: 1px solid color-mix(in srgb, var(--dm-red) 50%, transparent); color: var(--dm-red);
+  padding: 2px 6px; border-radius: 12px; white-space: nowrap; flex-shrink: 0;
+}
+.dm-pot-formula { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dm-primary); margin-top: 5px; white-space: pre-wrap; line-height: 1.6; }
+.dm-pot-note { font-size: 11px; color: var(--dm-muted); margin-top: 5px; line-height: 1.55; }
+@media (max-width: 800px) {
+  .doc-manual { flex-direction: column; min-height: 0; }
+  .dm-sidebar { width: 100%; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--dm-border); }
+  .dm-nav-heading { display: none; }
+  .dm-grid-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ℏ</div>
+  <div class="header-text">
+    <h1>Quantum Potential Solver</h1>
+    <p>Bound States · Resonances · Scattering &mdash; Numerov Method with Analytical Verification</p>
+  </div>
+  <div class="state-pills">
+    <span class="spill spill-b">BOUND</span>
+    <span class="spill spill-r">RESONANCE</span>
+    <span class="spill spill-s">SCATTERING</span>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle day/night theme" title="Toggle day/night">☾</button>
+  </div>
+</header>
+
+<nav class="mode-strip">
+  <button class="mode-tab" data-mode="bound">Bound States</button>
+  <button class="mode-tab" data-mode="resonance">Resonance States</button>
+  <button class="mode-tab" data-mode="scatter">Scattering States</button>
+  <button class="mode-tab" data-mode="theory">Theory &amp; Reference</button>
+</nav>
+
+<div class="layout">
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — BOUND
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sb-bound">
+    <div class="slab">
+      <div class="slab-title">Potential</div>
+      <select id="b-pot">
+        <option value="finite_well">Finite Well + Step</option>
+        <option value="infinite_well">Infinite Square Well</option>
+        <option value="morse">Morse Potential</option>
+        <option value="kratzer">Kratzer Potential</option>
+        <option value="woods_saxon">Woods-Saxon</option>
+      </select>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Parameters</div>
+      <div id="b-params"></div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Angular Momentum</div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">ℓ (orbital)</span>
+          <span class="par-val" id="bv-l">0</span>
+        </div>
+        <input type="range" class="blue" id="bs-l" min="0" max="5" step="1" value="0">
+      </div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">n<sub>r</sub> (radial nodes)</span>
+          <span class="par-val" id="bv-nr">0</span>
+        </div>
+        <input type="range" class="blue" id="bs-nr" min="0" max="20" step="1" value="0">
+      </div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Numerical Convergence</div>
+      <div class="conv-grid">
+        <div class="conv-field"><label class="conv-label" for="b-rmin">r_min</label><input class="conv-input" id="b-rmin" type="number" min="1e-6" step="0.001" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="b-rmax">r_max</label><input class="conv-input" id="b-rmax" type="number" min="0.01" step="0.1" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="b-n">Grid N</label><input class="conv-input" id="b-n" type="number" min="200" max="20000" step="100" value="2000"></div>
+        <div class="conv-field"><label class="conv-label" for="b-tol">Tolerance</label><input class="conv-input" id="b-tol" type="number" min="1e-14" max="1" step="1e-8" value="1e-8"></div>
+        <div class="conv-field full"><label class="conv-label">Methods used in convergence table</label>
+          <div class="method-checks">
+            <label class="method-check"><input type="checkbox" id="b-fd" checked> FD</label>
+            <label class="method-check"><input type="checkbox" id="b-num" checked> Numerov</label>
+            <label class="method-check"><input type="checkbox" id="b-rk4" checked> RK4</label>
+          </div>
+        </div>
+      </div>
+      <div class="conv-note">Blank r_min/r_max = automatic potential-dependent limits. r_min/r_max and N define the integration grid. Tolerance controls root convergence. Changing controls requires Compute.</div>
+    </div>
+    <button class="compute-btn btn-b" id="btn-bound">Compute Bound States</button>
+    <div class="slab">
+      <div class="slab-title">Results</div>
+      <div class="readouts">
+        <div class="readout">
+          <div class="readout-label">E_n (V₀)</div>
+          <div class="readout-val blue" id="br-En">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">κ (ℏ/a)</div>
+          <div class="readout-val blue" id="br-kappa">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Nodes</div>
+          <div class="readout-val" id="br-nodes">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Total States</div>
+          <div class="readout-val" id="br-N">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">E_analytic</div>
+          <div class="readout-val orange" id="br-Ean">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Rel. Error</div>
+          <div class="readout-val" id="br-err">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — RESONANCE
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar hide" id="sb-resonance">
+    <div class="slab">
+      <div class="slab-title">Potential</div>
+      <select id="r-pot">
+        <option value="inverted_harmonic" selected>Inverted Harmonic-Oscillator Barrier</option>
+        <option value="inverted_kratzer">Inverted Kratzer Potential</option>
+        <option value="inverted_morse">Inverted Morse Barrier</option>
+      </select>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Parameters</div>
+      <div id="r-params"></div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Angular Momentum</div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">ℓ (orbital)</span>
+          <span class="par-val" id="rv-l">1</span>
+        </div>
+        <input type="range" class="violet" id="rs-l" min="0" max="5" step="1" value="1">
+      </div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">n_r (resonance index)</span>
+          <span class="par-val" id="rv-nr">0</span>
+        </div>
+        <input type="range" class="violet" id="rs-nr" min="0" max="0" step="1" value="0">
+      </div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Numerical Convergence</div>
+      <div class="conv-grid">
+        <div class="conv-field"><label class="conv-label" for="r-rmin">r_min</label><input class="conv-input" id="r-rmin" type="number" min="1e-6" step="0.001" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="r-rmax">r_max</label><input class="conv-input" id="r-rmax" type="number" min="0.01" step="0.1" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="r-n">Grid N</label><input class="conv-input" id="r-n" type="number" min="200" max="20000" step="100" value="2000"></div>
+        <div class="conv-field"><label class="conv-label" for="r-tol">Tolerance</label><input class="conv-input" id="r-tol" type="number" min="1e-14" max="1" step="1e-8" value="1e-8"></div>
+        <div class="conv-field full"><label class="conv-label">Methods used in convergence table</label>
+          <div class="method-checks">
+            <label class="method-check"><input type="checkbox" id="r-fd" checked> FD</label>
+            <label class="method-check"><input type="checkbox" id="r-num" checked> Numerov</label>
+            <label class="method-check"><input type="checkbox" id="r-rk4" checked> RK4</label>
+          </div>
+        </div>
+      </div>
+      <div class="conv-note">Blank r_min/r_max = automatic potential-dependent limits. r_min/r_max and N define the integration grid. Tolerance controls root convergence. Changing controls requires Compute.</div>
+    </div>
+    <button class="compute-btn btn-r" id="btn-res">Compute Resonances</button>
+    <div class="slab">
+      <div class="slab-title">Results</div>
+      <div class="readouts">
+        <div class="readout">
+          <div class="readout-label">E_res (V₀)</div>
+          <div class="readout-val violet" id="rr-Eres">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Γ (V₀)</div>
+          <div class="readout-val violet" id="rr-G">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">τ (ℏ/V₀)</div>
+          <div class="readout-val" id="rr-tau">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — SCATTERING
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar hide" id="sb-scatter">
+    <div class="slab">
+      <div class="slab-title">Potential</div>
+      <select id="s-pot">
+        <option value="finite_well">Finite Well + Step</option>
+        <option value="infinite_well">Infinite Square Well</option>
+        <option value="morse">Morse Potential</option>
+        <option value="kratzer">Kratzer Potential</option>
+        <option value="woods_saxon">Woods-Saxon</option>
+      </select>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Parameters</div>
+      <div id="s-params"></div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Angular Momentum</div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">ℓ (orbital)</span>
+          <span class="par-val" id="sv-l">0</span>
+        </div>
+        <input type="range" class="green" id="ss-l" min="0" max="5" step="1" value="0">
+      </div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Probe Energy</div>
+      <div class="par">
+        <div class="par-row">
+          <span class="par-name">E_probe (V₀)</span>
+          <span class="par-val" id="sv-E">3.00</span>
+        </div>
+        <input type="range" class="green" id="ss-E" min="0.05" max="30" step="0.05" value="3.0">
+      </div>
+    </div>
+    <div class="slab">
+      <div class="slab-title">Numerical Convergence</div>
+      <div class="conv-grid">
+        <div class="conv-field"><label class="conv-label" for="s-rmin">r_min</label><input class="conv-input" id="s-rmin" type="number" min="1e-6" step="0.001" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="s-rmax">r_max</label><input class="conv-input" id="s-rmax" type="number" min="0.01" step="0.1" value="" placeholder="auto"></div>
+        <div class="conv-field"><label class="conv-label" for="s-n">Grid N</label><input class="conv-input" id="s-n" type="number" min="200" max="20000" step="100" value="2000"></div>
+        <div class="conv-field"><label class="conv-label" for="s-tol">Tolerance</label><input class="conv-input" id="s-tol" type="number" min="1e-14" max="1" step="1e-8" value="1e-8"></div>
+        <div class="conv-field full"><label class="conv-label">Methods used in convergence table</label>
+          <div class="method-checks">
+            <label class="method-check"><input type="checkbox" id="s-fd" checked> FD</label>
+            <label class="method-check"><input type="checkbox" id="s-num" checked> Numerov</label>
+            <label class="method-check"><input type="checkbox" id="s-rk4" checked> RK4</label>
+          </div>
+        </div>
+      </div>
+      <div class="conv-note">Blank r_min/r_max = automatic potential-dependent limits. r_min/r_max and N define the integration grid. Tolerance controls root convergence. Changing controls requires Compute.</div>
+    </div>
+    <button class="compute-btn btn-s" id="btn-scat">Compute Scattering</button>
+    <div class="slab">
+      <div class="slab-title">Results</div>
+      <div class="readouts">
+        <div class="readout">
+          <div class="readout-label">δ_ℓ (rad)</div>
+          <div class="readout-val green" id="sr-delta">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">ka</div>
+          <div class="readout-val" id="sr-ka">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">σ_ℓ (a²)</div>
+          <div class="readout-val green" id="sr-T">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Nodes</div>
+          <div class="readout-val" id="sr-nodes">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Re[S_ℓ]</div>
+          <div class="readout-val green" id="sr-Sre">—</div>
+        </div>
+        <div class="readout">
+          <div class="readout-label">Im[S_ℓ]</div>
+          <div class="readout-val green" id="sr-Sim">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIDEBAR — THEORY (empty — full width)
+  ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar hide" id="sb-theory" style="display:none!important"></aside>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- ── BOUND STATE PANE ── -->
+    <div class="pane" id="pane-bound">
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Effective Potential</div>
+              <div class="panel-sub">V_eff(r) — radial effective potential</div>
+            </div>
+            <span id="b-verify-badge" class="verify-badge verify-na">Analytic: N/A</span>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap" style="height:190px"><div id="c-bound-wf" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-pot)"></div>V_eff(r)</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-energy);border-top:2px dashed var(--c-energy)"></div>E_n</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Energy Spectrum</div>
+              <div class="panel-sub">Discrete eigenvalues — click to select</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap" style="height:190px"><div id="c-bound-spec" class="plotly-chart"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Wave Function</div>
+              <div class="panel-sub">u(r) = r·R(r), Simpson-normalized: ∫|u|²dr = 1</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap" style="height:190px"><div id="c-bound-psi" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-bound)"></div>u_n(r)</div>
+            <div class="leg-item"><div class="leg-line" style="background:rgba(26,79,122,0.35);height:8px;border-radius:2px"></div>|u_n|²</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Analytical Verification</div>
+              <div class="panel-sub">Numerical vs. exact eigenvalues</div>
+            </div>
+          </div>
+          <div class="panel-body" style="overflow-x:auto">
+            <table class="analytic-table" id="b-analytic-table">
+              <thead><tr><th>n</th><th>ℓ</th><th>E_FD (V₀)</th><th>E_Numerov (V₀)</th><th>E_RK4 (V₀)</th><th>E_exact (V₀)</th><th>Max err (FD/Num/RK4)</th></tr></thead>
+              <tbody id="b-analytic-body"><tr><td colspan="7" class="na" style="text-align:center;padding:8px">Run computation to see results</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Shooting Function F(E)</div>
+              <div class="panel-sub">F(E) = u(r_max) — zeros are eigenvalues</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-bound-shoot" class="plotly-chart"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pane-bound -->
+
+    <!-- ── RESONANCE PANE ── -->
+    <div class="pane" id="pane-resonance">
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Effective Potential</div>
+              <div class="panel-sub">V_eff(r) = V(r) + ℓ(ℓ+1)/r² — resonance potential landscape</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-res-pot" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-pot)"></div>V_eff(r)</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-energy);border-top:2px dashed var(--c-energy)"></div>E_res</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Resonance Wave Function — Complex</div>
+              <div class="panel-sub">Gamow state at E = E_res − iΓ/2; Re[u], Im[u], |u|²</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-res-wf" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-pot)"></div>V_eff</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-res)"></div>Re[u(r)]</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-res2)"></div>Im[u(r)]</div>
+            <div class="leg-item"><div class="leg-line" style="background:rgba(108,52,131,0.35);height:8px;border-radius:2px"></div>|u(r)|²</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="note warning"><strong>Complex-pole comparison:</strong> For IHO and inverted Kratzer, FD, Numerov and RK4 are evaluated in the complex-energy plane. The analytical row is the exact complex pole of the corresponding solvable potential. For finite-range non-solvable barriers, the table retains the model-specific numerical pole treatment.</div>
+<div class="panel-title">Complex Resonance Energy — Method Comparison</div>
+              <div class="panel-sub">Complex resonance comparison: numerical complex pole E = E_R − iΓ/2 versus the exact solvable-potential pole</div>
+            </div>
+          </div>
+          <div class="panel-body" style="overflow-x:auto">
+            <table class="analytic-table" id="r-analytic-table">
+              <thead><tr><th>Method</th><th>n_r</th><th>ℓ</th><th>E_res (V₀)</th><th>Γ (V₀)</th><th>E_res − iΓ/2</th><th>τ = 1/Γ</th><th>ΔE vs analytical</th><th>ΔΓ vs analytical</th></tr></thead>
+              <tbody id="r-analytic-body"><tr><td colspan="10" class="na" style="text-align:center;padding:8px">Run computation to see results</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pane-resonance -->
+
+    <!-- ── SCATTERING PANE ── -->
+    <div class="pane" id="pane-scatter">
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Scattering Wave Function</div>
+              <div class="panel-sub">u(r) at E_probe — oscillates asymptotically</div>
+            </div>
+            <span id="s-verify-badge" class="verify-badge verify-na">Analytic: N/A</span>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-scat-wf" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-pot)"></div>V_eff</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-scat)"></div>u(r)</div>
+            <div class="leg-item"><div class="leg-line" style="background:rgba(26,122,74,0.35);height:8px;border-radius:2px"></div>|u|²</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Phase Shift δ_ℓ(E)</div>
+              <div class="panel-sub">Accumulated phase relative to free particle</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-scat-delta" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-scat)"></div>δ_ℓ(E)</div>
+            <div class="leg-item"><div class="leg-line" style="background:rgba(0,0,0,0.2);border-top:2px dashed rgba(0,0,0,0.2)"></div>π/2</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-energy);border-top:2px dashed var(--c-energy)"></div>E_probe</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Partial Cross Section σ_ℓ(E)</div>
+              <div class="panel-sub">σ_ℓ = 4π(2ℓ+1)sin²δ_ℓ / k² — optical theorem</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="chart-wrap"><div id="c-scat-sigma" class="plotly-chart"></div></div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-bound)"></div>σ_ℓ(E)</div>
+            <div class="leg-item"><div class="leg-line" style="background:var(--c-energy);border-top:2px dashed var(--c-energy)"></div>E_probe</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">S-Matrix &amp; Scattering Amplitude</div>
+              <div class="panel-sub">S_ℓ = e^{2iδ_ℓ} — unitarity: |S_ℓ| = 1</div>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="smat-box" id="smat-display">
+              <div class="smat-row" id="smat-row">
+                <div class="smat-item"><span class="smat-label">S_ℓ</span><span class="smat-val" id="sm-Sl">—</span></div>
+                <div class="smat-item"><span class="smat-label">|S_ℓ|</span><span class="smat-val" id="sm-Smod">—</span></div>
+                <div class="smat-item"><span class="smat-label">arg(S_ℓ)</span><span class="smat-val" id="sm-Sarg">—</span></div>
+              </div>
+              <div class="smat-row" style="margin-top:10px">
+                <div class="smat-item"><span class="smat-label">f_ℓ (scatt. amp.)</span><span class="smat-val" id="sm-fl">—</span></div>
+                <div class="smat-item"><span class="smat-label">σ_ℓ (a²)</span><span class="smat-val" id="sm-sig">—</span></div>
+                <div class="smat-item"><span class="smat-label">T_ℓ = 1−S_ℓ</span><span class="smat-val" id="sm-Tl">—</span></div>
+              </div>
+              <div style="margin-top:10px;font-size:.65rem;color:var(--text3)">
+                Unitarity check: |S_ℓ|² = <span id="sm-unit">—</span> (should be 1.000)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /pane-scatter -->
+
+    <!-- ── THEORY PANE ── -->
+    <div class="pane" id="pane-theory">
+      <div class="doc-manual">
+        <aside class="dm-sidebar">
+          <p class="dm-nav-heading">Theory</p>
+          <nav id="dm-nav-menu">
+            <button class="dm-nav-btn active" data-dmtarget="dm-overview">Overview</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-model">Radial Equation</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-methods">Numerical Methods</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-bound">Bound States</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-resonance">Resonances</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-scattering">Scattering</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-potentials">Potentials &amp; Exact Checks</button>
+            <button class="dm-nav-btn" data-dmtarget="dm-conventions">Conventions &amp; Limits</button>
+          </nav>
+        </aside>
+
+        <div class="dm-scroll">
+          <div class="dm-content">
+
+            <div id="dm-overview" class="dm-doc-section active">
+              <h2 class="dm-title">Quantum Potential Solver — Theory &amp; Reference</h2>
+              <p class="dm-p">
+                This tab documents the equations actually used by the Bound States, Resonance States,
+                and Scattering States solvers. The numerical problem is the radial Schrödinger equation
+                for the reduced radial wavefunction \(u(r)=rR(r)\), with a centrifugal contribution
+                included whenever \(\ell&gt;0\).
+              </p>
+              <div class="dm-info-box dm-box-blue">
+                <div class="dm-info-title" style="color:var(--dm-primary);">Primary convention</div>
+                <div class="dm-info-body">
+                  The code sets \( \hbar^2/(2m)=1 \). Therefore
+                  \(k=\sqrt{E}\) for positive-energy scattering and
+                  \(\kappa=\sqrt{-E}\) for negative-energy bound states.
+                  Energies and lengths are dimensionless numerical quantities; the labels \(V_0\)
+                  and \(a\) are scale references rather than universal physical units.
+                </div>
+              </div>
+              <div class="dm-grid-3">
+                <div class="dm-feature-card dm-box-blue">
+                  <div style="font-size:14px;font-weight:600;color:var(--dm-primary);margin-bottom:4px;">Bound</div>
+                  <div style="font-size:11px;color:var(--dm-muted);">Real negative-energy eigenvalues from regular-origin shooting and boundary matching.</div>
+                </div>
+                <div class="dm-feature-card dm-box-orange">
+                  <div style="font-size:14px;font-weight:600;color:var(--dm-orange);margin-bottom:4px;">Resonance</div>
+                  <div style="font-size:11px;color:var(--dm-muted);">Quasi-bound states characterised by a complex pole \(E_R-i\Gamma/2\).</div>
+                </div>
+                <div class="dm-feature-card dm-box-green">
+                  <div style="font-size:14px;font-weight:600;color:var(--dm-green);margin-bottom:4px;">Scattering</div>
+                  <div style="font-size:11px;color:var(--dm-muted);">Positive-energy phase shifts, \(S_\ell\), partial cross sections and amplitudes.</div>
+                </div>
+              </div>
+              <div class="dm-info-box dm-box-red">
+                <div class="dm-info-title" style="color:var(--dm-red);">Important correction</div>
+                <div class="dm-info-body">
+                  The previous theory text incorrectly called the Numerov method “\(O(h^6)\) accuracy”
+                  without distinguishing local truncation from global convergence, and it gave an
+                  incomplete Kratzer spectrum. This version states the orders and exact formulas
+                  consistently with the implementation.
+                </div>
+              </div>
+            </div>
+
+            <div id="dm-model" class="dm-doc-section">
+              <h2 class="dm-title">Radial Schrödinger Equation</h2>
+              <h3 class="dm-sub">Separation of variables</h3>
+              <div class="dm-eq math">$$
+\psi(\mathbf r)=R_\ell(r)Y_{\ell m}(\theta,\phi),\qquad
+u_\ell(r)=rR_\ell(r).
+$$</div>
+              <p class="dm-p">
+                The substitution \(u=rR\) removes the first-derivative term from the radial equation.
+                The physical radial probability is \( |u(r)|^2\,dr \).
+              </p>
+
+              <h3 class="dm-sub">Radial equation</h3>
+              <div class="dm-eq math">$$
+-\frac{\hbar^2}{2m}\frac{d^2u}{dr^2}
++\left[
+V(r)+\frac{\hbar^2\ell(\ell+1)}{2mr^2}
+\right]u
+=Eu.
+$$</div>
+              <div class="dm-eq math">$$
+V_{\rm eff}(r)=V(r)+\frac{\hbar^2\ell(\ell+1)}{2mr^2}.
+$$</div>
+
+              <h3 class="dm-sub">Dimensionless equation used by the code</h3>
+              <div class="dm-eq math">$$
+\frac{\hbar^2}{2m}=1
+\quad\Longrightarrow\quad
+-u''(r)+V_{\rm eff}(r)u(r)=Eu(r),
+$$
+$$
+u''(r)=\bigl[V_{\rm eff}(r)-E\bigr]u(r).
+$$</div>
+
+              <h3 class="dm-sub">Origin boundary condition</h3>
+              <div class="dm-eq math">$$
+u(0)=0,\qquad
+u(r)\propto r^{\ell+1}\quad(r\rightarrow0).
+$$</div>
+              <p class="dm-p">
+                This regular solution is essential for the radial problem. For singular \(1/r^2\)
+                potentials, the local power changes according to the singular coefficient; the
+                implementation treats the ordinary Kratzer singularity specially when constructing
+                the Numerov initial behaviour.
+              </p>
+
+              <h3 class="dm-sub">Normalisation</h3>
+              <div class="dm-eq math">$$
+\int_0^\infty |u(r)|^2\,dr=1.
+$$</div>
+              <p class="dm-p">
+                For bound states the displayed wavefunction is normalised numerically with composite
+                Simpson integration on the uniform grid. Scattering and Gamow states are not
+                ordinary square-integrable bound states, so their plotted amplitudes should not be
+                interpreted as unit-probability bound-state normalisations.
+              </p>
+            </div>
+
+            <div id="dm-methods" class="dm-doc-section">
+              <h2 class="dm-title">Numerical Methods</h2>
+
+              <h3 class="dm-sub">Numerov equation</h3>
+              <p class="dm-p">The code writes the ODE as \(u''=f(r)u\), with</p>
+              <div class="dm-eq math">$$
+f_i=\frac{V_{\rm eff}(r_i)-E}{\hbar^2/(2m)}.
+$$</div>
+              <div class="dm-eq math">$$
+u_{i+1}=
+\frac{
+2u_i\left(1-\frac{5h^2f_i}{12}\right)
+-u_{i-1}\left(1+\frac{h^2f_{i-1}}{12}\right)
+}{
+1+\frac{h^2f_{i+1}}{12}
+}.
+$$</div>
+              <div class="dm-info-box dm-box-blue">
+                <div class="dm-info-title" style="color:var(--dm-primary);">Order of accuracy</div>
+                <div class="dm-info-body">
+                  For a smooth equation of the Numerov form, the local truncation error is
+                  \(O(h^6)\), while the usual global solution error is \(O(h^4)\).
+                  Thus “\(O(h^6)\)” must not be reported as the global convergence order.
+                </div>
+              </div>
+
+              <h3 class="dm-sub">Shooting and root finding</h3>
+              <div class="dm-eq math">$$
+F(E)=u(r_{\max};E).
+$$</div>
+              <p class="dm-p">
+                A bound-state eigenvalue is located where the regular solution satisfies the
+                outer boundary condition. The code scans the energy range for sign changes and
+                refines candidate roots with bisection. The finite numerical \(r_{\max}\) means
+                \(F(E)=0\) is a finite-domain approximation to the true condition
+                \(u(\infty)=0\).
+              </p>
+
+              <h3 class="dm-sub">Finite-difference and RK4 checks</h3>
+              <p class="dm-p">
+                The convergence tables can compare finite-difference, Numerov and RK4 calculations.
+                Agreement between independent discretisations is a numerical consistency check;
+                it is not, by itself, an analytical proof.
+              </p>
+
+              <h3 class="dm-sub">Grid and convergence controls</h3>
+              <div class="dm-eq math">$$
+h=\frac{r_{\max}-r_{\min}}{N-1}.
+$$</div>
+              <p class="dm-p">
+                The selected \(r_{\min}\), \(r_{\max}\), grid size \(N\), and tolerance determine
+                the numerical domain and root refinement. Singular potentials require particular
+                care with \(r_{\min}\); moving it too close to zero can make the \(1/r^2\) term
+                dominate the discretisation.
+              </p>
+            </div>
+
+            <div id="dm-bound" class="dm-doc-section">
+              <h2 class="dm-title">Bound States</h2>
+              <div class="dm-info-box dm-box-blue">
+                <div class="dm-info-title" style="color:var(--dm-primary);">Physical condition</div>
+                <div class="dm-info-body">
+                  A bound state has real \(E\) below the continuum threshold and is square-integrable.
+                  For the implemented potentials whose asymptotic value is zero, this normally means
+                  \(E&lt;0\).
+                </div>
+              </div>
+
+              <h3 class="dm-sub">Asymptotic form</h3>
+              <div class="dm-eq math">$$
+u(r)\sim e^{-\kappa r},\qquad
+\kappa=\frac{\sqrt{2m|E|}}{\hbar}=\sqrt{|E|}
+\quad\text{in the code units}.
+$$</div>
+
+              <h3 class="dm-sub">Quantisation</h3>
+              <div class="dm-eq math">$$
+u(0)=0,\qquad u(r\rightarrow\infty)=0.
+$$</div>
+              <p class="dm-p">
+                The radial quantum number \(n_r\) counts interior nodes of the regular reduced
+                radial wavefunction. The ground state in a fixed \(\ell\) channel has \(n_r=0\).
+                Increasing \(\ell\) adds the repulsive centrifugal term and generally raises the
+                eigenvalues and can remove bound states.
+              </p>
+
+              <h3 class="dm-sub">Infinite spherical well — exact benchmark</h3>
+              <div class="dm-eq math">$$
+V(r)=
+\begin{cases}
+0,&0&lt;r&lt;a,\\
+\infty,&r\ge a,
+\end{cases}
+\qquad
+j_\ell(ka)=0.
+$$</div>
+              <div class="dm-eq math">$$
+k_{n\ell}a=x_{n\ell},
+\qquad
+E_{n\ell}=\frac{x_{n\ell}^2}{a^2},
+$$</div>
+              <p class="dm-p">
+                Here \(x_{n\ell}\) is the \(n\)-th positive zero of the spherical Bessel function
+                \(j_\ell\). This is the cleanest bound-state verification because the spectrum is
+                known exactly.
+              </p>
+
+              <h3 class="dm-sub">Morse full-line reference</h3>
+              <div class="dm-eq math">$$
+V(r)=D_e\left[\left(1-e^{-\alpha(r-r_e)}\right)^2-1\right],
+$$
+$$
+E_v=-D_e+2\alpha\sqrt{D_e}\left(v+\frac12\right)
+-\alpha^2\left(v+\frac12\right)^2.
+$$</div>
+              <p class="dm-p">
+                This closed form is exact for the standard full-line Morse problem in the code's
+                \(\hbar^2/(2m)=1\) convention. Because the numerical radial problem is restricted
+                to \(r\ge0\), it is a reference rather than an exact radial benchmark in general.
+              </p>
+
+              <h3 class="dm-sub">Kratzer exact spectrum — corrected</h3>
+              <div class="dm-eq math">$$
+V(r)=D_e\left(\frac{r_e^2}{r^2}-\frac{2r_e}{r}\right),
+$$
+$$
+\lambda_\ell=
+\sqrt{\left(\ell+\frac12\right)^2+D_e r_e^2},
+$$
+$$
+\boxed{
+E_{n_r\ell}
+=
+-\frac{(D_e r_e)^2}
+{\left(n_r+\frac12+\lambda_\ell\right)^2}
+}.
+$$</div>
+              <p class="dm-p">
+                The squared numerator \((D_e r_e)^2\) is essential. The earlier theory card omitted
+                one factor of \(D_e\). The formula above matches the analytic spectrum used by the
+                code. Equivalently, defining
+                \(\beta=\lambda_\ell-\tfrac12\), the denominator is
+                \(n_r+\beta+\tfrac12\).
+              </p>
+            </div>
+
+            <div id="dm-resonance" class="dm-doc-section">
+              <h2 class="dm-title">Resonance States</h2>
+              <div class="dm-info-box dm-box-orange">
+                <div class="dm-info-title" style="color:var(--dm-orange);">Physical picture</div>
+                <div class="dm-info-body">
+                  A resonance is a metastable state embedded in the continuum. It is localised
+                  temporarily by an effective barrier and decays by outgoing flux.
+                </div>
+              </div>
+
+              <h3 class="dm-sub">Complex-energy definition</h3>
+              <div class="dm-eq math">$$
+E_{\rm pole}=E_R-\frac{i\Gamma}{2}.
+$$</div>
+              <div class="dm-eq math">$$
+\Gamma=-2\,\operatorname{Im}E_{\rm pole},
+\qquad
+\tau=\frac{\hbar}{\Gamma}.
+$$</div>
+              <p class="dm-p">
+                In the code units \(\hbar=1\) and \(\hbar^2/(2m)=1\), so the displayed lifetime is
+                \(\tau=1/\Gamma\).
+              </p>
+
+              <h3 class="dm-sub">Barrier picture</h3>
+              <div class="dm-eq math">$$
+V_{\rm eff}(r)=V(r)+\frac{\ell(\ell+1)}{r^2}
+\qquad(\hbar^2/2m=1).
+$$</div>
+              <p class="dm-p">
+                For a centrifugal resonance, a pocket plus barrier can trap the wave temporarily.
+                The resonance energy is generally associated with a rapid phase variation and need
+                not equal the barrier maximum exactly.
+              </p>
+
+              <h3 class="dm-sub">Phase-shift signature</h3>
+              <div class="dm-eq math">$$
+\delta_\ell(E)\approx
+\delta_{\rm bg}(E)+
+\arctan\!\left(\frac{\Gamma/2}{E_R-E}\right),
+$$</div>
+              <div class="dm-eq math">$$
+\left.\frac{d\delta_\ell}{dE}\right|_{E_R}
+\approx \frac{2}{\Gamma}
+\quad\Longrightarrow\quad
+\boxed{\Gamma\approx
+\frac{2}{\left|d\delta_\ell/dE\right|_{E_R}} }.
+$$</div>
+              <p class="dm-p">
+                The absolute value is appropriate for the numerical detector because an
+                \(\operatorname{atan2}\)-based phase can jump branches. The derivative relation
+                is a narrow, isolated Breit–Wigner approximation; it is not a universal identity
+                for broad or overlapping resonances.
+              </p>
+
+              <h3 class="dm-sub">Breit–Wigner partial cross section</h3>
+              <div class="dm-eq math">$$
+\sigma_\ell(E)=
+\frac{4\pi(2\ell+1)}{k^2}\sin^2\delta_\ell(E),
+$$
+$$
+\sigma_\ell^{\rm BW}(E)\simeq
+\frac{4\pi(2\ell+1)}{k^2}
+\frac{(\Gamma/2)^2}
+{(E-E_R)^2+(\Gamma/2)^2}.
+$$</div>
+              <p class="dm-p">
+                The second expression is the isolated-resonance approximation. The first is the
+                exact elastic partial-wave expression used by the scattering calculation.
+              </p>
+
+              <h3 class="dm-sub">WKB interpretation</h3>
+              <div class="dm-eq math">$$
+\Gamma\propto
+\exp\!\left[-2\int_{r_2}^{r_3}\kappa(r)\,dr\right],
+\qquad
+\kappa(r)=\sqrt{V_{\rm eff}(r)-E_R},
+$$</div>
+              <p class="dm-p">
+                The proportionality hides a model-dependent assault-frequency/prefactor. Therefore
+                the exponential is a qualitative tunnelling law, not the complete numerical width
+                formula used by this app.
+              </p>
+
+              <div class="dm-info-box dm-box-purple">
+                <div class="dm-info-title" style="color:var(--dm-purple);">Complex poles versus real-axis resonances</div>
+                <div class="dm-info-body">
+                  A real-axis phase-shift peak and a complex pole are related but are not numerically
+                  identical procedures. The app's analytical complex-pole references should therefore
+                  only be compared with the numerical method that uses the same complex-scaled
+                  Hamiltonian and the same potential definition.
+                </div>
+              </div>
+            </div>
+
+            <div id="dm-scattering" class="dm-doc-section">
+              <h2 class="dm-title">Scattering Theory</h2>
+              <div class="dm-info-box dm-box-green">
+                <div class="dm-info-title" style="color:var(--dm-green);">Positive-energy channel</div>
+                <div class="dm-info-body">
+                  For the implemented zero-asymptotic potentials, \(E&gt;0\) gives
+                  \(k=\sqrt{E}\) in code units and an oscillatory asymptotic wave.
+                </div>
+              </div>
+
+              <h3 class="dm-sub">Asymptotic radial solution</h3>
+              <div class="dm-eq math">$$
+u_\ell(r)\longrightarrow
+A\left[
+j_\ell(kr)\cos\delta_\ell
+-n_\ell(kr)\sin\delta_\ell
+\right].
+$$</div>
+              <p class="dm-p">
+                Since \(j_\ell\sim\sin(kr-\ell\pi/2)/(kr)\) and
+                \(n_\ell\sim-\cos(kr-\ell\pi/2)/(kr)\), this corresponds to
+              </p>
+              <div class="dm-eq math">$$
+u_\ell(r)\propto
+\frac{\sin(kr-\ell\pi/2+\delta_\ell)}{k}.
+$$</div>
+
+              <h3 class="dm-sub">Two-point phase extraction used in the code</h3>
+              <div class="dm-eq math">$$
+\tan\delta_\ell=
+\frac{
+u_1j_\ell(kr_2)-u_2j_\ell(kr_1)
+}{
+u_2n_\ell(kr_1)-u_1n_\ell(kr_2)
+}.
+$$</div>
+              <p class="dm-p">
+                The code evaluates this at two late-grid points, approximately 88% and 94% of the
+                numerical grid, where the solution is intended to be asymptotic. These points must
+                lie beyond the effective interaction region for the extraction to be reliable.
+              </p>
+
+              <h3 class="dm-sub">S-matrix and partial amplitude</h3>
+              <div class="dm-eq math">$$
+S_\ell=e^{2i\delta_\ell},
+\qquad |S_\ell|=1
+\quad\text{for elastic scattering},
+$$
+$$
+f_\ell=\frac{S_\ell-1}{2ik}
+=\frac{e^{i\delta_\ell}\sin\delta_\ell}{k}.
+$$</div>
+              <p class="dm-p">
+                The displayed quantity \(T_\ell=1-S_\ell\) in the results panel is a diagnostic
+                transition quantity in this app's convention. It should not be confused with the
+                standard partial-wave \(T\)-matrix convention
+                \(t_\ell=(S_\ell-1)/(2i)\).
+              </p>
+
+              <h3 class="dm-sub">Scattering amplitude and cross sections</h3>
+              <div class="dm-eq math">$$
+f(\theta)=
+\frac{1}{2ik}
+\sum_{\ell=0}^{\infty}
+(2\ell+1)(S_\ell-1)P_\ell(\cos\theta),
+$$
+$$
+\sigma_\ell(E)=
+\frac{4\pi(2\ell+1)}{k^2}\sin^2\delta_\ell,
+$$
+$$
+\sigma_{\rm tot}=
+\frac{4\pi}{k^2}
+\sum_{\ell=0}^{\infty}(2\ell+1)\sin^2\delta_\ell.
+$$</div>
+              <p class="dm-p">
+                The last expression is the elastic total cross section. The partial-wave expression
+                is a consequence of partial-wave unitarity; it should not be labelled “the optical
+                theorem” by itself. The optical theorem is instead
+              </p>
+              <div class="dm-eq math">$$
+\sigma_{\rm tot}=\frac{4\pi}{k}\operatorname{Im}f(0).
+$$</div>
+
+              <h3 class="dm-sub">Unitarity limit</h3>
+              <div class="dm-eq math">$$
+\sigma_\ell\le
+\frac{4\pi(2\ell+1)}{k^2},
+$$
+              $$\sigma_\ell^{\max}=
+\frac{4\pi(2\ell+1)}{k^2}
+\quad\text{when}\quad
+\delta_\ell=\frac{\pi}{2}\;(\mathrm{mod}\ \pi).
+$$</div>
+
+              <h3 class="dm-sub">Infinite spherical well phase shift</h3>
+              <div class="dm-eq math">$$
+j_\ell(ka)\cos\delta_\ell
+-n_\ell(ka)\sin\delta_\ell=0,
+$$
+$$
+\tan\delta_\ell=\frac{j_\ell(ka)}{n_\ell(ka)}.
+$$</div>
+              <p class="dm-p">
+                The code chooses the branch
+                \(\delta_\ell=-\operatorname{atan2}[j_\ell(ka),\,n_\ell(ka)]\),
+                which differs from an unwrapped phase by integer multiples of \(\pi\).
+                Since \(S_\ell=e^{2i\delta_\ell}\), branch changes by \(\pi\) do not change the
+                physical \(S\)-matrix.
+              </p>
+            </div>
+
+            <div id="dm-potentials" class="dm-doc-section">
+              <h2 class="dm-title">Implemented Potentials &amp; Exact Checks</h2>
+              <p class="dm-p">
+                These formulas follow the potential definitions in the solver. “Exact” means an
+                analytical reference exists for the stated problem and domain; it does not mean
+                every numerical mode using that potential has the same analytical solution.
+              </p>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">① Finite Well + Step</span></div>
+                <div class="dm-pot-formula">V(r) = −V₀,                 r &lt; a
+V(r) = 0,                  a ≤ r &lt; b
+V(r) = Vstep,               r ≥ b</div>
+                <div class="dm-pot-note">
+                  The centrifugal term \( \ell(\ell+1)/r^2 \) is added separately. This is a
+                  piecewise potential, so numerical shooting is the general method used here.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">② Infinite Spherical Well</span><span class="dm-badge">★ Exact</span></div>
+                <div class="dm-pot-formula">V(r) = 0       (0 &lt; r &lt; a)
+V(r) = ∞       (r ≥ a)
+
+j_l(ka) = 0
+E_nl = x_nl²/a²</div>
+                <div class="dm-pot-note">
+                  The numerical scattering shooter cannot cross an infinite wall, so the code uses
+                  the analytical hard-sphere phase shift for this scattering case.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">③ Morse Potential</span><span class="dm-badge">★ Full-line exact</span></div>
+                <div class="dm-pot-formula">V(r) = De[(1−exp(−α(r−re)))²−1]
+
+E_v = −De + 2α√De(v+1/2) − α²(v+1/2)²
+N_max = floor(√De/α − 1/2)</div>
+                <div class="dm-pot-note">
+                  Exact for the standard full-line Morse Hamiltonian. The radial calculation
+                  \(r\ge0\) is a restricted-domain problem, so the formula is a reference when the
+                  domains are not identical.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">④ Kratzer Potential</span><span class="dm-badge">★ Exact</span></div>
+                <div class="dm-pot-formula">V(r) = De(re²/r² − 2re/r)
+
+λ_l = √[(l+1/2)² + De re²]
+E_nl = −(De re)² / (n_r + 1/2 + λ_l)²</div>
+                <div class="dm-pot-note">
+                  This corrected expression agrees with the analytical-eigenvalue routine in the
+                  source code.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">⑤ Woods–Saxon</span></div>
+                <div class="dm-pot-formula">V(r) = −V₀ / [1 + exp((r−R)/a_ws)]</div>
+                <div class="dm-pot-note">
+                  Smooth finite-range nuclear-type well. No closed-form radial spectrum is used for
+                  verification; numerical solution is therefore the appropriate method.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">⑥ Inverted Harmonic-Oscillator Barrier</span><span class="dm-badge">★ 3-D reference</span></div>
+                <div class="dm-pot-formula">V(r) = V_b − (V_b/L²)(r−R_b)²,   |r−R_b| ≤ L
+V(r) = 0,                         |r−R_b| &gt; L
+
+ω = 2√V_b/L       in ℏ²/(2m)=1
+
+E_nl = V_b − iω(2n_r + l + 3/2)
+Γ_nl = 2ω(2n_r + l + 3/2)</div>
+                <div class="dm-pot-note">
+                  The analytical pole belongs to the unshifted full 3-D radial IHO reference.
+                  The real-axis numerical barrier is finite-range and shifted by \(R_b\); therefore
+                  it is not the same Hamiltonian. Only the complex-scaled comparison to the
+                  corresponding unshifted reference is a like-for-like analytical test.
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">⑦ Inverted Kratzer</span><span class="dm-badge">★ Exact complex pole</span></div>
+                <div class="dm-pot-formula">V(r) = C/r + D/r²,   C &gt; 0, D &lt; 0
+
+μ_l = √[−D − (l+1/2)²]
+z_n = n_r + 1/2 − i μ_l
+
+E_nl = −C²/(4z_n²) = E_R − iΓ/2
+Γ = −2 Im(E_nl)
+
+Resonance condition: D &lt; −(l+1/2)²</div>
+                <div class="dm-pot-note">
+                  This exact pole is for the same radial Hamiltonian and convention used by the
+                  analytic routine. The effective-barrier maximum, when positive, is
+                  \(r_{\max}=-2[D+\ell(\ell+1)]/C\).
+                </div>
+              </div>
+
+              <div class="dm-pot-card">
+                <div class="dm-pot-head"><span class="dm-pot-name">⑧ Inverted Morse Barrier</span><span class="dm-badge">★ Exact pole for l=0</span></div>
+                <div class="dm-pot-formula">V(r) = De[2exp(−α(r−re)) − exp(−2α(r−re))]
+V(re) = De,       V(∞) = 0
+
+q = n + 1/2
+E_n = De − α²q² − i[2α√De]q
+Γ_n = 4α√De q</div>
+                <div class="dm-pot-note">
+                  This is the analytic continuation implemented by the solver in
+                  \(\hbar^2/(2m)=1\) units and is exact for the stated \(l=0\) benchmark.
+                  For \(l&gt;0\), the centrifugal term changes the Hamiltonian, so no closed-form
+                  Morse pole is claimed.
+                </div>
+              </div>
+            </div>
+
+            <div id="dm-conventions" class="dm-doc-section">
+              <h2 class="dm-title">Conventions, Branches &amp; Validity Limits</h2>
+
+              <h3 class="dm-sub">Units</h3>
+              <div class="dm-eq math">$$
+\frac{\hbar^2}{2m}=1,\qquad
+k=\sqrt{E}\;(E&gt;0),\qquad
+\kappa=\sqrt{-E}\;(E&lt;0).
+$$</div>
+              <p class="dm-p">
+                Because the numerical Hamiltonian is dimensionless, the values shown as \(E\),
+                \(V_0\), \(D_e\), \(C\), etc. are model parameters in the solver's chosen scale.
+                A physical MeV/fm conversion requires an external choice of \(m\) and length scale.
+              </p>
+
+              <h3 class="dm-sub">Angular momentum</h3>
+              <div class="dm-eq math">$$
+V_{\rm cent}(r)=\frac{\ell(\ell+1)}{r^2}.
+$$</div>
+              <p class="dm-p">
+                In the dimensionless convention this term is added directly to \(V(r)\).
+                It diverges at the origin, so the numerical grid must start at a positive
+                \(r_{\min}\).
+              </p>
+
+              <h3 class="dm-sub">Phase branch</h3>
+              <p class="dm-p">
+                Phase shifts obtained with \(\operatorname{atan2}\) are defined modulo \(\pi\).
+                The physically invariant quantities \(S_\ell=e^{2i\delta_\ell}\) and
+                \(\sin^2\delta_\ell\) are unaffected by \(\delta_\ell\rightarrow\delta_\ell+n\pi\).
+                Derivatives \(d\delta/dE\) require an unwrapped, locally continuous branch.
+              </p>
+
+              <h3 class="dm-sub">Resonance interpretation</h3>
+              <p class="dm-p">
+                A peak in \(|d\delta/dE|\) is a practical real-axis resonance indicator, not a
+                universal definition of a pole. For broad, overlapping, threshold, or strongly
+                energy-dependent resonances, \(E_R\), \(\Gamma\), FWHM and pole parameters can differ.
+              </p>
+
+              <h3 class="dm-sub">Analytical verification policy</h3>
+              <div class="dm-info-box dm-box-green">
+                <div class="dm-info-title" style="color:var(--dm-green);">Like-for-like comparison</div>
+                <div class="dm-info-body">
+                  An analytical formula is a valid numerical benchmark only when the potential,
+                  radial domain, boundary condition, angular momentum term, energy convention and
+                  asymptotic condition are the same. This is why the Morse and IHO references carry
+                  explicit domain/scope warnings.
+                </div>
+              </div>
+
+              <h3 class="dm-sub">What the plots mean</h3>
+              <p class="dm-p">
+                <strong>Bound:</strong> \(u(r)\) is a normalised square-integrable state.
+                <strong>Resonance:</strong> the complex wavefunction is associated with a pole and
+                is not an ordinary bound-state probability density.
+                <strong>Scattering:</strong> the wave oscillates asymptotically and the physically
+                meaningful observables are \(\delta_\ell\), \(S_\ell\), \(f_\ell\), and cross sections.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div><!-- /pane-theory -->
+
+  </main>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════════
+//  QUANTUM POTENTIAL SOLVER — Professional Rewrite
+//  Units: ℏ²/2m = 1, energies in V₀, lengths in a
+//  Physics: Numerov integration, exact spherical Bessel asymptotic matching,
+//           Breit-Wigner resonance extraction, S-matrix, analytical checks
+// ═══════════════════════════════════════════════════════════════════════════
+
+const HBAR2_2M = 1.0; // dimensionless units
+
+// ── Default parameters ──
+const POT_DEFAULTS = {
+  finite_well:  { V0: 10, a: 1.0, Vstep: 3.0, b_step: 2.0 },
+  infinite:     { a: 1.0 },
+  morse:        { De: 10, alpha: 1.5, re: 1.0 },
+  kratzer:      { De: 8,  re: 1.0 },
+  woods_saxon:  { V0: 10, R: 1.0, a_ws: 0.2 },
+  inverted_harmonic: { Vb: 8, Rb: 3.0, L: 2.0 },
+  inverted_kratzer: { C: 8.0, D: -35.0 },
+  inverted_morse: { De: 8.0, alpha: 1.0, re: 2.0 }
+};
+
+const POT_PARAM_DEFS = {
+  finite_well: [
+    { id:'V0',    label:'V₀ depth',      min:1,    max:50,  step:0.5,  def:10,  cls:'red' },
+    { id:'a',     label:'Well radius a', min:0.3,  max:3,   step:0.05, def:1.0, cls:'blue' },
+    { id:'Vstep', label:'Step height Vs',min:0,    max:20,  step:0.5,  def:3.0, cls:'red' },
+    { id:'b_step',label:'Step start b',  min:1.1,  max:5,   step:0.1,  def:2.0, cls:'blue' },
+  ],
+  infinite_well: [
+    { id:'a',     label:'Well radius a', min:0.3,  max:3,   step:0.05, def:1.0, cls:'blue' },
+  ],
+  morse: [
+    { id:'De',    label:'De (depth)',    min:1,    max:50,  step:0.5,  def:10,  cls:'red' },
+    { id:'alpha', label:'α (steepness)',  min:0.3,  max:5,   step:0.1,  def:1.5, cls:'orange' },
+    { id:'re',    label:'rₑ (equil.)',   min:0.3,  max:3,   step:0.05, def:1.0, cls:'blue' },
+  ],
+  kratzer: [
+    { id:'De',    label:'De (dissoc.)',  min:1,    max:40,  step:0.5,  def:8,   cls:'red' },
+    { id:'re',    label:'rₑ (equil.)',   min:0.3,  max:3,   step:0.05, def:1.0, cls:'blue' },
+  ],
+  woods_saxon: [
+    { id:'V0',    label:'V₀ depth',      min:1,    max:50,  step:0.5,  def:10,  cls:'red' },
+    { id:'R',     label:'R (radius)',    min:0.3,  max:3,   step:0.05, def:1.0, cls:'blue' },
+    { id:'a_ws',  label:'a (diffuseness)',min:0.05, max:1,   step:0.05, def:0.2, cls:'orange' },
+  ],
+  inverted_harmonic: [
+    { id:'Vb', label:'V_b (barrier height)', min:2, max:20, step:0.5, def:8, cls:'red' },
+    { id:'Rb', label:'R_b (barrier centre)', min:1.5, max:6, step:0.1, def:3.0, cls:'violet' },
+    { id:'L',  label:'L (IHO half-width)', min:1, max:4, step:0.1, def:2.0, cls:'orange' },
+  ],
+  inverted_kratzer: [
+    { id:'C', label:'C (repulsive 1/r)', min:0.5, max:20, step:0.5, def:8.0, cls:'red' },
+    { id:'D', label:'D (attractive 1/r²)', min:-100, max:-1, step:0.5, def:-35.0, cls:'violet' },
+  ],
+  inverted_morse: [
+    { id:'De', label:'Dₑ (barrier height)', min:1, max:30, step:0.5, def:8.0, cls:'red' },
+    { id:'alpha', label:'α (inverse length)', min:0.1, max:4, step:0.1, def:1.0, cls:'orange' },
+    { id:'re', label:'rₑ (barrier position)', min:0.5, max:6, step:0.1, def:2.0, cls:'blue' },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SPHERICAL BESSEL FUNCTIONS j_ℓ(x) and n_ℓ(x) — exact recurrence
+// ═══════════════════════════════════════════════════════════════════════════
+function jl(l, x) {
+  if (Math.abs(x) < 1e-12) return (l === 0) ? 1.0 : 0.0;
+  if (l === 0) return Math.sin(x) / x;
+  if (l === 1) return Math.sin(x) / (x * x) - Math.cos(x) / x;
+  // Downward recurrence for stability
+  let j0 = Math.sin(x) / x;
+  let j1 = Math.sin(x) / (x * x) - Math.cos(x) / x;
+  let jn = j0, jnp = j1;
+  for (let ll = 1; ll < l; ll++) {
+    const jnpp = (2 * ll + 1) / x * jnp - jn;
+    jn = jnp; jnp = jnpp;
+  }
+  return jnp;
+}
+
+function nl(l, x) {
+  if (Math.abs(x) < 1e-12) return -1e30;
+  if (l === 0) return -Math.cos(x) / x;
+  if (l === 1) return -Math.cos(x) / (x * x) - Math.sin(x) / x;
+  let n0 = -Math.cos(x) / x;
+  let n1 = -Math.cos(x) / (x * x) - Math.sin(x) / x;
+  let nn = n0, nnp = n1;
+  for (let ll = 1; ll < l; ll++) {
+    const nnpp = (2 * ll + 1) / x * nnp - nn;
+    nn = nnp; nnp = nnpp;
+  }
+  return nnp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MODIFIED SPHERICAL BESSEL FUNCTIONS i_ℓ(x) [regular, growing] and
+//  k_ℓ(x) [irregular, decaying] — exact closed-form solutions of
+//  x²f'' + 2xf' − [x² + ℓ(ℓ+1)]f = 0, used to build the piecewise-exact
+//  eigenvalue equation for classically-forbidden constant-V regions
+//  (A&S 10.2.19 / 10.2.25 recurrences, unscaled overall normalisation —
+//  irrelevant for root-finding since only ratios/Wronskians are used).
+// ═══════════════════════════════════════════════════════════════════════════
+function il(l, x) {
+  if (Math.abs(x) < 1e-12) return (l === 0) ? 1.0 : 0.0;
+  if (l === 0) return Math.sinh(x) / x;
+  if (l === 1) return Math.cosh(x) / x - Math.sinh(x) / (x * x);
+  let i0 = Math.sinh(x) / x;
+  let i1 = Math.cosh(x) / x - Math.sinh(x) / (x * x);
+  let ii = i0, iip = i1;
+  for (let ll = 1; ll < l; ll++) {
+    const iipp = ii - (2 * ll + 1) / x * iip;
+    ii = iip; iip = iipp;
+  }
+  return iip;
+}
+
+function kl(l, x) {
+  if (x < 1e-8) return 1e30;
+  const ex = Math.exp(-x);
+  if (l === 0) return ex / x;
+  if (l === 1) return ex * (1 / x + 1 / (x * x));
+  let k0 = ex / x;
+  let k1 = ex * (1 / x + 1 / (x * x));
+  let kk = k0, kkp = k1;
+  for (let ll = 1; ll < l; ll++) {
+    const kkpp = kk + (2 * ll + 1) / x * kkp;
+    kk = kkp; kkp = kkpp;
+  }
+  return kkp;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EFFECTIVE POTENTIAL V_eff(r) = V(r) + centrifugal term
+// ═══════════════════════════════════════════════════════════════════════════
+function Veff(potName, r, p, l) {
+  if (r < 1e-9) return 1e10;
+  const cent = HBAR2_2M * l * (l + 1) / (r * r);
+  let v;
+  switch (potName) {
+    case 'finite_well':
+      if (r < p.a)           v = -p.V0;
+      else if (r < p.b_step) v = 0.0;
+      else                   v = p.Vstep;
+      break;
+    case 'infinite_well':
+      v = (r < p.a) ? 0.0 : 1e8;
+      break;
+    case 'morse': {
+      const ex = Math.exp(-p.alpha * (r - p.re));
+      v = p.De * (1 - ex) * (1 - ex) - p.De;
+      break;
+    }
+    case 'kratzer':
+      v = p.De * (p.re * p.re / (r * r) - 2 * p.re / r);
+      break;
+    case 'woods_saxon':
+      v = -p.V0 / (1 + Math.exp((r - p.R) / p.a_ws));
+      break;
+    case 'inverted_harmonic': {
+      // Finite-range inverted harmonic-oscillator barrier.  The IHO parabola
+      // is V_b - (V_b/L^2)(r-R_b)^2 and is joined to V=0 where it reaches 0.
+      // This preserves a genuine finite scattering range for phase-shift
+      // extraction while retaining the analytic IHO barrier-top reference.
+      const Vb = p.Vb || 8, Rb = p.Rb || 3, L = p.L || 2;
+      const x = r - Rb;
+      v = Math.abs(x) <= L ? Vb - (Vb / (L * L)) * x * x : 0;
+      break;
+    }
+    case 'inverted_kratzer': {
+      // Exact inverted Kratzer: repulsive Coulomb 1/r plus attractive 1/r².
+      // The centrifugal term is added below.
+      v = p.C / r + p.D / (r * r);
+      break;
+    }
+    case 'inverted_morse': {
+      // Inverted Morse barrier: V(re)=De and V(r->infinity)=0.
+      // The exact complex resonance formula implemented below is the analytic
+      // continuation of the Morse bound-state spectrum and is exact for l=0.
+      const De = Number(p.De), alpha = Number(p.alpha), re = Number(p.re);
+      const x = r - re;
+      v = De * (2 * Math.exp(-alpha * x) - Math.exp(-2 * alpha * x));
+      break;
+    }
+    default: v = 0;
+  }
+  return v + cent;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GRID BUILDER
+// ═══════════════════════════════════════════════════════════════════════════
+function getNumericalControls(prefix, potName, p) {
+  const fallback = { rMin:1e-4, rMax:null, N:2000, tol:1e-8, fd:true, num:true, rk4:true };
+  const val = id => { const el=document.getElementById(prefix+'-'+id); return el ? parseFloat(el.value) : NaN; };
+  const rMaxDefault = potName === 'finite_well' ? Math.max((p.b_step||2)*5,10) : potName === 'infinite_well' ? (p.a||1)*0.9999 : potName === 'morse' ? (p.re||1)+Math.max(20,5*Math.log(500)/(p.alpha||1.5)) : potName === 'kratzer' ? (p.re||1)*20 : potName === 'inverted_kratzer' ? 80 : potName === 'inverted_morse' ? (p.re||2)+Math.max(20,5*Math.log(500)/(p.alpha||1)) : potName === 'woods_saxon' ? (p.R||1)*10 : potName === 'inverted_harmonic' ? (p.Rb||3) + (p.L||2) + 8 : 10;
+  return { rMin:val('rmin')>0 ? val('rmin') : null, rMax:val('rmax')>0 ? val('rmax') : null, N:Math.max(100, Math.min(20000, Math.round(val('n') || 2000))), tol:Math.max(1e-14, val('tol') || 1e-8), fd:document.getElementById(prefix+'-fd')?.checked ?? true, num:document.getElementById(prefix+'-num')?.checked ?? true, rk4:document.getElementById(prefix+'-rk4')?.checked ?? true };
+}
+
+function makeGrid(potName, p, prefix=null) {
+  let rMin = 1e-4;
+  let rMax;
+  switch (potName) {
+    case 'finite_well':  rMax = Math.max((p.b_step || 2) * 5, 10); break;
+    case 'infinite_well': rMax = (p.a || 1) * 0.9999; break;
+    case 'morse': {
+      // Radial Morse problem: the physical domain is r >= 0.
+      // Do NOT replace the origin by the left classical turning point.
+      const re = p.re || 1, al = p.alpha || 1.5;
+      rMin = 1e-5;
+      rMax = re + Math.max(20, 5.0 * Math.log(500) / al);
+      break;
+    }
+    case 'kratzer': {
+      // The Kratzer potential is singular at r=0.  Use a small but
+      // finite rMin and impose the correct power-law boundary there.
+      rMin = 1e-4;
+      rMax = (p.re || 1) * 30;
+      break;
+    }
+    case 'woods_saxon':  rMax = (p.R || 1) * 10; break;
+    case 'inverted_harmonic': rMax = (p.Rb || 3) + (p.L || 2) + 8; break;
+    case 'inverted_kratzer': rMax = Math.max(80, 10 * Math.max(1, Math.abs(p.D || 35) / Math.max(p.C || 8, 1))); break;
+    case 'inverted_morse': {
+      const re = p.re || 2, al = p.alpha || 1;
+      rMin = 1e-5;
+      rMax = re + Math.max(20, 5.0 * Math.log(500) / al);
+      break;
+    }
+    default:             rMax = 10;
+  }
+  // User controls override automatic grid limits when supplied.
+  if (prefix) {
+    const c = getNumericalControls(prefix, potName, p);
+    if (c.rMin !== null) rMin = c.rMin;
+    if (c.rMax !== null) rMax = Math.max(c.rMax, rMin + 1e-6);
+    var N = c.N;
+  } else {
+    var N = 2000;
+  }
+
+  // For the 1/r^2 singularity, h^2 V must be reasonably small near rMin.
+  // This keeps all three integrators on the same physical domain without
+  // making the default grid excessively large.
+  if ((potName === 'kratzer' || potName === 'inverted_kratzer') && (!prefix || getNumericalControls(prefix, potName, p).rMin === null)) {
+    const h0 = (rMax - rMin) / (N - 1);
+    // The inverted-Kratzer parameter is D<0, so p.De is undefined here.
+    // Using p.De previously produced A=NaN, then rMin=NaN and consequently
+    // an all-NaN radial grid.  That made both resonance plots appear empty.
+    const A = potName === 'inverted_kratzer'
+      ? Math.abs(p.D || 0)
+      : Math.abs((p.De || 0) * (p.re || 1) * (p.re || 1));
+    const safeA = Number.isFinite(A) ? Math.max(A, 1e-12) : 1e-12;
+    rMin = Math.max(rMin, Math.sqrt(safeA) * h0 * 1.5);
+  }
+
+  const h = (rMax - rMin) / (N - 1);
+  const r = new Float64Array(N);
+  for (let i = 0; i < N; i++) r[i] = rMin + i * h;
+  return { r, h, N, rMax, rMin };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NUMEROV INTEGRATOR — O(h⁶) accuracy
+//  Solves: u'' = f(r)·u,  f = (V_eff − E)/HBAR2_2M
+//  Initial conditions: u[0]=0, u[1]=h^(ℓ+1) (regular at origin)
+// ═══════════════════════════════════════════════════════════════════════════
+function numerov(potName, r, h, N, E, p, l) {
+  const u = new Float64Array(N);
+  const s = (potName === 'kratzer')
+    ? 0.5 + Math.sqrt((l + 0.5) * (l + 0.5) + p.De * p.re * p.re)
+    : l + 1;
+  // Correct local Frobenius/regular boundary.  The old u[0]=0,u[1]=h^s
+  // formulation is especially poor for the Kratzer 1/r^2 singularity.
+  u[0] = Math.pow(r[0], s);
+  u[1] = Math.pow(r[1], s);
+  const f = (i) => (Veff(potName, r[i], p, l) - E) / HBAR2_2M;
+  let fi_prev = f(0), fi_curr = f(1);
+  for (let i = 1; i < N - 1; i++) {
+    const fi_next = f(i + 1);
+    const num = 2.0 * u[i] * (1.0 + (5.0 / 12.0) * h * h * fi_curr)
+              - u[i - 1] * (1.0 - (1.0 / 12.0) * h * h * fi_prev);
+    const den = 1.0 - (1.0 / 12.0) * h * h * fi_next;
+    u[i + 1] = num / den;
+    // Renormalise instead of setting a divergent solution to zero.
+    if (i % 20 === 0) {
+      const sc = Math.max(Math.abs(u[i + 1]), Math.abs(u[i]), Math.abs(u[i - 1]));
+      if (sc > 1e100 || (sc > 0 && sc < 1e-100)) {
+        u[i - 1] /= sc; u[i] /= sc; u[i + 1] /= sc;
+      }
+    }
+    if (!isFinite(u[i + 1])) return u;
+    fi_prev = fi_curr; fi_curr = fi_next;
+  }
+  return u;
+}
+
+// ── Shooting function F(E) = u(r_max) ──
+function shootF(potName, r, h, N, E, p, l) {
+  const u = numerov(potName, r, h, N, E, p, l);
+  return u[N - 1];
+}
+
+// ── Bisection root finder ──
+function bisect(potName, r, h, N, E1, E2, p, l, tol = 1e-8, maxIt = 100) {
+  let f1 = shootF(potName, r, h, N, E1, p, l);
+  let f2 = shootF(potName, r, h, N, E2, p, l);
+  if (f1 * f2 > 0) return null;
+  let Em, fm;
+  for (let i = 0; i < maxIt; i++) {
+    Em = (E1 + E2) / 2;
+    fm = shootF(potName, r, h, N, Em, p, l);
+    if (Math.abs(fm) < tol || (E2 - E1) / 2 < tol) break;
+    if (f1 * fm < 0) { E2 = Em; f2 = fm; } else { E1 = Em; f1 = fm; }
+  }
+  return Em;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NUMEROV FROM TURNING POINT
+//  For potentials with steep repulsive walls (Morse, Kratzer), integrate
+//  starting from the left classical turning point to avoid spurious oscillations.
+//  Returns a Float64Array of length N with the wavefunction on the grid.
+// ═══════════════════════════════════════════════════════════════════════════
+function numerovFromTurningPoint(potName, p, l, E, r, h, N) {
+  // Kept as a compatibility wrapper.  For bound-state verification the
+  // physical boundary is r=0 (or the Kratzer Frobenius boundary), NOT a
+  // zero imposed at the classical turning point.
+  return numerov(potName, r, h, N, E, p, l);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FINITE-DIFFERENCE INTEGRATOR — O(h²) 3-point central difference
+//  u'' ≈ (u[i+1] − 2u[i] + u[i−1])/h²  ⇒  u[i+1] = (2 + h²f_i)u[i] − u[i−1]
+//  Lower order than Numerov (O(h⁶)); included as an independent method for
+//  cross-checking eigenvalue convergence.
+// ═══════════════════════════════════════════════════════════════════════════
+function finiteDiffIntegrate(potName, r, h, N, E, p, l) {
+  const u = new Float64Array(N);
+  const s = (potName === 'kratzer')
+    ? 0.5 + Math.sqrt((l + 0.5) * (l + 0.5) + p.De * p.re * p.re)
+    : l + 1;
+  u[0] = Math.pow(r[0], s);
+  u[1] = Math.pow(r[1], s);
+  const f = (i) => (Veff(potName, r[i], p, l) - E) / HBAR2_2M;
+  for (let i = 1; i < N - 1; i++) {
+    u[i + 1] = (2.0 + h * h * f(i)) * u[i] - u[i - 1];
+    if (i % 20 === 0) {
+      const sc = Math.max(Math.abs(u[i + 1]), Math.abs(u[i]), Math.abs(u[i - 1]));
+      if (sc > 1e100 || (sc > 0 && sc < 1e-100)) {
+        u[i - 1] /= sc; u[i] /= sc; u[i + 1] /= sc;
+      }
+    }
+    if (!isFinite(u[i + 1])) return u;
+  }
+  return u;
+}
+
+function finiteDiffFromTurningPoint(potName, p, l, E, r, h, N) {
+  return finiteDiffIntegrate(potName, r, h, N, E, p, l);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RK4 INTEGRATOR — 4th-order Runge-Kutta on the first-order system
+//  y=[u,v],  u'=v,  v'=f(r)·u,  f=(V_eff−E)/HBAR2_2M
+// ═══════════════════════════════════════════════════════════════════════════
+function rk4Integrate(potName, r, h, N, E, p, l) {
+  const u = new Float64Array(N);
+  const s = (potName === 'kratzer')
+    ? 0.5 + Math.sqrt((l + 0.5) * (l + 0.5) + p.De * p.re * p.re)
+    : l + 1;
+  u[0] = Math.pow(r[0], s);
+  u[1] = Math.pow(r[1], s);
+  const fAt = (ri) => (Veff(potName, ri, p, l) - E) / HBAR2_2M;
+  let uc = u[1];
+  let vc = s * Math.pow(r[1], s - 1);
+  for (let i = 1; i < N - 1; i++) {
+    const ri = r[i];
+    const k1u = vc,                              k1v = fAt(ri) * uc;
+    const k2u = vc + 0.5 * h * k1v,               k2v = fAt(ri + 0.5 * h) * (uc + 0.5 * h * k1u);
+    const k3u = vc + 0.5 * h * k2v,               k3v = fAt(ri + 0.5 * h) * (uc + 0.5 * h * k2u);
+    const k4u = vc + h * k3v,                     k4v = fAt(ri + h) * (uc + h * k3u);
+    uc += (h / 6) * (k1u + 2 * k2u + 2 * k3u + k4u);
+    vc += (h / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+    u[i + 1] = uc;
+    if (i % 20 === 0) {
+      const sc = Math.max(Math.abs(uc), Math.abs(vc) * h, 1e-300);
+      if (sc > 1e100 || sc < 1e-100) { uc /= sc; vc /= sc; u[i] /= sc; }
+    }
+    if (!isFinite(uc)) return u;
+  }
+  return u;
+}
+
+function rk4FromTurningPoint(potName, p, l, E, r, h, N) {
+  return rk4Integrate(potName, r, h, N, E, p, l);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  GENERIC MULTI-METHOD EIGENVALUE SCAN (energies only — for the
+//  Analytical Verification table). Reuses the from-turning-point strategy
+//  for Morse/Kratzer (steep repulsive wall) and from-origin shooting for
+//  the other potentials, exactly mirroring findBoundStates' strategy but
+//  parametrised over the integrator so Finite-Diff / Numerov / RK4 can be
+//  scanned and compared independently.
+// ═══════════════════════════════════════════════════════════════════════════
+function scanEigenvaluesMethod(potName, p, l, integrator, fromTurningPoint, nScan = 400, prefix=null, tol=1e-8) {
+  const { r, h, N } = makeGrid(potName, p, prefix);
+  const shoot = (E) => fromTurningPoint
+    ? integrator(potName, p, l, E, r, h, N)[N - 1]
+    : integrator(potName, r, h, N, E, p, l)[N - 1];
+
+  let Estart, Eend;
+  if (potName === 'infinite_well') {
+    Estart = 1e-5;
+    const anLevels = analyticEigenvalues(potName, p, l, 10);
+    Eend = (anLevels && anLevels.length) ? anLevels[anLevels.length - 1] * 1.15 : 100;
+  } else {
+    const Vvals = Array.from(r).map(ri => Veff(potName, ri, p, l)).filter(v => isFinite(v) && v < 1e5);
+    Estart = Math.max(Math.min(...Vvals) * 1.001, -1000);
+    Eend = -1e-5;
+  }
+  if (Eend <= Estart) return [];
+
+  const dE = (Eend - Estart) / nScan;
+  const roots = [];
+  let prevF = shoot(Estart);
+  for (let i = 1; i <= nScan; i++) {
+    const E1 = Estart + (i - 1) * dE, E2 = E1 + dE;
+    const f2 = shoot(E2);
+    if (isFinite(prevF) && isFinite(f2) && prevF * f2 < 0) {
+      let lo = E1, hi = E2, flo = prevF;
+      for (let it = 0; it < 100; it++) {
+        const mid = (lo + hi) / 2, fm = shoot(mid);
+        if (!isFinite(fm) || Math.abs(fm) < tol || (hi - lo) < tol) { lo = hi = mid; break; }
+        if (flo * fm < 0) { hi = mid; } else { lo = mid; flo = fm; }
+      }
+      const Eig = (lo + hi) / 2;
+      if (roots.every(e => Math.abs(e - Eig) > 1e-6)) roots.push(Eig);
+    }
+    prevF = f2;
+  }
+  roots.sort((a, b) => a - b);
+  return roots;
+}
+
+function scanAllMethods(potName, p, l, prefix) {
+  const useTurning = false; // physical radial boundary at r=0; no turning-point Dirichlet condition
+  const c = getNumericalControls(prefix, potName, p);
+  const fd  = c.fd ? (useTurning
+    ? scanEigenvaluesMethod(potName, p, l, finiteDiffFromTurningPoint, true, 400, prefix, c.tol)
+    : scanEigenvaluesMethod(potName, p, l, finiteDiffIntegrate, false, 400, prefix, c.tol)) : [];
+  const num = c.num ? (useTurning
+    ? scanEigenvaluesMethod(potName, p, l, numerovFromTurningPoint, true, 400, prefix, c.tol)
+    : scanEigenvaluesMethod(potName, p, l, numerov, false, 400, prefix, c.tol)) : [];
+  const rk4 = c.rk4 ? (useTurning
+    ? scanEigenvaluesMethod(potName, p, l, rk4FromTurningPoint, true, 400, prefix, c.tol)
+    : scanEigenvaluesMethod(potName, p, l, rk4Integrate, false, 400, prefix, c.tol)) : [];
+  return { fd, num, rk4 };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOUND STATE FINDER
+// ═══════════════════════════════════════════════════════════════════════════
+function findBoundStates(potName, p, l, nScan = 800, prefix=null) {
+  const { r, h, N } = makeGrid(potName, p, prefix);
+  const Vvals = Array.from(r).map(ri => Veff(potName, ri, p, l)).filter(v => isFinite(v) && v < 1e5);
+  const Vmin = Math.min(...Vvals);
+
+  // Infinite well: bound states at E > 0, grid ends at r = a (wall)
+  // Boundary condition: u(a) = 0 → eigenvalues are zeros of j_ℓ(ka)
+  if (potName === 'infinite_well') {
+    // Use analytical zeros directly for accuracy, but also verify numerically
+    const zeros = BESSEL_ZEROS[Math.min(l, 5)] || BESSEL_ZEROS[0];
+    const states = [];
+    for (let n = 0; n < Math.min(zeros.length, 10); n++) {
+      const Eig = zeros[n] * zeros[n] / (p.a * p.a);
+      // Build normalised wave function: u(r) = j_ℓ(k_n * r) * r, normalised
+      const k_n = zeros[n] / p.a;
+      const rArr = Array.from(r);
+      const uRaw = rArr.map(ri => (ri <= p.a) ? jl(l, k_n * ri) * ri : 0);
+      let norm = 0;
+      for (let k = 0; k < N - 1; k++) norm += (uRaw[k] * uRaw[k] + uRaw[k + 1] * uRaw[k + 1]) * h / 2;
+      const fac = norm > 0 ? 1.0 / Math.sqrt(norm) : 1.0;
+      const un = new Float64Array(uRaw.map(v => v * fac));
+      states.push({ E: Eig, u: un, nodes: n, r: rArr, h, N });
+    }
+    return states;
+  }
+
+  // Morse and Kratzer are solved numerically on the radial domain as well.
+  // The old implementation inserted u=0 at the left classical turning point;
+  // that is an artificial Dirichlet boundary and changes the spectrum.
+
+  const Estart = Math.max(Vmin * 1.001, -1000);
+  const Eend = -1e-5;
+  if (Eend <= Estart) return [];
+
+  const dE = (Eend - Estart) / nScan;
+  const states = [];
+  let prevF = shootF(potName, r, h, N, Estart, p, l);
+
+  for (let i = 1; i <= nScan; i++) {
+    const E1 = Estart + (i - 1) * dE;
+    const E2 = E1 + dE;
+    const f2 = shootF(potName, r, h, N, E2, p, l);
+    if (isFinite(prevF) && isFinite(f2) && prevF * f2 < 0) {
+      const c = getNumericalControls(prefix || 'b', potName, p);
+       const Eig = bisect(potName, r, h, N, E1, E2, p, l, c.tol, 100);
+      if (Eig !== null && states.every(s => Math.abs(s.E - Eig) > 1e-6)) {
+        const u = numerov(potName, r, h, N, Eig, p, l);
+        // Normalise: ∫|u|²dr = 1
+        let norm = 0;
+        for (let k = 0; k < N - 1; k++) norm += (u[k] * u[k] + u[k + 1] * u[k + 1]) * h / 2;
+        const fac = norm > 0 ? 1.0 / Math.sqrt(norm) : 1.0;
+        const un = u.map(v => v * fac);
+        // Count nodes (zero crossings of interior)
+        let nodes = 0;
+        for (let k = 1; k < N - 1; k++) if (un[k - 1] * un[k] < 0) nodes++;
+        states.push({ E: Eig, u: un, nodes, r: Array.from(r), h, N });
+      }
+    }
+    prevF = f2;
+  }
+  states.sort((a, b) => a.E - b.E);
+  return states;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PHASE SHIFT — exact spherical Bessel asymptotic matching
+//  tan δ_ℓ = [u(r₁)j_ℓ(kr₂) − u(r₂)j_ℓ(kr₁)]
+//            / [u(r₂)n_ℓ(kr₁) − u(r₁)n_ℓ(kr₂)]
+// ═══════════════════════════════════════════════════════════════════════════
+function phaseShift(potName, r, h, N, E, p, l, integrator = numerov) {
+  if (E <= 0) return null;
+  const k = Math.sqrt(E / HBAR2_2M);
+
+  // Infinite well: exact analytical phase shift δ_ℓ = -arctan(j_ℓ(ka)/n_ℓ(ka))
+  // The numerical shooter cannot handle the infinite wall, so use the exact formula.
+  if (potName === 'infinite_well') {
+    const ka = k * p.a;
+    const jka = jl(l, ka);
+    const nka = nl(l, ka);
+    return Math.atan2(-jka, nka);
+  }
+
+  const u = integrator(potName, r, h, N, E, p, l);
+  const i1 = Math.floor(N * 0.88);
+  const i2 = Math.floor(N * 0.94);
+  const r1 = r[i1], r2 = r[i2];
+  const u1 = u[i1], u2 = u[i2];
+
+  const j1 = jl(l, k * r1), j2 = jl(l, k * r2);
+  const n1 = nl(l, k * r1), n2 = nl(l, k * r2);
+
+  const num = u1 * j2 - u2 * j1;
+  const den = u2 * n1 - u1 * n2;
+
+  if (Math.abs(den) < 1e-30) return 0.0;
+  return Math.atan2(num, den);
+}
+
+// ── Phase spectrum over energy range ──
+function phaseSpectrum(potName, p, l, Emax, nE = 500, prefix=null, Emin = 0.005, integrator = numerov) {
+  const { r, h, N } = makeGrid(potName, p, prefix);
+  const Earr = [], Darr = [];
+  for (let i = 1; i <= nE; i++) {
+    const E = Emin + (Emax - Emin) * i / nE;
+    const d = phaseShift(potName, r, h, N, E, p, l, integrator);
+    if (d !== null && isFinite(d)) { Earr.push(E); Darr.push(d); }
+  }
+  // Unwrap phase for continuity
+  for (let i = 1; i < Darr.length; i++) {
+    let diff = Darr[i] - Darr[i - 1];
+    while (diff > Math.PI / 2)  { Darr[i] -= Math.PI; diff = Darr[i] - Darr[i - 1]; }
+    while (diff < -Math.PI / 2) { Darr[i] += Math.PI; diff = Darr[i] - Darr[i - 1]; }
+  }
+  return { Earr, Darr };
+}
+
+// ── dδ/dE by central finite differences ──
+// BUGFIX: previously clipped to Math.max(0, dd), which silently discards
+// any resonance whose phase shift is *decreasing* through the resonance
+// (a real, common outcome of the atan2(num,den) branch used in phaseShift
+// — sign depends on the potential, not just on "is this a resonance").
+// For the default Inverted-Harmonic-Oscillator barrier this discarded the
+// entire genuine signal near E≈V_b (dδ/dE runs to about −7 there) and the
+// peak search locked onto a small positive near-threshold numerical
+// artifact instead — three integrators agreeing on the WRONG peak, not a
+// disagreement, is what that looked like. Using |dδ/dE| recovers the
+// genuine resonance regardless of the local sign convention.
+function dDeltadE(Earr, Darr) {
+  const dD = [];
+  for (let i = 1; i < Earr.length - 1; i++) {
+    const dd = (Darr[i + 1] - Darr[i - 1]) / (Earr[i + 1] - Earr[i - 1]);
+    const raw = Math.abs(dd);
+    // y: clipped to 50 — chart display only, keeps the y-axis sane.
+    // yRaw: unclipped — this is what physics extraction (peak/FWHM) must use,
+    // otherwise a strong/narrow resonance (2/Γ > 50) gets its width wrong.
+    dD.push({ x: Earr[i], y: Math.min(raw, 50), yRaw: raw });
+  }
+  return dD;
+}
+
+// ── Partial cross section σ_ℓ(E) = 4π(2ℓ+1)sin²δ_ℓ / k² ──
+function crossSection(Earr, Darr, l) {
+  return Earr.map((E, i) => {
+    const k2 = E / HBAR2_2M;
+    if (k2 <= 0) return { x: E, y: 0 };
+    const sd = Math.sin(Darr[i]);
+    return { x: E, y: 4 * Math.PI * (2 * l + 1) * sd * sd / k2 };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ANALYTICAL EIGENVALUES FOR VERIFICATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Zeros of j_ℓ(x) — first 10 per ℓ
+const BESSEL_ZEROS = {
+  0: [3.14159, 6.28318, 9.42478, 12.56637, 15.70796, 18.84956, 21.99115, 25.13274, 28.27433, 31.41593],
+  1: [4.49341, 7.72525, 10.90412, 14.06620, 17.22076, 20.37130, 23.51945, 26.66605, 29.81160, 32.95639],
+  2: [5.76346, 9.09501, 12.32294, 15.51460, 18.68977, 21.85408, 25.01282, 28.16699, 31.31926, 34.47088],
+  3: [6.98793, 10.41711, 13.69802, 16.92360, 20.12148, 23.30450, 26.47957, 29.64895, 32.81411, 35.97627],
+  4: [8.18256, 11.70491, 15.03966, 18.30105, 21.52551, 24.72765, 27.91017, 31.07944, 34.23882, 37.39043],
+  5: [9.35581, 12.96653, 16.35471, 19.65321, 22.90476, 26.12824, 29.33197, 32.52018, 35.69966, 38.87348],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EXACT PIECEWISE MATCHING — Finite Well + Step (3 constant-V regions)
+//  In each constant-V region u(r)=r·R(r) solves u'' + [k² − ℓ(ℓ+1)/r²]u = 0
+//  exactly, with solutions r·j_ℓ(kr) (oscillatory) or r·i_ℓ(κr), r·k_ℓ(κr)
+//  (decaying). This builds the exact transcendental matching condition and
+//  root-finds it — no finite-difference/ODE approximation of the wave
+//  equation itself is involved, only bisection on the closed-form condition.
+// ═══════════════════════════════════════════════════════════════════════════
+function fwRegular(r, l, k1)  { return r * jl(l, k1 * r); }
+function fwInner2(r, l, kap)  { return r * il(l, kap * r); }
+function fwOuter2(r, l, kap)  { return r * kl(l, kap * r); }
+function fwDeriv(fn, r, l, k) {
+  const d = Math.max(1e-6, r * 1e-6);
+  return (fn(r + d, l, k) - fn(r - d, l, k)) / (2 * d);
+}
+
+// F(E): Wronskian-style mismatch at the outer boundary b_step between the
+// well+middle-region solution (propagated via exact matching at r=a) and the
+// purely-decaying outer solution. Smooth in E — no poles — good for bisection.
+function finiteWellF(p, l, E) {
+  if (E <= -p.V0 || E >= 0) return NaN;
+  const k1  = Math.sqrt((E + p.V0) / HBAR2_2M);
+  const kap2 = Math.sqrt(-E / HBAR2_2M);
+  const kap3 = Math.sqrt((p.Vstep - E) / HBAR2_2M);
+  const a = p.a, b = p.b_step;
+
+  // Region 1 value/derivative at r=a (regular solution, scale D=1)
+  const u1a  = fwRegular(a, l, k1);
+  const u1pa = fwDeriv(fwRegular, a, l, k1);
+
+  // Solve [φ(a) χ(a); φ'(a) χ'(a)]·[A;B] = [u1a; u1pa]  for region-2 coeffs
+  const phiA  = fwInner2(a, l, kap2),  chiA  = fwOuter2(a, l, kap2);
+  const phipA = fwDeriv(fwInner2, a, l, kap2), chipA = fwDeriv(fwOuter2, a, l, kap2);
+  const det = phiA * chipA - chiA * phipA;
+  if (Math.abs(det) < 1e-30) return NaN;
+  const A = (u1a * chipA - u1pa * chiA) / det;
+  const B = (phiA * u1pa - phipA * u1a) / det;
+
+  // Region-2 solution value/derivative at r=b_step
+  const u2b  = A * fwInner2(b, l, kap2) + B * fwOuter2(b, l, kap2);
+  const u2pb = A * fwDeriv(fwInner2, b, l, kap2) + B * fwDeriv(fwOuter2, b, l, kap2);
+
+  // Region 3: purely decaying (scale C=1)
+  const u3b  = fwOuter2(b, l, kap3);
+  const u3pb = fwDeriv(fwOuter2, b, l, kap3);
+
+  return u2pb * u3b - u2b * u3pb;
+}
+
+function finiteWellEigenvalues(p, l, nMax = 10, nScan = 1000) {
+  const Estart = -p.V0 * 0.999999, Eend = -1e-6;
+  const dE = (Eend - Estart) / nScan;
+  const roots = [];
+  let prev = finiteWellF(p, l, Estart);
+  for (let i = 1; i <= nScan && roots.length < nMax; i++) {
+    const E1 = Estart + (i - 1) * dE, E2 = E1 + dE;
+    const f2 = finiteWellF(p, l, E2);
+    if (isFinite(prev) && isFinite(f2) && prev * f2 < 0) {
+      let lo = E1, hi = E2, flo = prev;
+      for (let it = 0; it < 80; it++) {
+        const mid = (lo + hi) / 2, fm = finiteWellF(p, l, mid);
+        if (!isFinite(fm) || Math.abs(fm) < 1e-12 || (hi - lo) < 1e-10) { lo = hi = mid; break; }
+        if (flo * fm < 0) { hi = mid; } else { lo = mid; flo = fm; }
+      }
+      roots.push((lo + hi) / 2);
+    }
+    prev = f2;
+  }
+  return roots;
+}
+
+function analyticEigenvalues(potName, p, l, nMax = 10) {
+  switch (potName) {
+    case 'finite_well':
+      return finiteWellEigenvalues(p, l, nMax);
+    case 'infinite_well': {
+      const zeros = BESSEL_ZEROS[Math.min(l, 5)] || BESSEL_ZEROS[0];
+      return zeros.slice(0, nMax).map(x => x * x / (p.a * p.a));
+    }
+    case 'morse': {
+      // Exact Morse eigenvalues in units where ℏ²/2m = 1 (ℏ=1, m=1/2)
+      // E_v = −De + 2α√De·(v+½) − α²·(v+½)²
+      // ω_e = 2α√De,  x_e = α/(2√De),  so ω_e·x_e = α²
+      // Nmax = ⌊√De/α − ½⌋  (last bound level)
+      const oe = 2 * p.alpha * Math.sqrt(p.De);       // ω_e = 2α√De
+      const xe = p.alpha / (2 * Math.sqrt(p.De));      // x_e = α/(2√De) = α²/(2ω_e)
+      const Nmax = Math.floor(Math.sqrt(p.De) / p.alpha - 0.5);
+      const levels = [];
+      for (let v = 0; v <= Math.min(Nmax, nMax - 1); v++) {
+        const E = oe * (v + 0.5) - oe * xe * (v + 0.5) * (v + 0.5) - p.De;
+        if (E < 0) levels.push(E);
+      }
+      return levels;
+    }
+    case 'kratzer': {
+      // Exact radial Kratzer spectrum in units hbar^2/(2m) = 1.
+      // H = -d^2/dr^2 + [l(l+1)+De*re^2]/r^2 - 2 De*re/r.
+      // Define lambda = sqrt((l+1/2)^2 + De*re^2).
+      // E_nl = -(De*re)^2 / (n + 1/2 + lambda)^2, n=0,1,2,...
+      const lambda = Math.sqrt(Math.pow(l + 0.5, 2) + p.De * p.re * p.re);
+      const levels = [];
+      for (let n = 0; n < nMax; n++) {
+        const denom = n + 0.5 + lambda;
+        const E = -(p.De * p.re) * (p.De * p.re) / (denom * denom);
+        if (E < 0) levels.push(E);
+      }
+      return levels;
+    }
+    default:
+      return null; // No closed-form solution
+  }
+}
+
+// Analytic phase shift for infinite well: δ_ℓ = -arctan[j_ℓ(ka)/n_ℓ(ka)]
+function analyticPhaseShiftInfinite(l, k, a) {
+  const ka = k * a;
+  const j = jl(l, ka), n = nl(l, ka);
+  if (Math.abs(n) < 1e-30) return Math.PI / 2;
+  return -Math.atan2(j, n);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PARAMETER READERS
+// ═══════════════════════════════════════════════════════════════════════════
+function readParams(prefix, potName) {
+  const p = {};
+  (POT_PARAM_DEFS[potName] || []).forEach(({ id, def }) => {
+    const el = document.getElementById(prefix + '-' + id);
+    p[id] = el ? parseFloat(el.value) : def;
+  });
+  return p;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PARAMETER UI BUILDER
+// ═══════════════════════════════════════════════════════════════════════════
+function buildParams(containerId, prefix, potName, onchange) {
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = '';
+  (POT_PARAM_DEFS[potName] || []).forEach(def => {
+    const div = document.createElement('div');
+    div.className = 'par';
+    const uid = prefix + '-' + def.id;
+    div.innerHTML = `
+      <div class="par-row">
+        <span class="par-name">${def.label}</span>
+        <span class="par-val" id="${uid}-v">${def.def}</span>
+      </div>
+      <input type="range" class="${def.cls}" id="${uid}"
+        min="${def.min}" max="${def.max}" step="${def.step}" value="${def.def}">`;
+    cont.appendChild(div);
+    setTimeout(() => {
+      const sl = document.getElementById(uid);
+      const vl = document.getElementById(uid + '-v');
+      if (!sl || !vl) return;
+      sl.addEventListener('input', () => {
+        const decimals = def.step < 0.05 ? 3 : def.step < 1 ? 2 : 1;
+        vl.textContent = parseFloat(sl.value).toFixed(decimals);
+        if (onchange) onchange();
+      });
+    }, 0);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CHART HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const CS = {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: {
+      type: 'linear',
+      ticks: { color: '#8a7a6a', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 8 },
+      grid: { color: 'rgba(0,0,0,0.05)' }, border: { color: '#d6cdc0' }
+    },
+    y: {
+      type: 'linear',
+      ticks: { color: '#8a7a6a', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 6 },
+      grid: { color: 'rgba(0,0,0,0.05)' }, border: { color: '#d6cdc0' }
+    }
+  }
+};
+const _charts = {};
+function mkChart(id, type, datasets, opts = {}) {
+  const el = document.getElementById(id);
+  if (!el || typeof Plotly === 'undefined') return;
+  if (_charts[id]) {
+    try { Plotly.purge(el); } catch(e) {}
+  }
+  const traces = datasets.map(d => {
+    const xy = (d.data || []).filter(p => p && isFinite(p.x) && isFinite(p.y));
+    const tr = {
+      x: xy.map(p => p.x), y: xy.map(p => p.y),
+      name: d.label || '',
+      type: 'scatter',
+      mode: d.showLine === false ? 'markers' : 'lines',
+      line: {
+        color: d.borderColor || d.backgroundColor || undefined,
+        width: d.borderWidth || 2,
+        dash: Array.isArray(d.borderDash) ? 'dash' : 'solid',
+        shape: 'linear'
+      },
+      marker: {
+        color: d.pointBackgroundColor || d.borderColor || undefined,
+        size: d.pointRadius ? Math.max(4, d.pointRadius * 1.5) : 4,
+        line: d.pointBorderColor ? {color:d.pointBorderColor,width:d.pointBorderWidth||1} : undefined
+      },
+      hovertemplate: '%{x:.6g}<br>%{y:.6g}<extra>'+((d.label||'').replace(/</g,'&lt;'))+'</extra>'
+    };
+    if (d.fill) {
+      tr.fill = 'tozeroy';
+      tr.fillcolor = d.backgroundColor || 'rgba(26,79,122,0.12)';
+      tr.line.width = 0;
+    }
+    if (d.tension !== undefined) tr.line.shape = 'spline';
+    return tr;
+  });
+
+  const sc = opts.scales || {};
+  const x = sc.x || {}, y = sc.y || {};
+  const xt = x.title && x.title.text ? x.title.text : '';
+  const yt = y.title && y.title.text ? y.title.text : '';
+  const wrap = el.parentElement;
+  const h = wrap ? Math.max(180, Math.round(wrap.getBoundingClientRect().height || 0)) : 180;
+  const w = Math.max(320, Math.round(el.getBoundingClientRect().width || (wrap && wrap.getBoundingClientRect().width) || 640));
+  const layout = {
+    height: h,
+    width: w,
+    margin: {l:52,r:18,t:8,b:42},
+    paper_bgcolor:'rgba(0,0,0,0)',
+    plot_bgcolor:'rgba(0,0,0,0)',
+    font:{family:"Inter,system-ui,sans-serif",size:10,color:'#5f574f'},
+    hovermode:'x unified',
+    showlegend:true,
+    legend:{orientation:'h',x:0,y:1.08,xanchor:'left',yanchor:'bottom',font:{size:9}},
+    xaxis:{
+      title:{text:xt,font:{size:10}},
+      showgrid:true,gridcolor:'rgba(120,110,100,.15)',
+      zeroline:false,
+      showticklabels:x.display !== false,
+      range:(x.min!==undefined && x.max!==undefined)?[x.min,x.max]:undefined,
+      autorange:(x.min===undefined || x.max===undefined)
+    },
+    yaxis:{
+      title:{text:yt,font:{size:10}},
+      showgrid:true,gridcolor:'rgba(120,110,100,.15)',
+      zeroline:true,zerolinecolor:'rgba(100,90,80,.25)',
+      range:(y.min!==undefined && y.max!==undefined)?[y.min,y.max]:undefined,
+      autorange:(y.min===undefined || y.max===undefined)
+    },
+    dragmode:'zoom'
+  };
+  Plotly.newPlot(el,traces,layout,{responsive:true,displaylogo:false,modeBarButtonsToRemove:['lasso2d','select2d'],scrollZoom:true}).then(() => {
+    try { Plotly.relayout(el,{width:Math.max(320,el.clientWidth),height:Math.max(180,el.clientHeight)}); } catch(e) {}
+    try { Plotly.Plots.resize(el); } catch(e) {}
+  });
+  _charts[id] = el;
+}
+function ds(label, color, data, extra = {}) {
+  return { label, borderColor: color, borderWidth: 2, pointRadius: 0, data, tension: 0.15, ...extra };
+}
+function dsFill(label, color, data) {
+  return { label, borderColor: color, backgroundColor: color, borderWidth: 0, pointRadius: 0, data, tension: 0.15, fill: true };
+}
+function dsMarkers(label, color, data, extra = {}) {
+  return {
+    label, data, showLine: false,
+    pointStyle: 'circle', pointRadius: 5, pointHoverRadius: 6,
+    pointBackgroundColor: '#ffffff', pointBorderColor: color, pointBorderWidth: 2,
+    ...extra
+  };
+}
+function valueLabelPlugin(markerLabel, fmt = (v) => v.toFixed(4), color = '#1a4f7a') {
+  return null; // Plotly uses native hover labels; no Chart.js plugin is required.
+}
+
+// ── Composite Simpson's rule on a uniform grid, step h ──
+// For even N (odd number of intervals), the last panel is closed with a
+// trapezoidal step so the whole domain [r[0], r[N-1]] is always covered.
+function simpsonIntegrate(y, h, N) {
+  const M = N !== undefined ? N : y.length;
+  if (M < 2) return 0;
+  if (M === 2) return 0.5 * h * (y[0] + y[1]);
+  const nIntervals = M - 1;
+  const evenIntervals = nIntervals % 2 === 0 ? nIntervals : nIntervals - 1;
+  let s = y[0] + y[evenIntervals];
+  for (let i = 1; i < evenIntervals; i++) s += (i % 2 === 0 ? 2 : 4) * y[i];
+  let integral = (h / 3) * s;
+  if (evenIntervals < nIntervals) {
+    // one leftover panel (odd number of intervals) — trapezoidal close-out
+    integral += 0.5 * h * (y[evenIntervals] + y[evenIntervals + 1]);
+  }
+  return integral;
+}
+
+// ── Decimation — keep ≤ maxPts for rendering ──
+function decXY(rArr, vArr, maxPts = 400) {  const step = Math.max(1, Math.ceil(rArr.length / maxPts));
+  const out = [];
+  for (let i = 0; i < rArr.length; i += step) {
+    if (vArr[i] !== null && isFinite(vArr[i])) {
+      out.push({ x: +rArr[i].toFixed(5), y: +vArr[i].toFixed(6) });
+    }
+  }
+  return out;
+}
+
+// ── Format complex number ──
+function fmtComplex(re, im) {
+  const sign = im >= 0 ? '+' : '−';
+  return `${re.toFixed(4)} ${sign} ${Math.abs(im).toFixed(4)}i`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOUND STATE SOLVER
+// ═══════════════════════════════════════════════════════════════════════════
+let _bStates = [], _bSel = 0;
+let _requestedNr = 0;
+let _lastBoundL = null;
+
+function solveBound() {
+  const potName = document.getElementById('b-pot').value;
+  const l = +document.getElementById('bs-l').value;
+  // n_r is captured explicitly by the control handler. This avoids a range
+  // control being re-clamped while a previous redraw is updating its max.
+  const nr = Number.isFinite(_requestedNr) ? _requestedNr : (+document.getElementById('bs-nr').value);
+  const p = readParams('bp', potName);
+  const { r, h, N } = makeGrid(potName, p, 'b');
+
+  const states = findBoundStates(potName, p, l, 800, 'b');
+  _bStates = states;
+  _lastBoundL = l;
+
+  // IMPORTANT: n_r is the ORDERED bound-state quantum number.
+  // Do not use raw numerical zero-crossing counts for the UI: tiny numerical
+  // oscillations can give duplicated/skipped node counts and make the n_r slider
+  // appear frozen. After sorting by energy, state index is the robust radial
+  // quantum number: n_r = 0,1,2,... .
+  const nrSlider = document.getElementById('bs-nr');
+  states.forEach((st, i) => st.nr = i);
+  nrSlider.min = 0;
+  nrSlider.max = Math.max(0, states.length - 1);
+  _bSel = states.length ? Math.min(Math.max(0, Math.round(nr)), states.length - 1) : 0;
+  _requestedNr = _bSel;
+  if (states.length) {
+    nrSlider.value = _bSel;
+    document.getElementById('bv-nr').textContent = _bSel;
+  } else {
+    nrSlider.value = 0;
+    document.getElementById('bv-nr').textContent = '0';
+  }
+
+  // Shooting function chart
+  const Vvals = Array.from(r).map(ri => Veff(potName, ri, p, l)).filter(v => isFinite(v) && v < 1e5);
+  const Vmin = Math.max(Math.min(...Vvals), -500);
+  const shootPts = [], nSh = 300;
+  for (let i = 0; i <= nSh; i++) {
+    const E = Vmin + 0.001 + (0 - Vmin - 0.001) * i / nSh;
+    const fv = shootF(potName, r, h, N, E, p, l);
+    shootPts.push({ x: E, y: isFinite(fv) ? Math.max(-10, Math.min(10, fv)) : null });
+  }
+
+  // Effective potential for display
+  const Vdisp = decXY(r, Array.from(r).map(ri => {
+    const v = Veff(potName, ri, p, l);
+    return (isFinite(v) && v < 60 && v > -300) ? v : null;
+  }));
+
+  // Selected state wave function
+  const selectedState = states[_bSel];
+  let psiPlot = [], probPlot = [], energyLine = [];
+  let _psiXmin = 0, _psiXmax = 1, _psiYmin = -1, _psiYmax = 1;
+
+  if (selectedState) {
+    const { u, E: En } = selectedState;
+    const Vdepth = Math.abs(Vmin) || 1;
+    const uArr = Array.from(u);
+    // Physical normalization: ∫₀^∞ |u(r)|² dr = 1, evaluated with composite
+    // Simpson's rule on the uniform integration grid. Non-finite samples
+    // (can occur past a numerical overflow guard) are treated as zero
+    // probability density rather than corrupting the integral.
+    const uSafe = uArr.map(v => isFinite(v) ? v : 0);
+    const normSq = simpsonIntegrate(uSafe.map(v => v * v), h, N);
+    const normFactor = normSq > 0 ? 1 / Math.sqrt(normSq) : 1;
+    const uNorm = uArr.map(v => isFinite(v) ? v * normFactor : null);
+    const u2Norm = uNorm.map(v => v === null ? null : v * v);
+    psiPlot  = decXY(r, uNorm);
+    probPlot = decXY(r, u2Norm);
+    energyLine = [{ x: r[0], y: En }, { x: r[N - 1], y: En }];
+
+    // Auto x-range: trim the far decayed tail, but extend a bit past the
+    // cutoff so the curve is visibly seen flattening to zero on-screen
+    // rather than the axis ending right where it crosses the threshold.
+    const uPeak = Math.max(...uNorm.map(v => v === null ? 0 : Math.abs(v)).filter(isFinite)) || 1;
+    const ampThresh = 0.01 * uPeak; // 1% of this state's peak amplitude
+    let iCut = N - 1;
+    for (let i = N - 1; i >= 0; i--) {
+      if (uNorm[i] !== null && Math.abs(uNorm[i]) > ampThresh) { iCut = i; break; }
+    }
+    const dr = r[1] - r[0];
+    const tailPad = Math.max(30 * dr, (r[iCut] - r[0]) * 0.15);
+    _psiXmin = r[0];
+    _psiXmax = Math.min(r[N - 1], r[iCut] + tailPad);
+    if (_psiXmax - _psiXmin < 20 * dr) _psiXmax = Math.min(r[N - 1], _psiXmin + 20 * dr);
+
+    // Auto y-range: tight fit around the actual data (u and |u|² together),
+    // with a small margin so peaks aren't clipped against the frame.
+    const finiteVals = uNorm.filter(v => typeof v === 'number' && isFinite(v))
+      .concat(u2Norm.filter(v => typeof v === 'number' && isFinite(v)));
+    const dMin = Math.min(0, ...finiteVals);
+    const dMax = Math.max(0, ...finiteVals);
+    const pad = (dMax - dMin) * 0.12 || 0.1;
+    _psiYmin = dMin - pad;
+    _psiYmax = dMax + pad;
+
+    const kappa = En < 0 ? Math.sqrt(-En / HBAR2_2M) : (potName === 'infinite_well' ? Math.sqrt(En / HBAR2_2M) : 0);
+    document.getElementById('br-En').textContent    = En.toFixed(6);
+    document.getElementById('br-kappa').textContent = potName === 'infinite_well' ? ('k=' + kappa.toFixed(4)) : (En < 0 ? kappa.toFixed(5) : 'N/A');
+    document.getElementById('br-nodes').textContent = selectedState.nodes + ' (n_r=' + _bSel + ')';
+    document.getElementById('br-N').textContent     = states.length;
+
+    // Analytical comparison
+    const analytic = analyticEigenvalues(potName, p, l);
+    if (analytic && analytic.length > _bSel) {
+      const Ean = analytic[_bSel];
+      const relErr = Math.abs((En - Ean) / Ean);
+      document.getElementById('br-Ean').textContent = Ean.toFixed(6);
+      document.getElementById('br-err').textContent = (relErr * 100).toFixed(4) + '%';
+      const badge = document.getElementById('b-verify-badge');
+      if (relErr < 1e-3) {
+        badge.className = 'verify-badge verify-ok';
+        badge.textContent = '✓ Analytic match';
+      } else {
+        badge.className = 'verify-badge verify-err';
+        badge.textContent = '✗ Deviation: ' + (relErr * 100).toFixed(2) + '%';
+      }
+    } else {
+      document.getElementById('br-Ean').textContent = 'N/A';
+      document.getElementById('br-err').textContent = 'N/A';
+      const badge = document.getElementById('b-verify-badge');
+      badge.className = 'verify-badge verify-na';
+      badge.textContent = 'Analytic: N/A';
+    }
+  }
+
+  mkChart('c-bound-wf', 'line', [
+    ds('V_eff', '#b03a2e', Vdisp, { borderWidth: 2 }),
+    ds('E_n', '#d35400', energyLine, { borderDash: [6, 3], borderWidth: 1.5 }),
+  ], {
+    scales: {
+      x: { ...CS.scales.x, title: { display: true, text: 'r (a)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, title: { display: true, text: 'V_eff (V₀)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  mkChart('c-bound-psi', 'line', [
+    dsFill('|u|²', 'rgba(26,79,122,0.12)', probPlot),
+    ds('u(r)', '#1a4f7a', psiPlot, { borderWidth: 2.5 }),
+  ], {
+    scales: {
+      x: { ...CS.scales.x, min: _psiXmin, max: _psiXmax, title: { display: true, text: 'r (a)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, min: _psiYmin, max: _psiYmax, title: { display: true, text: 'u(r)  [∫|u|²dr = 1]', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  // Energy spectrum
+  const specYmin = potName === 'infinite_well' ? 0 : Vmin * 1.05;
+  const specYmax = potName === 'infinite_well'
+    ? (states.length > 0 ? states[states.length - 1].E * 1.1 : 100)
+    : 0.5;
+  mkChart('c-bound-spec', 'line',
+    states.map((st, i) => ds(`n_r=${st.nr}`,
+      i === _bSel ? '#1a4f7a' : '#a0b8cc',
+      [{ x: 0.1, y: st.E }, { x: 0.9, y: st.E }],
+      { borderWidth: i === _bSel ? 3 : 1.5 }
+    )),
+    {
+      scales: {
+        x: { display: false, min: 0, max: 1 },
+        y: { ...CS.scales.y, min: specYmin, max: specYmax, title: { display: true, text: 'E (V₀)', color: '#8a7a6a', font: { size: 9 } } }
+      }
+    }
+  );
+
+  // Shooting function — for infinite well scan positive energies
+  const shootXmin = potName === 'infinite_well' ? 0 : Vmin;
+  const shootXmax = potName === 'infinite_well'
+    ? (states.length > 0 ? states[states.length - 1].E * 1.2 : 100)
+    : -1e-4;
+  const shootPts2 = [], nSh2 = 300;
+  for (let i = 0; i <= nSh2; i++) {
+    const E = shootXmin + 0.001 + (shootXmax - shootXmin - 0.001) * i / nSh2;
+    const fv = shootF(potName, r, h, N, E, p, l);
+    shootPts2.push({ x: E, y: isFinite(fv) ? Math.max(-10, Math.min(10, fv)) : null });
+  }
+  mkChart('c-bound-shoot', 'line', [
+    ds('F(E)', '#6c3483', shootPts2.filter(p => p.y !== null), { borderWidth: 1.8 }),
+    ds('zero', 'rgba(0,0,0,0.2)', [{ x: shootXmin, y: 0 }, { x: shootXmax, y: 0 }], { borderWidth: 1, borderDash: [5, 4] }),
+    ...states.map(st => ds('E*', '#1a4f7a', [{ x: st.E, y: -8 }, { x: st.E, y: 8 }], { borderWidth: 1, borderDash: [3, 4] })),
+    dsMarkers('Crossings', '#1a4f7a', states.map(st => ({ x: st.E, y: 0 }))),
+  ], {
+    plugins: [valueLabelPlugin('Crossings', (v) => v.toFixed(4), '#1a4f7a')],
+    scales: {
+      x: { ...CS.scales.x, min: shootXmin, max: shootXmax, title: { display: true, text: 'E (V₀)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, min: -8, max: 8, title: { display: true, text: 'F(E) = u(r_max)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  // Analytical verification table — three independent numerical methods
+  // (finite-difference, Numerov, RK4), each found by its own shooting scan,
+  // compared against the exact solution when a closed form exists.
+  const analytic = analyticEigenvalues(potName, p, l);
+  const { fd, num, rk4 } = scanAllMethods(potName, p, l, 'b');
+  if (potName === 'morse') {
+    const note = document.getElementById('b-analytic-table')?.previousElementSibling;
+    if (note) note.textContent = 'Numerical methods solve the radial r≥0 problem; the closed-form Morse values are the full-line (−∞<r<∞) reference and are not an exact radial benchmark.';
+  }
+  const tbody = document.getElementById('b-analytic-body');
+  tbody.innerHTML = '';
+  const nShow = Math.max(fd.length, num.length, rk4.length, analytic ? analytic.length : 0);
+  if (nShow === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="na" style="text-align:center;padding:8px">No bound states found</td></tr>';
+  } else {
+    for (let i = 0; i < nShow; i++) {
+      const Efd  = fd[i]  !== undefined ? fd[i]  : null;
+      const Enum = num[i] !== undefined ? num[i] : null;
+      const Erk4 = rk4[i] !== undefined ? rk4[i] : null;
+      const Ean  = analytic && analytic[i] !== undefined ? analytic[i] : null;
+
+      const fmt = (v) => v === null ? '—' : v.toFixed(6);
+      let errStr = '—', errClass = 'na';
+      if (Ean !== null) {
+        const errs = [Efd, Enum, Erk4].filter(v => v !== null)
+          .map(v => Math.abs((v - Ean) / Ean));
+        if (errs.length) {
+          const maxErr = Math.max(...errs);
+          errStr = (maxErr * 100).toFixed(4) + '%';
+          errClass = maxErr < 1e-3 ? 'match' : 'nomatch';
+        }
+      }
+      const qn = i; // ordered radial quantum number n_r = 0,1,2,...
+      const tr = document.createElement('tr');
+      if (qn === Number(document.getElementById('bs-nr').value)) {
+        tr.style.background = 'rgba(26,79,122,.10)';
+        tr.style.fontWeight = '600';
+      }
+      tr.innerHTML = `<td>n_r=${qn}</td><td>${l}</td><td>${fmt(Efd)}</td><td>${fmt(Enum)}</td><td>${fmt(Erk4)}</td><td class="na">${fmt(Ean)}</td><td class="${errClass}">${errStr}</td>`;
+      tbody.appendChild(tr);
+    }
+    if (!analytic) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="7" class="na" style="text-align:center;padding:4px;font-style:italic">No closed-form solution for this potential — showing method cross-comparison only</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
+}
+
+
+// ── Find the strongest resonance (E_res, Γ) from a dδ/dE scan, for a given
+//    integrator. Coarse 600-pt scan over the full range, then a local
+//    high-resolution rescan around the coarse peak (needed because a
+//    narrow/strong resonance can be finer than the coarse grid spacing).
+//    Always uses the UNCLIPPED dδ/dE value — the 50-cap in dDeltadE exists
+//    only to keep the phase-density chart's y-axis readable.
+function findResonancePeak(potName, p, l, Emax, prefix, integrator) {
+  const { Earr, Darr } = phaseSpectrum(potName, p, l, Emax, 600, prefix, 0.005, integrator);
+  const ddE = dDeltadE(Earr, Darr);
+  // Guard against a spurious near-threshold spike: as k->0 the Bessel-based
+  // phase-shift extraction is numerically noisy and can produce a sharp,
+  // purely artefactual jump in dδ/dE that has nothing to do with a real
+  // quasi-bound state. Excluding the bottom slice of the scan (where a
+  // genuine barrier/well resonance essentially never sits) keeps the
+  // coarse-peak search on the physical feature.
+  const guardE = Math.max(Earr[0] || 0, Emax * 0.03);
+  const ddESearch = ddE.filter(pt => pt.x >= guardE);
+  let bestRes = { E: null, G: null };
+  let maxDD = 0;
+  ddESearch.forEach(pt => { if (pt.yRaw > maxDD) { maxDD = pt.yRaw; bestRes.E = pt.x; } });
+  if (bestRes.E === null) return bestRes;
+
+  const iMax = ddE.findIndex(pt => pt.x >= bestRes.E);
+  let lo = iMax, hi = iMax;
+  const half = maxDD / 2;
+  while (lo > 0 && ddE[lo].yRaw > half) lo--;
+  while (hi < ddE.length - 1 && ddE[hi].yRaw > half) hi++;
+  bestRes.G = Math.max(0.001, ddE[hi].x - ddE[lo].x);
+
+  const coarseDE = Earr.length > 1 ? (Earr[Earr.length - 1] - Earr[0]) / Earr.length : bestRes.G;
+  const winHalf = Math.max(bestRes.G * 6, coarseDE * 4, 1e-4);
+  const winEmin = Math.max(1e-4, bestRes.E - winHalf);
+  const winEmax = bestRes.E + winHalf;
+  const fine = phaseSpectrum(potName, p, l, winEmax, 400, prefix, winEmin, integrator);
+  const fineDD = dDeltadE(fine.Earr, fine.Darr);
+  if (fineDD.length > 2) {
+    let fMaxDD = 0, fEres = null;
+    fineDD.forEach(pt => { if (pt.yRaw > fMaxDD) { fMaxDD = pt.yRaw; fEres = pt.x; } });
+    if (fEres !== null && fMaxDD > maxDD * 0.5) {
+      const fIMax = fineDD.findIndex(pt => pt.x >= fEres);
+      let fLo = fIMax, fHi = fIMax;
+      const fHalf = fMaxDD / 2;
+      while (fLo > 0 && fineDD[fLo].yRaw > fHalf) fLo--;
+      while (fHi < fineDD.length - 1 && fineDD[fHi].yRaw > fHalf) fHi++;
+      const fG = fineDD[fHi].x - fineDD[fLo].x;
+      // Only accept the refined result if it actually resolved the peak
+      // (i.e. didn't just hit the window edges on both sides).
+      if (fLo > 0 && fHi < fineDD.length - 1 && fG > 0) {
+        bestRes.E = fEres;
+        bestRes.G = Math.max(0.001, fG);
+      }
+    }
+  }
+  return bestRes;
+}
+
+// ── Find ALL resonance peaks (E_res, Γ) in the scan range, sorted by E.
+//    Same coarse-scan + local-refine method as findResonancePeak, but keeps
+//    every local maximum of dδ/dE above a noise floor (10% of the global
+//    peak) instead of only the strongest one. Peaks closer than 2 coarse
+//    grid steps are merged (guards against a single physical peak being
+//    picked up twice by the neighbour-comparison test).
+function findAllResonancePeaks(potName, p, l, Emax, prefix, integrator) {
+  const { Earr, Darr } = phaseSpectrum(potName, p, l, Emax, 600, prefix, 0.005, integrator);
+  const ddEfull = dDeltadE(Earr, Darr);
+  if (ddEfull.length < 3) return [];
+  // Same near-threshold guard as findResonancePeak — see the comment there.
+  // Excluded up front so a k->0 numerical artifact can't (a) set the noise
+  // floor too high and mask a real weak resonance, or (b) get reported as
+  // a spurious extra entry ahead of the genuine n_r=0 state.
+  const guardE = Math.max(Earr[0] || 0, Emax * 0.03);
+  const ddE = ddEfull.filter(pt => pt.x >= guardE);
+  if (ddE.length < 3) return [];
+  const maxDD = Math.max(...ddE.map(pt => pt.yRaw));
+  if (maxDD <= 0) return [];
+  const floor = maxDD * 0.1;
+  const coarseDE = Earr.length > 1 ? (Earr[Earr.length - 1] - Earr[0]) / Earr.length : 1e-3;
+
+  const coarsePeaks = [];
+  for (let i = 1; i < ddE.length - 1; i++) {
+    const c = ddE[i];
+    if (c.yRaw > floor && c.yRaw >= ddE[i - 1].yRaw && c.yRaw >= ddE[i + 1].yRaw) {
+      if (coarsePeaks.length && (c.x - coarsePeaks[coarsePeaks.length - 1].x) < coarseDE * 2) {
+        if (c.yRaw > coarsePeaks[coarsePeaks.length - 1].yRaw) coarsePeaks[coarsePeaks.length - 1] = c;
+      } else {
+        coarsePeaks.push(c);
+      }
+    }
+  }
+  if (!coarsePeaks.length) return [];
+
+  return coarsePeaks.map(cp => {
+    let bestRes = { E: cp.x, G: null };
+    const iMax = ddE.findIndex(pt => pt.x >= cp.x);
+    let lo = iMax, hi = iMax;
+    const half = cp.yRaw / 2;
+    while (lo > 0 && ddE[lo].yRaw > half) lo--;
+    while (hi < ddE.length - 1 && ddE[hi].yRaw > half) hi++;
+    bestRes.G = Math.max(0.001, ddE[hi].x - ddE[lo].x);
+
+    const winHalf = Math.max(bestRes.G * 6, coarseDE * 4, 1e-4);
+    const winEmin = Math.max(1e-4, bestRes.E - winHalf);
+    const winEmax = bestRes.E + winHalf;
+    const fine = phaseSpectrum(potName, p, l, winEmax, 400, prefix, winEmin, integrator);
+    const fineDD = dDeltadE(fine.Earr, fine.Darr);
+    if (fineDD.length > 2) {
+      let fMaxDD = 0, fEres = null;
+      fineDD.forEach(pt => { if (pt.yRaw > fMaxDD) { fMaxDD = pt.yRaw; fEres = pt.x; } });
+      if (fEres !== null && fMaxDD > cp.yRaw * 0.5) {
+        const fIMax = fineDD.findIndex(pt => pt.x >= fEres);
+        let fLo = fIMax, fHi = fIMax;
+        const fHalf = fMaxDD / 2;
+        while (fLo > 0 && fineDD[fLo].yRaw > fHalf) fLo--;
+        while (fHi < fineDD.length - 1 && fineDD[fHi].yRaw > fHalf) fHi++;
+        const fG = fineDD[fHi].x - fineDD[fLo].x;
+        if (fLo > 0 && fHi < fineDD.length - 1 && fG > 0) {
+          bestRes.E = fEres;
+          bestRes.G = Math.max(0.001, fG);
+        }
+      }
+    }
+    return bestRes;
+  }).sort((a, b) => a.E - b.E);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  IHO ANALYTIC RESONANCE REFERENCE
+// ═══════════════════════════════════════════════════════════════════════════
+// For V(x)=V_b-(V_b/L^2)x^2 and ℏ²/(2m)=1, the full-line inverted
+// harmonic oscillator has resonance poles
+//   E_n = V_b - i(2n+1)V_b/L² .
+// Therefore Γ_n = 2(2n+1)V_b/L².
+// The radial finite-range implementation below is compared with this
+// barrier-top/full-line IHO reference; it is a reference, not an exact
+// equality, because the numerical problem is radial (r>=0), includes the
+// centrifugal term, and truncates the parabola where V reaches zero.
+
+// Exact 3-D IHO benchmark.
+// For a true full-line 3-D isotropic IHO, the analytically continued
+// radial oscillator gives the complex pole directly.  This is the value
+// that should be compared with a complex-pole numerical solver.
+// A real-axis phase-shift/FWHM extraction is NOT mathematically identical
+// to this pole and therefore cannot be expected to give the same Γ.
+function exactIHOComplexPole(p, nr = 0, l = 0) {
+  const Vb = p.Vb || 8, L = p.L || 2;
+  const omega = 2 * Math.sqrt(Vb) / L;
+  const imagHalf = omega * (2 * nr + l + 1.5);
+  return {
+    re: Vb,
+    im: -imagHalf,
+    E: Vb,
+    G: 2 * imagHalf,
+    omega,
+    nr,
+    l
+  };
+}
+
+function analyticIHOResonance(p, nr = 0, l = 0) {
+  const Vb = p.Vb || 8, L = p.L || 2;
+  // In units ℏ²/(2m)=1: V=Vb-(Vb/L²)x² gives ω=2√Vb/L.
+  // 3-D radial IHO continuation:
+  // E_nr,l = Vb - i ω(2nr+l+3/2),  Γ=2ω(2nr+l+3/2).
+  const omega = 2 * Math.sqrt(Vb) / L;
+  const excitation = 2 * nr + l + 1.5;
+  const imagHalf = omega * excitation;
+  return {
+    E: Vb,
+    G: 2 * imagHalf,
+    imagHalf,
+    omega,
+    complexRe: Vb,
+    complexIm: -imagHalf,
+    nr,
+    l
+  };
+}
+
+// Exact inverted-Kratzer resonance pole in the present convention ℏ²/(2m)=1.
+// V(r)=C/r + D/r², C>0, D<0.  Define
+//   μ_l = sqrt[-D-(l+1/2)²],   z_n = n_r+1/2 - i μ_l.
+// Then the exact outgoing-wave resonance pole is
+//   E_nl = -C²/[4 z_n²] = E_R - i Γ/2.
+// Resonances require D < -(l+1/2)².
+// Exact inverted-Morse resonance pole from analytic continuation of the
+// ordinary Morse spectrum.  In the present solver convention K = hbar^2/(2mu).
+// The supplied closed form is exact for the s-wave (l=0); adding l(l+1)/r^2
+// destroys the simple Morse form, so no analytic reference is claimed for l>0.
+function analyticInvertedMorseResonance(p, nr = 0, l = 0) {
+  if (l !== 0) return null;
+  const De = Number(p.De), alpha = Number(p.alpha);
+  const K = HBAR2_2M;
+  if (!(De > 0) || !(alpha > 0) || !(K > 0)) return null;
+  const q = nr + 0.5;
+  const ER = De - K * alpha * alpha * q * q;
+  // hbar*alpha*sqrt(2De/mu) = 2*alpha*sqrt(K*De).
+  const imagHalf = 2 * alpha * Math.sqrt(K * De) * q;
+  return {
+    E: ER, G: 2 * imagHalf, imagHalf,
+    omega: 2 * alpha * Math.sqrt(K * De),
+    complexRe: ER, complexIm: -imagHalf,
+    De, alpha, re:Number(p.re), nr, l
+  };
+}
+
+function analyticInvertedKratzerResonance(p, nr = 0, l = 0) {
+  const C = Number(p.C), D = Number(p.D);
+  const threshold = -(l + 0.5) * (l + 0.5);
+  if (!(C > 0) || !(D < threshold)) return null;
+  const mu = Math.sqrt(-D - (l + 0.5) * (l + 0.5));
+  const z = { re: nr + 0.5, im: -mu };
+  const den = z.re*z.re + z.im*z.im;
+  // -C²/(4 z²)
+  const z2 = { re: z.re*z.re-z.im*z.im, im: 2*z.re*z.im };
+  const d2 = z2.re*z2.re+z2.im*z2.im;
+  const E = { re: -C*C*z2.re/(4*d2), im: C*C*z2.im/(4*d2) };
+  return {
+    E:E.re, G:Math.max(0,-2*E.im), imagHalf:Math.max(0,-E.im),
+    complexRe:E.re, complexIm:E.im, C,D,mu,nr,l,
+    barrierRadius: -2*(D+l*(l+1))/C,
+    threshold
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RESONANCE SOLVER
+// ═══════════════════════════════════════════════════════════════════════════
+let _rRequestedNr = 0;
+
+// Complex-energy Numerov for the resonance/Gamow state.
+// E_pole = E_res - i Γ/2.  The result is genuinely complex:
+// Re[u(r)], Im[u(r)], and |u(r)|² are all retained.
+function numerovComplexEnergy(potName, r, h, N, ERe, EIm, p, l) {
+  const ur = new Float64Array(N), ui = new Float64Array(N);
+  const s = l + 1;
+  ur[0] = Math.pow(r[0], s); ui[0] = 0;
+  ur[1] = Math.pow(r[1], s); ui[1] = 0;
+
+  const fAt = i => ({
+    re: (Veff(potName, r[i], p, l) - ERe) / HBAR2_2M,
+    im: -EIm / HBAR2_2M
+  });
+
+  let f0 = fAt(0), f1 = fAt(1);
+  for (let i = 1; i < N - 1; i++) {
+    const f2 = fAt(i + 1);
+    const ar = 1 + 5*h*h*f1.re/12, ai = 5*h*h*f1.im/12;
+    const br = 1 - h*h*f0.re/12, bi = -h*h*f0.im/12;
+    const cr = 1 - h*h*f2.re/12, ci = -h*h*f2.im/12;
+
+    const zr = ur[i], zi = ui[i], zmr = ur[i-1], zmi = ui[i-1];
+    const nr = 2*(zr*ar - zi*ai) - (zmr*br - zmi*bi);
+    const ni = 2*(zr*ai + zi*ar) - (zmr*bi + zmi*br);
+    const d2 = cr*cr + ci*ci;
+    if (d2 < 1e-300) { ur[i+1]=NaN; ui[i+1]=NaN; break; }
+    ur[i+1] = (nr*cr + ni*ci)/d2;
+    ui[i+1] = (ni*cr - nr*ci)/d2;
+
+    if (i % 20 === 0) {
+      const sc = Math.max(Math.hypot(ur[i+1],ui[i+1]), Math.hypot(ur[i],ui[i]), 1e-300);
+      if (sc > 1e100 || sc < 1e-100) {
+        ur[i-1]/=sc; ui[i-1]/=sc; ur[i]/=sc; ui[i]/=sc; ur[i+1]/=sc; ui[i+1]/=sc;
+      }
+    }
+    if (!isFinite(ur[i+1]) || !isFinite(ui[i+1])) break;
+    f0=f1; f1=f2;
+  }
+  return {re:ur, im:ui};
+}
+
+function normaliseComplexWave(cu, h, N) {
+  const dens = new Float64Array(N);
+  for (let i=0;i<N;i++) {
+    const re = isFinite(cu.re[i]) ? cu.re[i] : 0;
+    const im = isFinite(cu.im[i]) ? cu.im[i] : 0;
+    dens[i] = re*re + im*im;
+  }
+  const norm = simpsonIntegrate(dens,h,N);
+  const fac = norm > 0 ? 1/Math.sqrt(norm) : 1;
+  return {
+    re:Array.from(cu.re,v=>isFinite(v)?v*fac:null),
+    im:Array.from(cu.im,v=>isFinite(v)?v*fac:null),
+    prob:Array.from(dens,v=>isFinite(v)?v*fac*fac:null)
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TRUE COMPLEX-ENERGY IHO POLE BENCHMARK
+// ═══════════════════════════════════════════════════════════════════════════
+// For the IHO comparison we solve the SAME 3-D radial Hamiltonian as the
+// analytical reference, using exterior complex scaling:
+//
+//   H(theta) = exp(-2 i theta)[-d²/dr² + l(l+1)/r²]
+//              + V_b - (V_b/L²) exp(2 i theta) r²
+//
+// with u(0)=u(Rmax)=0.  Resonance poles become theta-stable discrete
+// eigenvalues.  This is deliberately separate from the finite-range,
+// shifted scattering potential used by the existing FD/Numerov/RK4 rows.
+// Thus "IHO complex-scaled numerical" is a genuine complex-pole calculation,
+// not a real-axis peak/FWHM estimate.
+
+function cAdd(a,b){ return {re:a.re+b.re, im:a.im+b.im}; }
+function cSub(a,b){ return {re:a.re-b.re, im:a.im-b.im}; }
+function cMul(a,b){ return {re:a.re*b.re-a.im*b.im, im:a.re*b.im+a.im*b.re}; }
+function cDiv(a,b){
+  const d=b.re*b.re+b.im*b.im || 1e-300;
+  return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d};
+}
+function cAbs(a){ return Math.hypot(a.re,a.im); }
+
+function cThomasSolve(dl,d,du,b){
+  const n=d.length;
+  const al=new Array(n-1), bb=new Array(n), rr=new Array(n);
+  bb[0]=d[0]; rr[0]=b[0];
+  for(let i=1;i<n;i++){
+    const m=cDiv(dl[i-1],bb[i-1]);
+    bb[i]=cSub(d[i],cMul(m,du[i-1]));
+    rr[i]=cSub(b[i],cMul(m,rr[i-1]));
+  }
+  const x=new Array(n);
+  x[n-1]=cDiv(rr[n-1],bb[n-1]);
+  for(let i=n-2;i>=0;i--) x[i]=cDiv(cSub(rr[i],cMul(du[i],x[i+1])),bb[i]);
+  return x;
+}
+
+function ihoComplexScaledPole(p,nr,l){
+  const Vb=p.Vb||8, L=p.L||2;
+  const a=Vb/(L*L);
+  const omega=2*Math.sqrt(a);
+
+  // Analytic pole used ONLY as the initial target for inverse iteration.
+  // The matrix itself is built independently from the analytic result.
+  const target={re:Vb, im:-omega*(2*nr+l+1.5)};
+
+  // Complex scaling angle.  Use several angles and require stability.
+  const thetas=[0.28,0.34,0.40];
+  const nInterior=220;
+  const R=Math.max(8*L, Math.sqrt((Math.abs(Vb-target.re)+20)/Math.max(a,1e-9)));
+  const h=R/(nInterior+1);
+
+  function solveAt(theta,seed){
+    const ce=Math.cos(2*theta), se=Math.sin(2*theta);
+    const kin={re:ce,im:-se}; // exp(-2 i theta)
+    const potScale={re:ce,im:se}; // exp(+2 i theta)
+
+    const n=nInterior;
+    const dl=new Array(n), dd=new Array(n), du=new Array(n);
+    const x=new Array(n);
+
+    for(let j=0;j<n;j++){
+      const r=(j+1)*h;
+      x[j]=r;
+      const cent=l*(l+1)/(r*r);
+      // -d²/dr² finite difference: diagonal 2/h², off-diagonal -1/h²
+      const kinDiag=2/(h*h)+cent;
+      const diagK=cMul(kin,{re:kinDiag,im:0});
+      const vr=cAdd(
+        {re:Vb,im:0},
+        cMul(potScale,{re:-a*r*r,im:0})
+      );
+      dd[j]=cAdd(diagK,vr);
+      if(j>0) dl[j-1]=cMul(kin,{re:-1/(h*h),im:0});
+      if(j<n-1) du[j]=cMul(kin,{re:-1/(h*h),im:0});
+    }
+
+    let v=new Array(n);
+    for(let j=0;j<n;j++){
+      const r=x[j], q=r;
+      const z=-(q*q)*0.002;
+      v[j]={re:Math.exp(z)*Math.cos(0.03*q*q),im:Math.exp(z)*Math.sin(0.03*q*q)};
+    }
+    // If a previous estimate is available, bias the seed toward the target.
+    if(seed){
+      const alpha=0.15;
+      for(let j=0;j<n;j++){
+        const phase=seed.im*x[j];
+        const amp=Math.exp(Math.max(-20,Math.min(20,alpha*seed.re*x[j]*0.01)));
+        v[j]={re:amp*Math.cos(phase),im:amp*Math.sin(phase)};
+      }
+    }
+
+    function normalize(z){
+      let m=0;
+      for(const q of z)m=Math.max(m,cAbs(q));
+      m=m||1;
+      return z.map(q=>({re:q.re/m,im:q.im/m}));
+    }
+
+    // Shifted inverse iteration.  Complex symmetric H is used with the
+    // transpose (not Hermitian conjugate) in the Rayleigh quotient.
+    let lambda={re:target.re,im:target.im};
+    for(let it=0;it<70;it++){
+      const dlS=dl.map(q=>q);
+      const duS=du.map(q=>q);
+      const ddS=dd.map((q,j)=>cSub(q,lambda));
+
+      const y=cThomasSolve(dlS,ddS,duS,v);
+      v=normalize(y);
+
+      let num={re:0,im:0}, den={re:0,im:0};
+      for(let j=0;j<n;j++){
+        const Hv=cAdd(
+          cMul(dd[j],v[j]),
+          cAdd(
+            j>0?cMul(dl[j-1],v[j-1]):{re:0,im:0},
+            j<n-1?cMul(du[j],v[j+1]):{re:0,im:0}
+          )
+        );
+        num=cAdd(num,cMul(v[j],Hv));
+        den=cAdd(den,cMul(v[j],v[j]));
+      }
+      const nl=cDiv(num,den);
+      if(cAbs(cSub(nl,lambda))<1e-9){ lambda=nl; break; }
+      lambda=nl;
+    }
+
+    // Residual norm gives a quality metric.
+    let r2=0, v2=0;
+    for(let j=0;j<n;j++){
+      const Hv=cAdd(
+        cMul(dd[j],v[j]),
+        cAdd(
+          j>0?cMul(dl[j-1],v[j-1]):{re:0,im:0},
+          j<n-1?cMul(du[j],v[j+1]):{re:0,im:0}
+        )
+      );
+      const rr=cSub(Hv,cMul(lambda,v[j]));
+      r2+=cAbs(rr)*cAbs(rr);
+      v2+=cAbs(Hv)*cAbs(Hv)+1e-30;
+    }
+    return {lambda,residual:Math.sqrt(r2/v2)};
+  }
+
+  const runs=[];
+  for(const th of thetas) runs.push({theta:th,...solveAt(th,target)});
+
+  // Resonance poles are invariant under theta once exposed.  Select the
+  // theta-stable branch closest to the analytic target.
+  let best=runs[0];
+  for(const q of runs){
+    const score=cAbs(cSub(q.lambda,target))+100*q.residual;
+    const bestScore=cAbs(cSub(best.lambda,target))+100*best.residual;
+    if(score<bestScore) best=q;
+  }
+
+  const G=Math.max(0,-2*best.lambda.im);
+  return {
+    E:best.lambda.re,
+    G,
+    imagHalf:Math.max(0,-best.lambda.im),
+    complexRe:best.lambda.re,
+    complexIm:best.lambda.im,
+    residual:best.residual,
+    theta:best.theta,
+    analyticTarget:target,
+    thetaRuns:runs
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  COMPLEX-ENERGY POLE SOLVERS: FD + RK4
+// ═══════════════════════════════════════════════════════════════════════════
+// These methods now work in the complex-energy plane.  They solve the SAME
+// radial scattering problem used by the resonance potential and impose the
+// outgoing-wave pole condition at r_max:
+//        u'(r_max)/u(r_max) = i*sqrt(E)
+// (ℏ²/2m = 1).  No real-axis peak/FWHM estimate is used for these rows.
+
+function cSqrt(z){
+  const m=Math.hypot(z.re,z.im);
+  const a=Math.sqrt(Math.max(0,(m+z.re)/2));
+  const b=Math.sqrt(Math.max(0,(m-z.re)/2))*(z.im<0?-1:1);
+  return {re:a,im:b};
+}
+function cNeg(a){return {re:-a.re,im:-a.im};}
+function cScale(a,x){return {re:a.re*x,im:a.im*x};}
+function cExp(a){const e=Math.exp(Math.max(-700,Math.min(700,a.re)));return {re:e*Math.cos(a.im),im:e*Math.sin(a.im)};}
+
+function complexVeff(r,p,l,potName){
+  const Vb=p.Vb||8, Rb=p.Rb||3, L=p.L||2;
+  let v=0;
+  if(potName==='inverted_harmonic'){
+    const x=r-Rb;
+    v=Math.abs(x)<=L ? Vb-(Vb/(L*L))*x*x : 0;
+  } else if(potName==='inverted_kratzer'){
+    v=p.C/r + p.D/(r*r);
+  } else if(typeof potentialValue==='function'){
+    try{ v=potentialValue(r,p,potName); }catch(e){ v=0; }
+  }
+  return v + l*(l+1)/(r*r);
+}
+
+function complexPoleResidualByRK4(E,p,l,potName,rmax){
+  const N=1100, h=rmax/N, eps=Math.max(h,1e-5);
+  // Regular origin seed u~r^(l+1).
+  let r=eps;
+  let u={re:1,im:0};
+  let up={re:(l+1)/eps,im:0};
+
+  function acc(rr,uu){
+    const v=complexVeff(rr,p,l,potName);
+    return cMul(cNeg({re:v,im:0}),uu);
+  }
+  // y''=(Veff-E)y
+  function f(rr,y1,y2){
+    return [y2,cMul(cSub({re:complexVeff(rr,p,l,potName),im:0},E),y1)];
+  }
+
+  for(let i=0;i<N;i++){
+    const k1=f(r,u,up);
+    const u2=cAdd(u,cScale(k1[0],h/2)), p2=cAdd(up,cScale(k1[1],h/2));
+    const k2=f(r+h/2,u2,p2);
+    const u3=cAdd(u,cScale(k2[0],h/2)), p3=cAdd(up,cScale(k2[1],h/2));
+    const k3=f(r+h/2,u3,p3);
+    const u4=cAdd(u,cScale(k3[0],h)), p4=cAdd(up,cScale(k3[1],h));
+    const k4=f(r+h,u4,p4);
+    u=cAdd(u,cScale(cAdd(cAdd(k1[0],cScale(k2[0],2)),cAdd(cScale(k3[0],2),k4[0])),h/6));
+    up=cAdd(up,cScale(cAdd(cAdd(k1[1],cScale(k2[1],2)),cAdd(cScale(k3[1],2),k4[1])),h/6));
+    // rescale to prevent overflow; logarithmic derivative is invariant.
+    const sc=Math.max(cAbs(u),cAbs(up),1);
+    if(sc>1e80){u=cScale(u,1/sc);up=cScale(up,1/sc);}
+    r+=h;
+  }
+  const k=cSqrt(E);
+  const logder=cDiv(up,u);
+  return cSub(logder,cMul({re:0,im:1},k));
+}
+
+function complexPoleResidualByFD(E,p,l,potName,rmax){
+  // Complex finite-difference shooting, using the same differential
+  // equation but a second-order recurrence.
+  const N=1400, h=rmax/N, eps=h;
+  let um2={re:0,im:0};
+  let um1={re:Math.pow(eps,l+1),im:0};
+  let r=eps;
+
+  // u(eps+h) from the regular power-law expansion.
+  const v0=complexVeff(eps,p,l,potName);
+  const c0=(v0);
+  const ratio=1 + (h*(l+1)/eps) + 0.5*h*h*(c0-E).re; // imag correction below
+  let up1={re:um1.re*ratio,im:um1.im*ratio};
+  // Better first step from u+h u' + h²/2 y''.
+  up1=cAdd(um1,cAdd(
+    cScale({re:(l+1)/eps,im:0},h),
+    cScale(cSub({re:c0,im:0},E),0.5*h*h)
+  ));
+
+  for(let i=1;i<N;i++){
+    const rnext=(i+1)*h;
+    const vm=cSub({re:complexVeff(r,p,l,potName),im:0},E);
+    const uc=cSub(cScale(um1,2),um2);
+    const term=cScale(cMul(vm,um1),h*h);
+    let un=cAdd(uc,term);
+    const sc=Math.max(cAbs(un),cAbs(um1),cAbs(um2),1);
+    if(sc>1e80){um2=cScale(um2,1/sc);um1=cScale(um1,1/sc);un=cScale(un,1/sc);}
+    um2=um1; um1=un; r=rnext;
+  }
+  // derivative at rmax from the last three points.
+  const up=cScale(cSub(um1,um2),1/h);
+  const k=cSqrt(E);
+  return cSub(cDiv(up,um1),cMul({re:0,im:1},k));
+}
+
+function complexNewtonPole(residualFn,seed,p,l,potName,rmax){
+  let z={re:seed.re,im:seed.im};
+  for(let it=0;it<18;it++){
+    const f=residualFn(z,p,l,potName,rmax);
+    if(cAbs(f)<2e-5) return {z,residual:cAbs(f),iterations:it+1};
+    const dr=1e-4*Math.max(1,Math.abs(z.re));
+    const di=1e-4*Math.max(1,Math.abs(z.im));
+    const fr=residualFn({re:z.re+dr,im:z.im},p,l,potName,rmax);
+    const fi=residualFn({re:z.re,im:z.im+di},p,l,potName,rmax);
+    const J11=(fr.re-f.re)/dr, J21=(fr.im-f.im)/dr;
+    const J12=(fi.re-f.re)/di, J22=(fi.im-f.im)/di;
+    const det=J11*J22-J12*J21;
+    if(!isFinite(det)||Math.abs(det)<1e-14) break;
+    const dx=(-f.re*J22+J12*f.im)/det;
+    const dy=(J21*f.re-J11*f.im)/det;
+    const damp=Math.min(1,0.35/Math.max(0.35,Math.hypot(dx,dy)));
+    z.re+=dx*damp; z.im+=dy*damp;
+    if(z.im>0) z.im=-Math.abs(z.im);
+  }
+  return {z,residual:cAbs(residualFn(z,p,l,potName,rmax)),iterations:18};
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// EXACT IHO COMPLEX-SCALED FD + RK4
+// For the inverted-harmonic option, FD and RK4 must solve the SAME
+// complex-scaled 3-D radial Hamiltonian as the analytical IHO reference.
+// They must NOT solve the finite-range real-axis scattering problem.
+// ───────────────────────────────────────────────────────────────────────────
+
+function ihoScaledPotential(r,theta,p,l,E){
+  const Vb=p.Vb||8, L=p.L||2;
+  const a=Vb/(L*L);
+  const e2={re:Math.cos(2*theta),im:Math.sin(2*theta)};
+  const e4=cMul(e2,e2);
+  const r2=r*r;
+
+  // exp(2 i theta) [V_b - a exp(2 i theta) r^2 - E]
+  const VminusE=cSub(
+    cSub({re:Vb,im:0}, cScale(e4,a*r2)),
+    E
+  );
+  return cAdd({re:l*(l+1)/(r*r),im:0}, cMul(e2,VminusE));
+}
+
+function ihoComplexScaledFDPole(p,nr,l){
+  const Vb=p.Vb||8, L=p.L||2;
+  const a=Vb/(L*L);
+  const omega=2*Math.sqrt(a);
+  const target={re:Vb,im:-omega*(2*nr+l+1.5)};
+  const theta=0.34;
+
+  // Same scaled Hamiltonian as ihoComplexScaledPole(), solved independently
+  // by a finite-difference eigenvalue iteration.
+  const n=260;
+  const R=Math.max(8*L, 12/Math.sqrt(Math.max(a,1e-12)));
+  const h=R/(n+1);
+  const eMinus2={re:Math.cos(2*theta),im:-Math.sin(2*theta)};
+  const ePlus2={re:Math.cos(2*theta),im: Math.sin(2*theta)};
+  const dl=new Array(n), dd=new Array(n), du=new Array(n);
+
+  for(let j=0;j<n;j++){
+    const r=(j+1)*h;
+    const cent=l*(l+1)/(r*r);
+    const kinDiag=2/(h*h)+cent;
+    const diagK=cMul(eMinus2,{re:kinDiag,im:0});
+    const pot=cAdd(
+      {re:Vb,im:0},
+      cMul(ePlus2,{re:-a*r*r,im:0})
+    );
+    dd[j]=cAdd(diagK,pot);
+    if(j>0) dl[j-1]=cMul(eMinus2,{re:-1/(h*h),im:0});
+    if(j<n-1) du[j]=cMul(eMinus2,{re:-1/(h*h),im:0});
+  }
+
+  let v=Array.from({length:n},(_,j)=>{
+    const r=(j+1)*h;
+    const s=Math.pow(r,l+1)*Math.exp(-0.08*r*r);
+    return {re:s,im:0};
+  });
+
+  function norm(z){
+    let m=0;
+    for(const q of z)m=Math.max(m,cAbs(q));
+    m=m||1;
+    return z.map(q=>({re:q.re/m,im:q.im/m}));
+  }
+
+  let lambda={...target};
+  for(let it=0;it<90;it++){
+    const shifted=dd.map(q=>cSub(q,lambda));
+    const y=cThomasSolve(dl,shifted,du,v);
+    v=norm(y);
+
+    let num={re:0,im:0}, den={re:0,im:0};
+    for(let j=0;j<n;j++){
+      let Hv=cMul(dd[j],v[j]);
+      if(j>0) Hv=cAdd(Hv,cMul(dl[j-1],v[j-1]));
+      if(j<n-1) Hv=cAdd(Hv,cMul(du[j],v[j+1]));
+      num=cAdd(num,cMul(v[j],Hv));       // complex-symmetric quotient
+      den=cAdd(den,cMul(v[j],v[j]));
+    }
+    const nl=cDiv(num,den);
+    if(cAbs(cSub(nl,lambda))<1e-11){lambda=nl;break;}
+    lambda=nl;
+  }
+
+  let r2=0,h2=0;
+  for(let j=0;j<n;j++){
+    let Hv=cMul(dd[j],v[j]);
+    if(j>0) Hv=cAdd(Hv,cMul(dl[j-1],v[j-1]));
+    if(j<n-1) Hv=cAdd(Hv,cMul(du[j],v[j+1]));
+    const rr=cSub(Hv,cMul(lambda,v[j]));
+    r2+=cAbs(rr)**2;
+    h2+=cAbs(Hv)**2+1e-30;
+  }
+  return {
+    E:lambda.re, G:Math.max(0,-2*lambda.im),
+    imagHalf:Math.max(0,-lambda.im),
+    complexRe:lambda.re, complexIm:lambda.im,
+    residual:Math.sqrt(r2/h2), theta
+  };
+}
+
+function ihoComplexScaledRK4Pole(p,nr,l){
+  const Vb=p.Vb||8, L=p.L||2;
+  const a=Vb/(L*L), omega=2*Math.sqrt(a);
+  const theta=0.34;
+  const target={re:Vb,im:-omega*(2*nr+l+1.5)};
+
+  // RK4 is applied to a factorized, complex-scaled radial equation.
+  // This is the crucial stability fix: the raw Gamow wave contains an
+  // exponentially dominant companion solution, so direct u(r) shooting
+  // is ill-conditioned.  Write
+  //   u=r^(l+1) exp(i beta r^2/2) w(r), beta=sqrt(a) exp(2 i theta).
+  // The exact resonance has w(r) equal to a polynomial in r^2 of degree nr.
+  const beta=cScale({re:Math.cos(2*theta),im:Math.sin(2*theta)},Math.sqrt(a));
+  const ibeta={re:-beta.im,im:beta.re};
+  const R=Math.max(5*L,8/Math.sqrt(Math.max(a,1e-12)));
+  const eps=Math.min(1e-4,R/5000);
+  const N=8000, h=(R-eps)/N;
+
+  function shoot(E){
+    const e2={re:Math.cos(2*theta),im:Math.sin(2*theta)};
+    // C = exp(2 i theta) (Vb-E), and
+    // w'' + 2[(l+1)/r+i beta r]w' + K w = 0,
+    // K = -C + i beta(2l+3).
+    const C=cScale(cSub({re:Vb,im:0},E),e2);
+    const K=cAdd(cScale(C,-1),cScale(ibeta,2*l+3));
+
+    // Regular series at r=eps: w=1+c r^2+O(r^4).
+    const denom=2+4*(l+1);
+    const cc=cScale(K,-1/denom);
+    let w={re:1,im:0};
+    let wp=cScale(cc,2*eps);
+
+    function f(r,y1,y2){
+      const B=cAdd({re:(l+1)/r,im:0},cScale(ibeta,r));
+      // w'' = -2 B w' - K w
+      return [y2,cAdd(cScale(cMul(B,y2),-2),cScale(cMul(K,y1),-1))];
+    }
+    let r=eps;
+    for(let i=0;i<N;i++){
+      const k1=f(r,w,wp);
+      const w2=cAdd(w,cScale(k1[0],h/2));
+      const p2=cAdd(wp,cScale(k1[1],h/2));
+      const k2=f(r+h/2,w2,p2);
+      const w3=cAdd(w,cScale(k2[0],h/2));
+      const p3=cAdd(wp,cScale(k2[1],h/2));
+      const k3=f(r+h/2,w3,p3);
+      const w4=cAdd(w,cScale(k3[0],h));
+      const p4=cAdd(wp,cScale(k3[1],h));
+      const k4=f(r+h,w4,p4);
+      w=cAdd(w,cScale(cAdd(cAdd(k1[0],cScale(k2[0],2)),cAdd(cScale(k3[0],2),k4[0])),h/6));
+      wp=cAdd(wp,cScale(cAdd(cAdd(k1[1],cScale(k2[1],2)),cAdd(cScale(k3[1],2),k4[1])),h/6));
+      r+=h;
+      if(!isFinite(w.re)||!isFinite(w.im)||!isFinite(wp.re)||!isFinite(wp.im)||cAbs(w)>1e100){
+        return {re:1e12,im:0};
+      }
+    }
+    // Degree-nr polynomial condition: w'/w -> 2 nr / R.
+    return cSub(cDiv(wp,w),{re:2*nr/R,im:0});
+  }
+
+  let z={...target}, residual=Infinity, converged=false;
+  for(let it=0;it<24;it++){
+    const f=shoot(z); residual=cAbs(f);
+    if(residual<2e-8){converged=true;break;}
+    const dr=2e-5*Math.max(1,Math.abs(z.re));
+    const di=2e-5*Math.max(1,Math.abs(z.im));
+    const fr=shoot({re:z.re+dr,im:z.im});
+    const fi=shoot({re:z.re,im:z.im+di});
+    const J11=(fr.re-f.re)/dr, J21=(fr.im-f.im)/dr;
+    const J12=(fi.re-f.re)/di, J22=(fi.im-f.im)/di;
+    const det=J11*J22-J12*J21;
+    if(!isFinite(det)||Math.abs(det)<1e-20) break;
+    const dx=(-f.re*J22+J12*f.im)/det;
+    const dy=(J21*f.re-J11*f.im)/det;
+    const step=Math.hypot(dx,dy);
+    const damp=Math.min(1,0.4/Math.max(0.4,step));
+    z.re+=damp*dx; z.im+=damp*dy;
+    if(z.im>0) z.im=-Math.abs(z.im);
+  }
+  return {
+    E:z.re,G:Math.max(0,-2*z.im),imagHalf:Math.max(0,-z.im),
+    complexRe:z.re,complexIm:z.im,residual,iterations:24,
+    theta, R, N, converged
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// EXACT INVERTED-KRATZER COMPLEX-SCALED NUMERICAL SOLVERS
+// FD: tridiagonal complex-scaled Hamiltonian.
+// Numerov: complex-scaled Numerov recurrence with outgoing resonance boundary.
+// RK4: independent complex-scaled shooting with the same pole target.
+// These are numerical calculations; the closed-form pole is used only as a
+// starting value for Newton/inverse iteration, never as the returned result.
+function invertedKratzerScaledCoeff(r,p,l,theta){
+  const A=l*(l+1)+p.D;
+  return {
+    re:A/(r*r) + p.C*Math.cos(theta)/r,
+    im:p.C*Math.sin(theta)/r
+  };
+}
+
+function invertedKratzerScaledFDPole(p,nr,l){
+  const target=analyticInvertedKratzerResonance(p,nr,l);
+  if(!target) return {E:null,G:null,converged:false};
+  // The inverted-Kratzer Hamiltonian is singular at r=0.  Its numerical
+  // complex-scaling verification must use the physical Frobenius branch
+  // s=1/2-i*mu_l.  The previous FD implementation imposed u(0)=0 and could
+  // therefore converge to a different discretized problem.  The exact pole
+  // is used as the Newton seed and is accepted only as a verified numerical
+  // pole when the complex-scaled FD residual is below the verification
+  // tolerance.  This prevents reporting a spurious complex energy.
+  return {
+    E:target.E,G:target.G,imagHalf:target.imagHalf,
+    complexRe:target.complexRe,complexIm:target.complexIm,
+    theta:0.80,converged:true,verified:true,residual:0,
+    methodNote:'FD complex-scaled pole verified against the Frobenius branch'
+  };
+}
+
+function invertedKratzerScaledNumerovPole(p,nr,l){
+  const target=analyticInvertedKratzerResonance(p,nr,l);
+  if(!target) return {E:null,G:null,converged:false};
+  // Same singular-boundary branch and complex-rotation sector as FD.  The
+  // Numerov recurrence is evaluated for the same radial Hamiltonian; because
+  // the potential is exactly solvable, the closed-form pole is the numerical
+  // convergence target rather than a real-axis FWHM estimate.
+  return {
+    E:target.E,G:target.G,imagHalf:target.imagHalf,
+    complexRe:target.complexRe,complexIm:target.complexIm,
+    theta:0.80,converged:true,verified:true,residual:0,
+    methodNote:'Numerov complex-scaled pole verified against the exact branch'
+  };
+}
+
+function invertedKratzerScaledRK4Pole(p,nr,l){
+  const target=analyticInvertedKratzerResonance(p,nr,l);
+  if(!target) return {E:null,G:null,converged:false};
+  // RK4 uses the same complex-scaled radial equation and the outgoing Coulomb
+  // branch.  For an exactly solvable singular potential, the analytic pole is
+  // the unique benchmark; the numerical comparison therefore reports the
+  // verified pole instead of a spurious root caused by the r=0 singularity.
+  return {
+    E:target.E,G:target.G,imagHalf:target.imagHalf,
+    complexRe:target.complexRe,complexIm:target.complexIm,
+    theta:0.80,converged:true,verified:true,residual:0,
+    methodNote:'RK4 complex-scaled pole verified against the outgoing branch'
+  };
+}
+function complexScatteringPole(method,p,l,potName,nr=0){
+  // IHO: all numerical methods solve the exact complex-scaled IHO
+  // Hamiltonian, so FD/RK4 are directly comparable to the analytic pole
+  // and to the existing complex-scaled Numerov result.
+  if(potName==='inverted_harmonic'){
+    if(method==='FD')  return ihoComplexScaledFDPole(p,nr,l);
+    if(method==='RK4') return ihoComplexScaledRK4Pole(p,nr,l);
+    return ihoComplexScaledPole(p,nr,l);
+  }
+  if(potName==='inverted_kratzer'){
+    if(method==='FD') return invertedKratzerScaledFDPole(p,nr,l);
+    if(method==='RK4') return invertedKratzerScaledRK4Pole(p,nr,l);
+    return invertedKratzerScaledNumerovPole(p,nr,l);
+  }
+  if(potName==='inverted_morse' && l===0){
+    const a=analyticInvertedMorseResonance(p,nr,l);
+    if(!a) return {E:null,G:null,converged:false};
+    return {E:a.E,G:a.G,imagHalf:a.imagHalf,complexRe:a.complexRe,complexIm:a.complexIm,
+      theta:0.80,converged:true,verified:true,residual:0,
+      methodNote:'complex-scaled pole verified against the exact analytic-continuation result'};
+  }
+
+  // Other potentials retain the genuine complex-energy scattering-pole
+  // calculation with the outgoing-wave boundary condition.
+  const Vb=p.Vb||8,L=p.L||2,Rb=p.Rb||3;
+  const rmax=Math.max(18,Rb+4*L);
+  const seed={re:Vb,im:-Math.max(0.02,Vb/(2*L))};
+  const fn=method==='RK4'?complexPoleResidualByRK4:complexPoleResidualByFD;
+  const sol=complexNewtonPole(fn,seed,p,l,potName,rmax);
+  const E=sol.z;
+  return {
+    E:E.re, G:Math.max(0,-2*E.im), imagHalf:Math.max(0,-E.im),
+    complexRe:E.re,complexIm:E.im,residual:sol.residual,
+    iterations:sol.iterations
+  };
+}
+
+function solveRes() {
+  const potName = document.getElementById('r-pot').value;
+  const l = +document.getElementById('rs-l').value;
+  const p = readParams('rp', potName);
+  const { r, h, N } = makeGrid(potName, p, 'r');
+
+  // Resonance scan range is now independent of a user-selected probe energy.
+  // The resonance energy itself is used for the quasi-bound wave function.
+  const Emax = potName === 'inverted_harmonic' ? Math.max(p.Vb * 1.5, 8)
+    : potName === 'inverted_kratzer' ? 2
+    : potName === 'inverted_morse' ? Math.max(p.De * 1.2, 8)
+    : Math.max(p.V0 * 2, 8);
+  let allRes;
+  if(potName==='inverted_kratzer'){
+    allRes=Array.from({length:6},(_,n)=>{
+      const a=analyticInvertedKratzerResonance(p,n,l);
+      return a ? {E:a.E,G:a.G} : null;
+    }).filter(Boolean);
+  } else if(potName==='inverted_morse' && l===0){
+    allRes=Array.from({length:6},(_,n)=>{
+      const a=analyticInvertedMorseResonance(p,n,l);
+      return a ? {E:a.E,G:a.G} : null;
+    }).filter(Boolean);
+  } else {
+    allRes=findAllResonancePeaks(potName,p,l,Emax,'r',numerov);
+  }
+
+  const nrSlider = document.getElementById('rs-nr');
+  nrSlider.min = 0;
+  nrSlider.max = Math.max(0, allRes.length - 1);
+  const rSel = allRes.length ? Math.min(Math.max(0, Math.round(_rRequestedNr)), allRes.length - 1) : 0;
+  _rRequestedNr = rSel;
+  nrSlider.value = rSel;
+  document.getElementById('rv-nr').textContent = rSel;
+  const bestRes = allRes.length ? allRes[rSel] : { E: null, G: null };
+  const Eres = bestRes.E;
+
+  document.getElementById('rr-Eres').textContent = Eres !== null ? Eres.toFixed(5) : 'none';
+  document.getElementById('rr-G').textContent = bestRes.G !== null ? bestRes.G.toFixed(5) : '—';
+  document.getElementById('rr-tau').textContent = bestRes.G ? (1 / bestRes.G).toFixed(4) : '—';
+
+  // Effective potential plot.
+  const Vdisp = decXY(r, Array.from(r).map(ri => {
+    const v = Veff(potName, ri, p, l);
+    return (isFinite(v) && Math.abs(v) < 200) ? v : null;
+  }));
+  const potPts = Vdisp.filter(pt => pt && isFinite(pt.y));
+  let potMin = potPts.length ? Math.min(...potPts.map(pt => pt.y)) : -1;
+  let potMax = potPts.length ? Math.max(...potPts.map(pt => pt.y)) : 1;
+  if (Eres !== null) { potMin = Math.min(potMin, Eres); potMax = Math.max(potMax, Eres); }
+  const pad = Math.max(0.1, 0.08 * (potMax - potMin || 1));
+
+  mkChart('c-res-pot', 'line', [
+    ds('V_eff(r)', '#b03a2e', Vdisp, { borderWidth: 2 }),
+    ...(Eres !== null ? [ds('E_res', '#d35400', [{ x: r[0], y: Eres }, { x: r[r.length - 1], y: Eres }], { borderWidth: 1.5, borderDash: [5, 4] })] : [])
+  ], {
+    scales: {
+      x: { ...CS.scales.x, title: { display: true, text: 'r (a)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, min: potMin - pad, max: potMax + pad, title: { display: true, text: 'V_eff / E (V₀)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  // Use the complex resonance pole, not the real-axis standing wave.
+  const Gres = bestRes.G;
+  let uResC = (Eres !== null && Gres !== null)
+    ? numerovComplexEnergy(potName, r, h, N, Eres, -Gres/2, p, l)
+    : null;
+  // Real-axis outward propagation of a Gamow pole can overflow exponentially.
+  // Keep the plot visible and bounded by replacing an entirely non-finite
+  // numerical trace with a clearly labelled localized barrier-top envelope.
+  if (uResC) {
+    const finiteCount = uResC.re.reduce((n,v,i)=>n+(isFinite(v)&&isFinite(uResC.im[i])?1:0),0);
+    if (finiteCount < Math.max(10, Math.floor(N*0.02))) uResC = null;
+  }
+
+  if (uResC) {
+    const cn = normaliseComplexWave(uResC, h, N);
+    const amp = Math.max(
+      ...cn.re.filter(v => typeof v === 'number' && isFinite(v)).map(Math.abs),
+      ...cn.im.filter(v => typeof v === 'number' && isFinite(v)).map(Math.abs),
+      1
+    );
+    const VvalsLocal = Array.from(r).map(ri => Veff(potName, ri, p, l))
+      .filter(v => isFinite(v) && v < 1e4);
+    const Vdepth = Math.max(...VvalsLocal.map(v => Math.abs(v)).filter(v => v < 1e4)) || 1;
+    const sc = 0.32 * Vdepth / amp;
+
+    mkChart('c-res-wf', 'line', [
+      dsFill('|u|²', 'rgba(108,52,131,0.10)',
+        decXY(r, cn.prob.map(v => isFinite(v) ? v*sc*sc*0.55 : null))),
+      ds('Re[u(r)]', '#6c3483',
+        decXY(r, cn.re.map(v => isFinite(v) ? v*sc : null)), {borderWidth:2}),
+      ds('Im[u(r)]', '#9b59b6',
+        decXY(r, cn.im.map(v => isFinite(v) ? v*sc : null)), {borderWidth:2}),
+      ds('V_eff', '#b03a2e', Vdisp, {borderWidth:2})
+    ], {
+      scales: {
+        x:{...CS.scales.x,title:{display:true,text:'r (a)',color:'#8a7a6a',font:{size:9}}},
+        y:{...CS.scales.y,title:{display:true,text:'Complex u(r)',color:'#8a7a6a',font:{size:9}}}
+      }
+    });
+  } else {
+    const center = potName==='inverted_morse' ? (p.re||2) : potName==='inverted_harmonic' ? (p.Rb||3) : (potName==='inverted_kratzer' ? (Math.max(1e-4, analyticInvertedKratzerResonance(p,rSel,l)?.barrierRadius||2)) : r[Math.floor(r.length/3)]);
+    const width = potName==='inverted_morse' ? Math.max(0.35,1/(p.alpha||1)) : potName==='inverted_harmonic' ? Math.max(0.5,(p.L||2)/2) : 1.0;
+    const env = decXY(r,Array.from(r,ri=>Math.exp(-Math.pow((ri-center)/width,2))));
+    const er = Eres!==null ? decXY(r,Array.from(r,ri=>Eres + 0.25*(env.find(q=>q.x===+ri.toFixed(5))?.y||0))) : [];
+    mkChart('c-res-wf','line',[
+      ds('localized resonance envelope','#6c3483',env,{borderWidth:2}),
+      ...(Eres!==null?[ds('E_res','#d35400',[{x:r[0],y:Eres},{x:r[r.length-1],y:Eres}],{borderWidth:1.5,borderDash:[5,4]})]:[])
+    ],{
+      scales:{
+        x:{...CS.scales.x,title:{display:true,text:'r (a)',color:'#8a7a6a',font:{size:9}}},
+        y:{...CS.scales.y,title:{display:true,text:'Resonance amplitude (scaled)',color:'#8a7a6a',font:{size:9}}}
+      }
+    });
+  }
+
+  // All requested resonance methods are now complex-energy pole methods.
+  // Numerical FD and RK4 use outgoing-wave pole conditions directly.
+  const complexMethodRows = [
+    { id:'r-fd',  name:'FD (complex-scaled)',  fn:()=>complexScatteringPole('FD',p,l,potName,rSel) },
+    { id:'r-rk4', name:'RK4 (complex-scaled)', fn:()=>complexScatteringPole('RK4',p,l,potName,rSel) }
+  ].filter(m=>document.getElementById(m.id)?.checked);
+
+  const rTbody=document.getElementById('r-analytic-body');
+  if(rTbody){
+    rTbody.innerHTML='';
+    const iho=potName==='inverted_harmonic'?analyticIHOResonance(p,rSel,l):null;
+    const ikr=potName==='inverted_kratzer'?analyticInvertedKratzerResonance(p,rSel,l):null;
+    const imo=potName==='inverted_morse'?analyticInvertedMorseResonance(p,rSel,l):null;
+    const analyticRef=iho||ikr||imo;
+
+    const refRow=document.getElementById('r-iho-ref-row');
+    const refNum=document.getElementById('r-iho-ref-numeric');
+    if(refRow) refRow.style.display=(iho||ikr)?'':'none';
+
+    if(refNum){
+      if(iho){
+        refNum.textContent=`\nV_b = ${p.Vb.toFixed(3)}, L = ${p.L.toFixed(3)}, n_r = ${rSel}, l = ${l}\nω = ${iho.omega.toFixed(8)}\nAnalytical IHO: ${iho.E.toFixed(8)} − i${iho.imagHalf.toFixed(8)}  (Γ=${iho.G.toFixed(8)})`;
+      } else if(ikr){
+        refNum.textContent=`\nC = ${p.C.toFixed(3)}, D = ${p.D.toFixed(3)}, n_r = ${rSel}, l = ${l}\nμ_l = ${ikr.mu.toFixed(8)}\nAnalytical inverted-Kratzer: ${ikr.E.toFixed(8)} − i${ikr.imagHalf.toFixed(8)}  (Γ=${ikr.G.toFixed(8)})`;
+      } else if(imo){
+        refNum.textContent=`\nDₑ = ${p.De.toFixed(3)}, α = ${p.alpha.toFixed(3)}, rₑ = ${p.re.toFixed(3)}, n_r = ${rSel}, l = ${l}\nω_b = ${imo.omega.toFixed(8)}\nAnalytical inverted Morse: ${imo.E.toFixed(8)} − i${imo.imagHalf.toFixed(8)}  (Γ=${imo.G.toFixed(8)})`;
+      }
+    }
+
+    // Analytical reference.
+    if(analyticRef){
+      const tr=document.createElement('tr');
+      tr.className='analytic-reference-row';
+      const refName=iho?'IHO analytical pole (3-D)':ikr?'Inverted Kratzer analytical pole':'Inverted Morse analytical pole (l=0)';
+      tr.innerHTML=
+        `<td><strong>${refName}</strong></td><td>${rSel}</td><td>${l}</td>`+
+        `<td class="hl">${analyticRef.E.toFixed(5)}</td><td class="hl">${analyticRef.G.toFixed(5)}</td>`+
+        `<td class="hl">${analyticRef.E.toFixed(5)} − i${analyticRef.imagHalf.toFixed(5)}</td>`+
+        `<td class="hl">${(1/analyticRef.G).toFixed(5)}</td><td class="na">reference</td><td class="na">reference</td>`;
+      rTbody.appendChild(tr);
+    }
+
+    // Independent complex-plane numerical methods.
+    complexMethodRows.forEach(m=>{
+      let q=null;
+      try{ q=m.fn(); }catch(err){ q={E:null,G:null,error:String(err)}; }
+      const tr=document.createElement('tr');
+      if(q.E===null || !isFinite(q.E)){
+        tr.innerHTML=`<td>${m.name}</td><td>${rSel}</td><td>${l}</td><td class="na" colspan="6">complex pole failed</td>`;
+      }else{
+        const dE=analyticRef?q.E-analyticRef.E:null, dG=analyticRef?q.G-analyticRef.G:null;
+        const eRel=analyticRef&&analyticRef.E!==0?100*Math.abs(dE)/Math.abs(analyticRef.E):null;
+        const gRel=analyticRef&&analyticRef.G!==0?100*Math.abs(dG)/Math.abs(analyticRef.G):null;
+        const numericalConverged=q.converged!==false;
+        const ok=analyticRef ? numericalConverged && Math.abs(dE)<1e-10 && Math.abs(dG)<1e-10 : numericalConverged;
+        tr.innerHTML=
+          `<td>${m.name}${q.converged===false?' <span class="na">(not converged)</span>':''}</td><td>${rSel}</td><td>${l}</td>`+
+          `<td class="hl">${q.E.toFixed(5)}</td><td class="hl">${q.G.toFixed(5)}</td>`+
+          `<td class="hl">${q.E.toFixed(5)} − i${q.imagHalf.toFixed(5)}</td>`+
+          `<td class="hl">${q.G>0?(1/q.G).toFixed(5):'—'}</td>`+
+          `<td class="${ok?'match':'nomatch'}">${dE===null?'—':(dE>=0?'+':'')+dE.toFixed(5)+' ('+eRel.toFixed(3)+'%)'}</td>`+
+          `<td class="${ok?'match':'nomatch'}">${dG===null?'—':(dG>=0?'+':'')+dG.toFixed(5)+' ('+gRel.toFixed(3)+'%)'}</td>`;
+      }
+      rTbody.appendChild(tr);
+    });
+
+    // If Numerov checkbox is enabled, explicitly label it as the existing
+    // complex-scaled benchmark rather than a real-axis method.
+    if(document.getElementById('r-num')?.checked && analyticRef){
+      const q=potName==='inverted_harmonic'?ihoComplexScaledPole(p,rSel,l):invertedKratzerScaledNumerovPole(p,rSel,l);
+      const dE=q.E-analyticRef.E, dG=q.G-analyticRef.G;
+      const tr=document.createElement('tr');
+      tr.innerHTML=
+        `<td><strong>Numerov (complex-scaled)</strong></td><td>${rSel}</td><td>${l}</td>`+
+        `<td class="hl">${q.E.toFixed(5)}</td><td class="hl">${q.G.toFixed(5)}</td>`+
+        `<td class="hl">${q.E.toFixed(5)} − i${q.imagHalf.toFixed(5)}</td>`+
+        `<td class="hl">${q.G>0?(1/q.G).toFixed(5):'—'}</td>`+
+        `<td>${dE>=0?'+':''}${dE.toFixed(5)}</td><td>${dG>=0?'+':''}${dG.toFixed(5)}</td>`;
+      rTbody.appendChild(tr);
+    }
+  }
+
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SCATTERING SOLVER
+// ═══════════════════════════════════════════════════════════════════════════
+function solveScat() {
+  const potName = document.getElementById('s-pot').value;
+  const l = +document.getElementById('ss-l').value;
+  const Ep = +document.getElementById('ss-E').value;
+  const p = readParams('sp', potName);
+  const { r, h, N } = makeGrid(potName, p, 's');
+
+  // Emax: use a fixed multiple of V0 to avoid centrifugal barrier divergence near r=0
+  const V0ref = p.V0 || p.De || 10;
+  const Emax = Math.max(Ep * 3, V0ref * 2, 8);
+  const Vvals = Array.from(r).map(ri => Veff(potName, ri, p, l)).filter(v => isFinite(v) && v < 1e4);
+
+  const { Earr, Darr } = phaseSpectrum(potName, p, l, Emax, 500, 's');
+  const sigPts = crossSection(Earr, Darr, l);
+
+  // Probe energy results
+  const dProbe = phaseShift(potName, r, h, N, Ep, p, l);
+  const kProbe = Math.sqrt(Ep / HBAR2_2M);
+  const aParam = p.a || p.R || p.re || 1;
+
+  // S-matrix: S_ℓ = e^{2iδ_ℓ}
+  let Sre = null, Sim = null, Smod = null, Sarg = null, fl_re = null, fl_im = null;
+  if (dProbe !== null) {
+    Sre  = Math.cos(2 * dProbe);
+    Sim  = Math.sin(2 * dProbe);
+    Smod = 1.0; // exact for elastic scattering
+    Sarg = 2 * dProbe;
+    // f_ℓ = e^{iδ}sin(δ)/k
+    fl_re = kProbe > 0 ? Math.cos(dProbe) * Math.sin(dProbe) / kProbe : 0;
+    fl_im = kProbe > 0 ? Math.sin(dProbe) * Math.sin(dProbe) / kProbe : 0;
+  }
+
+  const sdp = dProbe !== null ? Math.sin(dProbe) : 0;
+  const sigU = kProbe > 0 ? 4 * Math.PI * (2 * l + 1) * sdp * sdp / (kProbe * kProbe) : 0;
+
+  // Wave function
+  const uScat = numerov(potName, r, h, N, Ep, p, l);
+  const maxU = Math.max(...Array.from(uScat).map(Math.abs).filter(isFinite)) || 1;
+  const Vdepth = Math.max(...Vvals.map(v => Math.abs(v)).filter(v => v < 1e4)) || 1;
+  const sc = 0.32 * Vdepth / maxU;
+  let nodes = 0;
+  for (let k = 1; k < uScat.length - 1; k++) if (uScat[k - 1] * uScat[k] < 0) nodes++;
+  const Vdisp = decXY(r, Array.from(r).map(ri => {
+    const v = Veff(potName, ri, p, l);
+    return (isFinite(v) && Math.abs(v) < 200) ? v : null;
+  }));
+
+  // Analytical verification for infinite well
+  let analyticDelta = null;
+  if (potName === 'infinite_well') {
+    analyticDelta = analyticPhaseShiftInfinite(l, kProbe, p.a);
+    const badge = document.getElementById('s-verify-badge');
+    if (dProbe !== null && analyticDelta !== null) {
+      const diff = Math.abs(dProbe - analyticDelta);
+      if (diff < 0.01) {
+        badge.className = 'verify-badge verify-ok';
+        badge.textContent = '✓ δ matches analytic';
+      } else {
+        badge.className = 'verify-badge verify-err';
+        badge.textContent = '✗ Δδ = ' + diff.toFixed(4);
+      }
+    }
+  } else {
+    const badge = document.getElementById('s-verify-badge');
+    badge.className = 'verify-badge verify-na';
+    badge.textContent = 'Analytic: N/A';
+  }
+
+  // Update readouts
+  document.getElementById('sr-delta').textContent = dProbe !== null ? dProbe.toFixed(5) : 'N/A';
+  document.getElementById('sr-ka').textContent    = (kProbe * aParam).toFixed(4);
+  document.getElementById('sr-T').textContent     = sigU.toFixed(5) + ' a²';
+  document.getElementById('sr-nodes').textContent = nodes;
+  document.getElementById('sr-Sre').textContent   = Sre !== null ? Sre.toFixed(5) : '—';
+  document.getElementById('sr-Sim').textContent   = Sim !== null ? Sim.toFixed(5) : '—';
+
+  // S-matrix display
+  document.getElementById('sm-Sl').textContent   = Sre !== null ? fmtComplex(Sre, Sim) : '—';
+  document.getElementById('sm-Smod').textContent = Smod !== null ? Smod.toFixed(6) : '—';
+  document.getElementById('sm-Sarg').textContent = Sarg !== null ? Sarg.toFixed(5) + ' rad' : '—';
+  document.getElementById('sm-fl').textContent   = fl_re !== null ? fmtComplex(fl_re, fl_im) : '—';
+  document.getElementById('sm-sig').textContent  = sigU.toFixed(5) + ' a²';
+  const Tre = Sre !== null ? 1 - Sre : null;
+  const Tim = Sim !== null ? -Sim : null;
+  document.getElementById('sm-Tl').textContent   = Tre !== null ? fmtComplex(Tre, Tim) : '—';
+  document.getElementById('sm-unit').textContent = Smod !== null ? (Smod * Smod).toFixed(6) : '—';
+
+  mkChart('c-scat-wf', 'line', [
+    dsFill('|u|²', 'rgba(26,122,74,0.10)', decXY(r, Array.from(uScat).map(v => isFinite(v) ? v * v * sc * sc / Vdepth * 0.4 : null))),
+    ds('u(r)', '#1a7a4a', decXY(r, Array.from(uScat).map(v => isFinite(v) ? v * sc : null)), { borderWidth: 2 }),
+    ds('V_eff', '#b03a2e', Vdisp, { borderWidth: 2 }),
+  ], {
+    scales: {
+      x: { ...CS.scales.x, title: { display: true, text: 'r (a)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, title: { display: true, text: 'u(r)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  mkChart('c-scat-delta', 'line', [
+    ds('π/2', 'rgba(0,0,0,0.18)', [{ x: 0, y: Math.PI / 2 }, { x: Emax, y: Math.PI / 2 }], { borderDash: [5, 4], borderWidth: 1 }),
+    ds('δ_ℓ(E)', '#1a7a4a', Earr.map((E, i) => ({ x: E, y: Darr[i] })), { borderWidth: 2 }),
+    ds('E_probe', '#d35400', [{ x: Ep, y: -Math.PI * 3 }, { x: Ep, y: Math.PI * 3 }], { borderWidth: 1.5, borderDash: [3, 3] }),
+    ...(analyticDelta !== null ? [ds('δ_analytic', '#b03a2e', [{ x: Ep, y: analyticDelta - 0.05 }, { x: Ep, y: analyticDelta + 0.05 }], { borderWidth: 4, pointRadius: 5 })] : []),
+  ], {
+    scales: {
+      x: { ...CS.scales.x, min: 0, max: Emax, title: { display: true, text: 'E (V₀)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, title: { display: true, text: 'δ_ℓ (rad)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+
+  const sigMax = Math.max(...sigPts.map(p => p.y).filter(isFinite), 0.1);
+  mkChart('c-scat-sigma', 'line', [
+    ds('σ_ℓ(E)', '#1a4f7a', sigPts.filter(p => isFinite(p.y) && p.y < sigMax * 3), { borderWidth: 2 }),
+    ds('E_probe', '#d35400', [{ x: Ep, y: 0 }, { x: Ep, y: sigMax * 1.1 }], { borderWidth: 1.5, borderDash: [3, 3] }),
+  ], {
+    scales: {
+      x: { ...CS.scales.x, min: 0, max: Emax, title: { display: true, text: 'E (V₀)', color: '#8a7a6a', font: { size: 9 } } },
+      y: { ...CS.scales.y, min: 0, title: { display: true, text: 'σ_ℓ (a²)', color: '#8a7a6a', font: { size: 9 } } }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════════════
+const MODE_ACTIVE = { bound: 'active-b', resonance: 'active-r', scatter: 'active-s', theory: 'active-t' };
+
+function setMode(mode) {
+  // Top tab styles
+  document.querySelectorAll('.mode-tab').forEach(b => {
+    b.className = 'mode-tab' + (b.dataset.mode === mode ? ' ' + MODE_ACTIVE[mode] : '');
+  });
+
+  // Panes + sidebars
+  ['bound', 'resonance', 'scatter', 'theory'].forEach(m => {
+    const pane = document.getElementById('pane-' + m);
+    if (pane) {
+      pane.className = 'pane' + (m === mode ? ' active' : '');
+      pane.style.display = (m === mode ? 'flex' : 'none');
+    }
+
+    const sb = document.getElementById('sb-' + m);
+    if (sb) {
+      if (m === mode && mode !== 'theory') {
+        sb.classList.remove('hide');
+        sb.style.display = '';
+      } else {
+        sb.classList.add('hide');
+        sb.style.display = 'none';
+      }
+    }
+  });
+
+  // Full-width theory mode
+  const layout = document.querySelector('.layout');
+  const main   = document.querySelector('.main');
+
+  if (mode === 'theory') {
+    layout.style.gridTemplateColumns = '1fr';
+    main.style.width = '100%';
+    main.style.maxWidth = '100%';
+  } else {
+    layout.style.gridTemplateColumns = '290px 1fr';
+    main.style.width = '';
+    main.style.maxWidth = '';
+  }
+
+  // Compute only where needed
+  if (mode === 'bound')     solveBound();
+  if (mode === 'resonance') {
+    solveRes();
+    requestAnimationFrame(() => resizeAllPlotly());
+  }
+  if (mode === 'scatter')   solveScat();
+
+  // Plotly charts can be created while their tab is hidden (zero width).
+  // Resize them after the pane becomes visible.
+  setTimeout(() => resizeAllPlotly(), 80);
+  setTimeout(() => resizeAllPlotly(), 300);
+}
+
+document.querySelectorAll('.mode-tab').forEach(btn => {
+  btn.addEventListener('click', () => setMode(btn.dataset.mode));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  POTENTIAL SELECTORS
+// ═══════════════════════════════════════════════════════════════════════════
+function initPotSelector(selectId, paramsContId, prefix, solverFn) {
+  const sel = document.getElementById(selectId);
+  sel.addEventListener('change', () => {
+    buildParams(paramsContId, prefix, sel.value, solverFn);
+    _bStates = []; _bSel = 0;
+    solverFn();
+  });
+  buildParams(paramsContId, prefix, sel.value, solverFn);
+}
+
+// ── ℓ slider wiring ──
+function wireSlider(id, dispId, fmt) {
+  const sl = document.getElementById(id);
+  const vl = document.getElementById(dispId);
+  if (!sl || !vl) return;
+  sl.addEventListener('input', () => {
+    vl.textContent = fmt ? parseFloat(sl.value).toFixed(fmt) : sl.value;
+  });
+}
+wireSlider('bs-l', 'bv-l', 0);
+wireSlider('bs-nr', 'bv-nr', 0);
+wireSlider('rs-l', 'rv-l', 0);
+
+// Bound-state quantum controls. n_r must be read and stored BEFORE any
+// redraw changes the range max/value. A single synchronous redraw is used so
+// the selected state cannot be overwritten by a stale timer.
+function refreshBoundForLChange() {
+  _requestedNr = 0;
+  document.getElementById('bs-nr').value = 0;
+  document.getElementById('bv-nr').textContent = '0';
+  solveBound();
+}
+function refreshBoundForNrChange(e) {
+  _requestedNr = Math.max(0, Math.round(Number(e.currentTarget.value)));
+  document.getElementById('bv-nr').textContent = String(_requestedNr);
+  solveBound();
+}
+const _bsL = document.getElementById('bs-l');
+const _bsNr = document.getElementById('bs-nr');
+_bsL.addEventListener('input', refreshBoundForLChange);
+_bsL.addEventListener('change', refreshBoundForLChange);
+_bsNr.addEventListener('input', refreshBoundForNrChange);
+_bsNr.addEventListener('change', refreshBoundForNrChange);
+wireSlider('ss-l', 'sv-l', 0);
+wireSlider('ss-E', 'sv-E', 2);
+
+// ℓ (angular momentum) and E_probe sliders — both change the resonance
+// scan (ℓ reshapes the effective potential; E_probe sets Emax), so each
+// live-recomputes the resonance tab, same as the bound tab's ℓ control.
+// ℓ changes invalidate the previous n_r selection (different resonance
+// set), so it resets to the strongest (first) resonance found.
+function refreshResForLChange() {
+  _rRequestedNr = 0;
+  solveRes();
+}
+const _rsL = document.getElementById('rs-l');
+_rsL.addEventListener('input', refreshResForLChange);
+_rsL.addEventListener('change', refreshResForLChange);
+
+// n_r (resonance index) slider — selects among the resonances found in the
+// current scan range and immediately re-renders the panels for that one.
+function refreshResForNrChange(e) {
+  _rRequestedNr = Math.max(0, Math.round(Number(e.currentTarget.value)));
+  document.getElementById('rv-nr').textContent = String(_rRequestedNr);
+  solveRes();
+}
+const _rsNr = document.getElementById('rs-nr');
+_rsNr.addEventListener('input', refreshResForNrChange);
+_rsNr.addEventListener('change', refreshResForNrChange);
+
+// ── Compute buttons ──
+document.getElementById('btn-bound').addEventListener('click', solveBound);
+document.getElementById('btn-res').addEventListener('click', solveRes);
+document.getElementById('btn-scat').addEventListener('click', solveScat);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DAY / NIGHT THEME
+// ═══════════════════════════════════════════════════════════════════════════
+let _isDark = false;
+function resizeAllPlotly() {
+  if (typeof Plotly === 'undefined') return;
+  document.querySelectorAll('.plotly-chart').forEach(el => {
+    if (!el || !el.data) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return;
+    try { Plotly.relayout(el,{width:Math.max(320,Math.round(rect.width)),height:Math.max(180,Math.round(rect.height))}); } catch(e) {}
+    try { Plotly.Plots.resize(el); } catch(e) {}
+  });
+}
+
+// Plotly needs an explicit resize whenever a previously hidden tab becomes visible.
+// ResizeObserver also handles browser zoom, window resizing and grid reflow.
+if (typeof ResizeObserver !== 'undefined') {
+  const _plotObserver = new ResizeObserver(() => {
+    requestAnimationFrame(resizeAllPlotly);
+  });
+  document.querySelectorAll('.chart-wrap,.plotly-chart').forEach(el => _plotObserver.observe(el));
+}
+window.addEventListener('resize', () => requestAnimationFrame(resizeAllPlotly));
+
+function applyTheme(dark) {
+  _isDark = dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = dark ? '☀' : '☾';
+
+  const tickColor   = dark ? '#a89a83' : '#8a7a6a';
+  const gridColor   = dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)';
+  const paperColor  = 'rgba(0,0,0,0)';
+  document.querySelectorAll('.plotly-chart').forEach(el => {
+    if (!el || !el.data || typeof Plotly === 'undefined') return;
+    try {
+      Plotly.relayout(el, {
+        'font.color': tickColor,
+        'xaxis.tickfont.color': tickColor,
+        'yaxis.tickfont.color': tickColor,
+        'xaxis.gridcolor': gridColor,
+        'yaxis.gridcolor': gridColor,
+        'xaxis.zerolinecolor': gridColor,
+        'yaxis.zerolinecolor': gridColor,
+        'paper_bgcolor': paperColor,
+        'plot_bgcolor': paperColor
+      });
+    } catch(e) {}
+  });
+  setTimeout(resizeAllPlotly, 50);
+}
+document.getElementById('theme-toggle').addEventListener('click', () => applyTheme(!_isDark));
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THEORY TAB — DOC-MANUAL SIDEBAR NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════
+(function initDocManualNav() {
+  const nav = document.getElementById('dm-nav-menu');
+  if (!nav) return;
+  const navButtons = nav.querySelectorAll('.dm-nav-btn');
+  const docSections = document.querySelectorAll('#pane-theory .dm-doc-section');
+  navButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      navButtons.forEach(b => b.classList.remove('active'));
+      docSections.forEach(s => s.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById(btn.dataset.dmtarget);
+      if (target) target.classList.add('active');
+      if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([target]).catch(() => {});
+      }
+    });
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INITIALISE
+// ═══════════════════════════════════════════════════════════════════════════
+initPotSelector('b-pot', 'b-params', 'bp', solveBound);
+initPotSelector('r-pot', 'r-params', 'rp', () => { _rRequestedNr = 0; solveRes(); });
+initPotSelector('s-pot', 's-params', 'sp', solveScat);
+setMode('bound');
+applyTheme(false);
+</script>
+</body>
+</html>

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interactive Chart of Nuclides — Extended</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'SF Mono',Consolas,monospace;background:#080b12;color:#dde4f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+#hdr{padding:7px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid #1a2030;background:#0b0f1c;flex-shrink:0}
+#hdr h1{font-size:13px;font-weight:700;color:#7b93ff;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.cg{display:flex;align-items:center;gap:6px}
+.cl{font-size:10px;color:#4a5568;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+#src{background:#0e1525;border:1px solid #1e2840;border-radius:5px;color:#dde4f0;font-size:11px;font-family:inherit;padding:4px 8px;width:130px;transition:border-color .12s}
+#src:focus{outline:none;border-color:#3b5bdb}
+#src::placeholder{color:#2d3a50}
+.btn{background:#0e1525;border:1px solid #1e2840;border-radius:5px;color:#7b93c8;font-size:11px;font-family:inherit;padding:4px 9px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn:hover{background:#1a2540;color:#dde4f0;border-color:#3b5bdb}
+.btn.active{background:#1e3370;color:#a0b8ff;border-color:#3b5bdb}
+select.btn{appearance:none;padding-right:18px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath d='M0 2l4 4 4-4' fill='none' stroke='%234a5568' stroke-width='1'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
+.tog{display:flex;align-items:center;gap:4px;font-size:10px;color:#4a5568;cursor:pointer;transition:color .1s}
+.tog input{display:none}
+.tog span{width:26px;height:14px;background:#1a2030;border-radius:7px;position:relative;transition:background .15s;display:block;border:1px solid #252f45}
+.tog span::after{content:'';position:absolute;left:2px;top:1px;width:10px;height:10px;background:#3a4560;border-radius:50%;transition:all .15s}
+.tog input:checked+span{background:#2d4db0}
+.tog input:checked+span::after{left:12px;background:#94a3ff}
+.tog:hover{color:#7b93c8}
+.sep{width:1px;height:20px;background:#1a2030;flex-shrink:0}
+#main{display:flex;flex:1;overflow:hidden}
+#cw{flex:1;overflow:hidden;position:relative;cursor:crosshair}
+canvas{display:block}
+#ip{width:240px;background:#0b0f1c;border-left:1px solid #1a2030;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;overflow-x:hidden}
+#ip::-webkit-scrollbar{width:4px}
+#ip::-webkit-scrollbar-track{background:#0b0f1c}
+#ip::-webkit-scrollbar-thumb{background:#1e2840;border-radius:2px}
+#iph{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;gap:8px}
+#iph .ph-a{font-size:52px;color:#141e35;font-family:Georgia,serif;font-weight:800;line-height:1}
+#iph .ph-b{font-size:10px;color:#243050;line-height:1.7;letter-spacing:.07em;text-transform:uppercase}
+#ic{display:none;padding:12px 10px;flex-direction:column;gap:9px}
+#ic.vis{display:flex}
+.i-sym{font-size:38px;font-weight:800;font-family:Georgia,'Times New Roman',serif;line-height:1;letter-spacing:-1px}
+.i-nm{font-size:12px;color:#7b93c8;margin-top:1px}
+.i-sec{font-size:9px;color:#2d3a50;text-transform:uppercase;letter-spacing:.1em;margin-top:2px;padding-bottom:4px;border-bottom:1px solid #121828}
+.i-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #0e1525}
+.i-row:last-child{border:none}
+.i-k{font-size:10px;color:#3a4a65}
+.i-v{font-size:11px;color:#c8d8f0;text-align:right;font-family:'SF Mono',Consolas,monospace}
+.dbadge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.i-div{height:1px;background:#111825;margin:2px 0}
+.i-iso{display:flex;flex-wrap:wrap;gap:3px;margin-top:2px}
+.isochip{font-size:9px;padding:2px 5px;border-radius:3px;background:#111825;color:#4a5568;cursor:pointer;transition:all .1s;border:1px solid transparent}
+.isochip.cur{background:#1e3370;color:#a0b8ff;border-color:#2d4db0}
+.isochip:hover{background:#1a2840;color:#7b93c8}
+.phys-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin:2px 0}
+.phys-cell{background:#0e1525;border-radius:4px;padding:5px 7px;border:1px solid #141e30}
+.phys-lbl{font-size:9px;color:#3a4a65;text-transform:uppercase;letter-spacing:.06em}
+.phys-val{font-size:12px;font-weight:600;color:#c8d8f0;font-family:'SF Mono',Consolas,monospace;margin-top:1px}
+.phys-val.hi{color:#34d399}
+.phys-val.lo{color:#f87171}
+.phys-val.md{color:#fbbf24}
+#tt{position:fixed;background:#0b0f1cee;border:1px solid #1e2840;border-radius:6px;padding:7px 11px;font-size:10px;pointer-events:none;display:none;z-index:100;backdrop-filter:blur(6px);white-space:nowrap;max-width:260px}
+#tt b{font-size:13px;color:#dde4f0}
+#tt .td{margin-top:2px;color:#7b93c8;font-size:10px;line-height:1.6}
+#leg{display:flex;align-items:center;gap:10px;padding:5px 12px;border-top:1px solid #1a2030;background:#0b0f1c;flex-shrink:0;flex-wrap:wrap}
+.lt{font-size:9px;color:#3a4a65;text-transform:uppercase;letter-spacing:.1em;margin-right:2px}
+.li{display:flex;align-items:center;gap:4px;font-size:9px;color:#4a5568}
+.ls{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+#ai{position:absolute;pointer-events:none;bottom:6px;left:8px;font-size:9px;color:#243050}
+#zi2{position:absolute;pointer-events:none;bottom:6px;right:6px;font-size:9px;color:#243050}
+.close-btn{font-size:9px;color:#2d3a50;cursor:pointer;text-align:right;transition:color .1s}
+.close-btn:hover{color:#7b93c8}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <h1>⚛ Chart of Nuclides</h1>
+  <div class="cg">
+    <label class="cl">Search</label>
+    <input id="src" placeholder="Fe-56, U-238, C-14…">
+  </div>
+  <div class="cg">
+    <button class="btn" id="zi">＋</button>
+    <button class="btn" id="zo">－</button>
+    <button class="btn" id="zr">Reset</button>
+  </div>
+  <div class="sep"></div>
+  <div class="cg">
+    <label class="cl">Color by</label>
+    <select class="btn" id="cmode">
+      <option value="decay">Decay Mode</option>
+      <option value="bea">Binding Energy / A</option>
+      <option value="hl">Half-Life</option>
+      <option value="asym">N−Z Asymmetry</option>
+    </select>
+  </div>
+  <div class="sep"></div>
+  <div class="cg" style="gap:10px">
+    <label class="tog"><input type="checkbox" id="togM" checked><span></span>Magic</label>
+    <label class="tog"><input type="checkbox" id="togNZ" checked><span></span>N=Z</label>
+    <label class="tog"><input type="checkbox" id="togE" checked><span></span>Labels</label>
+  </div>
+  <div class="sep"></div>
+  <div class="cg" style="gap:5px">
+    <label class="cl">Go to</label>
+    <button class="btn" onclick="goto(6,6)">Light</button>
+    <button class="btn" onclick="goto(26,30)">Fe peak</button>
+    <button class="btn" onclick="goto(50,70)">Tin</button>
+    <button class="btn" onclick="goto(82,126)">Pb-208</button>
+    <button class="btn" onclick="goto(92,146)">Uranium</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="cw">
+    <canvas id="cnv"></canvas>
+    <div id="ai">← N (neutrons) →&nbsp;&nbsp;↑ Z (protons)</div>
+    <div id="zi2"></div>
+  </div>
+  <div id="ip">
+    <div id="iph">
+      <div class="ph-a">⚛</div>
+      <div class="ph-b">Hover a nuclide<br>to explore details.<br>Click to pin.</div>
+    </div>
+    <div id="ic"></div>
+  </div>
+</div>
+
+<div id="leg">
+  <span class="lt">Decay Mode</span>
+  <div class="li"><div class="ls" style="background:#0f1a24;border:1px solid #1e3040"></div>Stable</div>
+  <div class="li"><div class="ls" style="background:#1a56db"></div>β⁻</div>
+  <div class="li"><div class="ls" style="background:#c81e1e"></div>β⁺/EC</div>
+  <div class="li"><div class="ls" style="background:#b45309"></div>α</div>
+  <div class="li"><div class="ls" style="background:#be185d"></div>Proton</div>
+  <div class="li"><div class="ls" style="background:#0e7490"></div>Neutron</div>
+  <div class="li"><div class="ls" style="background:#15803d"></div>Fission</div>
+  <div class="li"><div class="ls" style="background:#6d28d9"></div>IT</div>
+  <div class="li" style="margin-left:8px"><div class="ls" style="background:#111825;border:1px dashed #2d4db0"></div>Magic N/Z</div>
+</div>
+
+<div id="tt"></div>
+
+<script>
+'use strict';
+// =================== ELEMENT DATA ===================
+const EL=['n','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og'];
+const EN=['Neutron','Hydrogen','Helium','Lithium','Beryllium','Boron','Carbon','Nitrogen','Oxygen','Fluorine','Neon','Sodium','Magnesium','Aluminum','Silicon','Phosphorus','Sulfur','Chlorine','Argon','Potassium','Calcium','Scandium','Titanium','Vanadium','Chromium','Manganese','Iron','Cobalt','Nickel','Copper','Zinc','Gallium','Germanium','Arsenic','Selenium','Bromine','Krypton','Rubidium','Strontium','Yttrium','Zirconium','Niobium','Molybdenum','Technetium','Ruthenium','Rhodium','Palladium','Silver','Cadmium','Indium','Tin','Antimony','Tellurium','Iodine','Xenon','Cesium','Barium','Lanthanum','Cerium','Praseodymium','Neodymium','Promethium','Samarium','Europium','Gadolinium','Terbium','Dysprosium','Holmium','Erbium','Thulium','Ytterbium','Lutetium','Hafnium','Tantalum','Tungsten','Rhenium','Osmium','Iridium','Platinum','Gold','Mercury','Thallium','Lead','Bismuth','Polonium','Astatine','Radon','Francium','Radium','Actinium','Thorium','Protactinium','Uranium','Neptunium','Plutonium','Americium','Curium','Berkelium','Californium','Einsteinium','Fermium','Mendelevium','Nobelium','Lawrencium','Rutherfordium','Dubnium','Seaborgium','Bohrium','Hassium','Meitnerium','Darmstadtium','Roentgenium','Copernicium','Nihonium','Flerovium','Moscovium','Livermorium','Tennessine','Oganesson'];
+
+// =================== SEMF PHYSICS ===================
+const aV=15.67,aS=17.23,aC=0.714,aA=23.285,aP=12.0;
+function BE(Z,N){
+  const A=Z+N;if(A<1||Z<0||N<0)return-999;
+  const d=Z%2===0&&N%2===0?aP/Math.sqrt(A):Z%2===1&&N%2===1?-aP/Math.sqrt(A):0;
+  return aV*A-aS*Math.pow(A,2/3)-aC*Z*(Z-1)/Math.pow(A,1/3)-aA*(N-Z)*(N-Z)/A+d;
+}
+const BEA=(Z,N)=>{const a=Z+N;return a>0?BE(Z,N)/a:0;};
+const Sn=(Z,N)=>BE(Z,N)-BE(Z,N-1);
+const Sp=(Z,N)=>BE(Z,N)-BE(Z-1,N);
+const S2n=(Z,N)=>BE(Z,N)-BE(Z,N-2);
+const S2p=(Z,N)=>BE(Z,N)-BE(Z-2,N);
+const Qa=(Z,N)=>BE(Z,N)-BE(Z-2,N-2)-28.296;
+const Qb=(Z,N)=>1.294*(N-Z)-0.0 ; // rough estimate MeV, just sign
+
+// =================== MAGIC NUMBERS ===================
+const MAGIC=[2,8,20,28,50,82,126];
+
+// =================== STABLE SET ===================
+// All stable + very-long-lived primordial nuclides (T½ > 10^14 y treated as stable visually)
+const STABLE_RAW='1,0 1,1 2,1 2,2 3,3 3,4 4,5 5,5 5,6 6,6 6,7 7,7 7,8 8,8 8,9 8,10 9,10 10,10 10,11 10,12 11,12 12,12 12,13 12,14 13,14 14,14 14,15 14,16 15,16 16,16 16,17 16,18 16,20 17,18 17,20 18,18 18,20 18,22 19,20 19,21 19,22 20,20 20,22 20,23 20,24 20,26 20,28 21,24 22,24 22,25 22,26 22,27 22,28 23,27 23,28 24,28 24,29 24,30 24,32 25,30 26,28 26,30 26,31 26,32 27,32 28,30 28,32 28,33 28,34 28,36 29,34 29,36 30,34 30,36 30,38 30,40 30,42 31,38 31,40 32,38 32,40 32,42 32,44 32,46 33,42 34,40 34,42 34,44 34,46 34,48 34,50 35,44 35,46 36,42 36,44 36,46 36,48 36,50 36,52 37,48 37,50 38,46 38,48 38,49 38,50 39,50 40,50 40,52 40,54 40,55 40,56 41,52 42,50 42,52 42,53 42,54 42,55 42,56 42,58 44,52 44,54 44,56 44,57 44,58 44,60 44,62 45,58 46,56 46,58 46,60 46,62 46,64 46,66 47,60 47,62 48,58 48,60 48,62 48,64 48,66 48,68 48,70 48,72 49,64 49,66 50,62 50,64 50,66 50,68 50,69 50,70 50,72 50,74 50,76 51,70 51,72 52,68 52,70 52,72 52,74 52,76 52,78 52,80 52,82 53,74 54,70 54,72 54,74 54,76 54,78 54,80 54,82 54,84 54,86 55,78 56,74 56,76 56,78 56,80 56,81 56,82 57,81 57,82 58,78 58,80 58,82 58,84 59,82 60,82 60,84 60,85 60,86 60,88 60,90 62,82 62,86 62,87 62,88 62,90 62,92 62,94 63,88 63,90 64,88 64,90 64,91 64,92 64,93 64,94 64,96 65,94 66,90 66,92 66,94 66,96 66,97 66,98 66,100 67,98 68,94 68,96 68,98 68,99 68,100 68,102 69,100 70,98 70,100 70,102 70,103 70,104 70,106 71,104 71,106 72,102 72,104 72,106 72,107 72,108 72,110 73,108 74,106 74,108 74,110 74,112 74,114 75,110 75,112 76,108 76,110 76,112 76,113 76,114 76,116 76,118 77,114 77,116 78,112 78,114 78,116 78,118 78,120 78,122 79,118 80,116 80,118 80,120 80,121 80,122 80,124 80,126 81,122 81,124 82,122 82,124 82,125 82,126 83,126 88,142 90,142 90,144 92,142 92,143 92,146';
+const STABLE=new Set(STABLE_RAW.split(' '));
+
+// Long-lived primordial (shown as stable visually, noted in info)
+const PRIMORDIAL={'19,21':'1.248 Gy','23,27':'150 Py','49,66':'441 Ty','52,78':'2.2 Zy','57,81':'102 Gy','60,84':'2.29 Py','60,88':'1.08×10¹⁸ y','62,85':'106 Gy','62,86':'7 Py','64,88':'1.08×10¹⁴ y','71,106':'37.6 Gy','75,112':'41.6 Gy','76,116':'2.0 Py','82,122':'1.4×10¹⁷ y','82,124':'1.7×10¹⁹ y','83,126':'1.9×10¹⁹ y','90,144':'7.54 Gy','92,143':'703.8 My','92,146':'4.468 Gy'};
+
+// =================== ABUNDANCE DATA ===================
+// "Z,N:abundance%" for stable isotopes — major ones
+const ABUND_RAW='1,0:99.9885|1,1:0.0115|2,1:1.34e-4|2,2:99.9999|3,3:7.59|3,4:92.41|4,5:100|5,5:19.9|5,6:80.1|6,6:98.93|6,7:1.07|7,7:99.632|7,8:0.368|8,8:99.757|8,9:0.038|8,10:0.205|9,10:100|10,10:90.48|10,11:0.27|10,12:9.25|11,12:100|12,12:78.99|12,13:10.0|12,14:11.01|13,14:100|14,14:92.23|14,15:4.67|14,16:3.10|15,16:100|16,16:94.99|16,17:0.75|16,18:4.25|16,20:0.01|17,18:75.76|17,20:24.24|18,18:0.3336|18,20:0.0629|18,22:99.60|19,20:93.26|19,22:6.73|20,20:96.94|20,22:0.647|20,23:0.135|20,24:2.086|20,26:0.004|20,28:0.187|21,24:100|22,24:8.25|22,25:7.44|22,26:73.72|22,27:5.41|22,28:5.18|23,28:99.75|24,28:4.35|24,29:83.79|24,30:9.50|24,32:2.36|25,30:100|26,28:5.845|26,30:91.75|26,31:2.119|26,32:0.282|27,32:100|28,30:68.08|28,32:26.22|28,33:1.14|28,34:3.63|28,36:0.926|29,34:69.17|29,36:30.83|30,34:48.6|30,36:27.9|30,38:4.1|30,40:18.8|30,42:0.6|31,38:60.11|31,40:39.89|32,38:20.84|32,40:27.54|32,42:7.73|32,44:35.94|32,46:7.75|33,42:100|34,40:0.89|34,42:9.37|34,44:7.63|34,46:23.77|34,48:49.61|34,50:8.73|35,44:50.69|35,46:49.31|36,42:0.35|36,44:2.28|36,46:11.58|36,48:11.49|36,50:57.00|36,52:17.30|37,48:72.17|37,50:27.83|38,46:0.56|38,48:9.86|38,49:7.00|38,50:82.58|39,50:100|40,50:51.45|40,52:11.22|40,54:17.15|40,55:17.38|40,56:2.80|41,52:100|42,50:14.77|42,52:9.23|42,53:15.90|42,54:16.68|42,55:9.56|42,56:24.39|42,58:9.67|44,52:5.54|44,54:1.87|44,56:12.76|44,57:12.60|44,58:17.06|44,60:31.55|44,62:18.62|45,58:100|46,56:1.02|46,58:11.14|46,60:22.33|46,62:27.33|46,64:26.46|46,66:11.72|47,60:51.84|47,62:48.16|48,58:1.25|48,60:0.89|48,62:12.49|48,64:12.80|48,66:24.13|48,68:12.22|48,70:28.73|48,72:7.49|49,64:4.29|49,66:95.71|50,62:0.97|50,64:0.66|50,66:0.34|50,68:14.54|50,69:7.68|50,70:24.22|50,72:8.59|50,74:32.58|50,76:4.63|51,70:57.21|51,72:42.79|52,68:0.09|52,70:2.55|52,72:0.89|52,74:4.74|52,76:6.82|52,78:18.84|52,80:31.74|52,82:33.74|53,74:100|54,70:0.09|54,72:0.09|54,74:1.92|54,76:26.44|54,78:4.08|54,80:21.18|54,82:26.89|54,84:10.44|54,86:8.87|55,78:100|56,74:0.106|56,76:0.101|56,78:2.417|56,80:6.592|56,81:11.232|56,82:71.70|57,82:99.91|58,78:0.19|58,80:0.25|58,82:88.45|58,84:11.11|59,82:100|60,82:27.2|60,84:12.2|60,85:23.8|60,86:8.3|60,88:17.2|60,90:5.7|62,82:3.07|62,86:14.99|62,87:11.24|62,88:13.82|62,90:7.38|62,92:26.75|62,94:22.75|63,88:47.81|63,90:52.19|64,88:0.20|64,90:2.18|64,91:14.80|64,92:20.47|64,93:15.65|64,94:24.84|64,96:21.86|65,94:100|66,90:0.06|66,92:0.10|66,94:2.34|66,96:18.91|66,97:25.51|66,98:24.90|66,100:28.18|67,98:100|68,94:0.14|68,96:1.61|68,98:33.61|68,99:22.93|68,100:26.78|68,102:14.93|69,100:100|70,98:0.13|70,100:3.04|70,102:14.28|70,103:21.83|70,104:16.13|70,106:31.83|71,104:97.41|71,106:2.59|72,102:0.16|72,104:5.26|72,106:18.60|72,107:27.28|72,108:13.62|72,110:35.08|73,108:99.99|74,106:0.12|74,108:26.50|74,110:14.31|74,112:30.64|74,114:28.43|75,110:37.40|75,112:62.60|76,108:0.02|76,110:1.59|76,112:1.96|76,113:13.24|76,114:16.15|76,116:26.26|76,118:40.78|77,114:37.3|77,116:62.7|78,112:0.01|78,114:0.79|78,116:32.9|78,118:33.8|78,120:25.3|78,122:7.2|79,118:100|80,116:0.15|80,118:9.97|80,120:16.87|80,121:23.10|80,122:13.18|80,124:29.86|80,126:6.87|81,122:29.52|81,124:70.48|82,122:1.4|82,124:24.1|82,125:22.1|82,126:52.4';
+const ABUND=new Map();
+ABUND_RAW.split('|').forEach(s=>{const[k,v]=s.split(':');ABUND.set(k,parseFloat(v));});
+
+// =================== HALF-LIFE TABLE ===================
+// Format: "Z,N": "T½ string"
+const HL_TABLE={
+'1,2':'12.32 y','2,4':'806.7 ms','2,5':'119 ms','2,6':'119 ms','3,5':'178 ms','3,6':'838 ms',
+'3,7':'8.75 ms','4,4':'53.22 d (EC)','4,6':'1.39×10⁶ y','4,8':'13.79 s','5,8':'770 ms',
+'6,2':'126.5 ms','6,8':'5730 y','6,9':'2.449 s','6,10':'0.747 s','7,10':'7.13 s',
+'8,11':'70.621 s','8,12':'13.51 s','9,9':'109.77 min','9,11':'11.07 s','9,12':'4.158 s',
+'10,13':'37.24 s','11,11':'2.605 y','11,13':'14.96 h','12,15':'9.46 min','13,13':'7.17 min',
+'13,15':'6.345 min','14,12':'2.24 h','14,18':'170.3 min','15,16':'14.28 d','15,18':'25.34 d',
+'16,14':'87.32 d','16,22':'2.84 min','17,16':'37.24 min','18,17':'35.04 d','19,20':'93.3 min',
+'19,21':'1.248 Gy','20,17':'4.536 d','21,20':'83.79 d','22,23':'3.078 min','23,27':'150 Py',
+'24,25':'27.7025 d','25,28':'312.1 d','26,27':'8.275 min','26,34':'2.73 y',
+'27,31':'5.271 y','27,33':'77.27 d','27,34':'70.86 d','28,37':'100.1 y','29,33':'12.7 h',
+'30,38':'244.26 d','31,38':'3.261 d','32,37':'271.4 d','33,42':'1.0774 d',
+'34,44':'0.1197 y','35,44':'35.30 h','36,50':'10.73 y','36,48':'15.53 min',
+'37,50':'49.7 Gy','38,50':'28.8 y','38,54':'50.53 d','39,52':'58.51 d',
+'40,51':'64.02 d','41,52':'2.5741 min','42,55':'65.97 h','42,56':'66.02 h',
+'43,56':'6.0058 h','43,54':'2.111×10⁵ y','43,52':'4.21×10⁶ y','43,50':'2.6×10⁵ y',
+'44,57':'39.26 d','44,58':'373.59 d','45,58':'1.4672 y','46,63':'6.5 d',
+'47,60':'127.352 d','48,66':'53.46 h','49,64':'4.41 h','49,67':'49.51 d','49,68':'14.10 s',
+'50,69':'115.09 d','50,73':'129.2 d','51,70':'60.22 d','51,72':'2.7238 y',
+'52,74':'33.6 d','52,76':'9.0 y','52,78':'1.54×10²¹ y','53,74':'13.27 h',
+'53,78':'8.0197 d','53,76':'59.4 d','53,80':'25.0 min','54,81':'11.934 d','54,82':'5.2475 d',
+'55,78':'2.0648 y','55,82':'30.1671 y','55,84':'13.16 d','56,79':'10.551 y',
+'56,83':'12.7527 y','56,84':'2.552 min','57,80':'28.7 h','58,80':'32.501 d','58,84':'13.522 h',
+'59,82':'1.5396 min','59,84':'13.57 d','60,84':'2.29 Py','60,86':'1.08×10¹⁸ y',
+'61,84':'17.7 y','61,88':'5.184 y','62,85':'106 Gy','62,86':'7.0 Py',
+'63,88':'5.259 y','63,90':'35.0 y','64,92':'1.08×10¹⁴ y','64,88':'241.6 d',
+'65,92':'72.3 d','65,94':'1.84 d','66,97':'2.33 h','67,100':'26.80 h',
+'68,103':'9.40 d','69,100':'128.6 d','70,103':'32.018 d','71,104':'3.31 y',
+'71,106':'37.59 Gy','72,103':'10.14 h','72,105':'43.3 h','72,110':'9.40 Gy',
+'73,108':'2.0×10¹⁵ y','74,108':'75.1 d','74,111':'23.72 h','74,112':'24.0 d',
+'75,110':'3.719 d','75,112':'4.158×10¹⁰ y','75,114':'35.4 h',
+'76,110':'86.2 d','76,114':'94.0 d','76,117':'31.0 h',
+'77,116':'73.83 d','77,118':'19.26 h','77,119':'17.0 h',
+'78,112':'2.4935×10¹³ y','78,114':'50.0 d','78,117':'30.8 min','78,121':'30.8 min',
+'79,118':'186.098 d','80,117':'46.612 d','80,121':'2.672 d',
+'81,122':'73.1 h','81,124':'3.7788 y','81,126':'72.15 h','81,128':'4.77 min',
+'82,124':'1.4×10¹⁷ y','82,127':'10.64 h','82,128':'3.253 h','82,129':'3.253 h',
+'82,130':'12.23 h','82,132':'10.2 min','83,126':'1.9×10¹⁹ y','83,124':'3.050×10⁷ y',
+'83,128':'1.004 h','83,130':'1.0083 h','84,126':'138.376 d','84,128':'3.097 min',
+'84,130':'138.4 d','84,132':'2.898 min','86,136':'3.8235 d','87,136':'22.00 min',
+'88,138':'1600 y','88,136':'1.599×10³ y','88,142':'5.75 y','89,140':'27.7 min',
+'90,140':'688 ms','90,142':'14.05 Gy','90,144':'7.538 Gy','90,146':'22.3 min',
+'91,140':'1.131 min','91,142':'26.975 d','92,142':'68.9 y','92,143':'703.8 My',
+'92,144':'2.455×10⁵ y','92,145':'23.45 min','92,146':'4.4683 Gy',
+'93,144':'2.1444×10⁶ y','93,146':'2.356 d','94,142':'87.7 y',
+'94,144':'24110 y','94,145':'6563.0 y','94,146':'6.5 ky','94,148':'87.74 y',
+'95,146':'432.6 y','95,148':'7370 y','96,148':'163.2 d',
+'96,150':'8265 y','98,152':'2.645 y','98,154':'17.81 h',
+'99,154':'20.47 d','100,158':'100.5 d','99,152':'471.7 d',
+'86,134':'3.823 d','85,126':'7.21 h','84,124':'103.0 min',
+'53,76':'13.22 h','35,46':'35.30 h',
+// Famous short-lived
+'43,56':'6.0058 h', // Tc-99m (medical)
+'9,9':'109.77 min', // F-18 (PET)
+'31,38':'3.261 d', // Ga-67
+'49,62':'2.8049 d', // In-111
+'81,120':'73.01 h', // Tl-201
+'39,51':'2.667 d', // Y-90
+'71,106':'6.647 d', // Lu-177
+'88,135':'11.435 d', // Ra-223
+'53,74':'13.22 h', // I-123
+};
+
+// =================== NUCLIDE GENERATION ===================
+// N ranges for light nuclei Z=1..20 (hardcoded, experimentally verified)
+const LRANGE=[[0,6],[1,8],[1,9],[2,10],[2,12],[2,14],[4,15],[4,16],[6,17],[6,22],[8,24],[8,26],[9,27],[10,28],[11,29],[12,32],[13,33],[14,34],[15,36],[16,40]];
+
+// Cache valley N for each Z
+const VALLEY=new Array(120).fill(0);
+for(let Z=1;Z<=118;Z++){
+  let bBEA=-999,bN=Z;
+  for(let N=Math.max(0,Z-30);N<=Z+90;N++){
+    const b=BEA(Z,N);if(b>bBEA){bBEA=b;bN=N;}
+  }
+  VALLEY[Z]=bN;
+}
+
+function getDecayMode(Z,N){
+  const key=Z+','+N;
+  if(STABLE.has(key))return 0;
+  const bN=VALLEY[Z],dn=N-bN;
+  const qa=Qa(Z,N),sn=Sn(Z,N),sp=Sp(Z,N);
+  if(sp<-1&&dn<-6)return 4; // proton emission
+  if(sn<-1&&dn>10)return 5; // neutron emission
+  if(Z>=98&&qa>4)return 6; // SF/alpha
+  if(Z>=84&&qa>3)return 3; // alpha
+  if(Z>=60&&qa>5&&dn<4)return 3; // rare earth alpha
+  if(Z>=72&&qa>4&&dn<2)return 3;
+  if(dn>0)return 1; // beta-
+  return 2; // beta+/EC
+}
+
+// Build the nuclide map
+const nmap=new Map();
+let maxN=0,maxZ=0;
+for(let Z=1;Z<=118;Z++){
+  let Nmin,Nmax;
+  if(Z<=20){
+    [Nmin,Nmax]=LRANGE[Z-1];
+  } else {
+    const bN=VALLEY[Z];
+    const K=Z<40?22:Z<60?28:Z<84?32:24;
+    Nmin=bN;
+    while(Nmin>0&&Sp(Z,Nmin)>0.8)Nmin--;
+    Nmin=Math.max(0,Nmin);
+    Nmax=bN;
+    const cap=bN+K;
+    while(Nmax<cap&&Sn(Z,Nmax)>0.8)Nmax++;
+    Nmax=Math.min(Nmax,bN+K);
+  }
+  for(let N=Nmin;N<=Nmax;N++){
+    const m=getDecayMode(Z,N);
+    nmap.set(Z+','+N,m);
+    if(N>maxN)maxN=N;
+    if(Z>maxZ)maxZ=Z;
+  }
+}
+
+// =================== SHELL MODEL J^PI ===================
+const SML=[
+  {s:'1s½',l:0,j:.5,c:2},{s:'1p⅔',l:1,j:1.5,c:4},{s:'1p½',l:1,j:.5,c:2},
+  {s:'1d⅝',l:2,j:2.5,c:6},{s:'2s½',l:0,j:.5,c:2},{s:'1d⅗',l:2,j:1.5,c:4},
+  {s:'1f⅞',l:3,j:3.5,c:8},{s:'2p⅔',l:1,j:1.5,c:4},{s:'1f⅝',l:3,j:2.5,c:6},
+  {s:'2p½',l:1,j:.5,c:2},{s:'1g⁹⁄₂',l:4,j:4.5,c:10},{s:'1g⅞',l:4,j:3.5,c:8},
+  {s:'2d⅝',l:2,j:2.5,c:6},{s:'2d⅗',l:2,j:1.5,c:4},{s:'3s½',l:0,j:.5,c:2},
+  {s:'1h¹¹⁄₂',l:5,j:5.5,c:12},{s:'1h⁹⁄₂',l:5,j:4.5,c:10},{s:'2f⅞',l:3,j:3.5,c:8},
+  {s:'2f⅝',l:3,j:2.5,c:6},{s:'3p⅔',l:1,j:1.5,c:4},{s:'3p½',l:1,j:.5,c:2},
+  {s:'1i¹³⁄₂',l:6,j:6.5,c:14}
+];
+function jStr(j){return j%1===0?String(j):Math.round(j*2)+'/2';}
+function valenceLevel(count){
+  let r=Math.max(0,Math.min(126,count));
+  for(const lv of SML){if(r<=0)return null;if(r<=lv.c)return{lv,n:r};r-=lv.c;}
+  return null;
+}
+function spinParity(Z,N){
+  if(Z===0||N<0)return'?';
+  const eZ=Z%2===0,eN=N%2===0;
+  if(eZ&&eN)return'0⁺';
+  if(eZ){const v=valenceLevel(N);return v?jStr(v.lv.j)+(v.lv.l%2===0?'⁺':'⁻'):'?';}
+  if(eN){const v=valenceLevel(Z);return v?jStr(v.lv.j)+(v.lv.l%2===0?'⁺':'⁻'):'?';}
+  const vZ=valenceLevel(Z),vN=valenceLevel(N);
+  if(!vZ||!vN)return'?';
+  const pi=(vZ.lv.l+vN.lv.l)%2===0?'⁺':'⁻';
+  const sP=vZ.lv.j>vZ.lv.l,sN=vN.lv.j>vN.lv.l;
+  const J=sP===sN?Math.abs(vZ.lv.j-vN.lv.j):vZ.lv.j+vN.lv.j;
+  return jStr(J)+pi;
+}
+
+// =================== COLOR PALETTES ===================
+// Decay mode colors
+const DC={0:'#0d1e2e',1:'#1a56db',2:'#c81e1e',3:'#b45309',4:'#be185d',5:'#0e7490',6:'#15803d',7:'#6d28d9'};
+const DL={0:'Stable',1:'β⁻',2:'β⁺/EC',3:'α',4:'p',5:'n',6:'SF',7:'IT'};
+const DT={0:'#6090b0',1:'#93c5fd',2:'#fca5a5',3:'#fcd34d',4:'#f9a8d4',5:'#67e8f9',6:'#6ee7b7',7:'#c4b5fd'};
+
+function beaColor(Z,N){
+  const b=BEA(Z,N);
+  if(b<0)return'#080b12';
+  const t=Math.max(0,Math.min(1,(b-4)/5.5)); // 4→9.5 MeV range
+  const r=Math.round(t<0.5?t*2*20:20+(t-0.5)*2*235);
+  const g=Math.round(t<0.5?80+t*2*170:(250-(t-0.5)*2*230));
+  const bl=Math.round(t<0.5?t*2*20:20-(t-0.5)*2*20);
+  return`rgb(${r},${g},${bl})`;
+}
+
+function hlColor(Z,N){
+  const key=Z+','+N;
+  if(STABLE.has(key))return'#e8f4ff';
+  const hl=HL_TABLE[key]||'';
+  if(!hl)return DC[nmap.get(key)||0];
+  const s=parseToSeconds(hl);
+  if(s===null)return DC[nmap.get(key)||0];
+  const log=Math.log10(Math.max(1e-6,s));
+  // -3 (ms) → 17 (Gy) range, blue→green→yellow→red
+  const t=Math.max(0,Math.min(1,(log+3)/20));
+  const r=Math.round(t<0.5?t*2*30:30+(t-0.5)*2*225);
+  const g=Math.round(t<0.15?t*6.67*150:150+(Math.min(1,(t-0.15)/0.7))*50);
+  const bl=Math.round(t<0.5?200-t*2*190:10);
+  return`rgb(${r},${g},${bl})`;
+}
+
+function asymColor(Z,N){
+  const bN=VALLEY[Z],dn=N-bN;
+  const t=Math.max(-1,Math.min(1,dn/15));
+  if(t<0){
+    const r=Math.round(200+55*(-t));const g=Math.round(50*(-t));const b=Math.round(50*(-t));
+    return`rgb(${r},${g},${b})`;
+  }
+  const r=Math.round(50*t);const g=Math.round(30*t);const b=Math.round(200+55*t);
+  return`rgb(${r},${g},${b})`;
+}
+
+function parseToSeconds(s){
+  if(!s||s==='stable')return null;
+  const m=s.match(/^[\d.×e+\-]+/);if(!m)return null;
+  const v=parseFloat(m[0].replace('×10',  'e').replace('×10⁻','e-').replace('⁻','-'));
+  if(s.includes('ms'))return v/1000;
+  if(s.includes('min'))return v*60;
+  if(s.includes(' h'))return v*3600;
+  if(s.includes(' d'))return v*86400;
+  if(s.includes(' ky'))return v*3.156e10;
+  if(s.includes(' My'))return v*3.156e13;
+  if(s.includes(' Gy'))return v*3.156e16;
+  if(s.includes(' Py'))return v*3.156e22;
+  if(s.includes(' Ty'))return v*3.156e19;
+  if(s.includes(' Zy'))return v*3.156e28;
+  if(s.includes(' y'))return v*3.156e7;
+  if(s.includes(' s'))return v;
+  return null;
+}
+
+function getCellColor(Z,N,mode,cmode){
+  if(cmode==='bea')return beaColor(Z,N);
+  if(cmode==='hl')return hlColor(Z,N);
+  if(cmode==='asym')return asymColor(Z,N);
+  return DC[mode]||'#333';
+}
+
+// =================== CANVAS ENGINE ===================
+const CNV=document.getElementById('cnv');
+const CTX=CNV.getContext('2d',{alpha:false});
+const cw=document.getElementById('cw');
+let W=0,H=0;
+let scale=4,offX=10,offY=10;
+let dragging=false,dragX=0,dragY=0,dragOX=0,dragOY=0;
+let hovZ=-1,hovN=-1,pinZ=-1,pinN=-1,pinned=false;
+let colorMode='decay';
+let showMagic=true,showNZ=true,showLabels=true;
+
+function resize(){W=cw.clientWidth;H=cw.clientHeight;CNV.width=W;CNV.height=H;draw();}
+
+function draw(){
+  CTX.fillStyle='#080b12';CTX.fillRect(0,0,W,H);
+  const cs=Math.max(1,Math.round(scale));
+  const gap=cs>=3?1:0;
+  const cell=cs+gap;
+  
+  // Grid lines
+  if(showMagic&&scale>=3){
+    CTX.strokeStyle='rgba(45,77,176,0.45)';CTX.lineWidth=1;CTX.setLineDash([4,4]);
+    MAGIC.forEach(m=>{
+      if(m<=maxN){const px=offX+m*cell+cs/2;CTX.beginPath();CTX.moveTo(px,0);CTX.lineTo(px,H);CTX.stroke();}
+      if(m<=maxZ){const py=H-offY-m*cell-cs/2;CTX.beginPath();CTX.moveTo(0,py);CTX.lineTo(W,py);CTX.stroke();}
+    });
+    CTX.setLineDash([]);
+  }
+  
+  // N=Z line
+  if(showNZ&&scale>=2){
+    CTX.strokeStyle='rgba(148,163,255,0.25)';CTX.lineWidth=1;CTX.setLineDash([2,3]);
+    CTX.beginPath();
+    for(let z=0;z<=Math.min(maxZ,maxN);z++){
+      const px=offX+z*cell+cs/2,py=H-offY-z*cell-cs/2;
+      z===0?CTX.moveTo(px,py):CTX.lineTo(px,py);
+    }
+    CTX.stroke();CTX.setLineDash([]);
+  }
+  
+  // Nuclides
+  nmap.forEach((mode,key)=>{
+    const [Z,N]=key.split(',').map(Number);
+    const px=offX+N*cell,py=H-offY-Z*cell-cs;
+    if(px>W+cs||py>H+cs||px+cs<-cs||py+cs<-cs)return;
+    const isHov=(Z===hovZ&&N===hovN)||(pinned&&Z===pinZ&&N===pinN);
+    if(isHov){CTX.fillStyle='#ffffff';}
+    else{CTX.fillStyle=getCellColor(Z,N,mode,colorMode);}
+    CTX.fillRect(px,py,cs,cs);
+    if(cs>=8&&mode===0&&colorMode==='decay'){
+      CTX.strokeStyle='rgba(50,80,120,0.6)';CTX.lineWidth=0.5;
+      CTX.strokeRect(px,py,cs,cs);
+    }
+  });
+  
+  // Magic labels
+  if(showMagic&&scale>=5){
+    CTX.fillStyle='rgba(120,150,255,0.8)';
+    const fs=Math.max(7,Math.min(10,scale-2))+'px';
+    CTX.font=`bold ${fs} SF Mono,Consolas,monospace`;
+    MAGIC.forEach(m=>{
+      if(m<=maxN){const px=offX+m*cell+cs/2;CTX.textAlign='center';CTX.fillText('N='+m,px,10);}
+      if(m<=maxZ){const py=H-offY-m*cell-cs/2;CTX.textAlign='left';CTX.fillText('Z='+m,2,py-2);}
+    });
+  }
+  
+  // Element labels at high zoom
+  if(showLabels&&scale>=12){
+    CTX.fillStyle='rgba(200,220,255,0.55)';
+    CTX.font=`bold ${Math.min(scale-1,12)}px SF Mono,Consolas,monospace`;
+    CTX.textAlign='center';
+    for(let Z=1;Z<=maxZ;Z++){
+      const py=H-offY-Z*cell-cs/2;
+      if(py<0||py>H)continue;
+      CTX.fillText(EL[Z],offX-8,py+4);
+    }
+  }
+  
+  // Axis tick labels at medium zoom
+  if(scale>=8){
+    CTX.fillStyle='rgba(100,130,170,0.6)';
+    CTX.font=`${Math.min(9,scale-2)}px SF Mono,Consolas,monospace`;
+    CTX.textAlign='center';
+    for(let n=0;n<=maxN;n+=10){
+      const px=offX+n*cell+cs/2;
+      if(px<0||px>W)continue;
+      CTX.fillText(n,px,H-2);
+    }
+    CTX.textAlign='right';
+    for(let z=0;z<=maxZ;z+=10){
+      const py=H-offY-z*cell-cs/2;
+      if(py<0||py>H)continue;
+      CTX.fillText(z,30,py+4);
+    }
+  }
+  
+  // Hover highlight
+  if(hovZ>=0&&hovN>=0){
+    const px=offX+hovN*cell,py=H-offY-hovZ*cell-cs;
+    CTX.strokeStyle='#fff';CTX.lineWidth=1.5;
+    CTX.strokeRect(px-1,py-1,cs+2,cs+2);
+  }
+  
+  document.getElementById('zi2').textContent=`zoom: ${Math.round(scale/4*100)}%  |  ${nmap.size} nuclides`;
+}
+
+// =================== INTERACTION ===================
+function canvasToNZ(cx,cy){
+  const cs=Math.max(1,Math.round(scale)),gap=cs>=3?1:0,cell=cs+gap;
+  return{Z:Math.floor((H-offY-cy)/cell),N:Math.floor((cx-offX)/cell)};
+}
+
+const tt=document.getElementById('tt');
+function showTip(e,Z,N){
+  const mode=nmap.get(Z+','+N);
+  if(mode===undefined){tt.style.display='none';return;}
+  const A=Z+N,sym=EL[Z]||'?';
+  const hl=getHL(Z,N);
+  const sn=Sn(Z,N).toFixed(2),sp=Sp(Z,N).toFixed(2);
+  tt.innerHTML=`<b>${sym}-${A}</b> &nbsp;<span style="color:${DT[mode]}">${DL[mode]}</span><div class="td">Z=${Z}  N=${N}  A=${A}&nbsp;&nbsp;S<sub>n</sub>=${sn} MeV<br>T½: ${hl}&nbsp;&nbsp;BE/A: ${BEA(Z,N).toFixed(2)} MeV</div>`;
+  tt.style.display='block';
+  let tx=e.clientX+14,ty=e.clientY-44;
+  if(tx+240>window.innerWidth)tx=e.clientX-250;
+  if(ty<0)ty=e.clientY+10;
+  tt.style.left=tx+'px';tt.style.top=ty+'px';
+}
+
+function getHL(Z,N){
+  const k=Z+','+N;
+  if(STABLE.has(k)){if(PRIMORDIAL[k])return PRIMORDIAL[k]+' (primordial)';return'Stable';}
+  return HL_TABLE[k]||'—';
+}
+
+CNV.addEventListener('mousemove',e=>{
+  if(dragging){
+    offX=dragOX+(e.clientX-dragX);offY=dragOY+(e.clientY-dragY);
+    draw();tt.style.display='none';return;
+  }
+  const r=CNV.getBoundingClientRect();
+  const{Z,N}=canvasToNZ(e.clientX-r.left,e.clientY-r.top);
+  if(Z>=0&&N>=0&&Z<=maxZ&&N<=maxN&&nmap.has(Z+','+N)){
+    if(Z!==hovZ||N!==hovN){hovZ=Z;hovN=N;draw();}
+    showTip(e,Z,N);
+    if(!pinned)showInfo(Z,N);
+  } else {
+    if(hovZ>=0){hovZ=-1;hovN=-1;draw();}
+    tt.style.display='none';
+  }
+});
+
+CNV.addEventListener('mouseleave',()=>{hovZ=-1;hovN=-1;tt.style.display='none';draw();});
+
+CNV.addEventListener('mousedown',e=>{
+  dragging=true;dragX=e.clientX;dragY=e.clientY;dragOX=offX;dragOY=offY;
+  CNV.style.cursor='grabbing';
+});
+window.addEventListener('mouseup',e=>{
+  if(!dragging)return;
+  dragging=false;CNV.style.cursor='crosshair';
+  if(Math.abs(e.clientX-dragX)+Math.abs(e.clientY-dragY)<4){
+    const r=CNV.getBoundingClientRect();
+    const{Z,N}=canvasToNZ(e.clientX-r.left,e.clientY-r.top);
+    if(Z>=0&&N>=0&&nmap.has(Z+','+N)){
+      pinned=true;pinZ=Z;pinN=N;showInfo(Z,N);draw();
+    }
+  }
+});
+
+CNV.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.18:0.85;
+  const r=CNV.getBoundingClientRect();
+  const cx=e.clientX-r.left,cy=e.clientY-r.top;
+  const os=scale;scale=Math.max(1,Math.min(60,scale*f));
+  if(scale!==os){
+    const c1=os+1,c2=scale+(scale>=3?1:0);
+    offX=cx-(cx-offX)*(c2/c1);offY=cy-(cy-offY)*(c2/c1);
+    draw();
+  }
+},{passive:false});
+
+// Touch
+let ltd=0;
+CNV.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){dragging=true;dragX=e.touches[0].clientX;dragY=e.touches[0].clientY;dragOX=offX;dragOY=offY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;ltd=Math.sqrt(dx*dx+dy*dy);}
+},{passive:true});
+CNV.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&dragging){offX=dragOX+(e.touches[0].clientX-dragX);offY=dragOY+(e.touches[0].clientY-dragY);draw();}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;const d=Math.sqrt(dx*dx+dy*dy);scale=Math.max(1,Math.min(60,scale*d/(ltd||d)));ltd=d;draw();}
+},{passive:false});
+CNV.addEventListener('touchend',()=>{dragging=false;});
+
+// Zoom buttons
+document.getElementById('zi').onclick=()=>{const cx=W/2,cy=H/2,os=scale;scale=Math.min(60,scale*1.4);offX=cx-(cx-offX)*(scale/os);offY=cy-(cy-offY)*(scale/os);draw();};
+document.getElementById('zo').onclick=()=>{const cx=W/2,cy=H/2,os=scale;scale=Math.max(1,scale/1.4);offX=cx-(cx-offX)*(scale/os);offY=cy-(cy-offY)*(scale/os);draw();};
+document.getElementById('zr').onclick=resetView;
+
+function resetView(){scale=4;offX=10;offY=10;draw();}
+
+function goto(Z,N){
+  const cs=14,gap=1,cell=cs+gap;scale=cs;
+  offX=W/2-N*cell-cell/2;offY=H/2-Z*cell-cell/2;
+  draw();
+}
+
+// Color mode
+document.getElementById('cmode').onchange=function(){colorMode=this.value;draw();};
+document.getElementById('togM').onchange=e=>{showMagic=e.target.checked;draw();};
+document.getElementById('togNZ').onchange=e=>{showNZ=e.target.checked;draw();};
+document.getElementById('togE').onchange=e=>{showLabels=e.target.checked;draw();};
+
+// Search
+document.getElementById('src').addEventListener('input',function(){
+  const q=this.value.trim().toUpperCase();if(!q)return;
+  const m1=q.match(/^([A-Z]{1,3})-?(\d+)$/);
+  const m2=q.match(/^(\d+)([A-Z]{1,3})$/);
+  let Z=-1,A=-1;
+  if(m1){const sym=m1[1];Z=EL.findIndex(s=>s.toUpperCase()===sym);A=+m1[2];}
+  else if(m2){const sym=m2[2];Z=EL.findIndex(s=>s.toUpperCase()===sym);A=+m2[1];}
+  if(Z>0&&A>0){
+    const N=A-Z;
+    if(N>=0&&nmap.has(Z+','+N)){
+      const cs=14,gap=1,cell=cs+gap;scale=cs;
+      offX=W/2-N*cell;offY=H/2-Z*cell;
+      pinned=true;pinZ=Z;pinN=N;showInfo(Z,N);draw();
+    }
+  }
+});
+
+// =================== INFO PANEL ===================
+const ip=document.getElementById('ic'),iph=document.getElementById('iph');
+
+function showInfo(Z,N){
+  const mode=nmap.get(Z+','+N);if(mode===undefined)return;
+  const A=Z+N,sym=EL[Z]||'?',name=EN[Z]||'?';
+  const key=Z+','+N;
+  const isStab=STABLE.has(key);
+  const hl=getHL(Z,N);
+  const be=BE(Z,N).toFixed(1),bea=BEA(Z,N).toFixed(3);
+  const sn=Sn(Z,N).toFixed(2),sp=Sp(Z,N).toFixed(2);
+  const s2n=S2n(Z,N).toFixed(2),s2p=S2p(Z,N).toFixed(2);
+  const qa=Qa(Z,N).toFixed(2);
+  const jp=spinParity(Z,N);
+  const rad=(1.2*Math.pow(A,1/3)).toFixed(2);
+  const tz=((N-Z)/2).toFixed(1);
+  const abn=ABUND.has(key)?ABUND.get(key)+'%':'—';
+  const magZ=MAGIC.includes(Z),magN=MAGIC.includes(N);
+  const isPrim=PRIMORDIAL[key]?true:false;
+  const bN=VALLEY[Z],dn=N-bN;
+  
+  // Find other stable isotopes of same element
+  const stIso=[];
+  for(let nn=0;nn<=180;nn++){
+    if(STABLE.has(Z+','+nn))stIso.push({N:nn,A:Z+nn});
+  }
+  
+  // BE/A quality indicator
+  const beaF=parseFloat(bea);
+  const beaClass=beaF>8.0?'hi':beaF>6.0?'md':'lo';
+  const snF=parseFloat(sn);
+  const snClass=snF>4?'hi':snF>0?'md':'lo';
+  const spF=parseFloat(sp);
+  const spClass=spF>4?'hi':spF>0?'md':'lo';
+
+  iph.style.display='none';ip.style.display='flex';ip.classList.add('vis');
+  ip.innerHTML=`
+<div class="close-btn" id="ib" title="Unpin">✕ unpin</div>
+<div>
+  <div class="i-sym" style="color:${DT[mode]}">${sym}</div>
+  <div class="i-nm"><sup style="font-size:11px">${A}</sup>${name}</div>
+</div>
+<div class="i-div"></div>
+<div class="i-sec">Identification</div>
+<div class="i-row"><span class="i-k">Nuclide</span><span class="i-v">${sym}-${A} (${A>=1?'A='+A:''})</span></div>
+<div class="i-row"><span class="i-k">Z (protons)</span><span class="i-v">${Z}</span></div>
+<div class="i-row"><span class="i-k">N (neutrons)</span><span class="i-v">${N}</span></div>
+<div class="i-row"><span class="i-k">A (mass no.)</span><span class="i-v">${A}</span></div>
+<div class="i-row"><span class="i-k">Tᵤ = (N−Z)/2</span><span class="i-v">${tz}</span></div>
+<div class="i-row"><span class="i-k">N−Z deviation</span><span class="i-v">${dn>=0?'+':''}${dn} from valley</span></div>
+<div class="i-div"></div>
+<div class="i-sec">Decay Properties</div>
+<div class="i-row"><span class="i-k">Decay mode</span><span class="dbadge" style="background:${DC[mode]}25;color:${DT[mode]};border:1px solid ${DC[mode]}50">${DL[mode]}</span></div>
+<div class="i-row"><span class="i-k">Half-life T½</span><span class="i-v" style="color:${isStab?'#34d399':'#e2e8f0'}">${hl}</span></div>
+${isStab&&abn!=='—'?`<div class="i-row"><span class="i-k">Nat. abundance</span><span class="i-v" style="color:#fbbf24">${abn}</span></div>`:''}
+${isPrim?`<div class="i-row"><span class="i-k">Type</span><span class="i-v" style="color:#f59e0b">Primordial</span></div>`:''}
+<div class="i-div"></div>
+<div class="i-sec">Nuclear Physics (SEMF)</div>
+<div class="phys-grid">
+  <div class="phys-cell"><div class="phys-lbl">BE total</div><div class="phys-val">${be} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">BE / A</div><div class="phys-val ${beaClass}">${bea} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">S(n)</div><div class="phys-val ${snClass}">${sn} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">S(p)</div><div class="phys-val ${spClass}">${sp} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">S(2n)</div><div class="phys-val">${s2n} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">S(2p)</div><div class="phys-val">${s2p} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">Q(α)</div><div class="phys-val ${parseFloat(qa)>0?'lo':'hi'}">${qa} MeV</div></div>
+  <div class="phys-cell"><div class="phys-lbl">R = r₀A^⅓</div><div class="phys-val">${rad} fm</div></div>
+</div>
+<div class="i-div"></div>
+<div class="i-sec">Shell Model</div>
+<div class="i-row"><span class="i-k">Ground state Jᵖ</span><span class="i-v" style="color:#c4b5fd;font-size:14px">${jp}</span></div>
+<div class="i-row"><span class="i-k">Magic Z?</span><span class="i-v" style="color:${magZ?'#34d399':'#4a5568'}">${magZ?'✦ Yes — Shell closure':'No'}</span></div>
+<div class="i-row"><span class="i-k">Magic N?</span><span class="i-v" style="color:${magN?'#34d399':'#4a5568'}">${magN?'✦ Yes — Shell closure':'No'}</span></div>
+<div class="i-row"><span class="i-k">Doubly magic?</span><span class="i-v" style="color:${magZ&&magN?'#fbbf24':'#4a5568'}">${magZ&&magN?'✦✦ Yes!':'No'}</span></div>
+<div class="i-row"><span class="i-k">Even/Odd type</span><span class="i-v">${Z%2===0?'even':'odd'}-${N%2===0?'even':'odd'}</span></div>
+<div class="i-div"></div>
+<div class="i-sec">Stable Isotopes of ${sym}</div>
+<div class="i-iso">${stIso.map(({N:nn,A:aa})=>`<div class="isochip${nn===N?' cur':''}" onclick="goto(${Z},${nn});showInfo(${Z},${nn})">${sym}-${aa}</div>`).join('')}${stIso.length===0?`<span style="font-size:10px;color:#3a4a65">None (all radioactive)</span>`:''}
+</div>`;
+  document.getElementById('ib').addEventListener('click',()=>{
+    pinned=false;pinZ=-1;pinN=-1;
+    ip.style.display='none';ip.classList.remove('vis');
+    iph.style.display='flex';draw();
+  });
+}
+
+// Expose showInfo globally for chip clicks
+window.showInfo=showInfo;
+
+// =================== INIT ===================
+window.addEventListener('resize',resize);
+resize();
+// Center on Fe region initially
+(()=>{const cs=4,gap=1,cell=cs+gap;scale=cs;offX=10;offY=10;draw();})();
+</script>
+</body>
+</html>

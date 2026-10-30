@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numerov QM Solver — 2D Quantum Dot</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Lora:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080b10;--surf:#0e1520;--panel:#121b26;--b1:#1a2d3f;--b2:#1d3248;
+  --txt:#c8d8e8;--muted:#4a6070;--lbl:#7090a8;
+  --acc:#f59e0b;--wave:#22d3ee;--pot:#818cf8;--ok:#4ade80;--err:#f87171;
+  --ind:#6366f1;--teal:#14b8a6;--rose:#fb7185;
+  --fn:'JetBrains Mono',monospace;--fs:'Lora',serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg)}
+body{font-family:var(--fn);font-size:13px;line-height:1.55;color:var(--txt);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ══ HEADER ══ */
+header{display:flex;align-items:stretch;border-bottom:1px solid var(--b1);background:var(--surf);flex-shrink:0;z-index:20;height:46px}
+.hbrand{padding:0 20px;display:flex;align-items:center;gap:14px;border-right:1px solid var(--b1);flex-shrink:0}
+header h1{font-family:var(--fs);font-size:17px;font-weight:600;color:var(--acc);white-space:nowrap}
+header p{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.mainnav{display:flex;height:100%}
+.nbtn{padding:0 20px;background:none;border:none;border-right:1px solid var(--b1);border-bottom:2px solid transparent;font-family:var(--fn);font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;letter-spacing:.05em;transition:color .15s,border-color .15s;white-space:nowrap}
+.nbtn:hover{color:var(--txt)}
+.nbtn.active{color:var(--acc);border-bottom-color:var(--acc)}
+.hbadge{margin-left:auto;margin-right:14px;align-self:center;font-size:9px;color:var(--muted);border:1px solid var(--b2);padding:2px 8px;border-radius:2px;letter-spacing:.06em}
+
+/* ══ TOP PANES ══ */
+.mpane{flex:1;overflow:hidden;display:none;flex-direction:column}
+.mpane.active{display:flex}
+
+/* ══════════════ SOLVER ══════════════ */
+.app{flex:1;display:grid;grid-template-columns:330px 1fr;overflow:hidden}
+.sidebar{border-right:1px solid var(--b1);background:var(--surf);overflow-y:auto;display:flex;flex-direction:column}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.right{display:flex;flex-direction:column;overflow:hidden}
+.sh{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:9px 16px 6px;background:var(--bg);border-bottom:1px solid var(--b1);position:sticky;top:0;z-index:2;flex-shrink:0}
+.pot-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
+.pot-card{padding:9px 11px;border-radius:5px;cursor:pointer;border:1px solid var(--b1);background:var(--panel);transition:border-color .15s;position:relative;overflow:hidden}
+.pot-card::before{content:'';position:absolute;inset:0;opacity:.07;pointer-events:none}
+.pot-card:hover{border-color:var(--b2)}
+.pot-card.active{border-color:var(--pot-col,var(--acc))}
+.pot-card.active::before{background:var(--pot-col,var(--acc));opacity:.1}
+.pc-name{font-size:11px;font-weight:500;color:var(--txt);margin-bottom:1px}
+.pc-sub{font-size:9px;color:var(--muted)}
+.pc-dot{width:5px;height:5px;border-radius:50%;position:absolute;top:8px;right:8px;background:var(--pot-col,var(--muted))}
+.explain-wrap{padding:8px 10px;border-bottom:1px solid var(--b1)}
+.explain-card{background:var(--panel);border:1px solid var(--b1);border-radius:5px;padding:10px 12px;font-size:11px}
+.ex-title{font-size:12px;font-weight:500;margin-bottom:4px}
+.ex-formula{background:var(--bg);border:1px solid var(--b2);border-radius:3px;padding:5px 8px;font-size:11px;color:var(--acc);margin:5px 0}
+.ex-desc{color:var(--lbl);line-height:1.6;margin-bottom:5px;font-size:11px}
+.ex-row{display:flex;gap:5px;margin-bottom:3px;color:var(--lbl);font-size:10px}
+.ex-row b{color:var(--txt);font-weight:500;min-width:52px;flex-shrink:0}
+.ex-analytic{margin-top:6px;padding:5px 8px;background:var(--bg);border-left:2px solid var(--pot-col,var(--acc));border-radius:0 3px 3px 0;font-size:10px;color:var(--lbl)}
+.ex-analytic b{color:var(--txt);font-weight:500}
+.ex-app{font-size:10px;color:var(--muted);margin-top:4px;font-style:italic}
+.params{padding:10px}
+.pg{border:1px solid var(--b1);border-radius:5px;background:var(--panel);padding:9px 11px;margin-bottom:7px}
+.pg-lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--lbl);margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--b1)}
+.pr{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px;margin-bottom:6px}
+.pr:last-child{margin-bottom:0}
+.plbl{font-size:11px;color:var(--lbl)}
+.plbl small{font-size:9px;color:var(--muted);margin-left:2px}
+.pi-wrap{display:flex;align-items:center;gap:4px}
+input[type=range]{-webkit-appearance:none;width:76px;height:3px;background:var(--b2);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--acc);cursor:pointer}
+input[type=range].fw{width:100%}
+.rr{display:grid;grid-template-columns:50px 1fr 44px;align-items:center;gap:5px;margin-bottom:5px}
+.rr:last-child{margin-bottom:0}
+.rrlbl{font-size:11px;color:var(--lbl)}
+input[type=number]{background:var(--bg);border:1px solid var(--b2);color:var(--txt);font-family:var(--fn);font-size:11px;width:56px;padding:3px 4px;border-radius:3px;text-align:right;outline:none}
+input[type=number]:focus{border-color:var(--acc)}
+input[type=number]::-webkit-inner-spin-button{opacity:.4}
+input[type=checkbox]{accent-color:var(--acc);width:12px;height:12px;cursor:pointer}
+.preset-btn{background:var(--bg);border:1px solid var(--b2);color:var(--lbl);font-family:var(--fn);font-size:10px;padding:2px 6px;border-radius:3px;cursor:pointer;transition:border-color .15s,color .15s}
+.preset-btn:hover{border-color:var(--acc);color:var(--txt)}
+.btn-wrap{padding:9px 10px 12px;margin-top:auto}
+button#run{width:100%;padding:9px;background:var(--acc);color:#000;font-family:var(--fn);font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;border:none;border-radius:4px;cursor:pointer;transition:opacity .15s,transform .1s}
+button#run:hover{opacity:.85}
+button#run:active{transform:scale(.98)}
+button#run:disabled{opacity:.4;cursor:not-allowed}
+.istrip{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--b1);flex-shrink:0}
+.ic{padding:8px 12px;border-right:1px solid var(--b1)}
+.ic:last-child{border-right:none}
+.ic-lbl{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.ic-val{font-size:13px;font-weight:500}
+.ic-val.a{color:var(--acc)}
+.ic-unit{font-size:9px;color:var(--muted);margin-left:2px}
+.chart-wrap{flex:1;padding:12px 16px 8px;position:relative;min-height:0}
+canvas#cv{width:100%!important;height:100%!important}
+.status{border-top:1px solid var(--b1);padding:5px 16px;display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);background:var(--surf);flex-shrink:0}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ok{background:var(--ok);box-shadow:0 0 4px var(--ok)}
+.sdot.err{background:var(--err)}
+.sdot.spin{background:var(--acc);animation:pulse .6s infinite alternate}
+@keyframes pulse{from{opacity:.3}to{opacity:1}}
+.leg{margin-left:auto;display:flex;gap:10px}
+.lb{display:flex;align-items:center;gap:4px;background:none;border:none;font-family:var(--fn);font-size:10px;color:var(--muted);cursor:pointer;padding:2px}
+.lb:hover{color:var(--txt)}
+.lsw{width:13px;height:2px;border-radius:1px}
+.lb.off{opacity:.4}
+/* V-clip controls */
+.vclip-row{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--lbl);padding:4px 16px;border-top:1px solid var(--b1);background:var(--panel);flex-shrink:0}
+.vclip-row label{display:flex;align-items:center;gap:4px;cursor:pointer}
+.vclip-row input[type=range]{width:80px;-webkit-appearance:none;height:2px;background:var(--b2);border-radius:1px;outline:none;cursor:pointer}
+.vclip-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;background:var(--pot);cursor:pointer}
+
+/* ══════════════ THEORY ══════════════ */
+.theory-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.ttabs{display:flex;border-bottom:1px solid var(--b1);background:var(--surf);flex-shrink:0;overflow-x:auto}
+.ttab{padding:10px 18px;font-size:11px;font-weight:400;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;letter-spacing:.03em;transition:color .15s,border-color .15s;flex-shrink:0}
+.ttab:hover{color:var(--txt)}
+.ttab.active{color:var(--txt);font-weight:500;border-bottom-color:var(--acc)}
+.tbody{flex:1;overflow-y:auto;padding:28px 36px 36px;max-width:860px}
+.tbody::-webkit-scrollbar{width:4px}
+.tbody::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.tpane{display:none}
+.tpane.active{display:block}
+
+/* Theory typography */
+.th2{font-family:var(--fs);font-size:19px;font-weight:600;color:var(--acc);margin-bottom:6px;padding-bottom:10px;border-bottom:1px solid var(--b1)}
+.th3{font-size:14px;font-weight:500;color:var(--txt);margin:20px 0 7px}
+.tp{font-size:13px;color:var(--lbl);line-height:1.8;margin-bottom:10px}
+.tp b{color:var(--txt);font-weight:500}
+.tp code{background:var(--panel);border:1px solid var(--b2);border-radius:3px;padding:1px 5px;font-size:11.5px;color:var(--wave)}
+
+/* Equation display */
+.eq{background:var(--surf);border:1px solid var(--b1);border-radius:7px;padding:16px 24px;margin:12px 0;text-align:center;font-size:15px;line-height:2.0;color:var(--txt)}
+.eq.hl{border-left:3px solid var(--ind);border-radius:0 7px 7px 0;text-align:left;font-size:13px}
+.eq.fin{border-left:3px solid var(--wave);border-radius:0 7px 7px 0;text-align:left;font-size:14px}
+.eq.cref{border-left:3px solid var(--acc);border-radius:0 7px 7px 0;background:var(--panel);text-align:left;font-size:12px;line-height:1.9;color:var(--lbl);padding:12px 16px}
+.sym{color:var(--acc)}
+.op{color:var(--pot)}
+.fr{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 1px}
+.fr .n{border-bottom:1px solid var(--txt);padding:0 3px 1px;line-height:1.3}
+.fr .d{padding:1px 3px 0;line-height:1.3}
+
+/* Step layout */
+.srow{display:flex;gap:13px;margin:18px 0}
+.snum{width:25px;height:25px;min-width:25px;border-radius:50%;background:var(--panel);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--muted);flex-shrink:0;margin-top:2px}
+.sbody .th3{margin-top:0}
+
+/* Var cards */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.vcard{background:var(--panel);border:1px solid var(--b1);border-radius:5px;padding:10px 13px}
+.vsym{font-size:17px;color:var(--acc);margin-bottom:3px}
+.vname{font-size:12px;font-weight:500;color:var(--txt);margin-bottom:2px}
+.vdesc{font-size:11px;color:var(--lbl);line-height:1.55}
+.vdesc code{background:var(--bg);border:1px solid var(--b2);border-radius:2px;padding:1px 4px;font-size:11px;color:var(--wave)}
+
+/* Note boxes */
+.note{background:var(--panel);border:1px solid var(--b1);border-radius:5px;padding:11px 14px;font-size:12px;color:var(--lbl);line-height:1.7;margin:12px 0}
+.note b{color:var(--txt);font-weight:500}
+.note.warn{border-left:3px solid var(--acc)}
+.note.info{border-left:3px solid var(--wave)}
+.note.def{border-left:3px solid var(--ind)}
+.note.ok{border-left:3px solid var(--ok)}
+
+/* Code block */
+pre.cb{background:var(--panel);border:1px solid var(--b1);border-radius:5px;padding:13px 16px;font-size:11px;line-height:1.75;overflow-x:auto;margin:10px 0;color:var(--lbl)}
+pre.cb .kw{color:var(--ind)}
+pre.cb .cm{color:var(--muted)}
+pre.cb .nm{color:var(--wave)}
+pre.cb .fn{color:var(--acc)}
+
+/* Comparison grid */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:14px 0}
+.ccard{border:1px solid var(--b1);border-radius:7px;padding:15px 17px;background:var(--panel)}
+.ctitle{font-size:13px;font-weight:500;color:var(--txt);margin-bottom:10px}
+.crow{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--b1)}
+.crow:last-child{border-bottom:none;padding-bottom:0}
+.clbl{color:var(--lbl)}
+.cval{font-family:var(--fn);font-size:11px;color:var(--txt)}
+.chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:500;margin-left:4px}
+.chip-b{background:#1e3a8a22;color:#93c5fd;border:0.5px solid #3b82f644}
+.chip-y{background:#78350f22;color:#fcd34d;border:0.5px solid #f59e0b44}
+.sep{border:none;border-top:1px solid var(--b1);margin:22px 0}
+canvas.errcv{display:block;width:100%;height:190px;margin:12px 0}
+</style>
+</head>
+<body>
+
+<!-- ════ HEADER ════ -->
+<header>
+  <div class="hbrand">
+    <div><h1>Numerov QM Solver</h1><p>2D quantum dot · magnetic field</p></div>
+  </div>
+  <nav class="mainnav">
+    <button class="nbtn active" onclick="showMain('solver',this)">Solver</button>
+    <button class="nbtn" onclick="showMain('theory',this)">Theory</button>
+  </nav>
+  <span class="hbadge">eV · nm · K</span>
+</header>
+
+<!-- ════════════════ SOLVER PANE ════════════════ -->
+<div id="pSolver" class="mpane active">
+<div class="app">
+
+<aside class="sidebar">
+  <div class="sh">Select potential</div>
+  <div class="pot-grid" id="potGrid"></div>
+
+  <div class="sh">Potential description</div>
+  <div class="explain-wrap"><div class="explain-card" id="explainCard"></div></div>
+
+  <div class="sh">Potential parameters</div>
+  <div class="params" id="paramSection"></div>
+
+  <div class="sh">2D quantum numbers &amp; grid</div>
+  <div class="params">
+    <div class="pg">
+      <div class="pg-lbl">Angular momentum m<sub>l</sub> <span style="font-size:9px;color:var(--muted)">(Langer: m²−¼)</span></div>
+      <div class="pr">
+        <span class="plbl">m<sub>l</sub></span>
+        <div class="pi-wrap">
+          <input type="range" id="l_r" min="0" max="5" step="1" value="0">
+          <input type="number" id="l_n" min="0" max="5" value="0" style="width:48px">
+        </div>
+      </div>
+      <div class="pr">
+        <span class="plbl">n<sub>r</sub> radial nodes</span>
+        <div class="pi-wrap">
+          <input type="range" id="nr_r" min="0" max="5" step="1" value="0">
+          <input type="number" id="nr_n" min="0" max="5" value="0" style="width:48px">
+        </div>
+      </div>
+    </div>
+    <div class="pg">
+      <div class="pg-lbl">Band effective mass</div>
+      <div class="pr">
+        <span class="plbl">m* / m₀</span>
+        <div class="pi-wrap">
+          <input type="range" id="mstar_r" min="0.01" max="1" step="0.001" value="0.067">
+          <input type="number" id="mstar_n" min="0.001" max="5" step="0.001" value="0.067">
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+        <button class="preset-btn" data-v="0.067">GaAs</button>
+        <button class="preset-btn" data-v="0.023">InAs</button>
+        <button class="preset-btn" data-v="0.20">GaN</button>
+        <button class="preset-btn" data-v="1.0">Free e⁻</button>
+      </div>
+    </div>
+    <div class="pg">
+      <div class="pg-lbl">Radial grid</div>
+      <div class="rr">
+        <span class="rrlbl">r<sub>min</sub> nm</span>
+        <input type="range" class="fw" id="rmin_r" min="0" max="1" step="0.001" value="0">
+        <input type="number" id="rmin_n" min="0" max="5" step="0.001" value="0">
+      </div>
+      <div class="rr">
+        <span class="rrlbl">r<sub>max</sub> nm</span>
+        <input type="range" class="fw" id="rmax_r" min="1" max="200" step="1" value="80">
+        <input type="number" id="rmax_n" min="1" max="500" step="1" value="80">
+      </div>
+      <div class="rr">
+        <span class="rrlbl">N pts</span>
+        <input type="range" class="fw" id="N_r" min="500" max="10000" step="500" value="4000">
+        <input type="number" id="N_n" min="100" max="20000" step="500" value="4000">
+      </div>
+    </div>
+    <div class="pg">
+      <div class="pg-lbl">Energy search window (eV)</div>
+      <div class="pr"><span class="plbl">E<sub>max</sub></span><input type="number" id="Emax_n" value="5" step="1" style="width:68px"></div>
+      <div class="pr"><span class="plbl">E<sub>min</sub></span><input type="number" id="Emin_n" value="-1" step="1" style="width:68px"></div>
+    </div>
+    <div class="pg">
+      <div class="pg-lbl">Magnetic field B (diamagnetic term)</div>
+      <div class="pr" style="margin-bottom:5px">
+        <span class="plbl"><label><input type="checkbox" id="magChk"> Enable B-field</label></span>
+      </div>
+      <div id="magFields" style="display:none">
+        <div class="rr">
+          <span class="rrlbl">B (T)</span>
+          <input type="range" class="fw" id="B_r" min="0" max="30" step="0.5" value="1">
+          <input type="number" id="B_n" min="0" max="100" step="0.5" value="1">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-wrap"><button id="run">&#9654; Solve</button></div>
+</aside>
+
+<div class="right">
+  <div class="istrip">
+    <div class="ic"><div class="ic-lbl">Potential</div><div class="ic-val a" id="i_pot">—</div></div>
+    <div class="ic"><div class="ic-lbl">V(0) well floor</div><div class="ic-val" id="i_V0">—</div></div>
+    <div class="ic"><div class="ic-lbl">V(∞) asymptote</div><div class="ic-val" id="i_Vinf">—</div></div>
+    <div class="ic"><div class="ic-lbl">m* / m₀</div><div class="ic-val" id="i_mw">—</div></div>
+    <div class="ic"><div class="ic-lbl">Eigenvalue E</div><div class="ic-val a" id="i_E">—</div></div>
+  </div>
+
+  <!-- V display clip control -->
+  <div class="vclip-row">
+    <label><input type="checkbox" id="clipChk" checked> Clip V<sub>eff</sub> display to wavefunction region</label>
+    <span style="margin-left:8px;color:var(--muted)">zoom:</span>
+    <input type="range" id="clipZoom" min="1" max="10" step="0.5" value="3">
+    <span id="clipZoomVal" style="color:var(--lbl);min-width:24px">3×</span>
+    <span style="margin-left:auto;font-size:10px;color:var(--muted)">dashed line = eigenvalue E</span>
+  </div>
+
+  <div class="chart-wrap"><canvas id="cv"></canvas></div>
+  <div class="status">
+    <div class="sdot" id="sdot"></div>
+    <span id="smsg">Select a potential and press Solve</span>
+    <span id="stime" style="margin-left:4px"></span>
+    <div class="leg">
+      <button class="lb" onclick="toggleDs(0,this)"><div class="lsw" style="background:var(--wave)"></div>u(r)</button>
+      <button class="lb" onclick="toggleDs(1,this)"><div class="lsw" style="background:var(--pot)"></div>V<sub>eff</sub></button>
+      <button class="lb" onclick="toggleDs(2,this)"><div class="lsw" style="background:var(--acc)"></div>V<sub>bare</sub></button>
+      <button class="lb" onclick="toggleDs(3,this)"><div class="lsw" style="background:var(--ok)"></div>E level</button>
+    </div>
+  </div>
+</div>
+</div>
+</div><!-- /pSolver -->
+
+<!-- ════════════════ THEORY PANE ════════════════ -->
+<div id="pTheory" class="mpane">
+<div class="theory-wrap">
+  <div class="ttabs">
+    <button class="ttab active" onclick="showT(0,this)">1 · Schrödinger equation</button>
+    <button class="ttab" onclick="showT(1,this)">2 · 2D cylindrical reduction</button>
+    <button class="ttab" onclick="showT(2,this)">3 · Effective potential V<sub>eff</sub></button>
+    <button class="ttab" onclick="showT(3,this)">4 · ODE &amp; eigenvalue search</button>
+    <button class="ttab" onclick="showT(4,this)">5 · Numerov vs Runge-Kutta</button>
+  </div>
+
+  <div class="tbody" id="tb">
+
+  <!-- ── TAB 1 ── -->
+  <div class="tpane active" id="tp0">
+    <div class="th2">The time-independent Schrödinger equation</div>
+    <div class="tp">Everything starts from the TISE: the Hamiltonian operator <b>Ĥ</b> acting on a stationary state <b>Ψ</b> returns that state scaled by its energy eigenvalue <b>E</b>.</div>
+    <div class="eq"><span class="sym">Ĥ</span> <span class="sym">Ψ</span> = <span class="sym">E</span> <span class="sym">Ψ</span></div>
+
+    <div class="srow"><div class="snum">1</div><div class="sbody">
+      <div class="th3">Expand the Hamiltonian</div>
+      <div class="tp">In QM the momentum operator is <b>p̂ = −iħ∇</b>. Kinetic energy T = p²/2m* becomes <b>−ħ²∇²/2m*</b>. For a 2D electron confined in a quantum dot (z-motion frozen in its lowest subband) the TISE in the plane is:</div>
+      <div class="eq">
+        <span class="op">−</span><span class="fr"><span class="n sym">ħ²</span><span class="d sym">2m*</span></span>
+        <span class="op"> ∇²<sub>2D</sub></span> <span class="sym">Ψ</span>(r,φ)
+        <span class="op"> + </span><span class="sym">V</span>(r) <span class="sym">Ψ</span>(r,φ)
+        <span class="op"> = </span><span class="sym">E</span> <span class="sym">Ψ</span>(r,φ)
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">2</div><div class="sbody">
+      <div class="th3">Natural units: eV · nm</div>
+      <div class="tp">Multiply and divide by c² to replace ħ with the product <b>ħc = 197.327 eV·nm</b> and express mass as <b>m*c²</b> in eV. This eliminates 10⁻³⁴ factors and keeps everything in human-scale numbers.</div>
+      <div class="eq hl">
+        T̂ = <span class="op">−</span><span class="fr"><span class="n sym">(ħc)²</span><span class="d sym">2 m*c²</span></span> ∇²<sub>2D</sub>
+        &nbsp;&nbsp;&nbsp;
+        <span style="color:var(--muted);font-size:12px">eV·nm² / nm² = eV ✓</span>
+      </div>
+      <div class="note def"><b>In the code:</b> &nbsp;<code>const HBARC = 197.3269804</code> (eV·nm) &nbsp;and&nbsp; <code>const M0EV = 0.511e6</code> (eV/c²).<br>
+      Effective mass in energy units: <code>const mw = mstar * M0EV</code> → m*c² in eV.</div>
+    </div></div>
+
+    <div class="vgrid">
+      <div class="vcard"><div class="vsym">ħc</div><div class="vname">197.327 eV·nm</div><div class="vdesc">The most useful constant in condensed-matter QM. Eliminates all 10⁻³⁴ factors. Code: <code>HBARC</code>.</div></div>
+      <div class="vcard"><div class="vsym">m*</div><div class="vname">Band effective mass</div><div class="vdesc">Carriers respond to forces via band curvature, not free mass. GaAs: 0.063 m₀. Kane formula from k·p theory. Code: <code>mstar * M0EV</code>.</div></div>
+      <div class="vcard"><div class="vsym">V(r)</div><div class="vname">Potential energy</div><div class="vdesc">Rotationally symmetric — depends only on r. User-selectable: Fermi, square well, harmonic, Coulomb, Woods-Saxon, Morse, Gaussian.</div></div>
+      <div class="vcard"><div class="vsym">E</div><div class="vname">Eigenvalue (energy)</div><div class="vdesc">Found by bisection. Bound states require <b>E &lt; V(∞)</b>. Only discrete values give normalizable solutions — this is quantization.</div></div>
+    </div>
+    <div class="note info"><b>Boundary conditions:</b> Ψ must be normalizable — decay to zero as r → ∞. At r = 0 it must be finite (zero for m_l ≥ 1). These two simultaneous constraints force E to take only discrete values: the energy spectrum.</div>
+  </div>
+
+  <!-- ── TAB 2 ── -->
+  <div class="tpane" id="tp1">
+    <div class="th2">2D cylindrical reduction and the Langer substitution</div>
+    <div class="tp">The quantum dot is modeled as a 2D disk — electrons move in the x-y plane, z is frozen. We exploit the rotational symmetry to reduce the 2D PDE to a 1D ODE.</div>
+
+    <div class="srow"><div class="snum">1</div><div class="sbody">
+      <div class="th3">2D Laplacian in polar coordinates (r, φ)</div>
+      <div class="eq">
+        ∇²<sub>2D</sub> = <span class="fr"><span class="n">1</span><span class="d sym">r</span></span>
+        <span class="fr"><span class="n op">∂</span><span class="d op">∂r</span></span>(r
+        <span class="fr"><span class="n op">∂</span><span class="d op">∂r</span></span>)
+        &nbsp;+&nbsp;
+        <span class="fr"><span class="n">1</span><span class="d sym">r²</span></span>
+        <span class="fr"><span class="n op">∂²</span><span class="d op">∂φ²</span></span>
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">2</div><div class="sbody">
+      <div class="th3">Separation of variables: Ψ(r, φ) = R(r) · e<sup>im<sub>l</sub>φ</sup></div>
+      <div class="tp">Since V depends only on r, angular momentum m_l is a good quantum number. Single-valuedness Ψ(φ+2π) = Ψ(φ) forces <b>m_l ∈ ℤ</b>. Using ∂²e<sup>im_l φ</sup>/∂φ² = −m_l² e<sup>im_l φ</sup> and expanding:</div>
+      <div class="eq hl">
+        <span class="op">−</span><span class="fr"><span class="n sym">(ħc)²</span><span class="d sym">2m*c²</span></span>
+        &nbsp;[&nbsp; R″ + <span class="fr"><span class="n">1</span><span class="d sym">r</span></span>R′ − <span class="fr"><span class="n sym">m_l²</span><span class="d sym">r²</span></span>R &nbsp;]
+        + V(r)R = ER
+      </div>
+      <div class="tp">The <b>R′/r first-derivative term</b> prevents direct use of Numerov's method, which requires the form u″ = f(r)·u. We must eliminate it.</div>
+    </div></div>
+
+    <div class="srow"><div class="snum">3</div><div class="sbody">
+      <div class="th3">The Langer substitution: R(r) = u(r) / √r</div>
+      <div class="tp">Define <b>u(r) = R(r) · √r</b> — this is the function the solver computes and the chart labels "u(r)". Compute derivatives:</div>
+      <div class="eq hl" style="font-size:12px">
+        R = u/√r &nbsp;&nbsp;
+        R′ = u′/√r − u/(2r<sup>3/2</sup>) &nbsp;&nbsp;
+        R″ = u″/√r − u′/r<sup>3/2</sup> + 3u/(4r<sup>5/2</sup>)
+      </div>
+      <div class="tp">Substitute into the radial equation and multiply through by √r. The R′/r term cancels exactly, and after collecting what remains:</div>
+      <div class="eq fin" style="font-size:15px">
+        <span class="sym">u</span>″(r) = <span class="op">−</span>
+        <span class="fr"><span class="n sym">2m*c²</span><span class="d sym">(ħc)²</span></span>
+        &nbsp;[&nbsp;E − V<sub>eff</sub>(r)&nbsp;] · <span class="sym">u</span>(r)
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">4</div><div class="sbody">
+      <div class="th3">The 2D Langer correction: (m_l² − ¼)</div>
+      <div class="tp">After the substitution, the centrifugal barrier acquires a correction. In 2D the effective angular barrier is:</div>
+      <div class="eq fin">
+        V<sub>centrifugal</sub>(r) = <span class="fr"><span class="n sym">(m_l² − ¼)(ħc)²</span><span class="d sym">2m*c² r²</span></span>
+        &nbsp;&nbsp;<span style="color:var(--acc);font-size:12px">← 2D Langer, NOT m_l²</span>
+      </div>
+      <div class="tp">In 3D spherical coordinates it would be <b>l(l+1)</b>. The −¼ correction arises because the 2D volume element is r dr dφ (not r² sin θ dr dθ dφ). Omitting it gives wrong energies even for m_l = 0.</div>
+      <div class="note warn"><b>In the code (line Vcent_coeff):</b><br>
+        <code>const Vcent_coeff = (l - 0.25) * hc2 / (2 * mw)</code><br>
+        where <code>l</code> is m_l, <code>hc2 = HBARC²</code>, <code>mw = m*c²</code>.<br>
+        For 3D it would be: <code>l * (l + 1) * hc2 / (2 * mw)</code>
+      </div>
+    </div></div>
+
+    <div class="note def"><b>Why not 3D?</b> The dot is a flat disk grown epitaxially. z-confinement energy is large (~0.1 eV) and frozen — only 2D in-plane motion remains. This changes both the Laplacian form and the centrifugal correction. One line in the code switches between 2D and 3D geometry.</div>
+  </div>
+
+  <!-- ── TAB 3 ── -->
+  <div class="tpane" id="tp2">
+    <div class="th2">The full effective potential V<sub>eff</sub>(r) with magnetic field</div>
+    <div class="tp">Three physically distinct contributions enter V<sub>eff</sub>. The solver computes all three at every grid point before stepping the wavefunction. This is the code's <code>veff(r)</code> function.</div>
+
+    <div class="eq fin">
+      V<sub>eff</sub>(r) = V<sub>well</sub>(r) + V<sub>centrifugal</sub>(r) + V<sub>magnetic</sub>(r)
+    </div>
+
+    <div class="srow"><div class="snum">1</div><div class="sbody">
+      <div class="th3">Term 1 — V<sub>well</sub>(r): the user-selected confining potential</div>
+      <div class="tp">The attractive well that creates bound states. Encoded as <code>pot(r, potParams)</code> in the solver. Seven choices are available; each appears as V<sub>bare</sub> in the chart (amber dashed line).</div>
+      <div class="vgrid" style="grid-template-columns:repeat(3,1fr);margin-top:8px">
+        <div class="vcard" style="border-top:2px solid #f59e0b"><div class="vname" style="font-size:11px">Fermi-Step</div><div class="vdesc">GaAs Γ–X band offset. Soft sigmoid interface.</div></div>
+        <div class="vcard" style="border-top:2px solid #3b82f6"><div class="vname" style="font-size:11px">Square Well</div><div class="vdesc">Hard-wall flat bottom. Discontinuous boundary.</div></div>
+        <div class="vcard" style="border-top:2px solid #10b981"><div class="vname" style="font-size:11px">Harmonic</div><div class="vdesc">Parabolic. Only exactly solvable 2D potential.</div></div>
+        <div class="vcard" style="border-top:2px solid #ef4444"><div class="vname" style="font-size:11px">Coulomb</div><div class="vdesc">−k/r. Hydrogen atom, donors, excitons.</div></div>
+        <div class="vcard" style="border-top:2px solid #14b8a6"><div class="vname" style="font-size:11px">Woods-Saxon</div><div class="vdesc">Nuclear shell model. Smooth surface diffuseness.</div></div>
+        <div class="vcard" style="border-top:2px solid #a78bfa"><div class="vname" style="font-size:11px">Morse / Gaussian</div><div class="vdesc">Molecular / soft well. Fully numerical.</div></div>
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">2</div><div class="sbody">
+      <div class="th3">Term 2 — V<sub>centrifugal</sub>(r): 2D Langer angular barrier</div>
+      <div class="eq fin">
+        V<sub>centrifugal</sub>(r) = <span class="fr"><span class="n sym">(m_l − ¼)(ħc)²</span><span class="d sym">2m*c² · r²</span></span>
+      </div>
+      <div class="tp">Repulsive for m_l ≥ 1. Pushes the wavefunction outward, raises the energy, and creates a centrifugal barrier at small r. For m_l = 0 the −¼ correction gives a tiny attractive shift — this is a purely quantum effect absent in 3D. Singular at r = 0, so the code clamps <code>r → max(r, 1e-9)</code>.</div>
+    </div></div>
+
+    <div class="srow"><div class="snum">3</div><div class="sbody">
+      <div class="th3">Term 3 — V<sub>magnetic</sub>(r): diamagnetic confinement</div>
+      <div class="tp">A magnetic field B along z is included via the symmetric gauge <b>A⃗ = B/2 · (−y, x, 0)</b>. The full Hamiltonian with a magnetic field is:</div>
+      <div class="eq hl">
+        Ĥ = <span class="fr"><span class="n">1</span><span class="d">2m*</span></span>(p̂ − eA⃗)²  + V(r)
+        = &nbsp;<span class="fr"><span class="n">p²</span><span class="d">2m*</span></span>
+        <span class="op">−</span> <span class="fr"><span class="n">e</span><span class="d">2m*</span></span>L̂·B⃗
+        <span class="op">+</span> <span class="fr"><span class="n">e²B²</span><span class="d">8m*</span></span>r²
+        + V(r)
+      </div>
+      <div class="tp">The middle term <b>−(e/2m*)L̂·B</b> is the paramagnetic (Zeeman) term. In the eigenstate of L_z it contributes a constant <b>−(eħ/2m*)m_l B = −½ħω_c m_l</b>, which simply shifts E and does not affect the wavefunction shape. The last term is the <b>diamagnetic</b> term:</div>
+      <div class="eq fin">
+        V<sub>magnetic</sub>(r) = <span class="fr"><span class="n">e²B²</span><span class="d">8m*</span></span>r² = <span class="fr"><span class="n sym">1</span><span class="d">8</span></span><span class="fr"><span class="n sym">m*c²</span><span class="d sym">c²</span></span>ω<sub>c</sub>² r²
+        &nbsp;&nbsp;<span style="color:var(--muted);font-size:12px">ω_c = eB/m* (cyclotron freq.)</span>
+      </div>
+      <div class="note warn"><b>In the code:</b><br>
+        <code>const oc = EC * B / mwkg</code> &nbsp;&nbsp; <span style="color:var(--muted)">// ω_c in rad/s</span><br>
+        <code>const Vmag_coeff = 0.125 * mw / (CNM*CNM) * oc*oc</code> &nbsp;&nbsp; <span style="color:var(--muted)">// eV/nm²</span><br>
+        <code>function vmag(r) { return Vmag_coeff * r * r; }</code><br>
+        The factor 1/c² converts kg·rad²/s² → eV/nm² by dividing by (nm/s)².
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">4</div><div class="sbody">
+      <div class="th3">Complete k²(r) — the local wavenumber squared</div>
+      <div class="tp">k²(r) is the quantity Numerov propagates. Where k² &gt; 0: oscillating (classically allowed). Where k² &lt; 0: exponentially decaying (forbidden / tunneling). A bound state must have k² &lt; 0 at large r so u → 0.</div>
+      <div class="eq fin" style="font-size:14px">
+        k²(r) = <span class="fr"><span class="n sym">2m*c²</span><span class="d sym">(ħc)²</span></span>
+        &nbsp;[&nbsp;E − V<sub>eff</sub>(r)&nbsp;]
+      </div>
+      <div class="note def"><b>Code implementation:</b><br>
+        <code>const twoMwHc2 = 2 * mw / (HBARC * HBARC)</code><br>
+        <code>function k2(r, E) { return twoMwHc2 * (E - veff(r)); }</code>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ── TAB 4 ── -->
+  <div class="tpane" id="tp3">
+    <div class="th2">The ODE to solve and eigenvalue search</div>
+    <div class="tp">After the 2D reduction, Langer substitution, and assembly of V<sub>eff</sub>, the radial Schrödinger equation is a second-order linear ODE in Sturm–Liouville form — no first-derivative term.</div>
+
+    <div class="eq" style="font-size:18px">
+      <span class="sym">u</span>″(r) = <span class="op">−</span><span class="sym">k²</span>(r) · <span class="sym">u</span>(r)
+    </div>
+
+    <div class="srow"><div class="snum">1</div><div class="sbody">
+      <div class="th3">Boundary conditions</div>
+      <div class="tp"><b>u(0) = 0</b> — regularity at origin (enforced analytically; all states have R(0) finite, so u = R√r → 0). &nbsp;<b>u(r_max) → 0</b> — normalizability at infinity. The seed <code>u(h) = 1</code> is arbitrary since the ODE is linear and homogeneous; normalisation is applied after the eigenvalue is found.</div>
+    </div></div>
+
+    <div class="srow"><div class="snum">2</div><div class="sbody">
+      <div class="th3">Eigenvalue search: bisection + Sturm node counting</div>
+      <div class="tp">For a random trial energy E, Numerov propagates u from r = 0 outward. The solution generally diverges at r_max — it only decays to zero at the discrete eigenvalues. The solver uses <b>Sturm's oscillation theorem</b>:</div>
+      <div class="note info">The n-th bound state (n = 0, 1, 2, …) has exactly n nodes (zero crossings). The node count is a monotone non-decreasing integer function of E. Bisection on [E_min, E_max] converges reliably by halving the interval until the target node count is isolated.</div>
+      <div class="tp">Convergence: from a 40 eV window to ΔE &lt; 10⁻¹⁰ eV takes ⌈log₂(40/10⁻¹⁰)⌉ ≈ 45 bisection steps. The code runs up to 200 iterations.</div>
+    </div></div>
+
+    <div class="srow"><div class="snum">3</div><div class="sbody">
+      <div class="th3">Normalisation of u(r)</div>
+      <div class="tp">The Langer substitution R = u/√r gives the 2D norm condition ∫|R|² r dr = ∫u² dr = 1. After bisection, the code normalises u with a rectangle-rule sum:</div>
+      <pre class="cb"><span class="kw">let</span> s = <span class="nm">0</span>;
+<span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i &lt;= N; i++) s += psi[i] * psi[i];
+<span class="kw">const</span> norm = <span class="nm">1</span> / Math.sqrt(s * h);   <span class="cm">// h = grid step in nm</span></pre>
+    </div></div>
+
+    <div class="srow"><div class="snum">4</div><div class="sbody">
+      <div class="th3">Full solve() function</div>
+      <pre class="cb"><span class="kw">function</span> <span class="fn">solve</span>(nr, Emax, Emin, rmin, rmax, N) {
+  <span class="kw">const</span> h = (rmax - rmin) / N;           <span class="cm">// grid spacing in nm</span>
+  <span class="kw">let</span> ehi = Emax, elo = Emin;
+
+  <span class="cm">// Bisection: isolate the nr-th bound state by node count</span>
+  <span class="kw">for</span> (<span class="kw">let</span> it = <span class="nm">0</span>; it &lt; <span class="nm">200</span>; it++) {
+    <span class="kw">const</span> En = (ehi + elo) * <span class="nm">0.5</span>;
+    <span class="kw">const</span> psi = runNumerov(En, rmin, h, N);
+    <span class="kw">if</span> (countNodes(psi, N) &gt; nr) ehi = En; <span class="kw">else</span> elo = En;
+    <span class="kw">if</span> (ehi - elo &lt; <span class="nm">1e-10</span>) <span class="kw">break</span>;
+  }
+
+  <span class="kw">const</span> En = (ehi + elo) * <span class="nm">0.5</span>;          <span class="cm">// eigenvalue</span>
+  <span class="kw">const</span> psi = runNumerov(En, rmin, h, N);  <span class="cm">// final wavefunction</span>
+
+  <span class="cm">// Normalise: ∫u² dr = 1  (rectangle rule)</span>
+  <span class="kw">let</span> s = <span class="nm">0</span>;
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i &lt;= N; i++) s += psi[i] * psi[i];
+  <span class="kw">const</span> norm = <span class="nm">1</span> / Math.sqrt(s * h);
+
+  <span class="kw">return</span> { En, norm, pts };
+}</pre>
+    </div></div>
+  </div>
+
+  <!-- ── TAB 5 ── -->
+  <div class="tpane" id="tp4">
+    <div class="th2">Numerov's method vs Runge-Kutta 4</div>
+    <div class="tp">Both methods propagate u(r) forward in r. They differ in accuracy per function evaluation and in which equations they apply to.</div>
+
+    <div class="srow"><div class="snum">1</div><div class="sbody">
+      <div class="th3">Numerov's recurrence — where O(h⁶) comes from</div>
+      <div class="tp">Taylor-expand u(r+h) and u(r−h) around r. Use the ODE u″ = −k²u twice — once forward and once backward — to replace u″ with −k²u at each point. Adding forward and backward expansions, terms through h⁵ cancel by symmetry, leaving only the h⁶ local truncation error:</div>
+      <div class="eq fin" style="font-size:13px">
+        u<sub>n+1</sub> =
+        <span class="fr">
+          <span class="n">2(1 − 5h²k²<sub>n</sub>/12)u<sub>n</sub> − (1 + h²k²<sub>n−1</sub>/12)u<sub>n−1</sub></span>
+          <span class="d">1 + h²k²<sub>n+1</sub>/12</span>
+        </span>
+        + O(h<sup>6</sup>)
+      </div>
+      <div class="tp">The denominator uses k²<sub>n+1</sub> at the <em>next</em> point — this makes Numerov <b>implicit</b>. Because the equation is linear in u, no iteration is needed: k²<sub>n+1</sub> is evaluated from the potential (not from u<sub>n+1</sub>), so it reduces to a single division.</div>
+      <div class="note def"><b>Code: one Numerov step</b><br>
+        <code>const kn2 = k2(rmin + (n+2)*h, En);</code><br>
+        <code>psi[n+2] = (2*(1 - 5*h2/12*kn1)*psi[n+1]</code><br>
+        <code>           - (1 + h2/12*kn)*psi[n])</code><br>
+        <code>           / (1 + h2/12*kn2);</code><br>
+        <code>kn = kn1; kn1 = kn2; &nbsp;</code><span style="color:var(--muted)">// slide 3-point window</span>
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">2</div><div class="sbody">
+      <div class="th3">Runge-Kutta 4 — four-stage scheme</div>
+      <div class="tp">RK4 works on <b>any</b> first-order ODE system. To apply to u″ = −k²u, rewrite as two coupled equations: v = u′ and v′ = −k²u. Four evaluations per step:</div>
+      <div class="eq hl" style="font-size:12px">
+        k₁ = h·f(rₙ, uₙ, vₙ)<br>
+        k₂ = h·f(rₙ+h/2, uₙ+k₁ᵤ/2, vₙ+k₁ᵥ/2)<br>
+        k₃ = h·f(rₙ+h/2, uₙ+k₂ᵤ/2, vₙ+k₂ᵥ/2)<br>
+        k₄ = h·f(rₙ+h, uₙ+k₃ᵤ, vₙ+k₃ᵥ)<br>
+        uₙ₊₁ = uₙ + (k₁ᵤ + 2k₂ᵤ + 2k₃ᵤ + k₄ᵤ)/6 + O(h⁵)
+      </div>
+    </div></div>
+
+    <div class="srow"><div class="snum">3</div><div class="sbody">
+      <div class="th3">Side-by-side comparison</div>
+      <div class="cgrid">
+        <div class="ccard">
+          <div class="ctitle">Numerov <span class="chip chip-b">used here</span></div>
+          <div class="crow"><span class="clbl">Applicable to</span><span class="cval">u″ = f(r)·u only</span></div>
+          <div class="crow"><span class="clbl">Local truncation error</span><span class="cval">O(h⁶)</span></div>
+          <div class="crow"><span class="clbl">Global error</span><span class="cval">O(h⁴)</span></div>
+          <div class="crow"><span class="clbl">k²(r) evals / step</span><span class="cval">1</span></div>
+          <div class="crow"><span class="clbl">Self-starting</span><span class="cval">No (needs u₀, u₁)</span></div>
+          <div class="crow"><span class="clbl">Handles u′ term</span><span class="cval">No</span></div>
+        </div>
+        <div class="ccard">
+          <div class="ctitle">Runge-Kutta 4 <span class="chip chip-y">general</span></div>
+          <div class="crow"><span class="clbl">Applicable to</span><span class="cval">Any first-order system</span></div>
+          <div class="crow"><span class="clbl">Local truncation error</span><span class="cval">O(h⁵)</span></div>
+          <div class="crow"><span class="clbl">Global error</span><span class="cval">O(h⁴)</span></div>
+          <div class="crow"><span class="clbl">k²(r) evals / step</span><span class="cval">4</span></div>
+          <div class="crow"><span class="clbl">Self-starting</span><span class="cval">Yes</span></div>
+          <div class="crow"><span class="clbl">Handles u′ term</span><span class="cval">Yes</span></div>
+        </div>
+      </div>
+      <div class="note ok"><b>Key result:</b> both methods achieve O(h⁴) global accuracy, but Numerov uses <b>1 function evaluation per step</b> vs RK4's 4. For the same computational cost Numerov is ~4× more accurate on u″ = f·u. The gain is "free" — it exploits the absence of a u′ term.</div>
+    </div></div>
+
+    <div class="srow"><div class="snum">4</div><div class="sbody">
+      <div class="th3">Live benchmark — 2D harmonic oscillator (exact eigenvalue known)</div>
+      <div class="tp">The 2D harmonic oscillator ground state (m_l = 0) has E₀ = ħω exactly. We run both methods at the exact E and measure |u(r_max)| — which should be zero. Smaller residual = better accuracy.</div>
+      <canvas class="errcv" id="errcv"></canvas>
+      <div id="errTbl" style="font-size:11px;margin-top:6px"></div>
+      <div class="note info"><b>When to use RK4 instead of Numerov:</b> if the equation contains a u′ term — e.g. position-dependent effective mass m*(r) (BenDaniel-Duke), spin-orbit coupling, logarithmic r-grid for Coulomb problems, or time-dependent propagation. In those cases RK4 or higher-order general methods are needed.</div>
+    </div></div>
+  </div>
+
+  </div><!-- /tbody -->
+</div><!-- /theory-wrap -->
+</div><!-- /pTheory -->
+
+<script>
+/* ══ CONSTANTS ══ */
+const HBARC=197.3269804,M0EV=0.511e6,M0KG=9.1093e-31,EC=1.60217662e-19,CNM=299792458e9;
+
+/* ══ NAV ══ */
+function showMain(id,btn){
+  document.querySelectorAll('.mpane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('p'+id[0].toUpperCase()+id.slice(1)).classList.add('active');
+  btn.classList.add('active');
+  if(id==='theory'&&!window._errBuilt) setTimeout(buildErr,120);
+}
+function showT(i,btn){
+  document.querySelectorAll('.tpane').forEach((p,j)=>p.classList.toggle('active',j===i));
+  document.querySelectorAll('.ttab').forEach((b,j)=>b.classList.toggle('active',j===i));
+  if(i===4&&!window._errBuilt) setTimeout(buildErr,60);
+}
+
+/* ══ POTENTIALS ══ */
+const POTS=[
+  {id:'fermi',name:'Fermi-Step',sub:'GaAs QD',col:'#f59e0b',geo:'2d',
+   params:[{id:'V0',lbl:'V₀',unit:'eV',val:0.476,min:0.01,max:5,step:0.001},{id:'sig',lbl:'σ',unit:'nm',val:5,min:0.1,max:30,step:0.1}],
+   fn:(r,p)=>p.V0*Math.SQRT2/Math.sqrt(1+Math.exp(-r/p.sig)),
+   def:{rmin:0,rmax:40,N:4000,Emin:-1,Emax:5,mstar:0.067,l:0},
+   info:{desc:'Γ–X band mixing in GaAs/AlGaAs. σ = interface softness. V₀ ≈ E_X−E_g ≈ 0.476 eV at 300 K.',form:'V₀√2 / √(1+e^{−r/σ})',pinfo:['V₀ — band offset (eV)','σ — interface softness (nm)'],bounds:'V(0)=V₀, V(∞)=V₀√2',analytic:'No closed form. Numerov required.',app:'Self-assembled QDs, magneto-optics, Landau levels'}},
+  {id:'square',name:'Square Well',sub:'hard wall',col:'#3b82f6',geo:'2d',
+   params:[{id:'V0',lbl:'V₀',unit:'eV',val:0.5,min:0.01,max:10,step:0.01},{id:'a',lbl:'a',unit:'nm',val:5,min:0.2,max:50,step:0.1}],
+   fn:(r,p)=>r<p.a?-p.V0:0,
+   def:{rmin:0,rmax:20,N:3000,Emin:-0.6,Emax:0.1,mstar:0.1,l:0},
+   info:{desc:'Constant depth −V₀ inside radius a, zero outside. Hard discontinuous walls.',form:'−V₀ (r<a),  0 (r≥a)',pinfo:['V₀ — well depth (eV)','a — well radius (nm)'],bounds:'V(0)=−V₀, V(∞)=0',analytic:'Bound states when z₀=a√(2m*V₀)/ħ > (n−½)π',app:'Hard-wall QDs, nuclear shell model'}},
+  {id:'harmonic',name:'Harmonic',sub:'oscillator',col:'#10b981',geo:'2d',
+   params:[{id:'K',lbl:'K',unit:'eV/nm²',val:0.004,min:0.0001,max:0.5,step:0.0001},{id:'V0',lbl:'offset',unit:'eV',val:0,min:-3,max:0,step:0.01}],
+   fn:(r,p)=>0.5*p.K*r*r+p.V0,
+   def:{rmin:0,rmax:40,N:3000,Emin:-0.5,Emax:2,mstar:0.067,l:0},
+   info:{desc:'Exactly solvable. Equal energy spacing ħω. Parabolic confinement model.',form:'½Kr² + V₀',pinfo:['K=m*ω² spring constant (eV/nm²)','V₀ — energy zero offset (eV)'],bounds:'V(0)=V₀, V(∞)=+∞',analytic:'E_{n,m_l}=ħω(2n+|m_l|+1)+V₀, ω=c√(K/m*c²)',app:'Parabolic QDs, phonons, atomic traps'}},
+  {id:'coulomb',name:'Coulomb',sub:'hydrogenic',col:'#ef4444',geo:'2d',
+   params:[{id:'k',lbl:'k',unit:'eV·nm',val:1.44,min:0.01,max:14.4,step:0.01}],
+   fn:(r,p)=>{const rs=r<1e-4?1e-4:r;return-p.k/rs;},
+   def:{rmin:0.001,rmax:0.6,N:5000,Emin:-20,Emax:-0.5,mstar:1.0,l:0},
+   info:{desc:'Hydrogen-like. k=Ze²/4πε₀. For GaAs donors: k=1.44/12.9, m*=0.067.',form:'−k / r',pinfo:['k≈1.44 eV·nm (H, vacuum)','GaAs donor: k≈0.112 eV·nm'],bounds:'V(0)→−∞, V(∞)=0',analytic:'Eₙ=−(m*/m₀)·13.6/n² eV (hydrogen)',app:'Hydrogen, donors, excitons'}},
+  {id:'woods_saxon',name:'Woods-Saxon',sub:'nuclear',col:'#14b8a6',geo:'2d',
+   params:[{id:'V0',lbl:'V₀',unit:'eV',val:1.0,min:0.1,max:10,step:0.1},{id:'R',lbl:'R',unit:'nm',val:3,min:0.2,max:30,step:0.1},{id:'a',lbl:'a',unit:'nm',val:0.5,min:0.05,max:5,step:0.05}],
+   fn:(r,p)=>-p.V0/(1+Math.exp((r-p.R)/p.a)),
+   def:{rmin:0,rmax:15,N:3000,Emin:-1.2,Emax:0.1,mstar:0.5,l:0},
+   info:{desc:'Nuclear shell-model potential. Flat bottom, smooth surface of diffuseness a.',form:'−V₀/[1+e^{(r−R)/a}]',pinfo:['V₀ — depth','R — radius','a — diffuseness'],bounds:'V(0)≈−V₀, V(R)=−V₀/2, V(∞)=0',analytic:'No closed form.',app:'Nuclear shell model, heavy-ion scattering'}},
+  {id:'morse',name:'Morse',sub:'molecular',col:'#a78bfa',geo:'2d',
+   params:[{id:'De',lbl:'Dₑ',unit:'eV',val:0.5,min:0.05,max:5,step:0.01},{id:'alpha',lbl:'α',unit:'nm⁻¹',val:2,min:0.2,max:20,step:0.1},{id:'re',lbl:'rₑ',unit:'nm',val:2,min:0.1,max:20,step:0.1}],
+   fn:(r,p)=>{const x=1-Math.exp(-p.alpha*(r-p.re));return p.De*(x*x-1);},
+   def:{rmin:0,rmax:10,N:3000,Emin:-0.6,Emax:0.1,mstar:0.5,l:0},
+   info:{desc:'Anharmonic molecular potential. Decreasing level spacing. Finitely many bound states.',form:'Dₑ[(1−e^{−α(r−rₑ)})²−1]',pinfo:['Dₑ — dissociation energy','α — range parameter','rₑ — equilibrium distance'],bounds:'V(rₑ)=−Dₑ, V(∞)=0',analytic:'Eₙ=−Dₑ(1−(n+½)/λ)², λ=√(2m*Dₑ)/(αħ)',app:'Diatomic vibrations, crystal anharmonicity'}},
+  {id:'gaussian',name:'Gaussian',sub:'soft well',col:'#ec4899',geo:'2d',
+   params:[{id:'V0',lbl:'V₀',unit:'eV',val:0.5,min:0.05,max:5,step:0.01},{id:'sig',lbl:'σ',unit:'nm',val:3,min:0.2,max:20,step:0.1}],
+   fn:(r,p)=>-p.V0*Math.exp(-r*r/(2*p.sig*p.sig)),
+   def:{rmin:0,rmax:15,N:3000,Emin:-0.6,Emax:0.1,mstar:0.3,l:0},
+   info:{desc:'Smooth Gaussian well. No discontinuities. No analytical solution.',form:'−V₀ exp(−r²/2σ²)',pinfo:['V₀ — well depth','σ — Gaussian width'],bounds:'V(0)=−V₀, V(∞)=0',analytic:'No exact eigenvalues. Purely numerical.',app:'Nuclear optical model, molecular physics'}},
+];
+
+let curPot=POTS[0];
+const pvals={};
+
+/* ── build UI ── */
+const pgrid=document.getElementById('potGrid');
+POTS.forEach(p=>{
+  const c=document.createElement('div');
+  c.className='pot-card'+(p===curPot?' active':'');
+  c.style.setProperty('--pot-col',p.col);
+  c.innerHTML=`<div class="pc-name">${p.name}</div><div class="pc-sub">${p.sub}</div><div class="pc-dot" style="background:${p.col}"></div>`;
+  c.onclick=()=>selectPot(p);c.dataset.id=p.id;
+  pgrid.appendChild(c);
+});
+
+function selectPot(p){
+  curPot=p;
+  document.querySelectorAll('.pot-card').forEach(c=>c.classList.toggle('active',c.dataset.id===p.id));
+  buildParams(p);buildExplain(p);applyDefaults(p);updateInfoStrip();
+}
+function buildExplain(p){
+  const d=document.getElementById('explainCard'),i=p.info;
+  d.style.borderLeft=`2px solid ${p.col}`;
+  d.innerHTML=`<div class="ex-title" style="color:${p.col}">${p.name} <span style="font-size:9px;color:var(--muted);font-style:italic">${p.sub}</span></div>
+    <div class="ex-desc">${i.desc}</div><div class="ex-formula">${i.form}</div>
+    ${i.pinfo.map(s=>`<div class="ex-row"><b>param</b> ${s}</div>`).join('')}
+    <div class="ex-row"><b>limits</b> ${i.bounds}</div>
+    <div class="ex-analytic"><b>Analytic —</b> ${i.analytic}</div>
+    <div class="ex-app">Applications: ${i.app}</div>`;
+}
+function buildParams(p){
+  const sec=document.getElementById('paramSection');sec.innerHTML='';
+  const box=document.createElement('div');box.className='pg';
+  const tl=document.createElement('div');tl.className='pg-lbl';tl.textContent=p.name+' parameters';
+  box.appendChild(tl);
+  p.params.forEach(pm=>{
+    pvals[pm.id]=pm.val;
+    const row=document.createElement('div');row.className='rr';row.style.gridTemplateColumns='70px 1fr 56px';
+    row.innerHTML=`<span class="rrlbl">${pm.lbl} <span style="font-size:9px;color:var(--muted)">${pm.unit}</span></span>
+      <input type="range" class="fw" id="pp_r_${pm.id}" min="${pm.min}" max="${pm.max}" step="${pm.step}" value="${pm.val}">
+      <input type="number" id="pp_n_${pm.id}" min="${pm.min}" max="${pm.max*5}" step="${pm.step}" value="${pm.val}" style="width:56px">`;
+    box.appendChild(row);
+    setTimeout(()=>{
+      const r=document.getElementById('pp_r_'+pm.id),n=document.getElementById('pp_n_'+pm.id);
+      if(!r||!n)return;
+      r.oninput=()=>{n.value=r.value;pvals[pm.id]=+r.value;updateInfoStrip();};
+      n.oninput=()=>{r.value=n.value;pvals[pm.id]=+n.value;updateInfoStrip();};
+    },0);
+  });
+  sec.appendChild(box);
+}
+function applyDefaults(p){
+  const d=p.def;
+  ['rmin','rmax','N'].forEach(k=>{setVal(k+'_r',d[k]);setVal(k+'_n',d[k]);});
+  setVal('Emin_n',d.Emin);setVal('Emax_n',d.Emax);
+  setVal('mstar_r',d.mstar);setVal('mstar_n',d.mstar);
+  setVal('l_r',d.l);setVal('l_n',d.l);setVal('nr_r',0);setVal('nr_n',0);
+  p.params.forEach(pm=>{pvals[pm.id]=pm.val;});
+}
+function setVal(id,v){const e=document.getElementById(id);if(e)e.value=v;}
+function getVal(id){return+document.getElementById(id).value;}
+
+[['rmin_r','rmin_n'],['rmax_r','rmax_n'],['N_r','N_n'],['mstar_r','mstar_n'],['l_r','l_n'],['nr_r','nr_n'],['B_r','B_n']].forEach(([r,n])=>{
+  const re=document.getElementById(r),ne=document.getElementById(n);
+  if(!re||!ne)return;
+  re.oninput=()=>{ne.value=re.value;updateInfoStrip();};
+  ne.oninput=()=>{re.value=ne.value;updateInfoStrip();};
+});
+document.querySelectorAll('.preset-btn').forEach(b=>{
+  b.onclick=()=>{setVal('mstar_r',b.dataset.v);setVal('mstar_n',b.dataset.v);updateInfoStrip();};
+});
+document.getElementById('magChk').onchange=e=>{
+  document.getElementById('magFields').style.display=e.target.checked?'block':'none';
+};
+document.getElementById('clipZoom').oninput=function(){
+  document.getElementById('clipZoomVal').textContent=this.value+'×';
+  if(window._lastRes) applyVscale(window._lastRes);
+};
+document.getElementById('clipChk').onchange=function(){
+  if(window._lastRes) applyVscale(window._lastRes);
+};
+
+function updateInfoStrip(){
+  if(!curPot)return;
+  const mstar=getVal('mstar_n');
+  document.getElementById('i_pot').textContent=curPot.name;
+  document.getElementById('i_mw').textContent=mstar.toFixed(4);
+  const v0=curPot.fn(0,pvals),vinf=curPot.fn(1e6,pvals);
+  document.getElementById('i_V0').innerHTML=isFinite(v0)?v0.toFixed(4)+' <span class="ic-unit">eV</span>':'−∞';
+  document.getElementById('i_Vinf').innerHTML=vinf.toFixed(4)+' <span class="ic-unit">eV</span>';
+}
+
+/* ══ SOLVER ══ */
+function makeSolver(pot,potParams,mstar,l,geo,addMag,B){
+  const mw=mstar*M0EV,mwkg=mstar*M0KG,hc2=HBARC*HBARC,twoMwHc2=2*mw/hc2;
+  const oc=addMag?(EC*B/mwkg):0;
+  const Vmag_coeff=addMag?(0.125*mw/(CNM*CNM)*oc*oc):0;
+  const Vcent_coeff=geo==='2d'?(l-0.25)*hc2/(2*mw):l*(l+1)*hc2/(2*mw);
+  function bare(r){return pot(r,potParams);}
+  function centf(r){const rs=r<1e-9?1e-9:r;return Vcent_coeff/(rs*rs);}
+  function vmag(r){return Vmag_coeff*r*r;}
+  function veff(r){return bare(r)+centf(r)+vmag(r);}
+  function k2(r,E){return twoMwHc2*(E-veff(r));}
+  function runNumerov(En,rmin,h,N){
+    const h2=h*h,psi=new Float64Array(N+2);
+    psi[0]=0;psi[1]=1;
+    let kn=k2(rmin,En),kn1=k2(rmin+h,En);
+    for(let n=0;n<=N;n++){
+      const kn2=k2(rmin+(n+2)*h,En);
+      psi[n+2]=(2*(1-5*h2/12*kn1)*psi[n+1]-(1+h2/12*kn)*psi[n])/(1+h2/12*kn2);
+      kn=kn1;kn1=kn2;
+    }
+    return psi;
+  }
+  function countNodes(psi,N){let nk=0;for(let i=0;i<N-1&&nk<30;i++)if(psi[i]*psi[i+1]<0)nk++;return nk;}
+  function solve(nr,Emax,Emin,rmin,rmax,N){
+    const h=(rmax-rmin)/N;
+    let ehi=Emax,elo=Emin;
+    for(let it=0;it<200;it++){
+      const En=(ehi+elo)*0.5,psi=runNumerov(En,rmin,h,N);
+      if(countNodes(psi,N)>nr)ehi=En;else elo=En;
+      if(ehi-elo<1e-10)break;
+    }
+    const En=(ehi+elo)*0.5,psi=runNumerov(En,rmin,h,N);
+    let s=0;for(let i=0;i<=N;i++)s+=psi[i]*psi[i];
+    const norm=1/Math.sqrt(s*h);
+    const stride=Math.max(1,Math.floor(N/1800));
+    const pts=[];
+    for(let i=0;i<=N;i+=stride){
+      const r=rmin+i*h;
+      pts.push({r,psi:psi[i]*norm,veff:veff(r),vbare:bare(r),elev:En});
+    }
+    return{En,norm,pts};
+  }
+  return{solve,veff,bare};
+}
+
+/* ══ CHART ══ */
+const chart=new Chart(document.getElementById('cv').getContext('2d'),{
+  type:'line',
+  data:{datasets:[
+    {label:'u(r)=ψ·√r',data:[],borderColor:'#22d3ee',borderWidth:2,backgroundColor:'rgba(34,211,238,0.06)',fill:true,pointRadius:0,tension:0.3,yAxisID:'yW',parsing:{xAxisKey:'r',yAxisKey:'psi'}},
+    {label:'Veff(r)',data:[],borderColor:'#818cf8',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.2,yAxisID:'yV',parsing:{xAxisKey:'r',yAxisKey:'veff'}},
+    {label:'Vbare(r)',data:[],borderColor:'#f59e0b',borderWidth:1,borderDash:[2,4],pointRadius:0,tension:0.2,yAxisID:'yV',parsing:{xAxisKey:'r',yAxisKey:'vbare'}},
+    {label:'E (eigenvalue)',data:[],borderColor:'#4ade80',borderWidth:1.5,borderDash:[8,4],pointRadius:0,tension:0,yAxisID:'yV',parsing:{xAxisKey:'r',yAxisKey:'elev'}}
+  ]},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    animation:{duration:350,easing:'easeOutQuart'},
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{backgroundColor:'#0d1520',borderColor:'#1a2d3f',borderWidth:1,titleColor:'#7090a8',bodyColor:'#c8d8e8',
+        callbacks:{
+          title:it=>`r = ${(+it[0].parsed.x).toFixed(3)} nm`,
+          label:it=>{
+            const lb=['u(r)','Veff','Vbare','E'][it.datasetIndex];
+            const u=it.datasetIndex===0?'':' eV';
+            return ` ${lb} = ${it.parsed.y.toFixed(5)}${u}`;
+          }
+        }
+      }
+    },
+    scales:{
+      x:{type:'linear',title:{display:true,text:'r  (nm)',color:'#4a6070',font:{family:"'JetBrains Mono'",size:11}},
+         grid:{color:'rgba(26,45,63,0.8)'},ticks:{color:'#4a6070',font:{family:"'JetBrains Mono'",size:10}}},
+      yW:{type:'linear',position:'left',
+          title:{display:true,text:'u(r) = R(r)·√r',color:'#22d3ee',font:{family:"'JetBrains Mono'",size:11}},
+          grid:{color:'rgba(26,45,63,0.8)'},ticks:{color:'#22d3ee',font:{family:"'JetBrains Mono'",size:10}}},
+      yV:{type:'linear',position:'right',
+          title:{display:true,text:'V  (eV)',color:'#818cf8',font:{family:"'JetBrains Mono'",size:11}},
+          grid:{drawOnChartArea:false},ticks:{color:'#818cf8',font:{family:"'JetBrains Mono'",size:10}}}
+    }
+  }
+});
+
+function toggleDs(i,btn){
+  chart.data.datasets[i].hidden=!chart.data.datasets[i].hidden;
+  btn.classList.toggle('off',chart.data.datasets[i].hidden);
+  chart.update();
+}
+
+/* ── V-axis scaling fix ──
+   After solving, find the potential range in the "active" wavefunction region
+   and clip the V axis so the well shape is visible alongside the wavefunction.
+*/
+function applyVscale(res){
+  const pts=res.pts, En=res.En;
+  const clip=document.getElementById('clipChk').checked;
+  const zoom=+document.getElementById('clipZoom').value;
+
+  if(!clip){
+    chart.options.scales.yV.min=undefined;
+    chart.options.scales.yV.max=undefined;
+    chart.update('none');return;
+  }
+
+  // Find maximum |psi|
+  let maxPsi=0;
+  pts.forEach(p=>{if(Math.abs(p.psi)>maxPsi)maxPsi=Math.abs(p.psi);});
+  const thr=0.02*maxPsi;   // 2% threshold
+
+  // Collect Veff values only in the active wavefunction region
+  const vActive=pts.filter(p=>Math.abs(p.psi)>thr).map(p=>p.veff);
+  if(vActive.length===0){chart.update('none');return;}
+
+  let vMin=Math.min(...vActive), vMax=Math.max(...vActive);
+  // Ensure eigenvalue is always visible
+  vMin=Math.min(vMin, En);
+  vMax=Math.max(vMax, En);
+  const span=Math.max(Math.abs(vMax-vMin), Math.abs(En)*0.1, 0.01);
+
+  // Apply zoom: user can loosen the clip to see more of the potential
+  chart.options.scales.yV.min = vMin - span*(zoom-1)*0.15;
+  chart.options.scales.yV.max = vMax + span*(zoom-1)*0.15 + span*0.1;
+  chart.update('none');
+}
+
+/* ══ STATUS ══ */
+function setStatus(type,msg,t=''){
+  document.getElementById('sdot').className='sdot '+type;
+  document.getElementById('smsg').textContent=msg;
+  document.getElementById('stime').textContent=t;
+}
+
+/* ══ COMPUTE ══ */
+document.getElementById('run').onclick=()=>{
+  const btn=document.getElementById('run');
+  btn.disabled=true;btn.textContent='⏳ Computing…';
+  setStatus('spin','Running Numerov bisection…');
+  setTimeout(()=>{
+    try{
+      const nr=getVal('nr_n'),l=getVal('l_n'),mstar=getVal('mstar_n');
+      const rmin=getVal('rmin_n'),rmax=getVal('rmax_n'),N=Math.round(getVal('N_n'));
+      const Emax=getVal('Emax_n'),Emin=getVal('Emin_n');
+      const addMag=document.getElementById('magChk').checked,B=getVal('B_n');
+      const t0=performance.now();
+      const solver=makeSolver(curPot.fn,pvals,mstar,l,curPot.geo,addMag,B);
+      const res=solver.solve(nr,Emax,Emin,rmin,rmax,N);
+      const elapsed=((performance.now()-t0)/1000).toFixed(2);
+      window._lastRes=res;
+
+      chart.data.datasets[0].borderColor=curPot.col;
+      chart.data.datasets[0].backgroundColor=curPot.col+'18';
+      chart.data.datasets.forEach(ds=>ds.data=res.pts);
+      chart.update();
+      applyVscale(res);
+
+      document.getElementById('i_E').innerHTML=res.En.toFixed(7)+' <span class="ic-unit">eV</span>';
+      updateInfoStrip();
+      const pstr=curPot.params.map(pm=>pm.lbl+'='+pvals[pm.id]).join('  ');
+      setStatus('ok',`${curPot.name}  |  nᵣ=${nr}  mₗ=${l}  m*=${mstar}  |  ${pstr}  →  E=${res.En.toFixed(6)} eV`,elapsed+'s');
+    }catch(e){setStatus('err','Error: '+e.message);}
+    btn.disabled=false;btn.textContent='▶ Solve';
+  },20);
+};
+
+/* ══ BENCHMARK CHART ══ */
+function buildErr(){
+  window._errBuilt=true;
+  const K=0.004,mstar=0.067,mw=mstar*M0EV,hc2=HBARC*HBARC,twomwhc2=2*mw/hc2;
+  const omega=HBARC*Math.sqrt(K/mw);
+  const E_exact=omega; // 2D HO ground state m_l=0: E=ħω
+
+  function veff2(r){const rs=r<1e-9?1e-9:r;return 0.5*K*rs*rs+(-0.25)*hc2/(2*mw*rs*rs);}
+  function k2ho(r,E){return twomwhc2*(E-veff2(r));}
+
+  function numerovSolve(Npt){
+    const rmax=40,h=rmax/Npt,h2=h*h;
+    let u0=0,u1=1,k0=k2ho(0,E_exact),k1=k2ho(h,E_exact);
+    for(let n=0;n<Npt-1;n++){
+      const k2_=k2ho((n+2)*h,E_exact);
+      const u2=(2*(1-5*h2/12*k1)*u1-(1+h2/12*k0)*u0)/(1+h2/12*k2_);
+      u0=u1;u1=u2;k0=k1;k1=k2_;
+    }
+    return Math.abs(u1);
+  }
+  function rk4Solve(Npt){
+    const rmax=40,h=rmax/Npt;
+    let u=0,v=1;
+    for(let n=0;n<Npt;n++){
+      const r=n*h,f=(rr,uu)=>-k2ho(rr,E_exact)*uu;
+      const k1u=h*v,k1v=h*f(r,u);
+      const k2u=h*(v+k1v/2),k2v=h*f(r+h/2,u+k1u/2);
+      const k3u=h*(v+k2v/2),k3v=h*f(r+h/2,u+k2u/2);
+      const k4u=h*(v+k3v),k4v=h*f(r+h,u+k3u);
+      u+=(k1u+2*k2u+2*k3u+k4u)/6;v+=(k1v+2*k2v+2*k3v+k4v)/6;
+    }
+    return Math.abs(u);
+  }
+
+  const Ns=[500,1000,2000,4000,8000,16000];
+  const nE=[],rE=[];
+  Ns.forEach(N=>{nE.push(numerovSolve(N));rE.push(rk4Solve(N));});
+
+  const cv=document.getElementById('errcv');if(!cv)return;
+  new Chart(cv.getContext('2d'),{
+    type:'line',
+    data:{labels:Ns.map(n=>'N='+n),datasets:[
+      {label:'Numerov |u(rmax)|',data:nE,borderColor:'#22d3ee',pointRadius:5,pointBackgroundColor:'#22d3ee',tension:0.3,fill:false},
+      {label:'RK4 |u(rmax)|',data:rE,borderColor:'#f59e0b',pointRadius:5,pointBackgroundColor:'#f59e0b',tension:0.3,fill:false,borderDash:[6,3]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{ticks:{color:'#7090a8',font:{size:11}},grid:{color:'rgba(26,45,63,0.8)'}},
+        y:{type:'logarithmic',ticks:{color:'#7090a8',font:{size:11},callback:v=>v.toExponential(0)},
+           grid:{color:'rgba(26,45,63,0.8)'},
+           title:{display:true,text:'|u(rmax)| residual → 0',color:'#7090a8',font:{size:11}}}
+      },
+      plugins:{
+        legend:{labels:{color:'#c8d8e8',font:{size:12},boxWidth:20}},
+        tooltip:{backgroundColor:'#0d1520',borderColor:'#1a2d3f',borderWidth:1,titleColor:'#7090a8',bodyColor:'#c8d8e8'}
+      }
+    }
+  });
+
+  const fmt=v=>v<1e-14?'<1e-14':v.toExponential(2);
+  const tbl=document.getElementById('errTbl');if(!tbl)return;
+  tbl.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px">'
+    +'<tr style="color:var(--muted);border-bottom:1px solid var(--b1)"><td style="padding:4px 8px">N</td><td style="padding:4px 8px">h (nm)</td><td style="padding:4px 8px;color:#22d3ee">Numerov residual</td><td style="padding:4px 8px;color:#f59e0b">RK4 residual</td><td style="padding:4px 8px;color:var(--ok)">Numerov advantage</td></tr>'
+    +Ns.map((N,i)=>{
+      const sp=rE[i]>0?(rE[i]/nE[i]).toFixed(0)+'×':'—';
+      return `<tr style="border-bottom:1px solid var(--b1)">
+        <td style="padding:4px 8px;color:var(--lbl)">${N}</td>
+        <td style="padding:4px 8px;color:var(--lbl)">${(40/N).toFixed(4)}</td>
+        <td style="padding:4px 8px;font-family:var(--fn);color:#22d3ee">${fmt(nE[i])}</td>
+        <td style="padding:4px 8px;font-family:var(--fn);color:#f59e0b">${fmt(rE[i])}</td>
+        <td style="padding:4px 8px;font-family:var(--fn);color:var(--ok)">${sp}</td></tr>`;
+    }).join('')+'</table>';
+}
+
+/* ══ INIT ══ */
+selectPot(POTS[0]);
+document.getElementById('run').click();
+</script>
+</body>
+</html> 

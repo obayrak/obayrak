@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QBS — Quantum Bound State Solver</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060c18;--surface:#0d1625;--s2:#14213d;--border:#1e3050;--cyan:#00e5ff;--cdim:#0099aa;--amber:#ffb340;--green:#39ff14;--text:#c8d8f0;--tdim:#6080a0;--err:#ff4566;--violet:#cc88ff;--mono:'IBM Plex Mono',monospace;--ui:'Lexend',sans-serif}
+body[data-theme="day"]{--bg:#eef2f8;--surface:#ffffff;--s2:#e2eaf6;--border:#c4d2e6;--cyan:#0089ab;--cdim:#046e83;--amber:#b06a06;--green:#1c8a12;--text:#182233;--tdim:#5c6f89;--err:#c22846;--violet:#7c3fae}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:16px;min-height:100vh;line-height:1.6}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:16px}
+.logo{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--cyan);letter-spacing:3px}
+.logo span{color:var(--amber)}
+.subtitle{font-size:13px;color:var(--tdim);font-family:var(--mono)}
+.tab-nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px}
+.tab-btn{padding:10px 20px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--tdim);font-family:var(--mono);font-size:13px;letter-spacing:1.5px;cursor:pointer;text-transform:uppercase;transition:.2s}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tab-btn:hover{color:var(--text)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* SOLVER LAYOUT */
+.solver-layout{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 88px);overflow:hidden}
+.ctrl{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:14px 16px}
+.out{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+
+/* Unit toggle */
+.utog{display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px;margin-bottom:14px}
+.ubtn{flex:1;padding:5px 8px;background:transparent;border:none;border-radius:3px;color:var(--tdim);font-family:var(--mono);font-size:12px;cursor:pointer;transition:.2s;text-align:center}
+.ubtn.active{background:var(--s2);color:var(--cyan);border:1px solid var(--border)}
+
+/* Theme toggle */
+.theme-tog{display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px;margin-left:auto}
+.theme-btn{padding:6px 12px;background:transparent;border:none;border-radius:4px;color:var(--tdim);font-size:16px;line-height:1;cursor:pointer;transition:.2s}
+.theme-btn.active{background:var(--s2);color:var(--cyan);border:1px solid var(--border)}
+.theme-btn:hover{color:var(--text)}
+
+/* Section */
+.sh{font-family:var(--mono);font-size:11px;color:var(--cdim);text-transform:uppercase;letter-spacing:2px;padding:6px 0 5px;border-bottom:1px solid var(--border);margin:12px 0 9px}
+.sh:first-of-type{margin-top:0}
+
+/* Inputs */
+.ir{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.ir label{font-family:var(--mono);font-size:13px;color:var(--tdim);min-width:62px;flex-shrink:0}
+.ir input,.ir select{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:14px;padding:4px 7px;outline:none;transition:.2s}
+.ir input:focus,.ir select:focus{border-color:var(--cyan)}
+.ir .ut{font-family:var(--mono);font-size:12px;color:var(--tdim);min-width:38px;text-align:right}
+.ig2{grid-template-columns:1fr !important}
+.ig2 .ir{margin-bottom:0}
+.derived{font-family:var(--mono);font-size:13px;color:var(--amber);padding:4px 8px;background:rgba(255,179,64,.08);border:1px solid rgba(255,179,64,.2);border-radius:3px;margin-bottom:7px}
+
+/* Pot description badge */
+.pot-desc{font-family:var(--mono);font-size:12px;color:var(--violet);padding:5px 9px;background:rgba(204,136,255,.07);border:1px solid rgba(204,136,255,.2);border-radius:3px;margin-bottom:8px;line-height:1.6;word-break:break-all}
+
+/* Method */
+.mrow{display:flex;gap:6px;margin-bottom:7px}
+.mbtn{flex:1;padding:7px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--tdim);font-family:var(--mono);font-size:12px;cursor:pointer;transition:.2s;text-align:center}
+.mbtn.active{background:rgba(0,229,255,.07);border-color:var(--cyan);color:var(--cyan)}
+
+/* Presets */
+.presets{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.pbtn{padding:3px 9px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--tdim);font-family:var(--mono);font-size:12px;cursor:pointer;transition:.2s}
+.pbtn:hover{border-color:var(--amber);color:var(--amber)}
+.pbtn.pot-preset{border-color:rgba(204,136,255,.35);color:var(--violet)}
+.pbtn.pot-preset:hover{border-color:var(--violet);color:#fff}
+
+/* Run */
+.run-btn{width:100%;padding:12px;margin-top:14px;background:linear-gradient(135deg,rgba(0,229,255,.12),rgba(0,229,255,.06));border:1px solid var(--cyan);border-radius:5px;color:var(--cyan);font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:3px;cursor:pointer;transition:.2s;text-transform:uppercase}
+.run-btn:hover{background:linear-gradient(135deg,rgba(0,229,255,.22),rgba(0,229,255,.12));box-shadow:0 0 18px rgba(0,229,255,.18)}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Results */
+.rbox{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px}
+.rbox h3{font-family:var(--mono);font-size:11px;color:var(--cdim);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:7px}
+.ri{display:flex;flex-direction:column;gap:1px}
+.ri .rl{font-family:var(--mono);font-size:11px;color:var(--tdim)}
+.ri .rv{font-family:var(--mono);font-size:15px;color:var(--amber);font-weight:500}
+.ri .rv.ev{color:var(--cyan);font-size:17px}
+
+/* Charts */
+.cbox{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px}
+.cbox h3{font-family:var(--mono);font-size:11px;color:var(--tdim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+
+/* Status */
+.status{font-family:var(--mono);font-size:13px;color:var(--tdim);min-height:22px;padding:2px 0}
+.status.running{color:var(--amber)}
+.status.ok{color:var(--green)}
+.status.err{color:var(--err)}
+
+/* CONTENT PAGES */
+.page{max-width:860px;margin:0 auto;padding:28px 24px}
+.page h1{font-family:var(--mono);font-size:20px;color:var(--cyan);margin-bottom:6px;letter-spacing:1px}
+.page .lead{color:var(--tdim);margin-bottom:28px;font-size:15px}
+.page h2{font-family:var(--mono);font-size:14px;color:var(--amber);text-transform:uppercase;letter-spacing:2px;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.page h3{font-size:15px;color:var(--text);font-weight:600;margin:16px 0 7px}
+.page p{color:var(--text);margin-bottom:10px;line-height:1.75;font-size:15px}
+.page li{color:var(--text);margin-bottom:6px;font-size:15px;margin-left:20px}
+.mblock{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--cyan);border-radius:4px;padding:12px 18px;margin:12px 0;overflow-x:auto;text-align:center}
+.ptbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+.ptbl th{background:var(--s2);color:var(--cdim);font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:1px;padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.ptbl td{padding:7px 10px;border-bottom:1px solid rgba(30,48,80,.5);font-family:var(--mono);font-size:13px}
+.ibox{background:rgba(0,229,255,.04);border:1px solid rgba(0,229,255,.18);border-radius:5px;padding:12px 14px;margin:12px 0;font-size:15px}
+.ibox.amb{background:rgba(255,179,64,.04);border-color:rgba(255,179,64,.18)}
+.ibox.red{background:rgba(255,69,102,.04);border-color:rgba(255,69,102,.18)}
+.ibox.vio{background:rgba(204,136,255,.04);border-color:rgba(204,136,255,.18)}
+.ibox strong{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px;color:var(--cyan)}
+.ibox.amb strong{color:var(--amber)}
+.ibox.red strong{color:var(--err)}
+.ibox.vio strong{color:var(--violet)}
+.code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px 14px;font-family:var(--mono);font-size:13px;overflow-x:auto;margin:8px 0;line-height:1.85;color:var(--text)}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+select{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:14px;padding:4px 7px;outline:none;cursor:pointer}
+@media(max-width:900px){.solver-layout{grid-template-columns:1fr;height:auto}.ctrl{border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Q<span>B</span>S</div>
+  <div>
+    <div style="font-size:15px;font-weight:500;color:var(--text)">Quantum Bound State Solver</div>
+    <div class="subtitle"> Nuclear · Atomic · Numerov · Finite Difference </div>
+  </div>
+  <div class="theme-tog">
+    <button id="theme-night" class="theme-btn active" onclick="setTheme('night')" title="Night mode" aria-label="Night mode">🌙</button>
+    <button id="theme-day" class="theme-btn" onclick="setTheme('day')" title="Day mode" aria-label="Day mode">⭐</button>
+  </div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('solver')">⚛ Solver</button>
+  <button class="tab-btn" onclick="showTab('physics')">∂ Physics</button>
+  <button class="tab-btn" onclick="showTab('manual')">⊞ Manual</button>
+</nav>
+
+<!-- ═══════════════ SOLVER TAB ═══════════════ -->
+<div id="tab-solver" class="tab-panel active">
+<div class="solver-layout">
+
+<!-- LEFT: CONTROLS -->
+<div class="ctrl">
+
+  <!-- Unit toggle -->
+  <div class="utog">
+    <button class="ubtn active" id="ubtn-nuc" onclick="setUnits('nuclear')">☢ Nuclear (MeV, fm)</button>
+    <button class="ubtn" id="ubtn-atm" onclick="setUnits('atomic')">⚛ Atomic (eV, nm)</button>
+  </div>
+
+  <!-- Presets: Nuclear -->
+  <div class="sh" style="margin-top:0">Nuclear Presets</div>
+  <div class="presets">
+    <button class="pbtn" onclick="loadPreset('p3H')">p + ³H</button>
+    <button class="pbtn" onclick="loadPreset('n16O')">n + ¹⁶O</button>
+    <button class="pbtn" onclick="loadPreset('p4He')">p + ⁴He</button>
+    <button class="pbtn" onclick="loadPreset('nuc_ho')">HO nuclear</button>
+    <button class="pbtn" onclick="loadPreset('nuc_gaussian')">Gaussian nuc.</button>
+  </div>
+
+  <!-- Presets: Atomic -->
+  <div class="sh">Atomic / Molecular Presets</div>
+  <div class="presets">
+    <button class="pbtn" onclick="loadPreset('hydrogen')">H atom</button>
+    <button class="pbtn" onclick="loadPreset('quantum_dot')">QDot 1D</button>
+    <button class="pbtn pot-preset" onclick="loadPreset('morse_H2')">Morse H₂</button>
+    <button class="pbtn pot-preset" onclick="loadPreset('poschl_teller')">Pöschl-Teller</button>
+    <button class="pbtn pot-preset" onclick="loadPreset('yukawa_ex')">Yukawa</button>
+  </div>
+
+  <!-- Particle Masses -->
+  <div class="sh">Particle Masses</div>
+  <div class="ig2">
+    <div class="ir"><label>m₁</label><input type="number" id="m1" value="1.007276" step="0.000001"><span class="ut">u</span></div>
+    <div class="ir"><label>m₂</label><input type="number" id="m2" value="3.016049" step="0.000001"><span class="ut">u</span></div>
+  </div>
+  <div class="derived" id="mu-display">μ = 0.75398 u &nbsp;|&nbsp; μc² = 702.3 MeV/c²</div>
+
+  <!-- Nuclear Geometry -->
+  <div class="sh">Nuclear Geometry &amp; Charge</div>
+  <div class="ig2">
+    <div class="ir"><label>A_P</label><input type="number" id="AP" value="1" min="1" step="1"></div>
+    <div class="ir"><label>A_T</label><input type="number" id="AT" value="3" min="1" step="1"></div>
+  </div>
+  <div class="ig2">
+    <div class="ir"><label>Z_P</label><input type="number" id="ZP" value="1" min="0" step="1"></div>
+    <div class="ir"><label>Z_T</label><input type="number" id="ZT" value="1" min="0" step="1"></div>
+  </div>
+
+  <!-- Quantum Numbers -->
+  <div class="sh">Quantum Numbers</div>
+  <div class="ig2">
+    <div class="ir"><label>nᵣ</label><input type="number" id="nr" value="0" min="0" step="1"></div>
+    <div class="ir"><label>l</label><input type="number" id="lq" value="1" min="0" step="1"></div>
+  </div>
+  <div class="ir"><label>s (spin)</label><input type="number" id="sq" value="0.5" step="0.5"><span class="ut" id="so-help">j = l+s</span></div>
+
+  <!-- Nuclear Potential selector + parameters -->
+  <div class="sh">Nuclear Potential</div>
+
+  <div class="ir" style="margin-bottom:8px">
+    <label>Form</label>
+    <select id="potTypeSelect" onchange="setPotType(this.value)">
+      <option value="woods-saxon">Woods-Saxon</option>
+      <option value="square-well">Square Well</option>
+      <option value="harmonic">Harmonic Oscillator</option>
+      <option value="morse">Morse</option>
+      <option value="gaussian">Gaussian</option>
+      <option value="yukawa">Yukawa</option>
+      <option value="poschl-teller">Pöschl-Teller</option>
+    </select>
+  </div>
+
+  <div class="pot-desc" id="pot-desc">V(r) = −V₀/(1+exp((r−R)/a)),  R=rᵥ·CC</div>
+
+  <div class="ig2">
+    <div class="ir"><label id="lbl-V0">V₀ (depth)</label><input type="number" id="V0val" value="63"><span class="ut" id="ut-V0">MeV</span></div>
+    <div class="ir"><label id="lbl-rv">rᵥ (R=rᵥ·CC)</label><input type="number" id="rv" value="0.96" step="0.01"><span class="ut" id="ut-rv">fm</span></div>
+    <div class="ir"><label id="lbl-a">a (diffuse)</label><input type="number" id="aval" value="0.66" step="0.01"><span class="ut" id="ut-a">fm</span></div>
+  </div>
+
+  <div class="sh">Coulomb Potential</div>
+  <div class="ir"><label>rC</label><input type="number" id="rc" value="1.2" step="0.01"><span class="ut" id="ut-rc">fm</span></div>
+
+  <div class="sh">Spin-Orbit Potential</div>
+  <div class="ig2">
+    <div class="ir"><label>V_so</label><input type="number" id="Vso" value="10" step="0.1"><span class="ut" id="ut-Vso">MeV</span></div>
+    <div class="ir"><label>r_so</label><input type="number" id="rso" value="1.1" step="0.01"><span class="ut" id="ut-rso">fm</span></div>
+    <div class="ir"><label>a_so</label><input type="number" id="aso" value="0.6" step="0.01"><span class="ut" id="ut-aso">fm</span></div>
+  </div>
+
+  <!-- Energy Search Range -->
+  <div class="sh">Energy Search Range</div>
+  <div class="ig2">
+    <div class="ir"><label>E_min</label><input type="number" id="emin" value="-200"><span class="ut" id="ut-emin">MeV</span></div>
+    <div class="ir"><label>E_max</label><input type="number" id="emax" value="20"><span class="ut" id="ut-emax">MeV</span></div>
+  </div>
+  <div class="ibox red" style="padding:6px 10px;font-size:13px;margin:4px 0 0">
+    <strong>Multi-param search (optional)</strong>
+    Set Vmin≠Vmax to also search V₀, similarly for rᵥ, a.
+  </div>
+  <div class="ig2" style="margin-top:8px">
+    <div class="ir"><label>V₀ min</label><input type="number" id="Vmin" value="63"><span class="ut" id="ut-Vmin">MeV</span></div>
+    <div class="ir"><label>V₀ max</label><input type="number" id="Vmax2" value="63"><span class="ut" id="ut-Vmax">MeV</span></div>
+  </div>
+  <div class="ig2">
+    <div class="ir"><label>rᵥ min</label><input type="number" id="rvmin" value="0.96" step="0.01"><span class="ut" id="ut-rvmin">fm</span></div>
+    <div class="ir"><label>rᵥ max</label><input type="number" id="rvmax" value="0.96" step="0.01"><span class="ut" id="ut-rvmax">fm</span></div>
+  </div>
+  <div class="ig2">
+    <div class="ir"><label>a min</label><input type="number" id="amin2" value="0.66" step="0.01"><span class="ut" id="ut-amin">fm</span></div>
+    <div class="ir"><label>a max</label><input type="number" id="amax2" value="0.66" step="0.01"><span class="ut" id="ut-amax">fm</span></div>
+  </div>
+
+  <!-- Method -->
+  <div class="sh">Numerical Method</div>
+  <div class="mrow">
+    <button class="mbtn active" id="mbtn-numerov" onclick="setMethod('numerov')">Numerov (4th order)</button>
+    <button class="mbtn" id="mbtn-fd" onclick="setMethod('fd')">Finite Diff (2nd order)</button>
+  </div>
+
+  <!-- Grid -->
+  <div class="sh">Integration Grid</div>
+  <div class="ig2">
+    <div class="ir"><label>r_max</label><input type="number" id="rmax" value="20" step="1"><span class="ut" id="ut-rmax">fm</span></div>
+    <div class="ir"><label>step h</label><input type="number" id="hstep" value="0.005" step="0.001"><span class="ut" id="ut-h">fm</span></div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runSolver()">▶ &nbsp;SOLVE</button>
+</div><!-- end ctrl -->
+
+<!-- RIGHT: OUTPUT -->
+<div class="out">
+  <div class="status" id="status">Ready. Set parameters and press SOLVE.</div>
+
+  <div class="rbox" id="results-box" style="display:none">
+    <h3>Results</h3>
+    <div class="rgrid" id="results-grid"></div>
+  </div>
+
+  <div class="cbox">
+    <h3>Effective Potential Components</h3>
+    <canvas id="potChart" height="80"></canvas>
+  </div>
+
+  <div class="cbox">
+    <h3>Normalized Radial Wave Function u(r)</h3>
+    <canvas id="psiChart" height="50"></canvas>
+  </div>
+</div>
+
+</div>
+</div><!-- end solver tab -->
+
+<!-- ═══════════════ PHYSICS TAB ═══════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<div id="tab-physics" class="tab-panel">
+<div class="page" id="physics-content">
+<h1>Physical Background</h1>
+<p class="lead">The bound state problem, potentials, and numerical methods implemented in this solver.</p>
+
+<h2>1. Radial Schrödinger Equation</h2>
+<p>For a central potential V(r), the full wavefunction separates as ψ(r,θ,φ) = R(r)Y<sub>l</sub><sup>m</sup>(θ,φ). Substituting the reduced radial function u(r) = r R(r) gives the 1D equation:</p>
+<div class="mblock">$$-\frac{\hbar^2}{2\mu}\frac{d^2 u}{dr^2} + V_{\rm eff}(r)\, u(r) = E\, u(r)$$</div>
+<p>Boundary conditions: u(0) = 0 (regularity at origin), u(r) → 0 as r → ∞ (bound state). This can be rewritten as:</p>
+<div class="mblock">$$\frac{d^2 u}{dr^2} = -k^2(r)\, u(r), \qquad k^2(r) = \frac{2\mu}{\hbar^2}\bigl[E - V_{\rm eff}(r)\bigr]$$</div>
+
+<h2>2. Nuclear Potential Forms</h2>
+<p>Seven nuclear potential forms are available. All share the parameters V₀ (depth), rᵥ (radius parameter, used as R = rᵥ·CC where CC = A<sub>T</sub><sup>1/3</sup> + A<sub>P</sub><sup>1/3</sup>), and a (shape/range parameter).</p>
+
+<h3>2a. Woods-Saxon</h3>
+<p>A smoothed square well with diffuse surface, the standard nuclear optical model potential:</p>
+<div class="mblock">$$V_{\rm WS}(r) = -\frac{V_0}{1 + e^{(r-R)/a}}, \quad R = r_v \cdot \mathrm{CC}$$</div>
+
+<h3>2b. Square Well (Finite)</h3>
+<p>A sharp-edged potential well. Exactly solvable analytically (spherical Bessel functions), useful for benchmarking:</p>
+<div class="mblock">$$V_{\rm SW}(r) = \begin{cases} -V_0 & r \le R \\ 0 & r > R \end{cases}$$</div>
+
+<h3>2c. Harmonic Oscillator</h3>
+<p>The nuclear shell model potential. Here V₀ is the depth at the origin, and R = rᵥ·CC is the radius where the potential crosses zero:</p>
+<div class="mblock">$$V_{\rm HO}(r) = V_0\!\left(\frac{r^2}{R^2} - 1\right)$$</div>
+<p>This corresponds to ½μω²r² − V₀ with ω² = 2V₀/(μR²).</p>
+
+<h3>2d. Morse Potential</h3>
+<p>Models diatomic molecule vibrations. V₀ = dissociation energy D<sub>e</sub>, R = r<sub>e</sub>·CC is the equilibrium distance, and a = 1/α is the inverse range parameter:</p>
+<div class="mblock">$$V_{\rm Morse}(r) = V_0\!\left[e^{-2(r-R)/a} - 2\,e^{-(r-R)/a}\right]$$</div>
+<p>The minimum value is −V₀ at r = R. Analytically solvable: energies are E<sub>n</sub> = −V₀ + ℏω(n+½) − [ℏω(n+½)]²/(4V₀).</p>
+
+<h3>2e. Gaussian Potential</h3>
+<p>A peaked well centered at R = rᵥ·CC with width a. Often used as a two-body nuclear force model:</p>
+<div class="mblock">$$V_{\rm G}(r) = -V_0\, e^{-(r-R)^2/a^2}$$</div>
+<p>Set rᵥ = 0 (so R = 0) for a well centered at the origin, which is the most common nuclear use.</p>
+
+<h3>2f. Yukawa Potential</h3>
+<p>The original nuclear force potential from Yukawa's meson exchange theory. Range parameter a = ℏ/(m<sub>π</sub>c) ≈ 1.4 fm:</p>
+<div class="mblock">$$V_{\rm Y}(r) = -V_0\,\frac{a\,e^{-r/a}}{r}$$</div>
+<p>Note: diverges as r → 0. Best used with ℓ ≥ 1 (centrifugal barrier regularizes the singularity) or with short-range repulsion. A core cutoff of r = 0.05a is applied internally.</p>
+
+<h3>2g. Pöschl-Teller Potential</h3>
+<p>An exactly solvable potential with a symmetric well centered at R. Bound state energies are known analytically:</p>
+<div class="mblock">$$V_{\rm PT}(r) = -\frac{V_0}{\cosh^2\!\left(\dfrac{r-R}{a}\right)}$$</div>
+<p>For a well centered at r = 0 (set rᵥ = 0), the n-th bound state energy is E<sub>n</sub> = −ℏ²/(2μa²)·(λ−n)² where λ = ½(−1 + √(1 + 8μa²V₀/ℏ²)).</p>
+
+<h2>3. Effective Potential (full)</h2>
+<div class="mblock">$$V_{\rm eff}(r) = V_{\rm nuc}(r) + V_{\rm C}(r) + V_\ell(r) + V_{\rm SO}(r)$$</div>
+
+<h3>3a. Coulomb Potential (Uniformly Charged Sphere)</h3>
+<div class="mblock">$$V_{\rm C}(r) = \begin{cases} \dfrac{Z_P Z_T e^2}{2R_C}\left(3 - \dfrac{r^2}{R_C^2}\right) & r \le R_C \\[8pt] \dfrac{Z_P Z_T e^2}{r} & r > R_C \end{cases}$$</div>
+
+<h3>3b. Centrifugal Barrier</h3>
+<div class="mblock">$$V_\ell(r) = \frac{\hbar^2}{2\mu}\frac{\ell(\ell+1)}{r^2}$$</div>
+
+<h3>3c. Spin-Orbit Potential (Thomas term)</h3>
+<div class="mblock">$$V_{\rm SO}(r) = -\left(\frac{\hbar}{m_\pi c}\right)^2 \langle \ell \cdot s \rangle \cdot V_{\rm so} \cdot \frac{e^{(r-R)/a_{\rm so}}}{(1+e^{(r-R)/a_{\rm so}})^2 \cdot a_{\rm so} \cdot r}$$</div>
+
+<h2>4. Numerov Method (4th-order)</h2>
+<div class="mblock">$$u_{n+1} = \frac{2u_n\!\left(1 - \tfrac{5}{12}h^2 k_n^2\right) - u_{n-1}\!\left(1 + \tfrac{1}{12}h^2 k_{n-1}^2\right)}{1 + \tfrac{1}{12}h^2 k_{n+1}^2}$$</div>
+
+<h2>5. Finite Difference Method (2nd-order)</h2>
+<div class="mblock">$$u_{n+1} = 2u_n - u_{n-1} - h^2 k_n^2\, u_n$$</div>
+
+<h2>6. Energy Search by Node Counting</h2>
+<p>Binary search over E (and optionally V₀, rᵥ, a). The n<sub>r</sub>-th eigenstate has exactly n<sub>r</sub> nodes. If count > n<sub>r</sub>: E too high → decrease E_max. If count ≤ n<sub>r</sub>: E too low → increase E_min.</p>
+
+<h2>7. Unit Systems</h2>
+<table class="ptbl">
+  <tr><th>Quantity</th><th>Nuclear (MeV, fm)</th><th>Atomic (eV, nm)</th><th>Relation</th></tr>
+  <tr><td>Energy</td><td>MeV</td><td>eV</td><td>1 MeV = 10⁶ eV</td></tr>
+  <tr><td>Length</td><td>fm</td><td>nm</td><td>1 fm = 10⁻⁶ nm</td></tr>
+  <tr><td>ℏc</td><td>197.327 MeV·fm</td><td>197.327 eV·nm</td><td><em>same number!</em></td></tr>
+  <tr><td>k_e = e²/4πε₀</td><td>1.43997 MeV·fm</td><td>1.43997 eV·nm</td><td><em>same number!</em></td></tr>
+  <tr><td>Mass (1 u)</td><td>931.494 MeV/c²</td><td>931.494×10⁶ eV/c²</td><td>1 u = 1.6605×10⁻²⁷ kg</td></tr>
+  <tr><td>CONLS = (ℏ/m_πc)²</td><td>≈ 2.0 fm²</td><td>≈ 2×10⁻¹² nm²</td><td>pion Compton λ²</td></tr>
+</table>
+</div>
+</div>
+
+<!-- ═══════════════ MANUAL TAB ═══════════════ -->
+<div id="tab-manual" class="tab-panel">
+<div class="page">
+<h1>User Manual</h1>
+<p class="lead">Step-by-step guide for finding nuclear and atomic bound states.</p>
+
+<h2>Quick Start: Find the 1p₃/₂ State of p+³H</h2>
+<div class="ibox">
+  <strong>Step by step</strong>
+  1. Click preset <em>p+³H</em> — loads standard nuclear parameters (Woods-Saxon).<br>
+  2. Verify: m₁=1.007276 u, m₂=3.016049 u, AP=1, AT=3, ZP=1, ZT=1.<br>
+  3. Quantum numbers: nᵣ=0, ℓ=1, s=0.5 → j = 3/2 state.<br>
+  4. Energy search: E_min=−200 MeV, E_max=+20 MeV.<br>
+  5. Press <strong>SOLVE</strong>. The energy eigenvalue appears in amber.
+</div>
+
+<h2>Potential Form Reference</h2>
+<table class="ptbl">
+  <tr><th>Form</th><th>Formula</th><th>V₀ meaning</th><th>rᵥ meaning</th><th>a meaning</th><th>Best for</th></tr>
+  <tr><td>Woods-Saxon</td><td>−V₀/(1+exp((r−R)/a))</td><td>Depth</td><td>R=rᵥ·CC</td><td>Diffuseness</td><td>Nuclear OMP</td></tr>
+  <tr><td>Square Well</td><td>−V₀ for r≤R, else 0</td><td>Depth</td><td>R=rᵥ·CC</td><td>—</td><td>Benchmarking, simple models</td></tr>
+  <tr><td>Harmonic Osc.</td><td>V₀(r²/R²−1)</td><td>Depth at origin</td><td>R=rᵥ·CC (V=0)</td><td>—</td><td>Shell model, QDs</td></tr>
+  <tr><td>Morse</td><td>V₀(e^{−2(r−R)/a}−2e^{−(r−R)/a})</td><td>Dissoc. energy Dₑ</td><td>Equil. rₑ=rᵥ·CC</td><td>Range 1/α</td><td>Diatomic molecules</td></tr>
+  <tr><td>Gaussian</td><td>−V₀·exp(−(r−R)²/a²)</td><td>Depth</td><td>Center R=rᵥ·CC</td><td>Width σ</td><td>Nuclear two-body</td></tr>
+  <tr><td>Yukawa</td><td>−V₀·a·exp(−r/a)/r</td><td>Strength</td><td>—</td><td>Range (fm or nm)</td><td>Meson exchange, screened</td></tr>
+  <tr><td>Pöschl-Teller</td><td>−V₀/cosh²((r−R)/a)</td><td>Depth</td><td>Center R=rᵥ·CC</td><td>Width</td><td>Analytic tests, QM problems</td></tr>
+</table>
+
+<h2>Morse Potential — H₂ Molecule Example</h2>
+<div class="ibox vio">
+  <strong>Morse H₂ preset</strong>
+  1. Select <em>Atomic (eV, nm)</em>. Click <em>Morse H₂</em> preset.<br>
+  2. μ ≈ 0.504 u (reduced mass of H-H). V₀ = 4.52 eV (D<sub>e</sub>), rᵥ = 0.037 nm (r<sub>e</sub>/CC), a = 0.0513 nm (1/α).<br>
+  3. ℓ = 0 (vibrational ground state), ZP=ZT=0 (no Coulomb), no spin-orbit.<br>
+  4. SOLVE → E ≈ −4.26 eV (zero-point energy ~0.26 eV above −D<sub>e</sub>).
+</div>
+
+<h2>Pöschl-Teller Example</h2>
+<div class="ibox vio">
+  <strong>Analytic check</strong>
+  Load preset <em>Pöschl-Teller</em>. With V₀, a, μ set as given, the analytic result is<br>
+  E<sub>n</sub> = −ℏ²(λ−n)²/(2μa²) where λ = ½(−1+√(1+8μa²V₀/ℏ²)).<br>
+  Compare to the solver output to verify numerical accuracy.
+</div>
+
+<h2>Harmonic Oscillator Nuclear Shell Model</h2>
+<div class="ibox vio">
+  <strong>HO nuclear preset</strong>
+  Use preset <em>HO nuclear</em>. The 1s state (nᵣ=0, ℓ=0) energy ≈ ℏω/2 − V₀.<br>
+  The HO spacing ℏω ≈ 41 A<sup>−1/3</sup> MeV for nuclear matter.<br>
+  For 1p states (ℓ=1) the expected energy is 3ℏω/2 − V₀.
+</div>
+
+<h2>Yukawa Notes</h2>
+<div class="ibox amb">
+  <strong>Singularity at r=0</strong>
+  The Yukawa potential V ~ −V₀a/r diverges at the origin. A core cutoff at r = 0.05a is applied internally. For ℓ ≥ 1, the centrifugal barrier naturally regularizes the behavior. For ℓ = 0, increase r_max and use a smaller step h to verify convergence. The Yukawa range in nuclear physics is a ≈ 1.4 fm (pion Compton wavelength).
+</div>
+
+<h2>Input Parameter Reference</h2>
+<table class="ptbl">
+  <tr><th>Parameter</th><th>Symbol</th><th>Typical (nuclear)</th><th>Description</th></tr>
+  <tr><td>m₁, m₂</td><td>—</td><td>1.007, 3.016 u</td><td>Particle masses. Reduced mass μ is auto-computed.</td></tr>
+  <tr><td>AP, AT</td><td>A_P, A_T</td><td>1, 3</td><td>Mass numbers for geometry factor CC = AT¹/³ + AP¹/³.</td></tr>
+  <tr><td>ZP, ZT</td><td>Z_P, Z_T</td><td>1, 1</td><td>Proton numbers. Set to 0 to disable Coulomb.</td></tr>
+  <tr><td>nᵣ</td><td>n_r</td><td>0</td><td>Radial node count. 0 = ground state.</td></tr>
+  <tr><td>ℓ</td><td>l</td><td>0,1,2…</td><td>Orbital angular momentum quantum number.</td></tr>
+  <tr><td>s</td><td>s</td><td>0.5</td><td>Spin. j = ℓ+s for spin-orbit coupling.</td></tr>
+  <tr><td>E_min, E_max</td><td>—</td><td>−200, +20 MeV</td><td>Energy bracket. Must contain the eigenvalue.</td></tr>
+  <tr><td>r_max</td><td>r_max</td><td>15–30 fm</td><td>Grid outer boundary. Must be &gt;&gt; nuclear radius.</td></tr>
+  <tr><td>step h</td><td>h</td><td>0.005 fm</td><td>Integration step size.</td></tr>
+</table>
+
+<h2>Troubleshooting</h2>
+<table class="ptbl">
+  <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr><td>No convergence</td><td>Eigenvalue outside bracket</td><td>Widen E_min / E_max</td></tr>
+  <tr><td>Wrong state</td><td>Wrong nᵣ for this potential depth</td><td>Increase V₀ or check ℓ</td></tr>
+  <tr><td>Wavefunction diverges</td><td>h too large</td><td>Reduce step h by 2–5×</td></tr>
+  <tr><td>Morse gives wrong energy</td><td>rᵥ should be rₑ/CC, not rₑ directly</td><td>Divide equilibrium dist. by CC</td></tr>
+  <tr><td>Yukawa no bound state</td><td>Potential too weak or ℓ too high</td><td>Increase V₀ or use ℓ=0/1</td></tr>
+  <tr><td>HO energy wrong</td><td>rᵥ sets the zero-crossing radius, not ω</td><td>Adjust rᵥ to match desired ω</td></tr>
+</table>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//   PHYSICS ENGINE — all internal units: eV, nm
+// ═══════════════════════════════════════════════════════
+const HBAR_C = 197.3269804;  // eV·nm
+const KE_C   = 1.43997;      // eV·nm  (Coulomb constant)
+const CONLS  = 2.0e-12;      // nm²    (pion Compton wavelength squared)
+const U_EVC2 = 931.494e6;    // eV/c² per atomic mass unit
+
+let unitMode  = 'nuclear';
+let methodSel = 'numerov';
+let potType   = 'woods-saxon';
+
+// ── Potential form metadata ───────────────────────────
+const POT_META = {
+  'woods-saxon':   {
+    desc: 'V(r) = −V₀ / (1 + exp((r−R)/a)),  R = rᵥ·CC',
+    p0: 'V₀ (depth)', p1: 'rᵥ (R=rᵥ·CC)', p2: 'a (diffuse)'
+  },
+  'square-well':   {
+    desc: 'V(r) = −V₀  for r ≤ R,  0 otherwise,  R = rᵥ·CC',
+    p0: 'V₀ (depth)', p1: 'rᵥ (R=rᵥ·CC)', p2: 'a  (unused)'
+  },
+  'harmonic':      {
+    desc: 'V(r) = V₀·(r²/R² − 1),  R = rᵥ·CC  (min −V₀ at r=0)',
+    p0: 'V₀ (depth)', p1: 'rᵥ (R=rᵥ·CC)', p2: 'a  (unused)'
+  },
+  'morse':         {
+    desc: 'V(r) = V₀·(e^{−2(r−R)/a} − 2e^{−(r−R)/a}),  R=rᵥ·CC',
+    p0: 'V₀ (depth Dₑ)', p1: 'rᵥ (rₑ=rᵥ·CC)', p2: 'a  (1/α range)'
+  },
+  'gaussian':      {
+    desc: 'V(r) = −V₀·exp(−(r−R)²/a²),  R = rᵥ·CC  (set rᵥ=0 for origin)',
+    p0: 'V₀ (depth)', p1: 'rᵥ (R=rᵥ·CC)', p2: 'a  (width σ)'
+  },
+  'yukawa':        {
+    desc: 'V(r) = −V₀·a·exp(−r/a)/r  (core cutoff 0.05a applied)',
+    p0: 'V₀ (strength)', p1: 'rᵥ  (unused)', p2: 'a  (range)'
+  },
+  'poschl-teller': {
+    desc: 'V(r) = −V₀/cosh²((r−R)/a),  R = rᵥ·CC  (set rᵥ=0 for origin)',
+    p0: 'V₀ (depth)', p1: 'rᵥ (R=rᵥ·CC)', p2: 'a  (width)'
+  }
+};
+
+// Conversion factors from user-visible → internal (eV, nm)
+function toEV(v)  { return unitMode === 'nuclear' ? v * 1e6 : v; }
+function toNM(v)  { return unitMode === 'nuclear' ? v * 1e-6 : v; }
+function fromEV(v){ return unitMode === 'nuclear' ? v / 1e6 : v; }
+function fromNM(v){ return unitMode === 'nuclear' ? v / 1e-6 : v; }
+function eLabel() { return unitMode === 'nuclear' ? 'MeV' : 'eV'; }
+function lLabel() { return unitMode === 'nuclear' ? 'fm'  : 'nm'; }
+
+// ── Reduced mass ──────────────────────────────────────
+function reducedMassU(m1, m2)  { return (m1 * m2) / (m1 + m2); }
+function reducedMassEVC2(m1u, m2u) { return reducedMassU(m1u, m2u) * U_EVC2; }
+
+// ── Geometry factor ───────────────────────────────────
+function CC(AP, AT) { return Math.pow(Math.max(AT,1), 1/3) + Math.pow(Math.max(AP,1), 1/3); }
+
+// ── Centrifugal ───────────────────────────────────────
+function Vl(r, l, mu_c2) {
+  if (r < 1e-20) r = 1e-20;
+  return (HBAR_C * HBAR_C) / (2.0 * mu_c2) * l * (l + 1) / (r * r);
+}
+
+// ── Coulomb ───────────────────────────────────────────
+function Vc(r, rc, ZP, ZT, cc) {
+  const RC = rc * cc;
+  if (r < 1e-20) r = 1e-20;
+  if (r <= RC) {
+    return (ZP * ZT * KE_C) / (2.0 * RC) * (3.0 - (r / RC) * (r / RC));
+  }
+  return (ZP * ZT * KE_C) / r;
+}
+
+// ── Woods-Saxon (retained for backward compat in chart) ──
+function Vws(r, V0, rv, a, cc) {
+  const R  = rv * cc;
+  const safeA = Math.max(a, 1e-20);
+  if (r >= R) {
+    const ex = Math.exp(-(r - R) / safeA);
+    return -V0 * ex / (1.0 + ex);
+  } else {
+    const ex = Math.exp((r - R) / safeA);
+    return -V0 / (1.0 + ex);
+  }
+}
+
+// ── ALL nuclear potential forms ───────────────────────
+function VnuclearCore(r, V0, rv, a, cc, ptype) {
+  if (r < 1e-20) r = 1e-20;
+  const R    = rv * cc;
+  const safeA = Math.max(a, 1e-20);
+
+  switch (ptype) {
+
+    case 'woods-saxon':
+      return Vws(r, V0, rv, a, cc);
+
+    case 'square-well':
+      return r <= R ? -V0 : 0.0;
+
+    case 'harmonic': {
+      // V₀·(r²/R²−1), minimum −V₀ at r=0, zero at r=R
+      if (R < 1e-20) return 0;
+      return V0 * (r * r / (R * R) - 1.0);
+    }
+
+    case 'morse': {
+      // V₀·(e^{−2(r−R)/a} − 2e^{−(r−R)/a}), min=−V₀ at r=R
+      const arg = Math.min((r - R) / safeA, 300);
+      const ex  = Math.exp(-arg);
+      return V0 * (ex * ex - 2.0 * ex);
+    }
+
+    case 'gaussian': {
+      // −V₀·exp(−(r−R)²/a²)
+      const arg = (r - R) / safeA;
+      return -V0 * Math.exp(-arg * arg);
+    }
+
+    case 'yukawa': {
+      // −V₀·a·exp(−r/a)/r, with core cutoff at 0.05·a
+      const r0   = 0.05 * safeA;
+      const rEff = Math.max(r, r0);
+      return -V0 * safeA * Math.exp(-rEff / safeA) / rEff;
+    }
+
+    case 'poschl-teller': {
+      // −V₀/cosh²((r−R)/a)
+      const arg = (r - R) / safeA;
+      // cosh is always ≥ 1, cap argument to avoid overflow
+      const ch = Math.cosh(Math.min(Math.abs(arg), 300));
+      return -V0 / (ch * ch);
+    }
+
+    default:
+      return Vws(r, V0, rv, a, cc);
+  }
+}
+
+// ── Spin-orbit ────────────────────────────────────────
+function Vso(r, vso, rso, aso, l, s, cc) {
+  if (r < 1e-20) r = 1e-20;
+  const j   = l + s;
+  const ls  = 0.5 * (j*(j+1) - l*(l+1) - Math.abs(s)*(Math.abs(s)+1));
+  const R   = rso * cc;
+  const safeAso = Math.max(aso, 1e-20);
+  const ex  = Math.exp(Math.min(-(r - R) / safeAso, 300));
+  const den = (1 + ex) * (1 + ex) * safeAso * r;
+  return -CONLS * ls * vso * ex / den;
+}
+
+// ── Total effective potential ─────────────────────────
+function Vtot(r, V0, rv, a, rc, vso, rso, aso, l, s, ZP, ZT, cc, mu_c2) {
+  return Vl(r, l, mu_c2)
+    + VnuclearCore(r, V0, rv, a, cc, potType)
+    + Vc(r, rc, ZP, ZT, cc)
+    + Vso(r, vso, rso, aso, l, s, cc);
+}
+
+function k2(r, En, V0, rv, a, rc, vso, rso, aso, l, s, ZP, ZT, cc, mu_c2) {
+  return (2.0 * mu_c2) / (HBAR_C * HBAR_C) * (En - Vtot(r,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2));
+}
+
+// ── Solvers ──────────────────────────────────────────
+function solveNumerov(En, V0, rv, a, rc, vso, rso, aso, l, s, ZP, ZT, cc, mu_c2, rmax, h) {
+  const N = Math.floor(rmax / h);
+  const r = new Float64Array(N);
+  const u = new Float64Array(N);
+  for (let i = 0; i < N; i++) r[i] = i * h;
+  u[0] = 0; u[1] = 1;
+  const c1 = h * h / 12.0;
+  for (let i = 1; i < N - 1; i++) {
+    const kb = k2(r[i-1],En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2);
+    const ki = k2(r[i],  En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2);
+    const kn = k2(r[i+1],En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2);
+    const num = 2*u[i]*(1 - 5*c1*ki) - u[i-1]*(1 + c1*kb);
+    u[i+1] = num / (1 + c1*kn);
+  }
+  return { r, u };
+}
+
+function solveFD(En, V0, rv, a, rc, vso, rso, aso, l, s, ZP, ZT, cc, mu_c2, rmax, h) {
+  const N = Math.floor(rmax / h);
+  const r = new Float64Array(N);
+  const u = new Float64Array(N);
+  for (let i = 0; i < N; i++) r[i] = i * h;
+  u[0] = 0; u[1] = 1;
+  const h2 = h * h;
+  for (let i = 1; i < N - 1; i++) {
+    const ki = k2(r[i],En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2);
+    u[i+1] = 2*u[i] - u[i-1] - h2*ki*u[i];
+  }
+  return { r, u };
+}
+
+function countNodes(u) {
+  let n = 0;
+  for (let i = 0; i < u.length - 1; i++)
+    if (u[i] * u[i+1] < 0) n++;
+  return n;
+}
+
+function simpson(f, h) {
+  const n = f.length;
+  if (n < 3) return 0;
+  let s = f[0] + f[n-1];
+  for (let i = 1; i < n-1; i++) s += (i % 2 === 0 ? 2 : 4) * f[i];
+  return s * h / 3.0;
+}
+
+// ── Binary search solver ──────────────────────────────
+function findBoundState(params) {
+  const { nr, l, s, emin0, emax0, Vmin0, Vmax0, rvmin0, rvmax0, amin0, amax0,
+          rc, vso, rso, aso, ZP, ZT, cc, mu_c2, method, rmax, h } = params;
+
+  const deltaFrac = 1e-10;
+  const dE  = Math.max(Math.abs(emax0-emin0)*deltaFrac, 1e-20);
+  const dV  = Math.max(Math.abs(Vmax0-Vmin0)*deltaFrac, 1e-20);
+  const drv = Math.max(Math.abs(rvmax0-rvmin0)*deltaFrac, 1e-20);
+  const da  = Math.max(Math.abs(amax0-amin0)*deltaFrac, 1e-20);
+
+  let emin=emin0, emax=emax0, Vmin=Vmin0, Vmax=Vmax0;
+  let rvmin=rvmin0, rvmax=rvmax0, amin=amin0, amax=amax0;
+
+  let En, V0, rv, a, iters=0;
+  const MAXITER = 200;
+
+  while (iters++ < MAXITER) {
+    En = (emax + emin) * 0.5;
+    V0 = (Vmax + Vmin) * 0.5;
+    rv = (rvmax + rvmin) * 0.5;
+    a  = (amax + amin) * 0.5;
+
+    const res = method === 'numerov'
+      ? solveNumerov(En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2,rmax,h)
+      : solveFD(En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2,rmax,h);
+
+    const n = countNodes(res.u);
+
+    if (n > nr) { emax=En; Vmax=V0; rvmax=rv; amax=a; }
+    else        { emin=En; Vmin=V0; rvmin=rv; amin=a; }
+
+    if (Math.abs(emax-emin)  <= dE  &&
+        Math.abs(Vmax-Vmin)  <= dV  &&
+        Math.abs(rvmax-rvmin)<= drv &&
+        Math.abs(amax-amin)  <= da) break;
+  }
+
+  // Final solve
+  const { r, u } = method === 'numerov'
+    ? solveNumerov(En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2,rmax,h)
+    : solveFD(En,V0,rv,a,rc,vso,rso,aso,l,s,ZP,ZT,cc,mu_c2,rmax,h);
+
+  // Truncation: find last outward-going turning point
+  let truncIdx = u.length;
+  for (let i = u.length - 1; i > 1; i--) {
+    if ((u[i] - u[i-1]) * u[i] < 0) { truncIdx = i; break; }
+  }
+
+  const rT = r.subarray(0, truncIdx);
+  const uT = u.subarray(0, truncIdx);
+
+  // Normalize via Simpson
+  const uSq = new Float64Array(truncIdx);
+  for (let i = 0; i < truncIdx; i++) uSq[i] = uT[i] * uT[i];
+  const norm = simpson(uSq, h);
+  const sqN  = Math.sqrt(norm);
+  const uNorm = new Float64Array(truncIdx);
+  for (let i = 0; i < truncIdx; i++) uNorm[i] = uT[i] / sqN;
+
+  return { En, V0, rv, a, r: rT, u: uNorm, iters };
+}
+
+// ═══════════════════════════════════════════════════════
+//   CHART INSTANCES
+// ═══════════════════════════════════════════════════════
+let potChart = null, psiChart = null;
+
+function mkChartDefaults() {
+  return {
+    responsive: true,
+    animation: false,
+    plugins: {
+      legend: { labels: { color: '#c8d8f0', font: { family: "'IBM Plex Mono'", size: 10 }, boxWidth: 20, padding: 10 } }
+    },
+    scales: {
+      x: { ticks: { color: '#6080a0', font: { family: "'IBM Plex Mono'", size: 10 } },
+           grid: { color: 'rgba(30,48,80,0.5)' } },
+      y: { ticks: { color: '#6080a0', font: { family: "'IBM Plex Mono'", size: 10 } },
+           grid: { color: 'rgba(30,48,80,0.5)' } }
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//   UI LOGIC
+// ═══════════════════════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'physics') {
+    renderMathInElement(document.getElementById('physics-content'), {
+      delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]
+    });
+  }
+}
+
+function setUnits(mode) {
+  unitMode = mode;
+  document.getElementById('ubtn-nuc').classList.toggle('active', mode === 'nuclear');
+  document.getElementById('ubtn-atm').classList.toggle('active', mode === 'atomic');
+  const el = (id, txt) => { const e = document.getElementById(id); if(e) e.textContent = txt; };
+  const E = eLabel(), L = lLabel();
+  el('ut-V0', E); el('ut-rv', L); el('ut-a', L); el('ut-rc', L);
+  el('ut-Vso', E); el('ut-rso', L); el('ut-aso', L);
+  el('ut-emin', E); el('ut-emax', E);
+  el('ut-Vmin', E); el('ut-Vmax', E);
+  el('ut-rvmin', L); el('ut-rvmax', L);
+  el('ut-amin', L); el('ut-amax', L);
+  el('ut-rmax', L); el('ut-h', L);
+}
+
+function setMethod(m) {
+  methodSel = m;
+  document.getElementById('mbtn-numerov').classList.toggle('active', m === 'numerov');
+  document.getElementById('mbtn-fd').classList.toggle('active', m === 'fd');
+}
+
+function setPotType(val) {
+  potType = val;
+  document.getElementById('potTypeSelect').value = val;
+  const meta = POT_META[val];
+  if (meta) {
+    document.getElementById('pot-desc').textContent = meta.desc;
+    document.getElementById('lbl-V0').textContent = meta.p0;
+    document.getElementById('lbl-rv').textContent = meta.p1;
+    document.getElementById('lbl-a').textContent  = meta.p2;
+  }
+}
+
+function updateMuDisplay() {
+  const m1 = +document.getElementById('m1').value;
+  const m2 = +document.getElementById('m2').value;
+  if (!m1 || !m2) return;
+  const mu   = reducedMassU(m1, m2);
+  const muc2 = mu * U_EVC2;
+  document.getElementById('mu-display').innerHTML =
+    `μ = ${mu.toFixed(6)} u &nbsp;|&nbsp; μc² = ${(muc2/1e6).toFixed(2)} MeV/c²`;
+}
+
+document.getElementById('m1').addEventListener('input', updateMuDisplay);
+document.getElementById('m2').addEventListener('input', updateMuDisplay);
+
+// ── PRESETS ──────────────────────────────────────────
+const PRESETS = {
+  // ─── Nuclear / Woods-Saxon ───────────────────────
+  p3H: {
+    units:'nuclear', potType:'woods-saxon',
+    m1:1.007276, m2:3.016049, AP:1, ZP:1, AT:3, ZT:1,
+    nr:0, l:1, s:0.5, V0:63, rv:0.96, a:0.66, rc:1.2, Vso:10, rso:1.1, aso:0.6,
+    emin:-200, emax:20, Vmin:63, Vmax:63, rvmin:0.96, rvmax:0.96, amin:0.66, amax:0.66,
+    rmax:20, h:0.005
+  },
+  p4He: {
+    units:'nuclear', potType:'woods-saxon',
+    m1:1.007276, m2:4.002602, AP:1, ZP:1, AT:4, ZT:2,
+    nr:0, l:0, s:0.5, V0:55, rv:1.0, a:0.65, rc:1.2, Vso:8, rso:1.1, aso:0.6,
+    emin:-150, emax:5, Vmin:55, Vmax:55, rvmin:1.0, rvmax:1.0, amin:0.65, amax:0.65,
+    rmax:20, h:0.005
+  },
+  n16O: {
+    units:'nuclear', potType:'woods-saxon',
+    m1:1.008665, m2:15.994915, AP:1, ZP:0, AT:16, ZT:8,
+    nr:0, l:1, s:0.5, V0:53, rv:1.25, a:0.65, rc:1.3, Vso:7, rso:1.25, aso:0.65,
+    emin:-50, emax:5, Vmin:53, Vmax:53, rvmin:1.25, rvmax:1.25, amin:0.65, amax:0.65,
+    rmax:25, h:0.005
+  },
+  // ─── Harmonic Oscillator (nuclear shell model) ───
+  nuc_ho: {
+    units:'nuclear', potType:'harmonic',
+    m1:1.008665, m2:1e10, AP:1, ZP:0, AT:1, ZT:0,
+    nr:0, l:0, s:0.5, V0:50, rv:1.5, a:1.0, rc:0, Vso:0, rso:1.0, aso:0.6,
+    emin:-55, emax:5, Vmin:50, Vmax:50, rvmin:1.5, rvmax:1.5, amin:1.0, amax:1.0,
+    rmax:20, h:0.005
+    // CC=AP^(1/3)+AT^(1/3)=1+1=2; R=1.5*2=3 fm; E ~ hbar*omega/2 - V0
+  },
+  // ─── Gaussian nuclear well ───────────────────────
+  nuc_gaussian: {
+    units:'nuclear', potType:'gaussian',
+    m1:1.008665, m2:15.994915, AP:1, ZP:0, AT:16, ZT:0,
+    nr:0, l:0, s:0.5, V0:60, rv:0.0, a:0.75, rc:0, Vso:0, rso:0, aso:0.5,
+    // rv=0 → R=0 (origin-centered Gaussian)
+    emin:-70, emax:5, Vmin:60, Vmax:60, rvmin:0, rvmax:0, amin:0.75, amax:0.75,
+    rmax:20, h:0.005
+  },
+  // ─── Atomic / Hydrogen atom (Coulomb-only) ───────
+  hydrogen: {
+    units:'atomic', potType:'woods-saxon',
+    m1:0.000548579, m2:1836.15, AP:1, ZP:1, AT:1, ZT:1,
+    nr:0, l:0, s:0.5, V0:0, rv:0.0001, a:0.00001, rc:0.00001, Vso:0, rso:0.0001, aso:0.00001,
+    emin:-15, emax:-0.1, Vmin:0, Vmax:0, rvmin:0.0001, rvmax:0.0001, amin:0.00001, amax:0.00001,
+    rmax:2.5, h:0.0005
+  },
+  // ─── Quantum dot 1D (WS in atomic mode) ──────────
+  quantum_dot: {
+    units:'atomic', potType:'woods-saxon',
+    m1:0.067, m2:1e10, AP:1, ZP:0, AT:1, ZT:0,
+    nr:0, l:0, s:0, V0:0.3, rv:0.01, a:0.002, rc:0, Vso:0, rso:0.01, aso:0.002,
+    emin:-0.35, emax:0, Vmin:0.3, Vmax:0.3, rvmin:0.01, rvmax:0.01, amin:0.002, amax:0.002,
+    rmax:0.2, h:0.0002
+  },
+  // ─── Morse: H₂ molecule ──────────────────────────
+  morse_H2: {
+    units:'atomic', potType:'morse',
+    m1:1.007825, m2:1.007825, AP:1, ZP:0, AT:1, ZT:0,
+    nr:0, l:0, s:0,
+    // De=4.52 eV, re=0.074 nm, α=19.5 nm^-1 → a=1/α=0.0513 nm
+    // rv = re/CC = 0.074/2 = 0.037 nm  (CC=1^(1/3)+1^(1/3)=2)
+    V0:4.52, rv:0.037, a:0.0513, rc:0, Vso:0, rso:0.037, aso:0.05,
+    emin:-5, emax:-0.05, Vmin:4.52, Vmax:4.52, rvmin:0.037, rvmax:0.037, amin:0.0513, amax:0.0513,
+    rmax:1.0, h:0.0003
+  },
+  // ─── Pöschl-Teller (analytic test) ───────────────
+  poschl_teller: {
+    units:'atomic', potType:'poschl-teller',
+    // Use electron mass, so μ = electron mass ~ 0.000549 u  (m2 very large)
+    m1:0.000548579, m2:1e10, AP:1, ZP:0, AT:1, ZT:0,
+    nr:0, l:0, s:0,
+    // V0=5 eV, a=0.1 nm, centered at R=0 (rv=0)
+    V0:5.0, rv:0.0, a:0.1, rc:0, Vso:0, rso:0, aso:0.1,
+    emin:-6, emax:-0.01, Vmin:5, Vmax:5, rvmin:0, rvmax:0, amin:0.1, amax:0.1,
+    rmax:1.5, h:0.0005
+  },
+  // ─── Yukawa (pion range, ℓ=1) ────────────────────
+  yukawa_ex: {
+    units:'nuclear', potType:'yukawa',
+    m1:1.007276, m2:1e10, AP:1, ZP:0, AT:1, ZT:0,
+    nr:0, l:1, s:0.5,
+    // a ≈ 1.4 fm (pion Compton wavelength), V0 adjusted for bound state
+    V0:80, rv:1.0, a:1.4, rc:0, Vso:0, rso:1.0, aso:0.6,
+    emin:-100, emax:5, Vmin:80, Vmax:80, rvmin:1.0, rvmax:1.0, amin:1.4, amax:1.4,
+    rmax:25, h:0.005
+  }
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  setUnits(p.units);
+  if (p.potType) setPotType(p.potType);
+  const set = (id, v) => { const e=document.getElementById(id); if(e) e.value=v; };
+  set('m1', p.m1); set('m2', p.m2);
+  set('AP', p.AP); set('AT', p.AT); set('ZP', p.ZP); set('ZT', p.ZT);
+  set('nr', p.nr); set('lq', p.l); set('sq', p.s);
+  set('V0val', p.V0); set('rv', p.rv); set('aval', p.a); set('rc', p.rc);
+  set('Vso', p.Vso); set('rso', p.rso); set('aso', p.aso);
+  set('emin', p.emin); set('emax', p.emax);
+  set('Vmin', p.Vmin); set('Vmax2', p.Vmax);
+  set('rvmin', p.rvmin); set('rvmax', p.rvmax);
+  set('amin2', p.amin); set('amax2', p.amax);
+  set('rmax', p.rmax); set('hstep', p.h);
+  updateMuDisplay();
+}
+
+// ── RUN SOLVER ───────────────────────────────────────
+function runSolver() {
+  const st  = document.getElementById('status');
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  st.className = 'status running';
+  st.textContent = '⏳ Computing…';
+
+  setTimeout(() => {
+    try {
+      const g = id => +document.getElementById(id).value;
+
+      const m1u = g('m1'), m2u = g('m2');
+      const mu_c2 = reducedMassEVC2(m1u, m2u);
+      const AP = g('AP'), AT = g('AT'), ZP = g('ZP'), ZT = g('ZT');
+      const cc = CC(AP, AT);
+      const nr = g('nr'), l = g('lq'), s = g('sq');
+
+      const V0  = toEV(g('V0val')), rv  = toNM(g('rv')), a  = toNM(g('aval'));
+      const rc  = toNM(g('rc'));
+      const vso = toEV(g('Vso')),  rso = toNM(g('rso')), aso = toNM(g('aso'));
+      const emin = toEV(g('emin')), emax = toEV(g('emax'));
+      const Vmin = toEV(g('Vmin')), Vmax = toEV(g('Vmax2'));
+      const rvmin = toNM(g('rvmin')), rvmax = toNM(g('rvmax'));
+      const amin = toNM(g('amin2')), amax = toNM(g('amax2'));
+      const rmax = toNM(g('rmax')), h = toNM(g('hstep'));
+
+      if (h <= 0 || rmax <= 0) throw new Error('Invalid grid parameters');
+
+      const res = findBoundState({
+        nr, l, s, emin0:emin, emax0:emax, Vmin0:Vmin, Vmax0:Vmax,
+        rvmin0:rvmin, rvmax0:rvmax, amin0:amin, amax0:amax,
+        rc, vso, rso, aso, ZP, ZT, cc, mu_c2,
+        method: methodSel, rmax, h
+      });
+
+      drawResults(res, { V0, rv, a, rc, vso, rso, aso, l, s, ZP, ZT, cc, mu_c2, rmax, h, nr });
+      st.className = 'status ok';
+      st.textContent = `✓ Converged in ${res.iters} iterations  |  E = ${fmt(fromEV(res.En))} ${eLabel()}`;
+    } catch(e) {
+      document.getElementById('status').className = 'status err';
+      document.getElementById('status').textContent = '✗ Error: ' + e.message;
+    }
+    btn.disabled = false;
+  }, 20);
+}
+
+function fmt(v) {
+  if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(4);
+  return v.toPrecision(6).replace(/\.?0+$/, '');
+}
+
+function drawResults(res, ctx) {
+  const E = eLabel(), L = lLabel();
+
+  // Results panel
+  document.getElementById('results-box').style.display = '';
+  const rg = document.getElementById('results-grid');
+  const vals = [
+    ['Energy (E)', fromEV(res.En).toPrecision(7) + ' ' + E, true],
+    ['V₀', fromEV(res.V0).toPrecision(5) + ' ' + E, false],
+    ['rᵥ', fromNM(res.rv).toPrecision(5) + ' ' + L, false],
+    ['a',  fromNM(res.a).toPrecision(5) + ' ' + L, false],
+    ['Potential', POT_META[potType] ? potType.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase()) : potType, false],
+    ['Iterations', res.iters, false],
+    ['Grid points', res.r.length, false],
+  ];
+  rg.innerHTML = vals.map(([lbl, val, hi]) =>
+    `<div class="ri"><span class="rl">${lbl}</span><span class="rv ${hi?'ev':''}">${val}</span></div>`
+  ).join('');
+
+  // ── Potential chart ───────────────────────────────
+  const Npt = 400;
+  const rmaxNM = ctx.rmax;
+  const dr = rmaxNM / Npt;
+  const rArr = [], vnucArr = [], vcArr = [], vlArr = [], vsoArr = [], vtotArr = [];
+
+  // Label for nuclear component
+  const nucLabel = {
+    'woods-saxon':   'V_WS (Woods-Saxon)',
+    'square-well':   'V_SW (Square Well)',
+    'harmonic':      'V_HO (Harmonic Osc.)',
+    'morse':         'V_Morse',
+    'gaussian':      'V_Gauss (Gaussian)',
+    'yukawa':        'V_Yukawa',
+    'poschl-teller': 'V_PT (Pöschl-Teller)',
+  }[potType] || 'V_nuc';
+
+  for (let i = 1; i <= Npt; i++) {
+    const ri = i * dr;
+    rArr.push(fromNM(ri));
+    vnucArr.push(fromEV(VnuclearCore(ri, res.V0, res.rv, res.a, ctx.cc, potType)));
+    vcArr.push(fromEV(Vc(ri, ctx.rc, ctx.ZP, ctx.ZT, ctx.cc)));
+    vlArr.push(fromEV(Vl(ri, ctx.l, ctx.mu_c2)));
+    vsoArr.push(fromEV(Vso(ri, ctx.vso, ctx.rso, ctx.aso, ctx.l, ctx.s, ctx.cc)));
+    vtotArr.push(fromEV(Vtot(ri, res.V0, res.rv, res.a, ctx.rc, ctx.vso, ctx.rso, ctx.aso, ctx.l, ctx.s, ctx.ZP, ctx.ZT, ctx.cc, ctx.mu_c2)));
+  }
+
+  
+  const potCfg = {
+  type: 'line',
+  data: {
+    labels: rArr.map(v => v.toPrecision(3)),
+    datasets: [
+      { label: 'V_total', data: vtotArr, borderColor: '#ff4566', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+      { label: nucLabel,  data: vnucArr, borderColor: '#39ff14', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'V_C (Coulomb)', data: vcArr, borderColor: '#4488ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3, borderDash: [4,3] },
+      { label: 'V_l (centrifugal)', data: vlArr, borderColor: '#ffb340', borderWidth: 1.5, pointRadius: 0, tension: 0.3, borderDash: [2,3] },
+      { label: 'V_SO (spin-orbit)', data: vsoArr, borderColor: '#cc88ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3, borderDash: [6,3] },
+    ]
+  },
+  options: {
+    ...mkChartDefaults(),
+    scales: {
+      x: { 
+        ...mkChartDefaults().scales.x, 
+        title: { 
+          display: true, 
+          text: `r [${lLabel()}]`, 
+          color: '#6080a0', 
+          font: { family: "'IBM Plex Mono'", size: 10 } , max: 20
+        } 
+      },
+
+      y: { 
+        ...mkChartDefaults().scales.y, 
+        title: { 
+          display: true, 
+          text: `V(r) [${eLabel()}]`, 
+          color: '#6080a0', 
+          font: { family: "'IBM Plex Mono'", size: 10 } 
+        },
+
+        // ✅ FIXED Y-AXIS (NO DATA DEPENDENCE)
+        min: -100,
+        max: 50,
+
+        ticks: {
+          stepSize: 20,
+          color: '#9fb3c8'
+        }
+      }
+    }
+  }
+};
+  
+  
+  
+  
+  
+
+  const potCtx = document.getElementById('potChart').getContext('2d');
+  if (potChart) potChart.destroy();
+  potChart = new Chart(potCtx, potCfg);
+
+  // ── Wavefunction chart ────────────────────────────
+  const uArr  = Array.from(res.u);
+  const rDisp = Array.from(res.r).map(v => fromNM(v));
+  const stride = Math.max(1, Math.floor(uArr.length / 800));
+  const rDS = [], uDS = [];
+  for (let i = 0; i < uArr.length; i += stride) {
+    rDS.push(rDisp[i].toPrecision(4));
+    uDS.push(uArr[i]);
+  }
+
+  const psiCfg = {
+    type: 'line',
+    data: {
+      labels: rDS,
+      datasets: [
+        { label: `u(r)  [nᵣ=${ctx.nr}, ℓ=${ctx.l}, s=${ctx.s}]`, data: uDS,
+          borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false }
+      ]
+    },
+    options: {
+      ...mkChartDefaults(),
+      scales: {
+        x: { ...mkChartDefaults().scales.x, title: { display: true, text: `r [${lLabel()}]`, color: '#6080a0', font: { family: "'IBM Plex Mono'", size: 10 } } },
+        y: { ...mkChartDefaults().scales.y, title: { display: true, text: 'u(r) [nm⁻¹/²]', color: '#6080a0', font: { family: "'IBM Plex Mono'", size: 10 } } }
+      }
+    }
+  };
+
+  const psiCtx = document.getElementById('psiChart').getContext('2d');
+  if (psiChart) psiChart.destroy();
+  psiChart = new Chart(psiCtx, psiCfg);
+}
+
+// Theme toggle (night / day)
+function setTheme(mode) {
+  const day = mode === 'day';
+  document.body.setAttribute('data-theme', day ? 'day' : 'night');
+  document.getElementById('theme-night').classList.toggle('active', !day);
+  document.getElementById('theme-day').classList.toggle('active', day);
+  try { localStorage.setItem('qbs-theme', mode); } catch (e) {}
+}
+
+// Initialize
+updateMuDisplay();
+setUnits('nuclear');
+setPotType('woods-saxon');
+(function initTheme() {
+  let saved = 'night';
+  try { saved = localStorage.getItem('qbs-theme') || 'night'; } catch (e) {}
+  setTheme(saved);
+})();
+
+// Render KaTeX on physics tab
+document.querySelector('[onclick="showTab(\'physics\')"]').addEventListener('click', () => {
+  setTimeout(() => {
+    if (typeof renderMathInElement !== 'undefined') {
+      renderMathInElement(document.getElementById('physics-content'), {
+        delimiters: [{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]
+      });
+    }
+  }, 100);
+});
+</script>
+</body>
+</html>
