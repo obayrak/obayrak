@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EM Wave Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>
+window.MathJax = { tex:{ inlineMath:[['\\(','\\)']], displayMath:[['\\[','\\]']] } };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+:root {
+  --bg:#030b14; --surf:#060f1c; --surf2:#0a1728; --bdr:#122236;
+  --E:#00e5ff; --B:#ff6d3b; --R:#ff6d3b; --T:#69ff47; --INC:#00e5ff;
+  --S:#ffffff; --acc4:#bf6fff; --text:#a8c8e0; --dim:#3a607c; --glow:rgba(0,229,255,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+header{background:var(--surf);border-bottom:1px solid var(--bdr);padding:7px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0;z-index:99}
+.logo{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--E);white-space:nowrap}
+.logo b{color:var(--B);font-weight:400}
+.tabs{display:flex;gap:2px;overflow-x:auto}
+.tab{padding:5px 13px;background:transparent;border:1px solid transparent;color:var(--dim);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;transition:all .15s;border-radius:3px;white-space:nowrap}
+.tab:hover{color:var(--text);border-color:var(--bdr)}
+.tab.active{background:var(--glow);border-color:var(--E);color:var(--E)}
+
+/* ── LAYOUT ── */
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:262px;background:var(--surf);border-right:1px solid var(--bdr);overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+.rpanel{width:288px;background:var(--surf);border-left:1px solid var(--bdr);overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.rpanel::-webkit-scrollbar{width:3px}
+.rpanel::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:2px}
+
+/* ── PANELS ── */
+.panel{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;overflow:hidden}
+.phdr{padding:6px 10px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2.5px;color:var(--E);text-transform:uppercase;background:rgba(0,229,255,.04);border-bottom:1px solid var(--bdr)}
+.pbody{padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+
+/* ── CONTROLS ── */
+.ctrl{display:flex;flex-direction:column;gap:3px}
+.clbl{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);font-weight:500}
+.clbl span{font-family:'Space Mono',monospace;font-size:10px;color:var(--E)}
+input[type=range]{width:100%;-webkit-appearance:none;height:2px;background:var(--bdr);border-radius:1px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--E);cursor:pointer;box-shadow:0 0 5px var(--E)}
+select{width:100%;background:var(--bg);border:1px solid var(--bdr);color:var(--text);padding:4px 7px;font-family:'DM Sans',sans-serif;font-size:12px;border-radius:3px;outline:none;cursor:pointer}
+select:focus{border-color:var(--E)}
+
+/* ── TOGGLES ── */
+.trow{display:flex;align-items:center;gap:8px;font-size:12px}
+.tog{position:relative;width:32px;height:16px;cursor:pointer;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.ttrack{position:absolute;inset:0;background:var(--bdr);border-radius:8px;transition:.2s}
+.tog input:checked+.ttrack{background:var(--E)}
+.tthumb{position:absolute;top:2px;left:2px;width:12px;height:12px;background:#fff;border-radius:50%;transition:.2s}
+.tog input:checked~.tthumb{left:18px}
+
+/* ── BUTTONS ── */
+.btn{padding:5px 9px;border:1px solid var(--bdr);background:transparent;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;border-radius:3px;transition:all .15s}
+.btn:hover{border-color:var(--E);color:var(--E);background:var(--glow)}
+.btn.active{background:var(--E);color:var(--bg);border-color:var(--E)}
+.brow{display:flex;gap:5px}
+.brow .btn{flex:1;text-align:center}
+
+/* ── 3D CANVAS AREA ── */
+.carea{flex:1;position:relative;overflow:hidden}
+#glc{display:block;width:100%;height:100%}
+
+/* ── OVERLAY ── */
+.ovl{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(3,11,20,.88);border:1px solid var(--bdr);border-radius:3px;padding:5px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--dim);pointer-events:none;white-space:nowrap;display:flex;gap:16px}
+.ovl .e{color:var(--E)}.ovl .b{color:var(--B)}.ovl .t{color:var(--T)}.ovl .r{color:var(--R)}
+.hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(3,11,20,.78);border:1px solid var(--bdr);border-radius:20px;padding:4px 14px;font-size:10px;color:var(--dim);pointer-events:none;white-space:nowrap}
+
+/* ── NUMERICS ── */
+.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.ni{background:var(--bg);border:1px solid var(--bdr);border-radius:3px;padding:5px 7px}
+.nl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+.nv{font-family:'Space Mono',monospace;font-size:12px;color:var(--E);margin-top:1px}
+.nu{font-size:8px;color:var(--dim)}
+
+/* ── SPECTRUM ── */
+.spec{height:14px;border-radius:2px;background:linear-gradient(to right,#5500ff,#0000ff,#0088ff,#00ffff,#00ff44,#aaff00,#ffff00,#ff8800,#ff0000);margin:4px 0;position:relative}
+.smark{position:absolute;top:-3px;width:2px;height:20px;background:#fff;border-radius:1px;transform:translateX(-50%);box-shadow:0 0 5px #fff;transition:left .1s}
+
+/* ── CHART CANVASES ── */
+canvas.chart{display:block;width:100%;border:1px solid var(--bdr);border-radius:3px;background:var(--bg)}
+
+/* ── LEGEND DOTS ── */
+.ldot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+
+/* ── PHYSICS / APPS CONTENT ── */
+.cpage{flex:1;overflow-y:auto;padding:22px 32px;display:none}
+.cpage.show{display:block}
+.cpage::-webkit-scrollbar{width:4px}
+.cpage::-webkit-scrollbar-thumb{background:var(--bdr)}
+.cpage .ch2{font-family:'Space Mono',monospace;font-size:10px;color:var(--E);letter-spacing:2px;text-transform:uppercase;margin-bottom:13px;padding-bottom:7px;border-bottom:1px solid var(--bdr)}
+.cpage h3{font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px}
+.cpage p{color:var(--dim);line-height:1.75;font-size:13px;margin-bottom:10px}
+.eq{background:var(--surf2);border:1px solid var(--bdr);border-left:3px solid var(--E);padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--E);margin:9px 0;overflow-x:auto;line-height:1.9}
+.eq .cm{color:var(--dim);font-size:9px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:10px 0}
+.card{background:var(--surf2);border:1px solid var(--bdr);border-radius:4px;padding:12px 14px}
+.card h4{font-size:14px;font-weight:600;color:var(--text);margin-bottom:7px}
+.card p{font-size:12px;color:var(--dim);line-height:1.65}
+.card ul{list-style:none;display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.card li{font-size:11px;color:var(--dim);padding-left:11px;position:relative}
+.card li::before{content:'▸';position:absolute;left:0;color:var(--E)}
+.psec{margin-bottom:28px;max-width:860px}
+
+/* ═══ THEMES & READABILITY ═══ */
+:root{
+  color-scheme:dark;
+  --bdr:#1d3550; --text:#d3e6f5; --dim:#8eadc4;
+  --ovlbg:rgba(3,11,20,.88); --selbg:#00e5ff; --seltx:#021018;
+}
+:root[data-theme="day"]{
+  color-scheme:light;
+  --bg:#eaf0f6; --surf:#ffffff; --surf2:#f3f7fb; --bdr:#b4c6d8;
+  --E:#0069a8; --B:#c2410c; --R:#c2410c; --T:#1e7a34; --INC:#0069a8;
+  --S:#0b1b2b; --acc4:#7c3aed; --text:#14283a; --dim:#46607a;
+  --glow:rgba(0,105,168,.12);
+  --ovlbg:rgba(255,255,255,.9); --selbg:#0069a8; --seltx:#ffffff;
+}
+::selection{background:var(--selbg);color:var(--seltx)}
+select option{background:var(--surf2);color:var(--text)}
+
+/* theme buttons */
+.tabs{min-width:0}
+.themebar{margin-left:auto;display:flex;gap:4px;flex-shrink:0}
+.tbtn{padding:5px 12px;border:1px solid var(--bdr);background:transparent;color:var(--text);cursor:pointer;font:500 13px 'DM Sans',sans-serif;border-radius:3px;transition:all .15s}
+.tbtn:hover{border-color:var(--E);color:var(--E)}
+.tbtn.active{background:var(--E);border-color:var(--E);color:var(--bg)}
+
+/* simulator text sizes */
+.logo{font-size:13px}
+.tab{font-size:13px;padding:6px 14px}
+.phdr{font-size:11px}
+.clbl{font-size:13px;color:var(--text)}
+.clbl span{font-size:12px}
+select{font-size:14px}
+.trow{font-size:14px}
+.btn{font-size:13px;padding:6px 10px}
+.nl{font-size:11px}.nv{font-size:14px}.nu{font-size:10px}
+.ovl{font-size:11px;background:var(--ovlbg)}
+.hint{font-size:12px;background:var(--ovlbg)}
+.sidebar{width:288px}.rpanel{width:312px}
+.rpanel .pbody > div[style*="font-size:9px"]{font-size:11px!important}
+#spec-lbl{font-size:12px!important}
+
+/* Physics / Applications pages */
+.cpage{padding:28px 44px}
+.psec{max-width:1000px}
+.cpage .ch2{font-size:14px}
+.cpage h3{font-size:22px}
+.cpage p{font-size:17px;line-height:1.8;color:var(--text)}
+.card h4{font-size:18px}
+.card p{font-size:16px;color:var(--text)}
+.card li{font-size:15px;line-height:1.55;color:var(--text);padding-left:16px}
+.eq{font-family:'DM Sans',sans-serif;font-size:18px;color:var(--text);padding:10px 18px;line-height:1.5}
+.eq mjx-container{margin:.5em 0!important}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">EM·<b>WAVE</b>·SIM</div>
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="wave">⚡ Wave</button>
+    <button class="tab" data-tab="reflect">↩ Reflection</button>
+    <button class="tab" data-tab="refract">↗ Refraction</button>
+    <button class="tab" data-tab="interfere">⊕ Interference</button>
+    <button class="tab" data-tab="polar">◎ Polarization</button>
+    <button class="tab" data-tab="physics">∇ Physics</button>
+    <button class="tab" data-tab="apps">◈ Applications</button>
+  </div>
+  <div class="themebar" role="group" aria-label="Theme">
+    <button class="tbtn" id="btn-night" aria-pressed="true">🌙 Night</button>
+    <button class="tbtn" id="btn-day" aria-pressed="false">☀ Day</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- ═══ SIDEBAR ═══ -->
+<div class="sidebar" id="sidebar">
+
+  <!-- WAVE controls -->
+  <div class="panel" id="ctrl-wave">
+    <div class="phdr">Wave Parameters</div>
+    <div class="pbody">
+      <div class="ctrl"><div class="clbl">Frequency<span id="lf">5.0 ×10¹⁴ Hz</span></div><input type="range" id="s-freq" min="1" max="10" step=".05" value="5"></div>
+      <div class="ctrl"><div class="clbl">Amplitude E₀<span id="la">1.00</span></div><input type="range" id="s-amp" min=".1" max="3" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Anim Speed<span id="ls">1.0×</span></div><input type="range" id="s-spd" min=".1" max="4" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Phase φ₀<span id="lp">0°</span></div><input type="range" id="s-phase" min="0" max="360" step="1" value="0"></div>
+      <div class="ctrl"><div class="clbl">Medium n<span id="ln">1.00</span></div><input type="range" id="s-n" min="1" max="3" step=".01" value="1"></div>
+    </div>
+  </div>
+  <div class="panel" id="ctrl-display">
+    <div class="phdr">Display</div>
+    <div class="pbody">
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-E" checked><div class="ttrack"></div><div class="tthumb"></div></label><span class="ldot" style="background:var(--E)"></span>E-field curve</div>
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-B" checked><div class="ttrack"></div><div class="tthumb"></div></label><span class="ldot" style="background:var(--B)"></span>B-field curve</div>
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-env" checked><div class="ttrack"></div><div class="tthumb"></div></label><span style="color:var(--dim);font-size:11px">⊘</span>&nbsp;Envelope</div>
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-pnt"><div class="ttrack"></div><div class="tthumb"></div></label><span style="color:var(--T);font-size:12px">S</span>&nbsp;Poynting arrows</div>
+      <div class="ctrl" style="margin-top:2px"><div class="clbl">Point density<span id="ld">220</span></div><input type="range" id="s-dens" min="60" max="400" step="10" value="220"></div>
+      <div class="brow" style="margin-top:3px">
+        <button class="btn" id="btn-play">▶ Play</button>
+        <button class="btn" id="btn-rst">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REFLECTION controls -->
+  <div class="panel hidden" id="ctrl-refl">
+    <div class="phdr">Reflection</div>
+    <div class="pbody">
+      <div class="ctrl"><div class="clbl">Incident θᵢ<span id="l-ti">45°</span></div><input type="range" id="s-ti" min="1" max="89" step="1" value="45"></div>
+      <div class="ctrl"><div class="clbl">n₁ (medium 1)<span id="l-rn1">1.00</span></div><input type="range" id="s-rn1" min="1" max="3" step=".01" value="1"></div>
+      <div class="ctrl"><div class="clbl">n₂ (medium 2)<span id="l-rn2">1.50</span></div><input type="range" id="s-rn2" min="1" max="3.5" step=".01" value="1.5"></div>
+      <div class="ctrl"><div class="clbl">Amplitude<span id="l-ramp">1.00</span></div><input type="range" id="s-ramp" min=".1" max="2" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Anim Speed<span id="l-rspd">1.0×</span></div><input type="range" id="s-rspd" min=".1" max="4" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Polarization<span></span></div><select id="sel-rp"><option value="s">S-pol (TE)</option><option value="p">P-pol (TM)</option></select></div>
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-rB" checked><div class="ttrack"></div><div class="tthumb"></div></label><span class="ldot" style="background:var(--B)"></span>Show B-field</div>
+    </div>
+  </div>
+
+  <!-- REFRACTION controls -->
+  <div class="panel hidden" id="ctrl-refr">
+    <div class="phdr">Refraction</div>
+    <div class="pbody">
+      <div class="ctrl"><div class="clbl">Incident θᵢ<span id="l-rti">30°</span></div><input type="range" id="s-rti" min="1" max="89" step="1" value="30"></div>
+      <div class="ctrl"><div class="clbl">n₁<span id="l-rfn1">1.00</span></div><input type="range" id="s-rfn1" min="1" max="3" step=".01" value="1"></div>
+      <div class="ctrl"><div class="clbl">n₂<span id="l-rfn2">1.50</span></div><input type="range" id="s-rfn2" min="1" max="3.5" step=".01" value="1.5"></div>
+      <div class="ctrl"><div class="clbl">Wavelength (nm)<span id="l-wl">550</span></div><input type="range" id="s-wl" min="380" max="740" step="5" value="550"></div>
+      <div class="ctrl"><div class="clbl">Amplitude<span id="l-rfamp">1.00</span></div><input type="range" id="s-rfamp" min=".1" max="2" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Anim Speed<span id="l-rfspd">1.0×</span></div><input type="range" id="s-rfspd" min=".1" max="4" step=".05" value="1"></div>
+    </div>
+  </div>
+
+  <!-- INTERFERENCE controls -->
+  <div class="panel hidden" id="ctrl-int">
+    <div class="phdr">Interference</div>
+    <div class="pbody">
+      <div class="ctrl"><div class="clbl">Amplitude A₁<span id="l-ia1">1.00</span></div><input type="range" id="s-ia1" min="0" max="2" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Amplitude A₂<span id="l-ia2">1.00</span></div><input type="range" id="s-ia2" min="0" max="2" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Frequency f₁<span id="l-if1">5.0</span></div><input type="range" id="s-if1" min="1" max="10" step=".1" value="5"></div>
+      <div class="ctrl"><div class="clbl">Frequency f₂<span id="l-if2">5.0</span></div><input type="range" id="s-if2" min="1" max="10" step=".1" value="5"></div>
+      <div class="ctrl"><div class="clbl">Phase Δφ<span id="l-idp">0°</span></div><input type="range" id="s-idp" min="0" max="360" step="1" value="0"></div>
+      <div class="ctrl"><div class="clbl">Y-Separation<span id="l-ysep">0.5</span></div><input type="range" id="s-ysep" min="0" max="1.5" step=".05" value=".5"></div>
+      <div class="ctrl"><div class="clbl">Anim Speed<span id="l-ispd">1.0×</span></div><input type="range" id="s-ispd" min=".1" max="4" step=".05" value="1"></div>
+    </div>
+  </div>
+
+  <!-- POLARIZATION controls -->
+  <div class="panel hidden" id="ctrl-pol">
+    <div class="phdr">Polarization</div>
+    <div class="pbody">
+      <div class="ctrl"><div class="clbl">Type<span></span></div><select id="sel-pt"><option value="linear">Linear</option><option value="circular">Circular</option><option value="elliptical">Elliptical</option><option value="unpolarized">Unpolarized</option></select></div>
+      <div class="ctrl"><div class="clbl">Ex amplitude<span id="l-pex">1.00</span></div><input type="range" id="s-pex" min="0" max="2" step=".05" value="1"></div>
+      <div class="ctrl"><div class="clbl">Ey amplitude<span id="l-pey">0.00</span></div><input type="range" id="s-pey" min="0" max="2" step=".05" value="0"></div>
+      <div class="ctrl"><div class="clbl">Phase δ (Ey-Ex)<span id="l-pph">0°</span></div><input type="range" id="s-pph" min="-180" max="180" step="1" value="0"></div>
+      <div class="ctrl"><div class="clbl">Lin. angle α<span id="l-pa">0°</span></div><input type="range" id="s-pa" min="0" max="180" step="1" value="0"></div>
+      <div class="ctrl"><div class="clbl">Malus angle θₘ<span id="l-pm">0°</span></div><input type="range" id="s-pm" min="0" max="180" step="1" value="0"></div>
+      <div class="ctrl"><div class="clbl">Anim Speed<span id="l-pspd">1.0×</span></div><input type="range" id="s-pspd" min=".1" max="4" step=".05" value="1"></div>
+      <div class="trow"><label class="tog"><input type="checkbox" id="t-proj" checked><div class="ttrack"></div><div class="tthumb"></div></label><span style="font-size:11px">Show projections</span></div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- ═══ 3D CANVAS ═══ -->
+<div class="carea" id="carea">
+  <canvas id="glc"></canvas>
+  <div class="ovl" id="ovl">
+    <span><span class="e">—</span> E-field (cyan)</span>
+    <span><span class="b">—</span> B-field (orange)</span>
+  </div>
+  <div class="hint" id="hint">🖱 Drag to rotate · Scroll to zoom</div>
+
+  <!-- Physics page -->
+  <div class="cpage" id="pg-physics">
+    <div class="psec"><div class="ch2">Maxwell's Equations</div><h3>The Foundation of Electromagnetism</h3>
+    <p>Four compact equations by James Clerk Maxwell (1865) unify electricity, magnetism, and optics, and predict EM wave propagation at the speed of light.</p>
+    <div class="eq">\[
+    \begin{aligned}
+    \nabla\cdot\mathbf{E} &= \frac{\rho}{\varepsilon_0} && \text{Gauss (electric): charges create } \mathbf{E}\\
+    \nabla\cdot\mathbf{B} &= 0 && \text{Gauss (magnetic): no monopoles}\\
+    \nabla\times\mathbf{E} &= -\frac{\partial \mathbf{B}}{\partial t} && \text{Faraday: changing } \mathbf{B} \text{ induces } \mathbf{E}\\
+    \nabla\times\mathbf{B} &= \mu_0\mathbf{J}+\mu_0\varepsilon_0\frac{\partial \mathbf{E}}{\partial t} && \text{Ampère–Maxwell}
+    \end{aligned}
+    \]</div>
+    <div class="g2">
+      <div class="card"><h4>⚡ Electric Field E</h4><p>Force per unit charge, measured in V/m. It oscillates transverse to propagation, and its curl equals \(-\partial\mathbf{B}/\partial t\).</p></div>
+      <div class="card"><h4>🧲 Magnetic Field B</h4><p>Force on moving charges, measured in tesla. It is always perpendicular to \(\mathbf{E}\) and \(\mathbf{k}\), with \(B_0=E_0/c\) in vacuum.</p></div>
+    </div></div>
+
+    <div class="psec"><div class="ch2">Wave Equation &amp; Propagation</div><h3>Transverse EM Waves</h3>
+    <div class="eq">\[ \frac{\partial^2 \mathbf{E}}{\partial z^2}=\mu_0\varepsilon_0\,\frac{\partial^2 \mathbf{E}}{\partial t^2} \]
+    \[
+    \begin{aligned}
+    \mathbf{E}(z,t) &= E_0\cos(kz-\omega t)\,\hat{\mathbf{x}}\\
+    \mathbf{B}(z,t) &= \frac{E_0}{c}\cos(kz-\omega t)\,\hat{\mathbf{y}}
+    \end{aligned}
+    \]
+    \[ c=\frac{1}{\sqrt{\mu_0\varepsilon_0}}=2.998\times10^{8}\ \mathrm{m/s},\qquad k=\frac{2\pi}{\lambda},\quad \omega=2\pi f,\quad c=f\lambda=\frac{\omega}{k} \]
+    \[ \text{In a medium of index } n:\quad v=\frac{c}{n},\qquad \lambda_m=\frac{\lambda_0}{n} \]</div></div>
+
+    <div class="psec"><div class="ch2">Reflection &amp; Refraction</div><h3>Fresnel Equations &amp; Snell's Law</h3>
+    <div class="eq">\[ n_1\sin\theta_i = n_2\sin\theta_t \qquad\text{(Snell)} \]
+    \[
+    \begin{aligned}
+    r_s &= \frac{n_1\cos\theta_i-n_2\cos\theta_t}{n_1\cos\theta_i+n_2\cos\theta_t}, &
+    t_s &= \frac{2n_1\cos\theta_i}{n_1\cos\theta_i+n_2\cos\theta_t}\\[4pt]
+    r_p &= \frac{n_2\cos\theta_i-n_1\cos\theta_t}{n_2\cos\theta_i+n_1\cos\theta_t}, &
+    t_p &= \frac{2n_1\cos\theta_i}{n_2\cos\theta_i+n_1\cos\theta_t}
+    \end{aligned}
+    \]
+    \[ R=|r|^2,\qquad T=\frac{n_2\cos\theta_t}{n_1\cos\theta_i}\,|t|^2,\qquad R+T=1 \]
+    \[ \tan\theta_B=\frac{n_2}{n_1}\ \text{(Brewster)},\qquad \sin\theta_c=\frac{n_2}{n_1}\ \text{(TIR, } n_1>n_2) \]</div>
+    <p>The \(s\)-polarization (TE) has \(\mathbf{E}\) perpendicular to the plane of incidence; the \(p\)-polarization (TM) has \(\mathbf{E}\) in that plane.</p></div>
+
+    <div class="psec"><div class="ch2">Interference</div><h3>Superposition Principle</h3>
+    <div class="eq">\[ \mathbf{E}_{tot}=\mathbf{E}_1+\mathbf{E}_2,\qquad I=\tfrac12 c\varepsilon_0E_0^2\propto E_0^2 \]
+    \[ I_{tot}=I_1+I_2+2\sqrt{I_1I_2}\,\cos\Delta\varphi \]
+    \[
+    \begin{aligned}
+    \text{Constructive: } \Delta\varphi&=2m\pi &\Rightarrow I_{max}&=(\sqrt{I_1}+\sqrt{I_2})^2\\
+    \text{Destructive: } \Delta\varphi&=(2m+1)\pi &\Rightarrow I_{min}&=(\sqrt{I_1}-\sqrt{I_2})^2
+    \end{aligned}
+    \]
+    \[ V=\frac{I_{max}-I_{min}}{I_{max}+I_{min}} \]</div></div>
+
+    <div class="psec"><div class="ch2">Polarization</div><h3>Orientation of E-field Oscillation</h3>
+    <div class="eq">\[ \mathbf{E}(z,t)=E_x\cos(kz-\omega t)\,\hat{\mathbf{x}}+E_y\cos(kz-\omega t+\delta)\,\hat{\mathbf{y}} \]
+    \[
+    \begin{aligned}
+    \text{Linear:}&\quad \delta=0\ \text{or}\ \pi &&\text{(E traces a line)}\\
+    \text{Circular:}&\quad E_x=E_y,\ \delta=\pm\tfrac{\pi}{2} &&\text{(E traces a circle, a helix in 3D)}\\
+    \text{Elliptical:}&\quad \text{general } E_x,E_y,\delta &&\text{(E traces an ellipse)}
+    \end{aligned}
+    \]
+    \[ I=I_0\cos^2\theta\qquad\text{(Malus's law)} \]
+    \[ S_0=E_x^2+E_y^2,\quad S_1=E_x^2-E_y^2,\quad S_2=2E_xE_y\cos\delta,\quad S_3=2E_xE_y\sin\delta \]</div></div>
+
+    <div class="psec"><div class="ch2">Energy &amp; Momentum</div><h3>Poynting Vector</h3>
+    <div class="eq">\[ \mathbf{S}=\frac{1}{\mu_0}\,\mathbf{E}\times\mathbf{B}\qquad[\mathrm{W/m^2}] \]
+    \[ \langle S\rangle=\tfrac12 c\varepsilon_0E_0^2,\qquad u=\frac{\varepsilon_0E^2}{2}+\frac{B^2}{2\mu_0}\ \ (\text{electric}=\text{magnetic share}) \]
+    \[ P_{rad}=\frac{I}{c}\ \text{(absorber)},\qquad P_{rad}=\frac{2I}{c}\ \text{(mirror)} \]</div></div>
+  </div>
+
+  <!-- Applications page -->
+  <div class="cpage" id="pg-apps">
+    <div class="psec"><div class="ch2">Applications of Electromagnetic Waves</div>
+    <div class="g2">
+      <div class="card"><h4>🔆 Fiber Optic Communication</h4><p>Total internal reflection (TIR) at core/cladding interface guides photons over thousands of km with &lt;0.2 dB/km loss at 1550 nm.</p><ul><li>Core \(n\approx1.48\), cladding \(n\approx1.46\) → \(\theta_c\approx80.6^\circ\)</li><li>Single-mode (Ø8 µm) vs multi-mode (Ø50 µm)</li><li>WDM: 160+ channels per fiber (50 THz bandwidth)</li><li>EDFA amplifiers every 80 km eliminate regeneration</li><li>Capacity: &gt;1 Pb/s on transoceanic cables</li></ul></div>
+      <div class="card"><h4>📡 Antenna Theory</h4><p>Accelerating charges radiate EM waves. A half-wave dipole (length = λ/2) resonates and radiates efficiently. Gain describes directional concentration of power.</p><ul><li>Dipole: 2.15 dBi, omnidirectional</li><li>Yagi-Uda: 6–20 dBi, directional</li><li>Parabolic dish: 20–50+ dBi</li><li>Phased array: electronic beam steering (MIMO, 5G)</li><li>\(A_\text{eff}=G\lambda^2/4\pi\), reciprocal for TX and RX</li></ul></div>
+      <div class="card"><h4>📻 Radio &amp; Microwave Systems</h4><p>EM waves from kHz to GHz carry modulated information across continental and global distances by sky-wave reflection and line-of-sight links.</p><ul><li>HF (3–30 MHz): ionospheric sky-wave, global reach</li><li>Wi-Fi 6E: 2.4/5/6 GHz, OFDM modulation</li><li>5G mmWave: 24–100 GHz, massive MIMO</li><li>Radar: pulse reflection for ranging and speed</li><li>Satellite Ku-band: 12–18 GHz downlink</li></ul></div>
+      <div class="card"><h4>🏥 Medical Imaging</h4><p>Different wavelengths probe tissue with varying penetration depth and resolution, from radio-frequency MRI pulses to hard X-rays.</p><ul><li>MRI: 64 MHz (1.5 T) RF pulses, Larmor precession</li><li>X-ray CT: 10⁻¹¹ m, photoelectric absorption contrast</li><li>OCT: 1300 nm, 10 µm axial resolution in retina</li><li>Infrared thermography: 8–14 µm surface temperature</li><li>Photoacoustic: pulsed 700 nm + ultrasound detection</li></ul></div>
+      <div class="card"><h4>🌞 Photovoltaics &amp; Solar</h4><p>Semiconductors absorb photons above their bandgap energy (E = hf), liberating electron-hole pairs and generating voltage via the built-in p-n junction field.</p><ul><li>AM1.5 solar spectrum peaks at ~500 nm, 1000 W/m²</li><li>Si bandgap 1.12 eV → \(\lambda_\text{max}=hc/E_g\approx1100\) nm</li><li>Multi-junction GaInP/GaAs/Ge: &gt;47% efficiency</li><li>Perovskite tandems: 33%+ certified efficiency</li><li>Concentrating PV uses Fresnel lens reflection optics</li></ul></div>
+      <div class="card"><h4>🔭 Telescopes &amp; Observatories</h4><p>Optical instruments exploit diffraction-limited imaging across the full EM spectrum — from 10 m radio dishes to X-ray grazing-incidence mirrors in space.</p><ul><li>VLA radio array: 27 dishes, 36 km baseline</li><li>JWST: 6.5 m primary mirror, 0.6–28 µm</li><li>Adaptive optics: 1 kHz deformable mirror corrections</li><li>ELT (39 m): resolves planets around nearby stars</li><li>VLBI: Earth-baseline interferometry, µas resolution</li></ul></div>
+    </div>
+    <div class="psec" style="margin-top:20px">
+      <div class="ch2">Interactive: Fiber Optic TIR</div>
+      <canvas id="fiber-cv" class="chart" height="180"></canvas>
+    </div>
+    </div>
+  </div>
+
+</div><!-- /carea -->
+
+<!-- ═══ RIGHT PANEL ═══ -->
+<div class="rpanel" id="rpanel">
+
+  <div class="panel" id="rp-wave">
+    <div class="phdr">Wave Numerics</div>
+    <div class="pbody">
+      <div class="ngrid">
+        <div class="ni"><div class="nl">Frequency</div><div class="nv" id="nf">5.00</div><div class="nu">×10¹⁴ Hz</div></div>
+        <div class="ni"><div class="nl">Wavelength</div><div class="nv" id="nwl">600</div><div class="nu">nm</div></div>
+        <div class="ni"><div class="nl">Wave speed v</div><div class="nv" id="nv">3.000</div><div class="nu">×10⁸ m/s</div></div>
+        <div class="ni"><div class="nl">Wave number k</div><div class="nv" id="nk">10.47</div><div class="nu">×10⁶ rad/m</div></div>
+        <div class="ni"><div class="nl">Angular ω</div><div class="nv" id="nw">31.42</div><div class="nu">×10¹⁴ rad/s</div></div>
+        <div class="ni"><div class="nl">Period T</div><div class="nv" id="nT">2.00</div><div class="nu">×10⁻¹⁵ s</div></div>
+        <div class="ni"><div class="nl">E₀ amplitude</div><div class="nv" id="nE0">1.00</div><div class="nu">V/m (norm.)</div></div>
+        <div class="ni"><div class="nl">B₀ = E₀/c</div><div class="nv" id="nB0">3.33</div><div class="nu">nT (norm.)</div></div>
+        <div class="ni"><div class="nl">Intensity ⟨S⟩</div><div class="nv" id="nS">1.33</div><div class="nu">W/m² (norm.)</div></div>
+        <div class="ni"><div class="nl">Index n</div><div class="nv" id="nn">1.00</div><div class="nu">—</div></div>
+      </div>
+      <div style="margin-top:4px"><div class="nl" style="margin-bottom:3px">EM Spectrum position</div>
+        <div class="spec"><div class="smark" id="smark" style="left:45%"></div></div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--E);text-align:center" id="spec-lbl">~600 nm · Orange</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="rp-refl">
+    <div class="phdr">Reflection / Fresnel</div>
+    <div class="pbody">
+      <div class="ngrid">
+        <div class="ni"><div class="nl">θ incident</div><div class="nv" id="r-ti">45.0</div><div class="nu">°</div></div>
+        <div class="ni"><div class="nl">θ refracted</div><div class="nv" id="r-tr">28.1</div><div class="nu">°</div></div>
+        <div class="ni"><div class="nl">R (reflect.)</div><div class="nv" id="r-R">0.040</div><div class="nu">fraction</div></div>
+        <div class="ni"><div class="nl">T (transmit.)</div><div class="nv" id="r-T">0.960</div><div class="nu">fraction</div></div>
+        <div class="ni"><div class="nl">r amplitude</div><div class="nv" id="r-r">−0.200</div><div class="nu">Fresnel</div></div>
+        <div class="ni"><div class="nl">t amplitude</div><div class="nv" id="r-t">0.800</div><div class="nu">Fresnel</div></div>
+        <div class="ni"><div class="nl">Brewster θ_B</div><div class="nv" id="r-Br">56.3</div><div class="nu">°</div></div>
+        <div class="ni"><div class="nl">Critical θ_c</div><div class="nv" id="r-Cr">—</div><div class="nu">°</div></div>
+      </div>
+      <canvas id="fresnel-cv" class="chart" height="110"></canvas>
+      <div style="font-size:9px;color:var(--dim);text-align:center">R vs θ: <span style="color:var(--E)">Rₛ</span> / <span style="color:var(--B)">Rₚ</span> · dashed = current θ</div>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="rp-int">
+    <div class="phdr">Interference Numerics</div>
+    <div class="pbody">
+      <div class="ngrid">
+        <div class="ni"><div class="nl">I_max</div><div class="nv" id="i-imax">4.00</div><div class="nu">norm.</div></div>
+        <div class="ni"><div class="nl">I_min</div><div class="nv" id="i-imin">0.00</div><div class="nu">norm.</div></div>
+        <div class="ni"><div class="nl">Visibility V</div><div class="nv" id="i-V">1.000</div><div class="nu">—</div></div>
+        <div class="ni"><div class="nl">Δφ</div><div class="nv" id="i-dp">0</div><div class="nu">°</div></div>
+        <div class="ni"><div class="nl">Beat freq</div><div class="nv" id="i-bf">0.0</div><div class="nu">×10¹⁴</div></div>
+        <div class="ni"><div class="nl">State</div><div class="nv" id="i-st" style="font-size:10px">Construct.</div><div class="nu">—</div></div>
+      </div>
+      <canvas id="int-cv" class="chart" height="100"></canvas>
+      <div style="font-size:9px;color:var(--dim);text-align:center"><span style="color:var(--E)">Wave1</span> + <span style="color:var(--B)">Wave2</span> = <span style="color:var(--S)">Sum</span></div>
+    </div>
+  </div>
+
+  <div class="panel hidden" id="rp-pol">
+    <div class="phdr">Polarization State</div>
+    <div class="pbody">
+      <div class="ngrid">
+        <div class="ni"><div class="nl">Ex</div><div class="nv" id="p-ex">1.00</div><div class="nu">V/m</div></div>
+        <div class="ni"><div class="nl">Ey</div><div class="nv" id="p-ey">0.00</div><div class="nu">V/m</div></div>
+        <div class="ni"><div class="nl">δ (phase)</div><div class="nv" id="p-d">0</div><div class="nu">°</div></div>
+        <div class="ni"><div class="nl">I (Malus)</div><div class="nv" id="p-mal">1.00</div><div class="nu">norm.</div></div>
+        <div class="ni"><div class="nl">Ellipticity ε</div><div class="nv" id="p-eps">0.00</div><div class="nu">—</div></div>
+        <div class="ni"><div class="nl">S₀</div><div class="nv" id="p-s0">1.00</div><div class="nu">Stokes</div></div>
+        <div class="ni"><div class="nl">S₁</div><div class="nv" id="p-s1">1.00</div><div class="nu">Stokes</div></div>
+        <div class="ni"><div class="nl">S₂</div><div class="nv" id="p-s2">0.00</div><div class="nu">Stokes</div></div>
+      </div>
+      <canvas id="pol-cv" class="chart" height="140"></canvas>
+      <div style="font-size:9px;color:var(--dim);text-align:center">Polarization ellipse — E-field locus</div>
+    </div>
+  </div>
+
+</div><!-- /rpanel -->
+</div><!-- /main -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('glc');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x030b14, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.01, 200);
+let camT = 0.55, camP = 1.05, camR = 9;
+function camUpdate() {
+  camera.position.set(
+    camR * Math.sin(camP) * Math.sin(camT),
+    camR * Math.cos(camP),
+    camR * Math.sin(camP) * Math.cos(camT)
+  );
+  camera.lookAt(0, 0, 0);
+}
+camUpdate();
+
+// Orbit
+let drag = false, lx = 0, ly = 0;
+canvas.addEventListener('mousedown', e => { drag=true; lx=e.clientX; ly=e.clientY; });
+window.addEventListener('mouseup', () => drag = false);
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  camT -= (e.clientX-lx)*0.006; camP = Math.max(0.1, Math.min(Math.PI-0.1, camP+(e.clientY-ly)*0.006));
+  lx=e.clientX; ly=e.clientY; camUpdate();
+});
+canvas.addEventListener('wheel', e => { camR = Math.max(2, Math.min(22, camR+e.deltaY*0.012)); camUpdate(); e.preventDefault(); }, {passive:false});
+// Touch
+let ptDist = null;
+canvas.addEventListener('touchstart', e => { if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;} if(e.touches.length===2)ptDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); });
+canvas.addEventListener('touchend', ()=>{drag=false;ptDist=null;});
+canvas.addEventListener('touchmove', e => {
+  if(e.touches.length===1&&drag){camT-=(e.touches[0].clientX-lx)*0.009;camP=Math.max(0.1,Math.min(Math.PI-0.1,camP+(e.touches[0].clientY-ly)*0.009));lx=e.touches[0].clientX;ly=e.touches[0].clientY;camUpdate();}
+  if(e.touches.length===2&&ptDist){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);camR=Math.max(2,Math.min(22,camR-(d-ptDist)*0.018));ptDist=d;camUpdate();}
+  e.preventDefault();},{passive:false});
+
+// Resize
+const ro = new ResizeObserver(() => {
+  const ca = document.getElementById('carea');
+  renderer.setSize(ca.clientWidth, ca.clientHeight, false);
+  camera.aspect = ca.clientWidth / ca.clientHeight;
+  camera.updateProjectionMatrix();
+});
+ro.observe(document.getElementById('carea'));
+
+// ═══════════════════════════════════════════════════════════════
+// WAVE LINE (dynamic buffer geometry)
+// ═══════════════════════════════════════════════════════════════
+class WaveLine {
+  constructor(N, color, opacity=1) {
+    this.N = N;
+    this.pos = new Float32Array(N*3);
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.mat = new THREE.LineBasicMaterial({color, transparent:opx(opacity)<1, opacity:opx(opacity)});
+    this.mesh = new THREE.Line(this.geo, this.mat);
+    this.mesh.frustumCulled = false;
+  }
+  sp(i, x, y, z) { this.pos[i*3]=x; this.pos[i*3+1]=y; this.pos[i*3+2]=z; }
+  flush() { this.geo.attributes.position.needsUpdate = true; }
+  show(v) { this.mesh.visible = v; }
+  setColor(c) { this.mat.color.set(c); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENE HELPERS
+// ═══════════════════════════════════════════════════════════════
+let scenePool = []; // current mode objects
+function clearPool() { scenePool.forEach(o => scene.remove(o)); scenePool = []; }
+function add(o) { scene.add(o); scenePool.push(o); return o; }
+function addLine(p1, p2, color, opacity=1) {
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...p1), new THREE.Vector3(...p2)]);
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({color, transparent:opx(opacity)<1, opacity:opx(opacity)}));
+  return add(l);
+}
+function addMesh(geo, color, opacity=1, side=THREE.DoubleSide) {
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color,side,transparent:opx(opacity)<1,opacity:opx(opacity)}));
+  return add(m);
+}
+function addWaveLine(N, color, opacity=1) {
+  const wl = new WaveLine(N, color, opacity);
+  add(wl.mesh);
+  return wl;
+}
+function makeGrid() {
+  const g = new THREE.GridHelper(8, 16, T3.grid1, T3.grid2);
+  g.position.y = -0.02;
+  return add(g);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  time: 0, playing: false, tab: 'wave',
+  // wave
+  freq:5, amp:1, speed:1, phase:0, n:1, dens:220,
+  showE:true, showB:true, showEnv:true, showPnt:false,
+  // reflect
+  ti:45, rn1:1, rn2:1.5, ramp:1, rspd:1, rpol:'s', rshowB:true,
+  // refract
+  rti:30, rfn1:1, rfn2:1.5, wl:550, rfamp:1, rfspd:1,
+  // interference
+  ia1:1, ia2:1, if1:5, if2:5, idp:0, ysep:0.5, ispd:1,
+  // polarization
+  pex:1, pey:0, pph:0, pa:0, pm:0, pspd:1, ptype:'linear', pshowProj:true,
+};
+
+// Visual wave number & frequency for 3D (decoupled from physical for clarity)
+const K_VIS = 2.0;  // rad/unit — about 1 visible wavelength per π units of space
+const C_VIS = 1.0;  // visual wave speed (1 unit/s)
+
+// ═══════════════════════════════════════════════════════════════
+// MODE: WAVE
+// ═══════════════════════════════════════════════════════════════
+let wE, wB, wEnvEp, wEnvEn, wEnvBp, wEnvBn, wPnts=[];
+function initWave() {
+  clearPool();
+  makeGrid();
+  addLine([-3.5,0,0],[3.5,0,0], 0xff3355, 0.25);
+  addLine([0,-2.5,0],[0,2.5,0], 0x33ff88, 0.25);
+  addLine([0,0,-3.5],[0,0,3.5], 0x00e5ff, 0.3);
+  // axis labels via small dots
+  [[3.2,0,0,'x'],[0,2.2,0,'y'],[0,0,3.2,'z']].forEach(([x,y,z,_l]) => {
+    const sg = new THREE.SphereGeometry(0.04,6,6);
+    const sm = new THREE.MeshBasicMaterial({color:0x445566});
+    const s_ = new THREE.Mesh(sg, sm); s_.position.set(x,y,z); add(s_);
+  });
+
+  wE = addWaveLine(S.dens, 0x00e5ff);
+  wB = addWaveLine(S.dens, 0xff6d3b);
+  wEnvEp = addWaveLine(2, 0x00e5ff, 0.2);
+  wEnvEn = addWaveLine(2, 0x00e5ff, 0.2);
+  wEnvBp = addWaveLine(2, 0xff6d3b, 0.2);
+  wEnvBn = addWaveLine(2, 0xff6d3b, 0.2);
+  wPnts = [];
+}
+
+function updateWave(t) {
+  const N = S.dens, Z = 3.0;
+  const kv = K_VIS * (0.6 + S.freq/10 * 0.8); // k scales with freq
+  const wv = kv * S.speed * C_VIS;
+  const ph = S.phase * Math.PI/180;
+  const A = S.amp;
+
+  wE.show(S.showE); wB.show(S.showB);
+  [wEnvEp, wEnvEn].forEach(l => l.show(S.showEnv && S.showE));
+  [wEnvBp, wEnvBn].forEach(l => l.show(S.showEnv && S.showB));
+
+  for (let i=0; i<N; i++) {
+    const frac = i/(N-1);
+    const z = -Z + frac*2*Z;
+    const phi = kv*z - wv*t + ph;
+    if (S.showE) { const ex = A*Math.sin(phi); wE.sp(i, ex, 0, z); }
+    if (S.showB) { const by = A*(1/S.n)*Math.sin(phi); wB.sp(i, 0, by*0.75, z); }
+  }
+  if (S.showE) wE.flush();
+  if (S.showB) wB.flush();
+
+  // envelope (flat lines at ±A)
+  if (S.showEnv) {
+    wEnvEp.sp(0,A,0,-Z); wEnvEp.sp(1,A,0,Z); wEnvEp.flush();
+    wEnvEn.sp(0,-A,0,-Z); wEnvEn.sp(1,-A,0,Z); wEnvEn.flush();
+    const bA = A*0.75/S.n;
+    wEnvBp.sp(0,0,bA,-Z); wEnvBp.sp(1,0,bA,Z); wEnvBp.flush();
+    wEnvBn.sp(0,0,-bA,-Z); wEnvBn.sp(1,0,-bA,Z); wEnvBn.flush();
+  }
+
+  // Poynting arrows (sparse arrows along z, in +z direction)
+  wPnts.forEach(a => scene.remove(a));
+  wPnts = [];
+  if (S.showPnt) {
+    for (let i=0; i<12; i++) {
+      const z = -2.5 + i*5/11;
+      const frac2 = (i/11);
+      const phi2 = kv*z - wv*t + ph;
+      const sz = A * Math.cos(phi2);
+      if (Math.abs(sz) > 0.15) {
+        const arr = new THREE.ArrowHelper(
+          new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,z),
+          Math.abs(sz)*0.4, T3.T, Math.abs(sz)*0.15, 0.06
+        );
+        scene.add(arr); scenePool.push(arr); wPnts.push(arr);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODE: REFLECTION (time-dependent animated waves on rays)
+// ═══════════════════════════════════════════════════════════════
+let rIncE, rIncB, rRefE, rRefB, rTrnsE;
+function initReflect() {
+  clearPool();
+  // Interface plane (XZ plane at y=0... wait, I want the interface at z=0 in 3D
+  // Interface: horizontal plane at z=0 (XY plane)
+  const ifGeo = new THREE.PlaneGeometry(7, 4);
+  const ifMesh = addMesh(ifGeo, 0x0a2040, 0.5);
+  ifMesh.rotation.x = Math.PI/2; // make it lay flat as a horizontal plane
+
+  // Medium labels via colored regions
+  const m1 = addMesh(new THREE.PlaneGeometry(7,2), 0x001529, 0.15);
+  m1.rotation.x = Math.PI/2; m1.position.z = 1.5;
+  const m2 = addMesh(new THREE.PlaneGeometry(7,2), 0x002215, 0.12);
+  m2.rotation.x = Math.PI/2; m2.position.z = -1.5;
+
+  // Normal line (y-axis upward, at origin)
+  addLine([0,-2.5,0],[0,2.5,0], 0x3a607c, 0.5);
+
+  rIncE = addWaveLine(200, 0x00e5ff);
+  rRefE = addWaveLine(200, 0xff6d3b);
+  rTrnsE = addWaveLine(200, 0x69ff47);
+  rIncB = addWaveLine(200, 0xff6d3b, 0.55);
+  rRefB = addWaveLine(200, 0x69ff47, 0.45);
+}
+
+function updateReflect(t) {
+  const theta_i = S.ti * Math.PI/180;
+  const n1 = S.rn1, n2 = S.rn2;
+  const A = S.ramp;
+  const kv1 = K_VIS;
+  const kv2 = K_VIS * n2/n1; // k scales with index
+  const wv = kv1 * S.rspd;
+  const L = 2.8; // ray arc length
+  const phi0 = kv1 * L; // phase offset for continuity at interface
+
+  // Fresnel coefficients
+  const sinTt = (n1/n2)*Math.sin(theta_i);
+  const TIR = sinTt > 1;
+  let r_coef=1, t_coef=0;
+  if (!TIR) {
+    const theta_t = Math.asin(sinTt);
+    const ci=Math.cos(theta_i), ct=Math.cos(theta_t);
+    if (S.rpol==='s') {
+      r_coef = (n1*ci-n2*ct)/(n1*ci+n2*ct);
+      t_coef = 2*n1*ci/(n1*ci+n2*ct);
+    } else {
+      r_coef = (n2*ci-n1*ct)/(n2*ci+n1*ct);
+      t_coef = 2*n1*ci/(n2*ci+n1*ct);
+    }
+  }
+
+  // Ray geometry
+  // Interface: z=0 (XY plane), normal = ẑ
+  // Incident comes from z>0, traveling in (sin(θi), 0, -cos(θi)) direction
+  const dx_i = Math.sin(theta_i), dz_i = -Math.cos(theta_i); // incident direction
+  const dx_r = Math.sin(theta_i), dz_r = Math.cos(theta_i);  // reflected direction
+  const theta_t_val = TIR ? theta_i : Math.asin(sinTt);
+  const dx_t = Math.sin(theta_t_val), dz_t = -Math.cos(theta_t_val); // transmitted
+
+  const N = 200;
+
+  // ── INCIDENT E-field (S-pol: E in Y direction)
+  const ix0 = -L*dx_i, iz0 = L*Math.cos(theta_i);
+  for (let i=0; i<N; i++) {
+    const s = (i/(N-1))*L;
+    const bx = ix0 + s*dx_i;
+    const bz = iz0 + s*dz_i;
+    const phi = kv1*s - wv*t;
+    const ey = A * Math.sin(phi);
+    rIncE.sp(i, bx, ey, bz);
+  }
+  rIncE.flush();
+
+  // ── REFLECTED E-field
+  for (let i=0; i<N; i++) {
+    const s = (i/(N-1))*L;
+    const bx = s*dx_r, bz = s*dz_r;
+    const phi = kv1*s - wv*t + phi0;
+    const ey = r_coef * A * Math.sin(phi);
+    rRefE.sp(i, bx, ey, bz);
+  }
+  rRefE.flush();
+
+  // ── TRANSMITTED E-field (or zero if TIR)
+  for (let i=0; i<N; i++) {
+    const s = (i/(N-1))*L;
+    const bx = s*dx_t, bz = s*dz_t;
+    let ey = 0;
+    if (!TIR) {
+      const phi = kv2*s - wv*t + phi0;
+      ey = t_coef * A * Math.sin(phi);
+    }
+    rTrnsE.sp(i, bx, ey, bz);
+  }
+  rTrnsE.flush();
+  rTrnsE.show(!TIR);
+
+  // ── B-FIELD (perpendicular to both k and E)
+  const bx_i = Math.cos(theta_i), bz_i = Math.sin(theta_i);   // incident B direction (in XZ)
+  const bx_r = -Math.cos(theta_i), bz_r = Math.sin(theta_i);  // reflected B direction
+
+  rIncB.show(S.rshowB);
+  rRefB.show(S.rshowB);
+  if (S.rshowB) {
+    for (let i=0; i<N; i++) {
+      const s=(i/(N-1))*L;
+      const bx=ix0+s*dx_i, bz=iz0+s*dz_i;
+      const phi=kv1*s-wv*t;
+      const bAmp=A*(1/n1)*0.7*Math.sin(phi);
+      rIncB.sp(i, bx+bx_i*bAmp, bAmp*0, bz+bz_i*bAmp);
+    }
+    rIncB.flush();
+    for (let i=0; i<N; i++) {
+      const s=(i/(N-1))*L;
+      const bx=s*dx_r, bz=s*dz_r;
+      const phi=kv1*s-wv*t+phi0;
+      const bAmp=r_coef*A*(1/n1)*0.7*Math.sin(phi);
+      rRefB.sp(i, bx+bx_r*bAmp, 0, bz+bz_r*bAmp);
+    }
+    rRefB.flush();
+  }
+
+  // Update Fresnel numerics
+  updateFresnelNumerics(theta_i, n1, n2);
+  drawFresnelPlot(S.ti, n1, n2);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODE: REFRACTION (same as reflection but wavelength-colored transmitted)
+// ═══════════════════════════════════════════════════════════════
+let rfIncE, rfRefE, rfTrnsE;
+function initRefract() {
+  clearPool();
+  const ifGeo = new THREE.PlaneGeometry(7,4);
+  const ifMesh = addMesh(ifGeo, 0x0a2040, 0.5);
+  ifMesh.rotation.x = Math.PI/2;
+
+  const m1 = addMesh(new THREE.PlaneGeometry(7,2), 0x001529, 0.15);
+  m1.rotation.x = Math.PI/2; m1.position.z = 1.5;
+  const m2 = addMesh(new THREE.PlaneGeometry(7,2), 0x002215, 0.12);
+  m2.rotation.x = Math.PI/2; m2.position.z = -1.5;
+
+  addLine([0,-2.5,0],[0,2.5,0], 0x3a607c, 0.5);
+
+  rfIncE  = addWaveLine(200, 0x00e5ff);
+  rfRefE  = addWaveLine(200, 0xff6d3b);
+  rfTrnsE = addWaveLine(200, wlToHex(550));
+}
+
+function updateRefract(t) {
+  const theta_i = S.rti * Math.PI/180;
+  const n1=S.rfn1, n2=S.rfn2;
+  const A = S.rfamp;
+  const kv1 = K_VIS, kv2 = K_VIS*n2/n1;
+  const wv = kv1*S.rfspd;
+  const L=2.8, phi0=kv1*L;
+  const sinTt=(n1/n2)*Math.sin(theta_i);
+  const TIR = sinTt>1;
+  const theta_t = TIR? theta_i : Math.asin(sinTt);
+
+  // Fresnel (S-pol for refraction)
+  let r_coef=TIR?-1:0, t_coef=TIR?0:1;
+  if (!TIR) {
+    const ci=Math.cos(theta_i), ct=Math.cos(theta_t);
+    r_coef=(n1*ci-n2*ct)/(n1*ci+n2*ct);
+    t_coef=2*n1*ci/(n1*ci+n2*ct);
+  }
+
+  const dx_i=Math.sin(theta_i), dz_i=-Math.cos(theta_i);
+  const dx_r=Math.sin(theta_i), dz_r=Math.cos(theta_i);
+  const dx_t=Math.sin(theta_t), dz_t=-Math.cos(theta_t);
+  const ix0=-L*dx_i, iz0=L*Math.cos(theta_i);
+  const N=200;
+
+  // Set transmitted color from wavelength
+  rfTrnsE.setColor(wlToHex(S.wl));
+
+  for (let i=0;i<N;i++){const s=(i/(N-1))*L;const bx=ix0+s*dx_i,bz=iz0+s*dz_i;rfIncE.sp(i,bx,A*Math.sin(kv1*s-wv*t),bz);}
+  rfIncE.flush();
+  for (let i=0;i<N;i++){const s=(i/(N-1))*L;rfRefE.sp(i,s*dx_r,r_coef*A*Math.sin(kv1*s-wv*t+phi0),s*dz_r);}
+  rfRefE.flush();
+  for (let i=0;i<N;i++){const s=(i/(N-1))*L;let ey=0;if(!TIR)ey=t_coef*A*Math.sin(kv2*s-wv*t+phi0);rfTrnsE.sp(i,s*dx_t,ey,s*dz_t);}
+  rfTrnsE.flush(); rfTrnsE.show(!TIR);
+
+  updateFresnelNumerics(theta_i,n1,n2);
+  drawFresnelPlot(S.rti,n1,n2);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODE: INTERFERENCE (two sinusoids + superposition along Z)
+// ═══════════════════════════════════════════════════════════════
+let iW1, iW2, iWS;
+function initInterfere() {
+  clearPool();
+  makeGrid();
+  addLine([-3.5,0,0],[3.5,0,0], 0xff3355, 0.15);
+  addLine([0,0,-3.5],[0,0,3.5], 0x00e5ff, 0.25);
+  // Separation lines
+  addLine([-3,S.ysep,0],[3,S.ysep,0], 0x00e5ff, 0.08);
+  addLine([-3,-S.ysep,0],[3,-S.ysep,0], 0xff6d3b, 0.08);
+
+  iW1 = addWaveLine(280, 0x00e5ff);
+  iW2 = addWaveLine(280, 0xff6d3b);
+  iWS = addWaveLine(280, 0xffffff);
+}
+
+function updateInterfere(t) {
+  const Z=3.0, N=280;
+  const kv1=K_VIS*(0.6+S.if1/10*0.8);
+  const kv2=K_VIS*(0.6+S.if2/10*0.8);
+  const wv1=kv1*S.ispd, wv2=kv2*S.ispd;
+  const dp=S.idp*Math.PI/180;
+
+  for (let i=0;i<N;i++) {
+    const frac=i/(N-1), z=-Z+frac*2*Z;
+    const e1=S.ia1*Math.sin(kv1*z-wv1*t);
+    const e2=S.ia2*Math.sin(kv2*z-wv2*t+dp);
+    iW1.sp(i, e1, S.ysep, z);
+    iW2.sp(i, e2,-S.ysep, z);
+    iWS.sp(i, (e1+e2)*0.5, 0, z);
+  }
+  iW1.flush(); iW2.flush(); iWS.flush();
+  updateInterferenceNumerics();
+  drawInterferenceChart(t);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODE: POLARIZATION (3D helical/elliptical wave curve)
+// ═══════════════════════════════════════════════════════════════
+let pWave, pProjX, pProjY, pEndEllipse;
+function initPolar() {
+  clearPool();
+  makeGrid();
+  addLine([0,0,-3.5],[0,0,3.5], 0x00e5ff, 0.3);
+  addLine([-2.5,0,0],[2.5,0,0], 0xff3355, 0.2);
+  addLine([0,-2.5,0],[0,2.5,0], 0x33ff88, 0.2);
+
+  // Projection planes (faint rectangles)
+  const pxg = new THREE.PlaneGeometry(6,4);
+  const pxm = addMesh(pxg, 0x00e5ff, 0.03);
+  pxm.rotation.y = Math.PI/2; pxm.position.x = -2.4; // YZ plane
+
+  const pyg = new THREE.PlaneGeometry(6,4);
+  const pym = addMesh(pyg, 0xff6d3b, 0.03);
+  // XZ plane (already default rotation)
+  pym.position.y = -2.4; pym.rotation.x = Math.PI/2;
+
+  pWave  = addWaveLine(300, 0x00e5ff);
+  pProjX = addWaveLine(300, 0x00e5ff, 0.2); // projection on YZ (x=-2.4)
+  pProjY = addWaveLine(300, 0xff6d3b, 0.2); // projection on XZ (y=-2.4)
+  pEndEllipse = addWaveLine(200, 0xffffff, 0.5); // end-face ellipse at z=3
+}
+
+function updatePolar(t) {
+  const Z=3.0, N=300;
+  const kv=K_VIS, wv=kv*S.pspd;
+  let ex0=S.pex, ey0=S.pey, delta=S.pph*Math.PI/180;
+
+  if (S.ptype==='circular')  { ex0=S.pex; ey0=S.pex; delta=Math.PI/2; }
+  if (S.ptype==='linear')    { ex0=S.pex; ey0=0; delta=0; }
+  if (S.ptype==='unpolarized') { /* handled via random-ish phase */ }
+
+  for (let i=0;i<N;i++){
+    const frac=i/(N-1), z=-Z+frac*2*Z;
+    let phi=kv*z-wv*t;
+    let ex_,ey_;
+    if (S.ptype==='unpolarized') {
+      // Simulate by slowly rotating phase
+      const rph=Math.sin(t*0.3+z*0.5)*Math.PI;
+      ex_=ex0*Math.cos(phi)*Math.cos(rph);
+      ey_=ex0*Math.cos(phi)*Math.sin(rph);
+    } else {
+      ex_=ex0*Math.cos(phi);
+      ey_=ey0*Math.cos(phi+delta);
+    }
+    pWave.sp(i, ex_, ey_, z);
+    if(S.pshowProj){pProjX.sp(i,-2.4,ey_,z); pProjY.sp(i,ex_,-2.4,z);}
+  }
+  pWave.flush();
+  if(S.pshowProj){pProjX.flush();pProjY.flush();}
+  pProjX.show(S.pshowProj); pProjY.show(S.pshowProj);
+
+  // End ellipse at z=3 (static cross-section of polarization state)
+  const Ne=200;
+  for(let i=0;i<Ne;i++){
+    const th=i/(Ne-1)*2*Math.PI;
+    let ex_,ey_;
+    if(S.ptype==='unpolarized'){ex_=ex0*Math.cos(th);ey_=ex0*Math.sin(th);}
+    else{ex_=ex0*Math.cos(th);ey_=ey0*Math.cos(th+delta);}
+    pEndEllipse.sp(i,ex_,ey_,3.0);
+  }
+  pEndEllipse.flush();
+
+  updatePolarNumerics();
+  drawPolarEllipse(t);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NUMERICS
+// ═══════════════════════════════════════════════════════════════
+function updateWaveNumerics() {
+  const f=S.freq*1e14, n=S.n, v=3e8/n, wl=(v/f)*1e9, k=2*Math.PI*f/v, w=2*Math.PI*f, T=1/f;
+  $('nf').textContent=(f/1e14).toFixed(2);
+  $('nwl').textContent=wl.toFixed(0);
+  $('nv').textContent=(v/1e8).toFixed(3);
+  $('nk').textContent=(k/1e6).toFixed(2);
+  $('nw').textContent=(w/1e14).toFixed(2);
+  $('nT').textContent=(T/1e-15).toFixed(2);
+  $('nE0').textContent=S.amp.toFixed(2);
+  $('nB0').textContent=(S.amp/3e8*1e9).toFixed(2);
+  $('nS').textContent=(0.5*8.854e-12*3e8*S.amp*S.amp).toExponential(2);
+  $('nn').textContent=n.toFixed(2);
+  // Spectrum marker
+  const pct=Math.max(0,Math.min(100,(wl-380)/(740-380)*100));
+  $('smark').style.left=pct+'%';
+  const lbl=wl<450?'Violet/UV':wl<490?'Blue':wl<510?'Cyan':wl<560?'Green':wl<590?'Yellow':wl<625?'Orange':wl<740?'Red':'Near IR';
+  $('spec-lbl').textContent=`~${wl.toFixed(0)} nm · ${lbl}`;
+}
+
+function updateFresnelNumerics(ti, n1, n2) {
+  const sinTt=(n1/n2)*Math.sin(ti);
+  const TIR=sinTt>1;
+  $('r-ti').textContent=(ti*180/Math.PI).toFixed(1);
+  const crit=n1>n2?Math.asin(n2/n1)*180/Math.PI:null;
+  $('r-Cr').textContent=crit?crit.toFixed(1):'—';
+  const Br=Math.atan(n2/n1)*180/Math.PI;
+  $('r-Br').textContent=Br.toFixed(1);
+  if(TIR){
+    $('r-tr').textContent='TIR';$('r-R').textContent='1.000';$('r-T').textContent='0.000';$('r-r').textContent='−1.000';$('r-t').textContent='0.000';
+  } else {
+    const tt=Math.asin(sinTt);
+    const ci=Math.cos(ti),ct=Math.cos(tt);
+    const rs=(n1*ci-n2*ct)/(n1*ci+n2*ct);
+    const ts=2*n1*ci/(n1*ci+n2*ct);
+    $('r-tr').textContent=(tt*180/Math.PI).toFixed(1);
+    $('r-R').textContent=(rs*rs).toFixed(3);
+    $('r-T').textContent=(1-rs*rs).toFixed(3);
+    $('r-r').textContent=rs.toFixed(3);
+    $('r-t').textContent=ts.toFixed(3);
+  }
+}
+
+function updateInterferenceNumerics() {
+  const A1=S.ia1,A2=S.ia2,dp=S.idp*Math.PI/180;
+  const Imax=(A1+A2)**2, Imin=(Math.abs(A1-A2))**2;
+  const V=(Imax-Imin)/(Imax+Imin+1e-9);
+  const bf=Math.abs(S.if1-S.if2);
+  const dpd=S.idp%360;
+  const state_=dpd<30||dpd>330?'Constructive':dpd>150&&dpd<210?'Destructive':'Partial';
+  $('i-imax').textContent=Imax.toFixed(2);$('i-imin').textContent=Imin.toFixed(2);
+  $('i-V').textContent=V.toFixed(3);$('i-dp').textContent=S.idp;
+  $('i-bf').textContent=bf.toFixed(1);$('i-st').textContent=state_;
+}
+
+function updatePolarNumerics() {
+  const ex=S.pex,ey=S.pey,d=S.pph*Math.PI/180,tm=S.pm*Math.PI/180;
+  const Iin=ex*ex+ey*ey;
+  const Iout=Iin*Math.cos(tm)*Math.cos(tm);
+  const S0=Iin,S1=ex*ex-ey*ey,S2=2*ex*ey*Math.cos(d),S3=2*ex*ey*Math.sin(d);
+  const eps=S3/(S0+1e-9);
+  $('p-ex').textContent=ex.toFixed(2);$('p-ey').textContent=ey.toFixed(2);
+  $('p-d').textContent=S.pph;$('p-mal').textContent=Iout.toFixed(3);
+  $('p-eps').textContent=eps.toFixed(3);$('p-s0').textContent=S0.toFixed(2);
+  $('p-s1').textContent=S1.toFixed(2);$('p-s2').textContent=S2.toFixed(2);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 2D CANVAS DRAWS
+// ═══════════════════════════════════════════════════════════════
+function drawFresnelPlot(tDeg, n1, n2) {
+  const cv=$('fresnel-cv'); if(!cv)return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=TH.bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=TH.bdr;ctx.lineWidth=1;
+  for(let y=0;y<=H;y+=H/4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  function drawCurve(color, fn){
+    ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();let f=true;
+    for(let deg=0;deg<=89;deg++){
+      const v=fn(deg*Math.PI/180,n1,n2);
+      if(v===null){if(!f){ctx.stroke();ctx.beginPath();f=true;}continue;}
+      const x=deg/89*W, y=H-v*H*0.95;
+      if(f){ctx.moveTo(x,y);f=false;}else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  drawCurve(TH.E,(ti,n1,n2)=>{const s=(n1/n2)*Math.sin(ti);if(s>1)return null;const tt=Math.asin(s),ci=Math.cos(ti),ct=Math.cos(tt);const rs=(n1*ci-n2*ct)/(n1*ci+n2*ct);return rs*rs;});
+  drawCurve(TH.B,(ti,n1,n2)=>{const s=(n1/n2)*Math.sin(ti);if(s>1)return null;const tt=Math.asin(s),ci=Math.cos(ti),ct=Math.cos(tt);const rp=(n2*ci-n1*ct)/(n2*ci+n1*ct);return rp*rp;});
+
+  ctx.strokeStyle=TH.dim;ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  const mx=tDeg/89*W;
+  ctx.beginPath();ctx.moveTo(mx,0);ctx.lineTo(mx,H);ctx.stroke();ctx.setLineDash([]);
+}
+
+function drawInterferenceChart(t) {
+  const cv=$('int-cv'); if(!cv)return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=TH.bg;ctx.fillRect(0,0,W,H);
+  const cy=H/2;
+  ctx.strokeStyle=TH.bdr;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();
+
+  const kv1=K_VIS*(0.6+S.if1/10*0.8),kv2=K_VIS*(0.6+S.if2/10*0.8);
+  const wv1=kv1*S.ispd,wv2=kv2*S.ispd;
+  const dp=S.idp*Math.PI/180;
+  const sc=H*0.36;
+
+  function drawW(color, fn, alpha=1){
+    ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=1.8;ctx.beginPath();
+    for(let x=0;x<W;x++){
+      const z=(x/W)*4*Math.PI;
+      const y=cy-fn(z,t)*sc;
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();ctx.globalAlpha=1;
+  }
+  drawW(TH.E,(z,t)=>S.ia1*Math.sin(kv1*z-wv1*t),0.8);
+  drawW(TH.B,(z,t)=>S.ia2*Math.sin(kv2*z-wv2*t+dp),0.8);
+  drawW(TH.S,(z,t)=>S.ia1*Math.sin(kv1*z-wv1*t)+S.ia2*Math.sin(kv2*z-wv2*t+dp),1);
+}
+
+function drawPolarEllipse(t) {
+  const cv=$('pol-cv'); if(!cv)return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=TH.bg;ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2,sc=Math.min(W,H)*0.36;
+  ctx.strokeStyle=TH.dim;ctx.globalAlpha=.5;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx-sc-8,cy);ctx.lineTo(cx+sc+8,cy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx,cy-sc-8);ctx.lineTo(cx,cy+sc+8);ctx.stroke();
+  ctx.globalAlpha=1;
+
+  let ex0=S.pex,ey0=S.pey,delta=S.pph*Math.PI/180;
+  if(S.ptype==='circular'){ex0=S.pex;ey0=S.pex;delta=Math.PI/2;}
+  if(S.ptype==='linear'){ex0=S.pex;ey0=0;delta=0;}
+
+  ctx.strokeStyle=TH.E;ctx.lineWidth=2.2;ctx.beginPath();
+  for(let i=0;i<=360;i++){
+    const th=i*Math.PI/180;
+    let ex_,ey_;
+    if(S.ptype==='unpolarized'){const rph=Math.sin(S.time*0.3+th*0.5)*Math.PI;ex_=ex0*Math.cos(th)*Math.cos(rph);ey_=ex0*Math.cos(th)*Math.sin(rph);}
+    else{ex_=ex0*Math.cos(th);ey_=ey0*Math.cos(th+delta);}
+    const px=cx+ex_*sc,py=cy-ey_*sc;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  const phi_=K_VIS*3-K_VIS*S.pspd*t;
+  let ex_,ey_;
+  if(S.ptype==='unpolarized'){const rph=Math.sin(t*0.3)*Math.PI;ex_=ex0*Math.cos(phi_)*Math.cos(rph);ey_=ex0*Math.cos(phi_)*Math.sin(rph);}
+  else{ex_=ex0*Math.cos(phi_);ey_=ey0*Math.cos(phi_+delta);}
+  ctx.fillStyle=TH.S;
+  ctx.beginPath();ctx.arc(cx+ex_*sc,cy-ey_*sc,4.5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=TH.dim;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+ex_*sc,cy-ey_*sc);ctx.stroke();
+
+  const ma=S.pm*Math.PI/180;
+  ctx.strokeStyle=TH.B;ctx.lineWidth=1.8;ctx.setLineDash([3,3]);
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(ma)*(sc+8),cy-Math.sin(ma)*(sc+8));ctx.lineTo(cx+Math.cos(ma)*(sc+8),cy+Math.sin(ma)*(sc+8));ctx.stroke();ctx.setLineDash([]);
+}
+
+function drawFiberOptic() {
+  const cv=$('fiber-cv'); if(!cv)return;
+  if(cv.clientWidth && cv.width!==cv.clientWidth) cv.width=cv.clientWidth; // crisp text
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=TH.bg;ctx.fillRect(0,0,W,H);
+  const cy1=H*0.3,cy2=H*0.7,cly1=H*0.1,cly2=H*0.9;
+
+  ctx.fillStyle=TH.surf2;ctx.fillRect(0,cly1,W,cly2-cly1);
+  const c0=TH.day?'#d7e8f7':'#001832', c1=TH.day?'#a9cdee':'#003060';
+  const cg=ctx.createLinearGradient(0,cy1,0,cy2);
+  cg.addColorStop(0,c0);cg.addColorStop(.5,c1);cg.addColorStop(1,c0);
+  ctx.fillStyle=cg;ctx.fillRect(0,cy1,W,cy2-cy1);
+  ctx.strokeStyle=TH.dim;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,cy1);ctx.lineTo(W,cy1);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,cy2);ctx.lineTo(W,cy2);ctx.stroke();
+
+  // bouncing ray (TIR at the core/cladding boundary)
+  ctx.strokeStyle=TH.E;ctx.lineWidth=2.2;
+  if(!TH.day){ctx.shadowBlur=8;ctx.shadowColor=TH.E;}
+  ctx.beginPath();
+  let x=0,y=(cy1+cy2)/2,vy=0.35;
+  ctx.moveTo(x,y);
+  while(x<W){
+    x+=4; y+=vy*4;
+    if(y<=cy1||y>=cy2)vy=-vy;
+    ctx.lineTo(x,y);
+  }
+  ctx.stroke();ctx.shadowBlur=0;
+
+  ctx.font='13px DM Sans';
+  ctx.fillStyle=TH.text;
+  ctx.fillText('Cladding  n = 1.46',8,cly1+14);
+  ctx.fillText('Cladding  n = 1.46',8,cly2+14);
+  ctx.fillStyle=TH.E;ctx.font='600 14px DM Sans';
+  ctx.fillText('Core  n = 1.48  →  Total Internal Reflection',8,(cy1+cy2)/2-8);
+  ctx.fillStyle=TH.T;ctx.font='13px Space Mono';
+  ctx.fillText(`θ_c = ${(Math.asin(1.46/1.48)*180/Math.PI).toFixed(1)}°`,W-110,H-6);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function $(id){return document.getElementById(id)}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function wlToRGB(wl) {
+  let r=0,g=0,b=0;
+  if(wl>=380&&wl<440){r=(440-wl)/(440-380);g=0;b=1;}
+  else if(wl<490){r=0;g=(wl-440)/(490-440);b=1;}
+  else if(wl<510){r=0;g=1;b=(510-wl)/(510-490);}
+  else if(wl<580){r=(wl-510)/(580-510);g=1;b=0;}
+  else if(wl<645){r=1;g=(645-wl)/(645-580);b=0;}
+  else{r=1;g=0;b=0;}
+  return [r,g,b];
+}
+function wlToHex(wl){
+  const [r,g,b]=wlToRGB(wl);
+  return (Math.round(r*255)<<16)|(Math.round(g*255)<<8)|Math.round(b*255);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+const CTRL_PANELS = {
+  wave:['ctrl-wave','ctrl-display'], reflect:['ctrl-refl'], refract:['ctrl-refr'],
+  interfere:['ctrl-int'], polar:['ctrl-pol']
+};
+const RIGHT_PANELS = {
+  wave:['rp-wave'], reflect:['rp-refl'], refract:['rp-refl'],
+  interfere:['rp-int'], polar:['rp-pol']
+};
+const OVL_TEXT = {
+  wave: '<span class="e">— E-field (cyan)</span><span class="b">— B-field (orange)</span>',
+  reflect: '<span class="e">— Incident E</span><span class="r">— Reflected E</span><span class="t">— Transmitted E</span>',
+  refract: '<span class="e">— Incident</span><span class="r">— Reflected</span><span class="t">— Transmitted</span>',
+  interfere: '<span class="e">— Wave 1</span><span class="r">— Wave 2</span><span style="color:var(--S)">— Sum</span>',
+  polar: '<span class="e">— E-field helix</span><span style="color:var(--dim)">— Projections</span>',
+};
+
+function showTab(tab) {
+  S.tab = tab;
+  // Tabs
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+
+  // Sidebar panels
+  Object.values(CTRL_PANELS).flat().forEach(id => $(`${id}`)&&$(`${id}`).classList.add('hidden'));
+  (CTRL_PANELS[tab]||[]).forEach(id => $(`${id}`)&&$(`${id}`).classList.remove('hidden'));
+
+  // Right panels
+  ['rp-wave','rp-refl','rp-int','rp-pol'].forEach(id => $(`${id}`).classList.add('hidden'));
+  (RIGHT_PANELS[tab]||[]).forEach(id => $(`${id}`)&&$(`${id}`).classList.remove('hidden'));
+
+  // Overlay
+  const ovl=$('ovl'), hint=$('hint');
+  const is3D=['wave','reflect','refract','interfere','polar'].includes(tab);
+  $('carea').style.display='flex';
+  // Canvas visibility
+  canvas.style.display = is3D ? 'block' : 'none';
+  $('pg-physics').classList.remove('show');
+  $('pg-apps').classList.remove('show');
+  if(tab==='physics'){canvas.style.display='none';$('pg-physics').classList.add('show');ovl.classList.add('hidden');hint.classList.add('hidden');}
+  else if(tab==='apps'){canvas.style.display='none';$('pg-apps').classList.add('show');ovl.classList.add('hidden');hint.classList.add('hidden');setTimeout(drawFiberOptic,100);}
+  else{ovl.classList.remove('hidden');hint.classList.remove('hidden');ovl.innerHTML=OVL_TEXT[tab]||'';}
+
+  if(tab==='wave'){initWave();updateWaveNumerics();}
+  else if(tab==='reflect'){initReflect();updateReflect(S.time);}
+  else if(tab==='refract'){initRefract();updateRefract(S.time);}
+  else if(tab==='interfere'){initInterfere();updateInterferenceNumerics();}
+  else if(tab==='polar'){initPolar();updatePolarNumerics();}
+  applyThemeColors();
+
+  // Sidebar visibility
+  $('sidebar').style.display = (is3D) ? 'flex' : 'none';
+  $('rpanel').style.display  = (is3D) ? 'flex' : 'none';
+
+  // Typeset equations when the Physics / Applications pages are shown
+  if((tab==='physics'||tab==='apps') && window.MathJax && MathJax.typesetPromise){
+    MathJax.typesetPromise().catch(()=>{});
+  }
+}
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', ()=>showTab(b.dataset.tab)));
+
+// ═══════════════════════════════════════════════════════════════
+// CONTROLS WIRING
+// ═══════════════════════════════════════════════════════════════
+function wire(id, key, lbl, fmt, cb) {
+  const el=$(id); if(!el)return;
+  el.addEventListener('input', e=>{
+    S[key]=+e.target.value;
+    if(lbl)$(lbl).textContent=fmt?fmt(S[key]):S[key];
+    if(cb)cb();
+  });
+}
+const f2=(v)=>v.toFixed(2), f1=(v)=>v.toFixed(1), pct=(v)=>v+'°', x1=(v)=>v.toFixed(1)+'×';
+
+wire('s-freq','freq','lf', v=>`${v.toFixed(1)} ×10¹⁴ Hz`, updateWaveNumerics);
+wire('s-amp','amp','la',f2);wire('s-spd','speed','ls',x1);wire('s-phase','phase','lp',pct);wire('s-n','n','ln',f2,updateWaveNumerics);
+wire('s-dens','dens','ld', v=>Math.round(v), ()=>{initWave();applyThemeColors();});
+$('t-E').addEventListener('change',e=>S.showE=e.target.checked);
+$('t-B').addEventListener('change',e=>S.showB=e.target.checked);
+$('t-env').addEventListener('change',e=>S.showEnv=e.target.checked);
+$('t-pnt').addEventListener('change',e=>S.showPnt=e.target.checked);
+
+wire('s-ti','ti','l-ti',pct);wire('s-rn1','rn1','l-rn1',f2);wire('s-rn2','rn2','l-rn2',f2);
+wire('s-ramp','ramp','l-ramp',f2);wire('s-rspd','rspd','l-rspd',x1);
+$('sel-rp').addEventListener('change',e=>S.rpol=e.target.value);
+$('t-rB').addEventListener('change',e=>S.rshowB=e.target.checked);
+
+wire('s-rti','rti','l-rti',pct);wire('s-rfn1','rfn1','l-rfn1',f2);wire('s-rfn2','rfn2','l-rfn2',f2);
+wire('s-wl','wl','l-wl',v=>v);wire('s-rfamp','rfamp','l-rfamp',f2);wire('s-rfspd','rfspd','l-rfspd',x1);
+
+wire('s-ia1','ia1','l-ia1',f2);wire('s-ia2','ia2','l-ia2',f2);
+wire('s-if1','if1','l-if1',v=>v.toFixed(1));wire('s-if2','if2','l-if2',v=>v.toFixed(1));
+wire('s-idp','idp','l-idp',pct);wire('s-ysep','ysep','l-ysep',f2);wire('s-ispd','ispd','l-ispd',x1);
+
+wire('s-pex','pex','l-pex',f2);wire('s-pey','pey','l-pey',f2);wire('s-pph','pph','l-pph',pct);
+wire('s-pa','pa','l-pa',pct);wire('s-pm','pm','l-pm',pct);wire('s-pspd','pspd','l-pspd',x1);
+$('sel-pt').addEventListener('change', e=>{ S.ptype=e.target.value; applyPolPreset(); });
+$('t-proj').addEventListener('change',e=>S.pshowProj=e.target.checked);
+
+function applyPolPreset(){
+  if(S.ptype==='linear'){S.pex=1;S.pey=0;S.pph=0;$('s-pex').value=1;$('s-pey').value=0;$('s-pph').value=0;$('l-pex').textContent='1.00';$('l-pey').textContent='0.00';$('l-pph').textContent='0°';}
+  if(S.ptype==='circular'){S.pex=1;S.pey=1;S.pph=90;$('s-pex').value=1;$('s-pey').value=1;$('s-pph').value=90;$('l-pex').textContent='1.00';$('l-pey').textContent='1.00';$('l-pph').textContent='90°';}
+  if(S.ptype==='elliptical'){S.pex=1;S.pey=0.5;S.pph=45;$('s-pex').value=1;$('s-pey').value=0.5;$('s-pph').value=45;$('l-pex').textContent='1.00';$('l-pey').textContent='0.50';$('l-pph').textContent='45°';}
+  if(S.ptype==='unpolarized'){S.pex=1;S.pey=1;S.pph=0;$('s-pex').value=1;$('s-pey').value=1;$('s-pph').value=0;}
+}
+
+$('btn-play').addEventListener('click',()=>{S.playing=!S.playing;$('btn-play').textContent=S.playing?'⏸ Pause':'▶ Play';});
+$('btn-rst').addEventListener('click',()=>{S.time=0;});
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+let last2D=0;
+function animate(ts) {
+  requestAnimationFrame(animate);
+  if(S.playing) S.time += 0.016;
+
+  const tab=S.tab;
+  if(tab==='wave')       updateWave(S.time);
+  else if(tab==='reflect')  updateReflect(S.time);
+  else if(tab==='refract')  updateRefract(S.time);
+  else if(tab==='interfere') updateInterfere(S.time);
+  else if(tab==='polar')    updatePolar(S.time);
+
+  if(['wave','reflect','refract','interfere','polar'].includes(tab)){
+    renderer.render(scene, camera);
+  }
+  // 2D canvas at ~30fps
+  if(ts-last2D>33){
+    last2D=ts;
+    if(tab==='polar')      drawPolarEllipse(S.time);
+    if(tab==='apps')       drawFiberOptic();
+    if(tab==='interfere')  drawInterferenceChart(S.time);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// THEME (Night / Day)
+// ═══════════════════════════════════════════════════════════════
+const T3 = {};
+let TH = {}, THEME = 'night';
+function opx(o){ return Math.min(1, o*(T3.opMul||1)); }
+
+const DAY_MAP = {
+  0x00e5ff:0x0077b6, 0xff6d3b:0xd9480f, 0x69ff47:0x2b8a3e, 0xffffff:0x0b1b2b,
+  0x3a607c:0x5a7389, 0xff3355:0xc2183a, 0x33ff88:0x158a4b, 0x445566:0x6b7f92,
+  0x0a2040:0xb7cbe0, 0x001529:0xc4d7ea, 0x002215:0xc9e5d1
+};
+function applyThemeColors(){
+  if(THEME!=='day') return;
+  scenePool.forEach(o=>{
+    const m=o.material;
+    if(m && m.color && !m.vertexColors){
+      const c=DAY_MAP[m.color.getHex()];
+      if(c!==undefined) m.color.setHex(c);
+    }
+  });
+}
+
+function setTheme(name){
+  THEME = (name==='day') ? 'day' : 'night';
+  const day = THEME==='day';
+  document.documentElement.setAttribute('data-theme', THEME);
+  try{ localStorage.setItem('emsim-theme', THEME); }catch(e){}
+  const cs = getComputedStyle(document.documentElement);
+  ['bg','surf2','bdr','text','dim','E','B','T','S'].forEach(k=>{ TH[k]=cs.getPropertyValue('--'+k).trim(); });
+  TH.day = day;
+  T3.grid1 = day?0x8fa8c0:0x12263d;
+  T3.grid2 = day?0xc3d3e2:0x0a1a2d;
+  T3.opMul = day?2.2:1;
+  T3.T     = day?0x2b8a3e:0x69ff47;
+  renderer.setClearColor(day?0xeaf0f6:0x030b14, 1);
+  $('btn-night').classList.toggle('active', !day);
+  $('btn-day').classList.toggle('active', day);
+  $('btn-night').setAttribute('aria-pressed', String(!day));
+  $('btn-day').setAttribute('aria-pressed', String(day));
+  showTab(S.tab);   // rebuild scene + redraw 2D canvases with new colors
+}
+$('btn-night').addEventListener('click', ()=>setTheme('night'));
+$('btn-day').addEventListener('click',   ()=>setTheme('day'));
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+let savedTheme='night';
+try{ savedTheme=localStorage.getItem('emsim-theme')||'night'; }catch(e){}
+setTheme(savedTheme);
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

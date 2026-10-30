@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Monte Carlo vs Simpson's Volume Estimation</title>
+<!-- PrismJS Code Highlight Theme -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css">
+<style>
+:root {
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--text-2:#8b949e;--accent:#58a6ff;--acc-hover:#79b8ff;
+  --green:#3fb950;--red:#f85149;--purple:#bc8cff;--gold:#e3b341;
+  --orange:#ffa657;--teal:#39d353;--canvas-bg:#0a0e14;
+  --btn-bg:#21262d;--btn-hover:#30363d;--input-bg:#0d1117;
+  --shadow:rgba(0,0,0,.45);
+  --mono:'Cascadia Code','Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --r:7px;--rs:4px;
+  --simp-color:#f9826c;
+}
+[data-theme="light"] {
+  --bg:#f6f8fa;--surface:#ffffff;--surface-2:#f6f8fa;--border:#d0d7de;
+  --text:#24292f;--text-2:#57606a;--accent:#0969da;--acc-hover:#0550ae;
+  --green:#1a7f37;--red:#cf222e;--purple:#8250df;--gold:#9a6700;
+  --orange:#bc4c00;--canvas-bg:#eaf0fb;--btn-bg:#f6f8fa;--btn-hover:#eaeef2;
+  --input-bg:#ffffff;--shadow:rgba(31,35,40,.12);--simp-color:#e05d44;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;
+     line-height:1.5;min-height:100vh;transition:background .2s,color .2s}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:99;gap:12px;flex-wrap:wrap;
+}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo{color:var(--accent);flex-shrink:0}
+.hdr-title{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
+.hdr-sub{font-size:.72rem;color:var(--text-2)}
+.hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+/* Tab Bar */
+.tab-bar {
+  display:flex;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:2px;
+  gap:2px;
+}
+.tab-btn {
+  padding:4px 12px;
+  background:transparent;
+  border:none;
+  border-radius:var(--rs);
+  color:var(--text-2);
+  font-size:.78rem;
+  font-weight:500;
+  cursor:pointer;
+  transition:all .15s;
+}
+.tab-btn:hover {
+  color:var(--text);
+  background:var(--btn-hover);
+}
+.tab-btn.active {
+  color:#fff;
+  background:var(--accent);
+  font-weight:600;
+}
+
+.status-pill{
+  display:flex;align-items:center;gap:5px;padding:3px 10px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:20px;font-size:.7rem;color:var(--text-2);
+}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-2);
+            transition:background .3s;flex-shrink:0}
+.status-dot.running{background:var(--green);animation:pulse 1s infinite}
+.status-dot.paused{background:var(--gold)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.layout{display:grid;grid-template-columns:224px 1fr 290px;min-height:calc(100vh - 47px)}
+.panel{overflow-y:auto;padding:14px}
+.panel-left{background:var(--surface);border-right:1px solid var(--border)}
+.panel-center{background:var(--bg);display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px}
+.panel-right{background:var(--surface);border-left:1px solid var(--border)}
+
+/* Python Code Tab View */
+.tab-content-py {
+  max-width:960px;
+  margin:20px auto;
+  padding:0 15px;
+  display:none;
+}
+.code-desc {
+  font-size:.98rem;
+  color:var(--text-2);
+  margin-bottom:15px;
+  line-height:1.6;
+}
+.code-container {
+  background:var(--canvas-bg);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+  box-shadow:0 4px 20px var(--shadow);
+}
+.code-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--surface);
+  padding:8px 16px;
+  border-bottom:1px solid var(--border);
+}
+.code-title {
+  font-family:var(--mono);
+  font-size:.85rem;
+  color:var(--text-2);
+}
+.btn-copy {
+  font-size:.75rem;
+  padding:4px 10px;
+}
+.code-container pre {
+  margin:0 !important;
+  padding:16px !important;
+  overflow-x:auto;
+  max-height:calc(100vh - 250px);
+}
+.code-container code {
+  font-family:var(--mono);
+  font-size:.88rem !important;
+  line-height:1.6;
+}
+
+.sec{margin-bottom:16px}
+.sec-title{
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-2);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);
+}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  padding:5px 11px;border:1px solid var(--border);border-radius:var(--rs);
+  background:var(--btn-bg);color:var(--text);font-size:.78rem;font-weight:500;
+  cursor:pointer;transition:background .12s,border-color .12s,transform .05s;
+  white-space:nowrap;user-select:none;font-family:inherit;
+}
+.btn:hover{background:var(--btn-hover);border-color:var(--accent)}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn-primary:hover{background:var(--acc-hover);border-color:var(--acc-hover)}
+.btn-danger{color:var(--red);border-color:var(--red)}
+.btn-danger:hover{background:rgba(207,34,46,.1)}
+.btn-simp{color:var(--simp-color);border-color:var(--simp-color)}
+.btn-simp:hover{background:rgba(249,130,108,.1)}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.btn-full{width:100%}
+
+select{
+  width:100%;padding:5px 24px 5px 8px;background:var(--input-bg);
+  border:1px solid var(--border);border-radius:var(--rs);color:var(--text);
+  font-size:.78rem;cursor:pointer;appearance:none;font-family:inherit;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238b949e' d='M5 7L1 2h8z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+select:focus{outline:none;border-color:var(--accent)}
+input[type=text],input[type=number]{
+  width:100%;padding:5px 8px;background:var(--input-bg);
+  border:1px solid var(--border);border-radius:var(--rs);
+  color:var(--text);font-size:.78rem;font-family:var(--mono);
+}
+input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.ilab{font-size:.68rem;color:var(--text-2);margin-bottom:2px}
+
+.sg{margin-bottom:10px}
+.sg-head{display:flex;justify-content:space-between;align-items:center;
+         margin-bottom:4px;font-size:.73rem;color:var(--text-2)}
+.sv{font-family:var(--mono);font-size:.72rem;color:var(--accent);
+    background:var(--surface-2);padding:1px 5px;border-radius:3px}
+.sv-simp{color:var(--simp-color)!important}
+input[type=range]{width:100%;height:4px;appearance:none;
+  background:var(--surface-2);border-radius:2px;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;transition:transform .1s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
+input[type=range].simp-range::-webkit-slider-thumb{background:var(--simp-color)}
+
+.algo-steps{display:flex;flex-direction:column;gap:3px}
+.algo-step{
+  display:flex;gap:8px;align-items:flex-start;padding:5px 7px;
+  border-radius:var(--rs);border:1px solid transparent;transition:background .25s,border-color .25s;font-size:.72rem;
+}
+.algo-step.active{background:rgba(88,166,255,.07);border-color:rgba(88,166,255,.4)}
+.sn{
+  flex-shrink:0;width:17px;height:17px;border-radius:50%;
+  background:var(--surface-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.62rem;font-weight:700;color:var(--text-2);font-family:var(--mono);
+  transition:background .25s,border-color .25s,color .25s;
+}
+.algo-step.active .sn{background:var(--accent);border-color:var(--accent);color:#fff}
+.st{color:var(--text-2);line-height:1.4}
+.algo-step.active .st{color:var(--text)}
+
+.cv-header{display:flex;align-items:flex-start;justify-content:space-between;width:100%;max-width:600px}
+.cv-formula{font-family:var(--mono);font-size:.75rem;color:var(--gold);margin-bottom:1px}
+.cv-desc{font-size:.68rem;color:var(--text-2)}
+.cv-rate{font-size:.68rem;color:var(--text-2);text-align:right;font-family:var(--mono)}
+.canvas-wrap{
+  position:relative;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--border);background:var(--canvas-bg);
+  box-shadow:0 4px 20px var(--shadow);
+}
+canvas{display:block}
+.cv-caption{font-size:.68rem;color:var(--text-2);text-align:center;line-height:1.6}
+.plot-header{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px}
+.plot-legend{display:flex;gap:10px;font-size:.68rem;color:var(--text-2);flex-wrap:wrap}
+.lg-item{display:flex;align-items:center;gap:4px}
+.lg-line{width:18px;height:2px}
+
+/* Stats */
+.stats-grid{display:flex;flex-direction:column;gap:1px}
+.sr{display:flex;justify-content:space-between;align-items:center;
+    padding:5px 6px;border-radius:var(--rs)}
+.sr:nth-child(odd){background:var(--surface-2)}
+.sl{font-size:.73rem;color:var(--text-2);cursor:default}
+.sv2{font-family:var(--mono);font-size:.77rem;font-weight:600;color:var(--accent)}
+.sv2.ins{color:var(--green)}.sv2.out{color:var(--red)}
+.sv2.ext{color:var(--purple)}.sv2.err{color:var(--orange)}
+.sv2.simp{color:var(--simp-color)}
+.eff-bar{width:100%;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:4px}
+.eff-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:3px;transition:width .4s}
+
+/* Comparison table */
+.cmp-table{width:100%;border-collapse:collapse;font-size:.73rem;margin-top:4px}
+.cmp-table th{
+  font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-2);padding:5px 7px;border-bottom:1px solid var(--border);text-align:left;
+}
+.cmp-table td{padding:5px 7px;font-family:var(--mono);font-size:.72rem;border-bottom:1px solid var(--surface-2)}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table .method-mc{color:var(--accent)}
+.cmp-table .method-simp{color:var(--simp-color)}
+.cmp-table .method-exact{color:var(--purple)}
+.cmp-badge{
+  display:inline-flex;align-items:center;gap:4px;padding:1px 6px;
+  border-radius:3px;font-size:.65rem;font-weight:600;
+}
+.badge-mc{background:rgba(88,166,255,.12);color:var(--accent)}
+.badge-simp{background:rgba(249,130,108,.12);color:var(--simp-color)}
+.badge-exact{background:rgba(188,140,255,.12);color:var(--purple)}
+.win-badge{background:rgba(63,185,80,.15);color:var(--green);padding:1px 5px;
+           border-radius:3px;font-size:.65rem;font-weight:700}
+
+/* Simpson box */
+.simp-box{
+  background:rgba(249,130,108,.06);border:1px solid rgba(249,130,108,.25);
+  border-radius:var(--rs);padding:10px;margin-top:6px;
+}
+.simp-result{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:4px 0;font-size:.73rem;
+}
+.simp-lbl{color:var(--text-2)}
+.simp-val{font-family:var(--mono);color:var(--simp-color);font-weight:700;font-size:.8rem}
+
+/* Theory */
+.tblock{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin-bottom:7px}
+.formula-box{
+  font-family:var(--mono);font-size:.92rem;color:var(--gold);
+  text-align:center;padding:12px;background:var(--canvas-bg);
+  border-radius:var(--rs);border:1px solid var(--border);margin-bottom:8px;line-height:2.1;
+}
+.formula-box.simp-formula{color:var(--simp-color)}
+.tt{font-size:.86rem;color:var(--text-2);line-height:1.7;margin-bottom:7px}
+.tt:last-child{margin-bottom:0}
+.tt strong{color:var(--text)}
+
+/* Theory Tab (full page) */
+.tab-content-theory{
+  max-width:960px;margin:20px auto;padding:0 15px 60px;display:none;
+}
+.th-intro{font-size:1rem;color:var(--text-2);line-height:1.7;margin-bottom:22px;
+  padding-bottom:16px;border-bottom:1px solid var(--border)}
+.th-sec{margin-bottom:34px}
+.th-h1{font-size:1.35rem;font-weight:700;color:var(--text);margin-bottom:6px;
+  display:flex;align-items:center;gap:9px}
+.th-h1 .th-num{display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;
+  font-size:.8rem;font-weight:700;flex-shrink:0}
+.th-h1.simp .th-num{background:var(--simp-color)}
+.th-sub{font-size:.82rem;color:var(--text-2);margin-bottom:14px;margin-left:35px}
+.th-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px 18px;margin-bottom:14px;margin-left:0}
+.th-block h4{font-size:.85rem;color:var(--accent);margin-bottom:8px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em}
+.th-block.simp h4{color:var(--simp-color)}
+.th-p{font-size:.9rem;color:var(--text-2);line-height:1.75;margin-bottom:10px}
+.th-p:last-child{margin-bottom:0}
+.th-p strong{color:var(--text)}
+.th-p code, .th-formula code{font-family:var(--mono);background:var(--surface-2);
+  padding:1px 5px;border-radius:3px;font-size:.88em;color:var(--text)}
+.th-formula{
+  font-family:var(--mono);font-size:.95rem;color:var(--gold);
+  text-align:center;padding:14px;background:var(--canvas-bg);
+  border-radius:var(--rs);border:1px solid var(--border);margin:12px 0;line-height:2.1;
+}
+.th-formula.simp{color:var(--simp-color)}
+.th-formula.acc{color:var(--accent)}
+.th-steps{counter-reset:th-step;margin:12px 0}
+.th-step{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+.th-step:last-child{margin-bottom:0}
+.th-step-n{counter-increment:th-step;flex-shrink:0;width:24px;height:24px;
+  border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:.72rem;
+  font-weight:700;color:var(--accent);font-family:var(--mono)}
+.th-step-n::before{content:counter(th-step)}
+.th-step-body{flex:1;font-size:.87rem;color:var(--text-2);line-height:1.7;padding-top:2px}
+.th-step-body strong{color:var(--text)}
+.th-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.83rem}
+.th-table th{background:var(--surface-2);color:var(--text);text-align:left;
+  padding:8px 10px;border:1px solid var(--border);font-weight:700}
+.th-table td{padding:8px 10px;border:1px solid var(--border);color:var(--text-2)}
+.th-table td strong{color:var(--text)}
+.th-callout{border-left:3px solid var(--accent);background:rgba(88,166,255,.06);
+  padding:10px 14px;border-radius:0 var(--rs) var(--rs) 0;font-size:.85rem;
+  color:var(--text-2);line-height:1.65;margin:12px 0}
+.th-callout.simp{border-color:var(--simp-color);background:rgba(249,130,108,.06)}
+.th-callout strong{color:var(--text)}
+@media(max-width:820px){
+  .th-sub{margin-left:0}
+}
+
+.cust-panel{display:none;flex-direction:column;gap:7px;margin-top:8px}
+.cust-panel.vis{display:flex}
+.draw-hint{
+  font-size:.68rem;color:var(--text-2);text-align:center;padding:8px;
+  background:var(--surface-2);border-radius:var(--rs);line-height:1.5;border:1px dashed var(--border);
+}
+#fnError{font-size:.69rem;color:var(--red);display:none;padding:3px 0}
+
+[data-tip]{position:relative}
+[data-tip]::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;
+  transform:translateX(-50%);background:var(--surface);color:var(--text);
+  border:1px solid var(--border);padding:4px 8px;border-radius:var(--rs);
+  font-size:.68rem;white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .15s;z-index:200;box-shadow:0 2px 8px var(--shadow);
+}
+[data-tip]:hover::after{opacity:1}
+
+.theme-btn{
+  padding:4px 9px;background:var(--btn-bg);border:1px solid var(--border);
+  border-radius:var(--rs);cursor:pointer;font-size:.78rem;color:var(--text);
+  display:flex;align-items:center;gap:4px;transition:all .15s;font-family:inherit;
+}
+.theme-btn:hover{background:var(--btn-hover);border-color:var(--accent)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:1120px){.layout{grid-template-columns:200px 1fr 260px}}
+@media(max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .panel-left,.panel-right{border-right:none;border-left:none;border-bottom:1px solid var(--border)}
+  .panel-center{padding:10px}
+  .cv-header,.plot-header{max-width:100%}
+}
+</style>
+<!-- MathJax -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }
+};
+</script>
+<script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+</head>
+<body data-theme="dark">
+
+<!-- HEADER -->
+<header>
+  <div class="hdr-left">
+    <svg class="hdr-logo" width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect x="2" y="2" width="24" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="8" cy="18" r="1.5" fill="var(--red)"/>
+      <circle cx="12" cy="10" r="1.5" fill="var(--green)"/>
+      <circle cx="17" cy="15" r="1.5" fill="var(--red)"/>
+      <circle cx="9" cy="13" r="1.5" fill="var(--green)"/>
+      <circle cx="19" cy="9"  r="1.5" fill="var(--green)"/>
+      <circle cx="14" cy="20" r="1.5" fill="var(--red)"/>
+      <path d="M5 14 Q14 4 23 14" stroke="var(--simp-color)" stroke-width="1.5" opacity=".6" fill="none"/>
+      <path d="M5 19 Q14 9 23 19" stroke="var(--accent)" stroke-width="1" opacity=".3" fill="none"/>
+    </svg>
+    <div>
+      <div class="hdr-title">3D Monte Carlo <span style="color:var(--text-2);font-weight:400">vs</span> Simpson's Rule</div>
+      <div class="hdr-sub">Volume estimation: random sampling ↔ numerical quadrature in 3D</div>
+    </div>
+  </div>
+  
+  <!-- Navigation tabs and toggles -->
+  <div class="hdr-right">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('sim')">Simulation</button>
+      <button class="tab-btn" onclick="switchTab('theory')">Theory</button>
+      <button class="tab-btn" onclick="switchTab('py')">Python Code</button>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot" id="sDot"></div>
+      <span id="sTxt">Idle</span>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">
+      <span id="thIcon">☀️</span><span id="thLbl">Light</span>
+    </button>
+  </div>
+</header>
+
+<!-- TAB CONTENT 1: INTERACTIVE SIMULATION -->
+<div class="layout" id="simTab">
+
+  <!-- LEFT PANEL -->
+  <aside class="panel panel-left">
+
+    <div class="sec">
+      <div class="sec-title">3D Shape</div>
+      <select id="shapeSelect" onchange="onShapeChange()">
+        <option value="sphere">⬤ Sphere</option>
+        <option value="ellipsoid">⭕ Ellipsoid</option>
+        <option value="torus">🍩 Torus</option>
+        <option value="heart3d">♥ 3D Heart</option>
+        <option value="custom_fn">𝑓 Custom Function</option>
+      </select>
+      
+      <div class="cust-panel" id="cfPanel">
+        <div>
+          <div class="ilab">f(x, y) =</div>
+          <input type="text" id="fnInp" value="sin(x)*sin(y)" placeholder="e.g. sin(x)*sin(y), exp(-x^2-y^2)">
+        </div>
+        <div class="row2">
+          <div><div class="ilab">x min</div><input type="number" id="xMin" value="0" step="0.1"></div>
+          <div><div class="ilab">x max</div><input type="number" id="xMax" value="3.14159" step="0.1"></div>
+        </div>
+        <div class="row2">
+          <div><div class="ilab">y min</div><input type="number" id="yMin" value="0" step="0.1"></div>
+          <div><div class="ilab">y max</div><input type="number" id="yMax" value="3.14159" step="0.1"></div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="applyCustomFn()">Apply Function</button>
+        <div id="fnError"></div>
+      </div>
+    </div>
+
+    <!-- Monte Carlo Controls -->
+    <div class="sec">
+      <div class="sec-title">Monte Carlo</div>
+      <div class="btn-grid">
+        <button class="btn btn-primary" onclick="startSim()" data-tip="Begin random sampling">▶ Start</button>
+        <button class="btn" onclick="pauseSim()" data-tip="Pause animation">⏸ Pause</button>
+        <button class="btn" onclick="stepSim()" data-tip="One batch of samples">⏭ Step</button>
+        <button class="btn btn-danger" onclick="resetSim()" data-tip="Clear all samples">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- MC Parameters -->
+    <div class="sec">
+      <div class="sec-title">MC Parameters</div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Points per animation frame">Samples / Frame</span>
+          <span class="sv" id="spfV">100</span>
+        </div>
+        <input type="range" id="spfS" min="1" max="1000" value="100"
+          oninput="sim.spf=+this.value;document.getElementById('spfV').textContent=this.value">
+      </div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Target animation FPS">Speed (fps)</span>
+          <span class="sv" id="fpsV">60</span>
+        </div>
+        <input type="range" id="fpsS" min="1" max="120" value="60"
+          oninput="sim.interval=1000/this.value;document.getElementById('fpsV').textContent=this.value">
+      </div>
+    </div>
+
+    <!-- Simpson's Controls -->
+    <div class="sec">
+      <div class="sec-title" style="color:var(--simp-color)">Simpson's Rule</div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Subdivisions along axes. More = more accurate.">Subdivisions (n)</span>
+          <span class="sv sv-simp" id="simpNV">40</span>
+        </div>
+        <input type="range" class="simp-range" id="simpNS" min="4" max="120" step="2" value="40"
+          oninput="updateSimpN(+this.value)">
+      </div>
+      <button class="btn btn-simp btn-full" onclick="runSimpson(true)" data-tip="Compute volume via Simpson's rule">∫ Calculate Simpson's</button>
+      <div class="simp-box" id="simpBox" style="margin-top:6px">
+        <div class="simp-result">
+          <span class="simp-lbl">Volume estimate</span>
+          <span class="simp-val" id="simpAreaEl">—</span>
+        </div>
+        <div class="simp-result">
+          <span class="simp-lbl">vs Exact</span>
+          <span class="simp-val" id="simpErrEl" style="font-size:.72rem">—</span>
+        </div>
+        <div class="simp-result">
+          <span class="simp-lbl">Method</span>
+          <span class="simp-val" id="simpMethodEl" style="font-size:.64rem;color:var(--text-2)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Algorithm Steps -->
+    <div class="sec">
+      <div class="sec-title">MC 3D Algorithm</div>
+      <div class="algo-steps">
+        <div class="algo-step" id="as1"><div class="sn">1</div><div class="st">Generate random (x, y, z) in 3D bounding box</div></div>
+        <div class="algo-step" id="as2"><div class="sn">2</div><div class="st">Test if coordinate lies inside shape</div></div>
+        <div class="algo-step" id="as3"><div class="sn">3</div><div class="st">Count total; increment inside if test passes</div></div>
+        <div class="algo-step" id="as4"><div class="sn">4</div><div class="st">Volume = (inside / total) × box volume</div></div>
+        <div class="algo-step" id="as5"><div class="sn">5</div><div class="st">Repeat — stochastic error shrinks as 1/√N</div></div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="sec">
+      <div class="sec-title">Export</div>
+      <button class="btn btn-full" onclick="exportCSV()" data-tip="Download comparison CSV">📥 Export Comparison CSV</button>
+    </div>
+
+  </aside>
+
+  <!-- CENTER PANEL -->
+  <section class="panel-center">
+
+    <div class="cv-header">
+      <div>
+        <div class="cv-formula" id="cvFormula">x² + y² + z² ≤ 1</div>
+        <div class="cv-desc" id="cvDesc">Unit sphere centered at origin</div>
+      </div>
+      <div class="cv-rate"><span id="rateEl">0</span> pts/s</div>
+    </div>
+
+    <!-- 3D ThreeJS Viewport -->
+    <div class="canvas-wrap" id="mainWrap" style="width:800px;height:600px;cursor:grab">
+      <!-- Mounted dynamically -->
+    </div>
+
+    <div class="cv-caption">
+      <span style="color:var(--green)">●</span> inside &nbsp;
+      <span style="color:var(--red)">●</span> outside &nbsp;—&nbsp;
+      Rotate, zoom, and pan to inspect the shape and point cloud in 3D.
+    </div>
+
+    <!-- Convergence Plot -->
+    <div class="plot-header">
+      <span style="font-size:.75rem;font-weight:600;color:var(--text-2)">Volume Convergence</span>
+      <div class="plot-legend">
+        <div class="lg-item"><div class="lg-line" style="background:var(--accent)"></div><span>MC Estimate</span></div>
+        <div class="lg-item">
+          <div class="lg-line" style="background:transparent;border-top:2px dashed var(--purple);width:18px;height:0"></div>
+          <span>Exact</span>
+        </div>
+        <div class="lg-item">
+          <div class="lg-line" style="background:transparent;border-top:2px dashed var(--simp-color);width:18px;height:0"></div>
+          <span>Simpson's</span>
+        </div>
+        <div class="lg-item"><div class="lg-line" style="background:rgba(88,166,255,.15)"></div><span>95% CI</span></div>
+      </div>
+    </div>
+    <div class="canvas-wrap" id="convWrap" style="width:100%;max-width:600px">
+      <canvas id="convC"></canvas>
+    </div>
+
+    <!-- Simpson's Strip Visualiser (shown for custom_fn) -->
+    <div id="simpVizWrap" style="display:none;width:100%;max-width:600px">
+      <div class="plot-header" style="margin-bottom:4px">
+        <span style="font-size:.75rem;font-weight:600;color:var(--simp-color)">Simpson's Double Grid Heatmap</span>
+        <span style="font-size:.68rem;color:var(--text-2)" id="simpStripInfo">n = 40 subdivisions</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="simpC"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT PANEL -->
+  <aside class="panel panel-right">
+
+    <!-- Method Comparison -->
+    <div class="sec">
+      <div class="sec-title">Method Comparison</div>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Volume</th>
+            <th>Error</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="cmp-badge badge-mc">Monte Carlo</span></td>
+            <td class="method-mc" id="cmpMC">—</td>
+            <td class="method-mc" id="cmpMCErr">—</td>
+            <td id="cmpMCWin"></td>
+          </tr>
+          <tr>
+            <td><span class="cmp-badge badge-simp">Simpson's</span></td>
+            <td class="method-simp" id="cmpSimp">—</td>
+            <td class="method-simp" id="cmpSimpErr">—</td>
+            <td id="cmpSimpWin"></td>
+          </tr>
+          <tr>
+            <td><span class="cmp-badge badge-exact">Exact</span></td>
+            <td class="method-exact" id="cmpExact">—</td>
+            <td style="color:var(--green)">0.0000%</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="cmpNote" style="font-size:.66rem;color:var(--text-2);margin-top:6px;line-height:1.6"></div>
+    </div>
+
+    <!-- MC Live Stats -->
+    <div class="sec">
+      <div class="sec-title">MC Live Stats</div>
+      <div class="stats-grid">
+        <div class="sr"><span class="sl" data-tip="Total random points">Total Samples</span><span class="sv2" id="stTotal">0</span></div>
+        <div class="sr"><span class="sl">Inside (green)</span><span class="sv2 ins" id="stIn">0</span></div>
+        <div class="sr"><span class="sl">Outside (red)</span><span class="sv2 out" id="stOut">0</span></div>
+        <div class="sr"><span class="sl">Fraction Inside</span><span class="sv2" id="stFrac">—</span></div>
+        <div class="sr"><span class="sl">Bounding Box Vol</span><span class="sv2" id="stBox">—</span></div>
+        <div class="sr"><span class="sl">MC Estimate</span><span class="sv2" id="stEst">—</span></div>
+        <div class="sr"><span class="sl">Exact Volume</span><span class="sv2 ext" id="stExact">—</span></div>
+        <div class="sr"><span class="sl">MC % Error</span><span class="sv2 err" id="stErr">—</span></div>
+      </div>
+    </div>
+
+    <!-- Precision -->
+    <div class="sec">
+      <div class="sec-title">Precision</div>
+      <div class="stats-grid">
+        <div class="sr"><span class="sl">Std Error (σ)</span><span class="sv2" id="stSE">—</span></div>
+        <div class="sr"><span class="sl">95% Conf. Interval</span><span class="sv2" id="stCI" style="font-size:.68rem">—</span></div>
+        <div class="sr"><span class="sl">Sampling Efficiency</span><span class="sv2" id="stEff">—</span></div>
+      </div>
+      <div class="eff-bar"><div class="eff-fill" id="effBar" style="width:0%"></div></div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- TAB CONTENT 2: THEORY -->
+<div class="tab-content-theory" id="theoryTab">
+
+  <div class="th-intro">
+    Both methods estimate the volume of a 3D region \(D\) by computing
+    \(V = \iiint_D dV\), expressed as an integral of an indicator function
+    \(I(x,y,z) = 1\) if \((x,y,z)\in D\), else \(0\), over the bounding box:
+    $$V = \iiint_{\text{box}} I(x,y,z)\,dV$$
+    Monte Carlo estimates this integral stochastically; Simpson's rule estimates it
+    deterministically on a grid. Below is the full derivation of each estimator, its error, and
+    why they behave so differently in 3D.
+  </div>
+
+  <!-- SECTION 1: MONTE CARLO -->
+  <div class="th-sec">
+    <div class="th-h1"><span class="th-num">1</span> Monte Carlo Integration</div>
+    <div class="th-sub">Random sampling reduces a geometry problem to a probability problem</div>
+
+    <div class="th-block">
+      <h4>1.1 &nbsp;Deriving the estimator</h4>
+      <div class="th-steps">
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          Draw \(N\) points uniformly at random inside the bounding box, which has known volume
+          <strong>\(V_{\text{box}}\)</strong> (e.g. for a unit-cube bound, \(V_{\text{box}} = 2\times2\times2 = 8\)).
+        </div></div>
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          For each point \(i\), evaluate the indicator function: <strong>\(I_i = 1\)</strong>
+          if the point lies inside the shape, <strong>\(I_i = 0\)</strong> otherwise. Each
+          \(I_i\) is a Bernoulli random variable with success probability
+          <strong>\(p = V / V_{\text{box}}\)</strong> (the true volume fraction).
+        </div></div>
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          The fraction of "hits" <strong>\(\hat p = N_{\text{in}} / N\)</strong> is an estimate of
+          \(p\). Rescaling by the box volume gives the volume estimator actually used in the
+          simulation:
+        </div></div>
+      </div>
+      <div class="th-formula">
+        $$\hat V = V_{\text{box}} \cdot \frac{N_{\text{in}}}{N} = V_{\text{box}} \cdot \frac{1}{N}\sum_{i=1}^{N} I_i$$
+      </div>
+    </div>
+
+    <div class="th-block">
+      <h4>1.2 &nbsp;Why it's unbiased</h4>
+      <p class="th-p">
+        Since each \(I_i\) is \(\text{Bernoulli}(p)\), its expectation is \(E[I_i] = p\). By
+        linearity of expectation over the sum:
+      </p>
+      <div class="th-formula">
+        $$E[\hat V] = V_{\text{box}} \cdot \frac{1}{N}\sum_{i=1}^N E[I_i] = V_{\text{box}}\cdot p = V_{\text{box}}\cdot\frac{V}{V_{\text{box}}} = V$$
+      </div>
+      <p class="th-p">
+        The estimator's expected value equals the true volume for <em>any</em> \(N\) — there is no
+        systematic bias, only sampling noise, which is why the running estimate wanders around
+        the true value rather than approaching it from one side.
+      </p>
+    </div>
+
+    <div class="th-block">
+      <h4>1.3 &nbsp;Deriving the error: variance, standard error, confidence interval</h4>
+      <p class="th-p">
+        For a \(\text{Bernoulli}(p)\) variable, \(\text{Var}(I_i) = p(1-p)\). The \(I_i\) are
+        independent, so the variance of the sum scales linearly with \(N\):
+      </p>
+      <div class="th-formula">
+        $$\text{Var}(\hat V) = V_{\text{box}}^2 \cdot \text{Var}(\hat p) = V_{\text{box}}^2 \cdot \frac{p(1-p)}{N}$$
+      </div>
+      <p class="th-p">
+        Taking the square root gives the <strong>standard error</strong> (with \(p\) replaced by
+        its estimate \(\hat p\), since the true \(p\) is unknown):
+      </p>
+      <div class="th-formula">
+        $$SE = V_{\text{box}}\sqrt{\frac{\hat p(1-\hat p)}{N}}$$
+      </div>
+      <p class="th-p">
+        By the Central Limit Theorem, for large \(N\) the sum of many independent Bernoulli
+        trials is approximately normally distributed: \(\hat V \sim \mathcal{N}(V, SE^2)\). This
+        justifies the <strong>95% confidence interval</strong> reported live in the simulation:
+      </p>
+      <div class="th-formula">
+        $$CI_{95\%} = \hat V \pm 1.96\cdot SE$$
+      </div>
+      <div class="th-callout">
+        <strong>Convergence rate.</strong> Because \(SE \propto \sqrt{1/N}\), the error shrinks as
+        <strong>\(O(N^{-1/2})\)</strong>. To halve the error you must <em>quadruple</em>
+        the number of samples — this is the characteristic, relatively slow, \(\sqrt{N}\)
+        convergence of every Monte Carlo method.
+      </div>
+    </div>
+
+    <div class="th-block">
+      <h4>1.4 &nbsp;Why Monte Carlo doesn't care about dimension</h4>
+      <p class="th-p">
+        Nothing in the derivation above depended on the region being 3-dimensional — \(p\)
+        is just "fraction of random trials that land inside," regardless of how many coordinates
+        each trial has. The error formula \(SE \propto N^{-1/2}\) holds in 1D, 3D, or 30D alike.
+        This is why Monte Carlo becomes the preferred method as dimensionality grows: grid-based
+        quadrature needs roughly \(n^d\) evaluation points for a \(d\)-dimensional region sampled
+        at resolution \(n\) per axis (the "curse of dimensionality"), while Monte Carlo's cost to
+        reach a target error depends only on the error itself, not on \(d\).
+      </p>
+    </div>
+  </div>
+
+  <!-- SECTION 2: SIMPSON'S RULE -->
+  <div class="th-sec">
+    <div class="th-h1 simp"><span class="th-num">2</span> Simpson's Rule (Grid Quadrature)</div>
+    <div class="th-sub">A deterministic rule built by fitting parabolas through sampled points</div>
+
+    <div class="th-block simp">
+      <h4>2.1 &nbsp;The 1D rule: fitting a parabola</h4>
+      <p class="th-p">
+        Simpson's rule approximates \(\int_{x_0}^{x_2} f(x)\,dx\) by replacing \(f\) with the
+        unique parabola passing through three equally spaced points
+        \((x_0,f_0), (x_1,f_1), (x_2,f_2)\), spaced \(h\) apart. Integrating that parabola exactly
+        (via Lagrange interpolation or the method of undetermined coefficients) yields:
+      </p>
+      <div class="th-formula simp">
+        $$\int_{x_0}^{x_2} f(x)\,dx \approx \frac{h}{3}\left[f_0 + 4f_1 + f_2\right]$$
+      </div>
+      <p class="th-p">
+        Because a parabola matches \(f\) up to its 3rd derivative exactly, and by symmetry the
+        4th-order term also cancels, the local error is one order better than expected:
+      </p>
+      <div class="th-formula simp">
+        $$\text{Error}_{\text{local}} = -\frac{h^5}{90}f^{(4)}(\xi), \quad \text{for some } \xi \in [x_0,x_2]$$
+      </div>
+    </div>
+
+    <div class="th-block simp">
+      <h4>2.2 &nbsp;Composite rule and its O(h⁴) accuracy</h4>
+      <p class="th-p">
+        To integrate over the full domain \([a,b]\), split it into \(n\) (even) equal
+        subintervals of width \(h = (b-a)/n\) and chain the 3-point rule across them. Interior
+        points shared between neighboring panels get weight 4 (odd-indexed) or 2 (even-indexed),
+        endpoints get weight 1 — the classic 1-4-2-4-2-…-4-1 pattern:
+      </p>
+      <div class="th-formula simp">
+        $$S = \frac{h}{3}\Big[f_0 + 4(f_1+f_3+\cdots) + 2(f_2+f_4+\cdots) + f_n\Big]$$
+      </div>
+      <p class="th-p">
+        Summing the \(O(h^5)\) local errors over \(n = O(1/h)\) panels leaves a
+        <strong>global error of \(O(h^4) = O(1/n^4)\)</strong> — provided \(f\) has 4 continuous
+        derivatives. This is the fourth-order accuracy Simpson's rule is famous for.
+      </p>
+    </div>
+
+    <div class="th-block simp">
+      <h4>2.3 &nbsp;Extending to 3D: the composite triple-Simpson formula</h4>
+      <p class="th-p">
+        A volume integral separates into nested 1D integrals (Fubini's theorem), so the 1D rule
+        can be applied once per axis. Each axis contributes its own \(h/3\) prefactor and its own
+        1-4-2-4…-1 weight sequence (\(w_i, w_j, w_k\)), giving the formula used in this
+        simulation:
+      </p>
+      <div class="th-formula simp">
+        $$S = \frac{h_x h_y h_z}{27}\sum_i\sum_j\sum_k w_i w_j w_k \cdot I(x_i,y_j,z_k)$$
+      </div>
+      <p class="th-p">
+        The \(1/27\) is simply \((1/3)^3\) — the product of the three \(h/3\) prefactors, one per
+        axis. For a smooth integrand this formula would inherit the same \(O(h^4)\) accuracy as
+        the 1D case.
+      </p>
+    </div>
+
+    <div class="th-block simp">
+      <h4>2.4 &nbsp;Why shapes degrade this to O(1/n): the boundary discontinuity</h4>
+      <p class="th-p">
+        The formula above is being applied to the <strong>indicator function</strong>
+        \(I(x,y,z)\), which jumps abruptly from 0 to 1 across the shape's boundary surface.
+        Simpson's rule assumes \(f\) behaves like a smooth quartic locally — a discontinuity
+        violates that assumption for every grid cell that straddles the boundary. A short scaling
+        argument shows exactly how much accuracy is lost:
+      </p>
+      <div class="th-steps">
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          The shape's boundary is a 2D surface with some fixed surface area <strong>\(A\)</strong>.
+        </div></div>
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          With grid spacing \(h \sim 1/n\), each grid cell has a cross-sectional face of area
+          \(\sim h^2\). The number of cells that the boundary surface passes through is therefore
+          <strong>\(\approx A/h^2 \sim O(n^2)\)</strong>.
+        </div></div>
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          Each straddling cell has volume \(h^3\), and the quadrature rule can misjudge that
+          entire cell's contribution — contributing an error of order <strong>\(O(h^3)\)</strong>
+          per cell.
+        </div></div>
+        <div class="th-step"><div class="th-step-n"></div><div class="th-step-body">
+          Multiplying cell count by per-cell error: total error \(\sim O(n^2)\times O(h^3) =
+          O(n^2 h^3)\). Since \(h = 1/n\), this is \(O(n^2/n^3) =\) <strong>\(O(1/n)\)</strong>.
+        </div></div>
+      </div>
+      <div class="th-formula simp">
+        $$\text{3D Grid Error (on shapes)} \propto \frac{1}{n} \quad\text{instead of}\quad \frac{1}{n^4}$$
+      </div>
+      <div class="th-callout simp">
+        <strong>Result.</strong> The boundary discontinuity collapses fourth-order accuracy down
+        to <em>first</em> order — the same order as a naive rectangle rule. This is why, for
+        irregular 3D solids, Simpson's rule on a grid is no better (and often worse, given its
+        \(n^3\) evaluation cost) than Monte Carlo.
+      </div>
+    </div>
+
+    <div class="th-block" style="border-color:var(--accent)">
+      <h4 style="color:var(--accent)">2.5 &nbsp;The exception: smooth surfaces z = f(x,y)</h4>
+      <p class="th-p">
+        When the "Custom Function" mode integrates the volume under an explicit, smooth surface
+        \(z = f(x,y)\) rather than testing membership in a solid, there is no boundary
+        discontinuity — \(f\) is continuous with as many derivatives as needed. The volume
+        reduces to a 2D double integral, computed with a tensor product of two 1D Simpson rules:
+      </p>
+      <div class="th-formula acc">
+        $$S = \frac{h_x h_y}{9}\sum_i\sum_j w_i w_j \cdot f(x_i,y_j)$$
+      </div>
+      <p class="th-p">
+        With no discontinuity to spoil the local Taylor expansion, the full fourth-order accuracy
+        survives:
+      </p>
+      <div class="th-formula acc">
+        $$\text{Double-Simpson Error} \propto h^4 \propto \frac{1}{n^4}$$
+      </div>
+      <p class="th-p">
+        This is why, for the custom-function case only, Simpson's rule converges dramatically
+        faster than Monte Carlo — a modest grid (e.g. \(n = 40\) per axis, 1600 evaluations) can
+        beat millions of random samples.
+      </p>
+    </div>
+  </div>
+
+  <!-- SECTION 3: COMPARISON -->
+  <div class="th-sec">
+    <div class="th-h1"><span class="th-num">3</span> Head-to-Head Summary</div>
+    <div class="th-sub">Putting the two derivations side by side</div>
+    <table class="th-table">
+      <thead>
+        <tr><th>Case</th><th>Method</th><th>Convergence</th><th>Evaluations for resolution n</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Solid shape (sphere, ellipsoid, torus…)</td><td>Monte Carlo</td><td><strong>\(O(N^{-1/2})\)</strong></td><td>\(N\) (chosen directly)</td></tr>
+        <tr><td>Solid shape (sphere, ellipsoid, torus…)</td><td>Simpson's grid</td><td><strong>\(O(1/n)\)</strong> (boundary-limited)</td><td>\(O(n^3)\)</td></tr>
+        <tr><td>Smooth surface z = f(x,y)</td><td>Double Simpson's</td><td><strong>\(O(1/n^4)\)</strong></td><td>\(O(n^2)\)</td></tr>
+      </tbody>
+    </table>
+    <p class="th-p">
+      In short: Monte Carlo's \(\sqrt{N}\) convergence is <em>dimension-agnostic</em> and degrades
+      gracefully; Simpson's rule's convergence is <em>problem-dependent</em> — spectacular
+      (4th order) on smooth integrands, but knocked down to 1st order the moment a boundary
+      discontinuity is introduced, while still paying the full grid cost of \(O(n^3)\) evaluations.
+    </p>
+  </div>
+
+</div>
+
+<!-- TAB CONTENT 3: PYTHON CODE DISPLAY -->
+<div class="tab-content-py" id="pyTab">
+  <div class="code-desc">
+    This self-contained Python script performs the exact same calculations as the simulation, comparing 3D Monte Carlo integration with Simpson's rule across different shapes.
+  </div>
+  <div class="code-container">
+    <div class="code-header">
+      <span class="code-title">monte_carlo_simpson_3d.py</span>
+      <button class="btn btn-primary btn-copy" onclick="copyPythonCode()">
+        <span id="copyIcon">📋</span> <span id="copyTxt">Copy Code</span>
+      </button>
+    </div>
+    <pre><code class="language-python" id="pythonCodeDisplay">#!/usr/bin/env python3
+"""
+Monte Carlo vs Simpson's Rule for 3D Volume Estimation.
+This script demonstrates numerical volume integration in 3D using two approaches:
+1. Monte Carlo (Stochastic random sampling with confidence intervals)
+2. Simpson's Rule (Deterministic composite quadrature grids)
+"""
+
+import math
+import random
+import sys
+
+# ─── SHAPE EQUATIONS & DEFINITIONS ───
+
+def is_inside_sphere(x, y, z):
+    """Unit sphere: x^2 + y^2 + z^2 <= 1"""
+    return x*x + y*y + z*z <= 1.0
+
+def is_inside_ellipsoid(x, y, z):
+    """Ellipsoid with semi-axes a=1.0, b=0.7, c=0.5: x^2 + (y/0.7)^2 + (z/0.5)^2 <= 1"""
+    return x*x + (y/0.7)**2 + (z/0.5)**2 <= 1.0
+
+def is_inside_torus(x, y, z):
+    """Torus with major radius R=0.7, minor radius r=0.3: (R - sqrt(x^2 + y^2))^2 + z^2 <= r^2"""
+    R = 0.7
+    r = 0.3
+    dist = R - math.sqrt(x*x + y*y)
+    return dist*dist + z*z <= r*r
+
+def is_inside_heart(x, y, z):
+    """Taubin's 3D Heart: (x^2 + 2.25*y^2 + z^2 - 1)^3 - x^2 * z^3 - 0.1125 * y^2 * z^3 <= 0"""
+    f = x*x + 2.25*y*y + z*z - 1.0
+    return f**3 - x*x * z**3 - 0.1125 * y*y * z**3 <= 0.0
+
+def custom_function(x, y):
+    """Demo surface: z = sin(x) * sin(y) over x, y in [0, pi]"""
+    if 0 <= x <= math.pi and 0 <= y <= math.pi:
+        return math.sin(x) * math.sin(y)
+    return 0.0
+
+def is_inside_custom_fn(x, y, z):
+    """Volume under the custom function surface z = f(x, y) above z = 0"""
+    if z < 0:
+        return False
+    val = custom_function(x, y)
+    return z <= val
+
+# ─── INTEGRATION ENGINES ───
+
+def monte_carlo_3d(inside_fn, bounds, n_samples):
+    x_min, x_max = bounds["x"]
+    y_min, y_max = bounds["y"]
+    z_min, z_max = bounds["z"]
+    
+    vol_box = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
+    inside_count = 0
+    
+    for _ in range(n_samples):
+        rx = random.uniform(x_min, x_max)
+        ry = random.uniform(y_min, y_max)
+        rz = random.uniform(z_min, z_max)
+        if inside_fn(rx, ry, rz):
+            inside_count += 1
+            
+    p = inside_count / n_samples
+    est_vol = p * vol_box
+    
+    if n_samples > 1:
+        se = vol_box * math.sqrt(p * (1.0 - p) / n_samples)
+    else:
+        se = 0.0
+        
+    ci_margin = 1.96 * se
+    return est_vol, se, (est_vol - ci_margin, est_vol + ci_margin)
+
+def simpson_weights(n):
+    return [1] + [4 if i % 2 != 0 else 2 for i in range(1, n)] + [1]
+
+def simpson_3d_grid(inside_fn, bounds, n_div):
+    if n_div % 2 != 0:
+        n_div += 1
+        
+    x_min, x_max = bounds["x"]
+    y_min, y_max = bounds["y"]
+    z_min, z_max = bounds["z"]
+    
+    hx = (x_max - x_min) / n_div
+    hy = (y_max - y_min) / n_div
+    hz = (z_max - z_min) / n_div
+    
+    wx = simpson_weights(n_div)
+    wy = simpson_weights(n_div)
+    wz = simpson_weights(n_div)
+    
+    sum_val = 0.0
+    for i in range(n_div + 1):
+        x = x_min + i * hx
+        w_i = wx[i]
+        for j in range(n_div + 1):
+            y = y_min + j * hy
+            w_j = wy[j]
+            for k in range(n_div + 1):
+                z = z_min + k * hz
+                w_k = wz[k]
+                val = 1.0 if inside_fn(x, y, z) else 0.0
+                sum_val += w_i * w_j * w_k * val
+                
+    return sum_val * (hx * hy * hz) / 27.0
+
+def simpson_2d_double_integral(func, bounds_2d, n_div):
+    if n_div % 2 != 0:
+        n_div += 1
+        
+    x_min, x_max = bounds_2d["x"]
+    y_min, y_max = bounds_2d["y"]
+    
+    hx = (x_max - x_min) / n_div
+    hy = (y_max - y_min) / n_div
+    
+    wx = simpson_weights(n_div)
+    wy = simpson_weights(n_div)
+    
+    sum_val = 0.0
+    for i in range(n_div + 1):
+        x = x_min + i * hx
+        w_i = wx[i]
+        for j in range(n_div + 1):
+            y = y_min + j * hy
+            w_j = wy[j]
+            val = func(x, y)
+            sum_val += w_i * w_j * val
+            
+    return sum_val * (hx * hy) / 9.0
+
+# ─── MAIN SIMULATION RUNNER ───
+
+def main():
+    mc_samples = 100000
+    simp_subdivisions = 40
+    
+    shapes = {
+        "Sphere": {
+            "inside_fn": is_inside_sphere,
+            "bounds": {"x": (-1.15, 1.15), "y": (-1.15, 1.15), "z": (-1.15, 1.15)},
+            "exact_vol": (4.0 / 3.0) * math.pi
+        },
+        "Ellipsoid": {
+            "inside_fn": is_inside_ellipsoid,
+            "bounds": {"x": (-1.15, 1.15), "y": (-0.8, 0.8), "z": (-0.6, 0.6)},
+            "exact_vol": (4.0 / 3.0) * math.pi * 1.0 * 0.7 * 0.5
+        },
+        "Torus": {
+            "inside_fn": is_inside_torus,
+            "bounds": {"x": (-1.15, 1.15), "y": (-1.15, 1.15), "z": (-0.35, 0.35)},
+            "exact_vol": 2.0 * (math.pi**2) * 0.7 * (0.3**2)
+        },
+        "3D Heart (Taubin)": {
+            "inside_fn": is_inside_heart,
+            "bounds": {"x": (-1.25, 1.25), "y": (-1.25, 1.25), "z": (-1.25, 1.55)},
+            "exact_vol": 1.215560
+        },
+        "Custom Surface (z = sin x * sin y)": {
+            "inside_fn": is_inside_custom_fn,
+            "func": custom_function,
+            "bounds": {"x": (0.0, math.pi), "y": (0.0, math.pi), "z": (0.0, 1.15)},
+            "exact_vol": 4.0
+        }
+    }
+    
+    print("=" * 78)
+    print(f" 3D VOLUME INTEGRATION STUDY (Monte Carlo N={mc_samples:,}, Simpson's n={simp_subdivisions})")
+    print("=" * 78)
+    row_fmt = "| {:<22} | {:<12} | {:<12} | {:<12} | {:<10} |"
+    print(row_fmt.format("Shape / Function", "Exact Vol", "MC Est", "Simpson Est", "MC Error"))
+    print("-" * 78)
+    
+    for name, info in shapes.items():
+        bounds = info["bounds"]
+        exact = info["exact_vol"]
+        
+        mc_est, mc_se, mc_ci = monte_carlo_3d(info["inside_fn"], bounds, mc_samples)
+        mc_err = abs(mc_est - exact) / exact * 100.0 if exact else 0.0
+        
+        if "func" in info:
+            simp_est = simpson_2d_double_integral(info["func"], {"x": bounds["x"], "y": bounds["y"]}, 100)
+        else:
+            simp_est = simpson_3d_grid(info["inside_fn"], bounds, simp_subdivisions)
+            
+        print(row_fmt.format(name[:22], f"{exact:.6f}", f"{mc_est:.6f}", f"{simp_est:.6f}", f"{mc_err:.4f}%"))
+        
+    print("=" * 78)
+
+if __name__ == "__main__":
+    main()</code></pre>
+  </div>
+</div>
+
+<!-- Scripts -->
+<!-- ThreeJS and OrbitControls -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<!-- PrismJS Code Highlight Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
+
+<script>
+'use strict';
+
+/* ── CONSTANTS ── */
+const CW=600, CH=160, DPR=window.devicePixelRatio||1;
+const HIST_STEP=5, HIST_MAX=800, RATE_INT=600;
+
+/* ── THREE.JS GLOBALS ── */
+let scene, camera, renderer, controls;
+let shapeMesh, wireframeLine, boundingBoxLine, gridHelper;
+let insidePoints, outsidePoints;
+let insidePositions, outsidePositions;
+let insideIdx = 0, outsideIdx = 0;
+const MAX_POINTS = 30000;
+
+/* ── SHAPE EQUATIONS & BOUNDS ── */
+function getHeartRadius(theta, phi) {
+  const dx = Math.sin(theta) * Math.cos(phi);
+  const dy = Math.sin(theta) * Math.sin(phi);
+  const dz = Math.cos(theta);
+  
+  let low = 0, high = 2.5;
+  for (let step = 0; step < 12; step++) {
+    const mid = (low + high) / 2;
+    const x = mid * dx;
+    const y = mid * dy;
+    const z = mid * dz;
+    const x2 = x*x, y2 = y*y, z2 = z*z;
+    const term1 = x2 + 2.25*y2 + z2 - 1.0;
+    const f = term1*term1*term1 - x2*z*z2 - 0.1125*y2*z*z2;
+    if (f <= 0) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  return (low + high) / 2;
+}
+
+function parseFn3D(expr){
+  const s=expr.replace(/\^/g,'**')
+    .replace(/\bsin\b/g,'Math.sin').replace(/\bcos\b/g,'Math.cos').replace(/\btan\b/g,'Math.tan')
+    .replace(/\bsqrt\b/g,'Math.sqrt').replace(/\babs\b/g,'Math.abs').replace(/\bexp\b/g,'Math.exp')
+    .replace(/\blog\b/g,'Math.log').replace(/\bln\b/g,'Math.log').replace(/\bfloor\b/g,'Math.floor')
+    .replace(/\bceil\b/g,'Math.ceil').replace(/\bpi\b/gi,'Math.PI').replace(/\be(?![a-z])/g,'Math.E');
+  return new Function('x','y',`'use strict';return (${s});`);
+}
+
+/* ─────────────────────────────────────────────
+   SIMPSON'S RULE ENGINE
+   For custom_fn  → composite 2-D Simpson's on f(x, y)
+   For 3-D shapes → composite 3-D Simpson's on indicator I(x,y,z)
+   ───────────────────────────────────────────── */
+function simpson2D_calc(fn, xMin, xMax, yMin, yMax, n) {
+  if(n%2!==0)n++;
+  const hx=(xMax-xMin)/n, hy=(yMax-yMin)/n;
+  const w=[];
+  for(let i=0;i<=n;i++) w.push((i===0||i===n)?1:(i%2===0?2:4));
+  let sum=0;
+  for(let i=0;i<=n;i++){
+    const x=xMin+i*hx;
+    const wx=w[i];
+    for(let j=0;j<=n;j++){
+      const y=yMin+j*hy;
+      const wy=w[j];
+      let val; try{val=fn(x,y);}catch{val=0;}
+      if(!isFinite(val))val=0;
+      sum+=wx*wy*val;
+    }
+  }
+  return sum*hx*hy/9;
+}
+
+function simpson3D_calc(shape, n) {
+  if(n%2!==0)n++;
+  const b=shape.bounds;
+  const hx=(b.xMax-b.xMin)/n, hy=(b.yMax-b.yMin)/n, hz=(b.zMax-b.zMin)/n;
+  const w=[];
+  for(let i=0;i<=n;i++) w.push((i===0||i===n)?1:(i%2===0?2:4));
+  let sum=0;
+  for(let i=0;i<=n;i++){
+    const x=b.xMin+i*hx;
+    const wx=w[i];
+    for(let j=0;j<=n;j++){
+      const y=b.yMin+j*hy;
+      const wy=w[j];
+      for(let k=0;k<=n;k++){
+        const z=b.zMin+k*hz;
+        const wz=w[k];
+        if(shape.inside(x,y,z)) sum+=wx*wy*wz;
+      }
+    }
+  }
+  return sum*hx*hy*hz/27;
+}
+
+/* State for Simpson's */
+const simpState={area:null, n:40, computing:false};
+
+function updateSimpN(v){
+  if(v%2!==0)v++;
+  simpState.n=v;
+  document.getElementById('simpNV').textContent=v;
+  document.getElementById('simpNS').value=v;
+}
+
+function runSimpson(force=false){
+  if(simpState.computing&&!force)return;
+  simpState.computing=true;
+  const shape=sim.shape, key=sim.key;
+  const n=simpState.n;
+
+  let area;
+  if(key==='custom_fn'){
+    if(!SHAPES.custom_fn._fn){simpState.area=null;simpState.computing=false;return;}
+    area=simpson2D_calc(SHAPES.custom_fn._fn, shape.bounds.xMin, shape.bounds.xMax, shape.bounds.yMin, shape.bounds.yMax, n);
+    document.getElementById('simpMethodEl').textContent=`2-D composite double, n=${n}²`;
+  } else {
+    const nUse=Math.min(n,100); // cap grid size to prevent thread blocking
+    area=simpson3D_calc(shape, nUse);
+    document.getElementById('simpMethodEl').textContent=`3-D indicator grid, n=${nUse}³`;
+  }
+
+  simpState.area=area;
+  simpState.computing=false;
+
+  // Update UI
+  document.getElementById('simpAreaEl').textContent=area.toFixed(7);
+  const exact=shape.exactVolume;
+  if(exact!==null&&exact>0){
+    const err=(Math.abs(area-exact)/exact*100);
+    document.getElementById('simpErrEl').textContent=err.toFixed(5)+'%';
+  } else {
+    document.getElementById('simpErrEl').textContent='—';
+  }
+  updateComparison();
+  drawConv();
+  if(key==='custom_fn') drawSimpsonStrips();
+  document.getElementById('simpStripInfo').textContent=`n = ${n} subdivisions`;
+  document.getElementById('simpVizWrap').style.display=(key==='custom_fn')?'block':'none';
+}
+
+/* ── SHAPES ── */
+const SHAPES={
+  sphere:{
+    name:'Sphere (r=1)',formula:'x² + y² + z² ≤ 1',desc:'Unit sphere, exact volume = 4/3 * π',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:1.15,zMin:-1.15,zMax:1.15},
+    exactVolume:(4.0/3.0)*Math.PI, exactStr:'4/3 * π ≈ '+((4.0/3.0)*Math.PI).toFixed(6),
+    inside(x,y,z){return x*x+y*y+z*z<=1},
+    createGeometry(){
+      return new THREE.SphereGeometry(1.0, 48, 48);
+    }
+  },
+  ellipsoid:{
+    name:'Ellipsoid (a=1, b=0.7, c=0.5)',formula:'x² + (y/0.7)² + (z/0.5)² ≤ 1',desc:'Semi-axes a=1.0, b=0.7, c=0.5; exact = 4/3 * 0.35 * π',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-0.8,yMax:0.8,zMin:-0.6,zMax:0.6},
+    exactVolume:(4.0/3.0)*Math.PI*1.0*0.7*0.5, exactStr:'0.467 * π ≈ '+((4.0/3.0)*Math.PI*0.35).toFixed(6),
+    inside(x,y,z){return x*x + Math.pow(y/0.7,2) + Math.pow(z/0.5,2) <= 1},
+    createGeometry(){
+      const g = new THREE.SphereGeometry(1.0, 48, 48);
+      // scale coordinates to match math (depth z_3js maps to y_math, height y_3js maps to z_math)
+      g.scale(1.0, 0.5, 0.7);
+      return g;
+    }
+  },
+  torus:{
+    name:'Torus (R=0.7, r=0.3)',formula:'(0.7 − √(x²+y²))² + z² ≤ 0.3²',desc:'Torus with R=0.7, r=0.3; exact = 2 * π² * R * r²',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:1.15,zMin:-0.35,zMax:0.35},
+    exactVolume:2.0*Math.pow(Math.PI,2)*0.7*Math.pow(0.3,2), exactStr:'0.126 * π² ≈ '+(2.0*Math.pow(Math.PI,2)*0.7*0.09).toFixed(6),
+    inside(x,y,z){
+      const dist = 0.7 - Math.sqrt(x*x + y*y);
+      return dist*dist + z*z <= 0.09;
+    },
+    createGeometry(){
+      const g = new THREE.TorusGeometry(0.7, 0.3, 24, 48);
+      g.rotateX(Math.PI/2); // Align with XZ plane (so vertical axis in ThreeJS is height)
+      return g;
+    }
+  },
+  heart3d:{
+    name:'3D Heart',formula:'(x² + 2.25y² + z² − 1)³ − x²z³ − 0.1125y²z³ ≤ 0',desc:"Taubin's 3D Heart; exact volume ≈ 1.215560",
+    bounds:{xMin:-1.25,xMax:1.25,yMin:-1.25,yMax:1.25,zMin:-1.25,zMax:1.55},
+    exactVolume:1.21556, exactStr:'1.215560',
+    inside(x,y,z){
+      const x2 = x*x, y2 = y*y, z2 = z*z;
+      const f = Math.pow(x2 + 2.25*y2 + z2 - 1.0, 3) - x2*z*z2 - 0.1125*y2*z*z2;
+      return f <= 0;
+    },
+    createGeometry(){
+      const geom = new THREE.BufferGeometry();
+      const vertices = [];
+      const indices = [];
+      const uvs = [];
+      const nTheta = 40, nPhi = 80;
+      for (let i = 0; i <= nTheta; i++) {
+        const theta = (i / nTheta) * Math.PI;
+        for (let j = 0; j <= nPhi; j++) {
+          const phi = (j / nPhi) * 2 * Math.PI;
+          const r = getHeartRadius(theta, phi);
+          const x = r * Math.sin(theta) * Math.cos(phi);
+          const y = r * Math.sin(theta) * Math.sin(phi); // lateral y_math
+          const z = r * Math.cos(theta); // height z_math
+          
+          // Map x_3js = x, y_3js = z (vertical height), z_3js = y
+          vertices.push(x, z, y);
+          uvs.push(j / nPhi, i / nTheta);
+        }
+      }
+      for (let i = 0; i < nTheta; i++) {
+        for (let j = 0; j < nPhi; j++) {
+          const a = i * (nPhi + 1) + j;
+          const b = i * (nPhi + 1) + j + 1;
+          const c = (i + 1) * (nPhi + 1) + j;
+          const d = (i + 1) * (nPhi + 1) + j + 1;
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geom.setIndex(indices);
+      geom.computeVertexNormals();
+      return geom;
+    }
+  },
+  custom_fn:{
+    name:'Custom Function',formula:'z = f(x, y)',desc:'Volume under the surface z = f(x, y) above z = 0',
+    bounds:{xMin:0,xMax:Math.PI,yMin:0,yMax:Math.PI,zMin:0,zMax:1.15},
+    exactVolume:4.0, exactStr:'4.000000', _fn:parseFn3D('sin(x)*sin(y)'),
+    inside(x,y,z){
+      if(z<0)return false;
+      if(!this._fn)return false;
+      try{const val=this._fn(x,y);return isFinite(val)&&z<=val;}catch{return false;}
+    },
+    inside_height(x,y){
+      if(!this._fn)return 0;
+      try{const val=this._fn(x,y);return isFinite(val)?val:0;}catch{return 0;}
+    },
+    createGeometry(){
+      const geom = new THREE.BufferGeometry();
+      const vertices = [];
+      const indices = [];
+      const uvs = [];
+      const nX = 50, nY = 50;
+      const {xMin, xMax, yMin, yMax} = this.bounds;
+      
+      for (let i = 0; i <= nX; i++) {
+        const x = xMin + (i / nX) * (xMax - xMin);
+        for (let j = 0; j <= nY; j++) {
+          const y = yMin + (j / nY) * (yMax - yMin);
+          const z = Math.max(0, this.inside_height(x, y));
+          // Map x_3js = x, y_3js = z (vertical height), z_3js = y (depth)
+          vertices.push(x, z, y);
+          uvs.push(i / nX, j / nY);
+        }
+      }
+      for (let i = 0; i < nX; i++) {
+        for (let j = 0; j < nY; j++) {
+          const a = i * (nY + 1) + j;
+          const b = i * (nY + 1) + j + 1;
+          const c = (i + 1) * (nY + 1) + j;
+          const d = (i + 1) * (nY + 1) + j + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geom.setIndex(indices);
+      geom.computeVertexNormals();
+      return geom;
+    }
+  }
+};
+
+/* ── SIM STATE ── */
+const sim={
+  shape:SHAPES.sphere,key:'sphere',
+  running:false,total:0,inside:0,history:[],
+  animId:null,lastTs:0,interval:1000/60,spf:100,
+  lastRateN:0,lastRateT:performance.now(),rate:0,
+  stepPhase:0
+};
+
+/* ── CANVASES ── */
+const convC=document.getElementById('convC'),
+      simpC=document.getElementById('simpC');
+const cvCtx=convC.getContext('2d'),
+      scCtx=simpC.getContext('2d');
+
+function setupCanvas(c,w,h){c.width=w*DPR;c.height=h*DPR;c.style.width=w+'px';c.style.height=h+'px';const cx=c.getContext('2d');cx.scale(DPR,DPR);return cx;}
+function initCanvases(){
+  const cw=Math.min(document.getElementById('convWrap').clientWidth||CW,CW);
+  setupCanvas(convC,cw,CH);
+  setupCanvas(simpC,cw,CH);
+}
+
+function cv(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+
+/* ── 3D RENDER ENGINE ── */
+function init3D() {
+  const container = document.getElementById('mainWrap');
+  container.innerHTML = '';
+  
+  scene = new THREE.Scene();
+  
+  camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  camera.position.set(3.6, 2.8, 2.3);
+  
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(800, 600);
+  container.appendChild(renderer.domElement);
+  
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = Math.PI / 2 + 0.3;
+  
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+  scene.add(ambient);
+  
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+  dirLight.position.set(5, 10, 7);
+  scene.add(dirLight);
+  
+  // Add subtle colored key lights
+  const lightPurple = new THREE.PointLight(0xbc8cff, 0.6, 15);
+  lightPurple.position.set(-4, 3, -4);
+  scene.add(lightPurple);
+  
+  const lightBlue = new THREE.PointLight(0x58a6ff, 0.7, 15);
+  lightBlue.position.set(4, -2, 4);
+  scene.add(lightBlue);
+  
+  initParticles();
+  updateShapeMesh();
+  
+  animate3D();
+}
+
+function animate3D() {
+  sim.animId = requestAnimationFrame(animate3D);
+  if (controls) controls.update();
+  
+  // Auto-rotation disabled
+  
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
+  }
+}
+
+function createCircleTexture(colorStr) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 32; canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  
+  const grad = ctx.createRadialGradient(16,16,0, 16,16,16);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.2, colorStr);
+  grad.addColorStop(0.5, colorStr + '66');
+  grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+  
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(16,16,16,0,Math.PI*2);
+  ctx.fill();
+  
+  return new THREE.CanvasTexture(canvas);
+}
+
+function initParticles() {
+  const size = 0.045;
+  
+  // Inside points
+  const inGeom = new THREE.BufferGeometry();
+  insidePositions = new Float32Array(MAX_POINTS * 3);
+  inGeom.setAttribute('position', new THREE.BufferAttribute(insidePositions, 3));
+  const inMat = new THREE.PointsMaterial({
+    color: 0x3fb950, size: size, transparent: true, opacity: 0.8,
+    map: createCircleTexture('#3fb950'), blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  insidePoints = new THREE.Points(inGeom, inMat);
+  scene.add(insidePoints);
+  
+  // Outside points
+  const outGeom = new THREE.BufferGeometry();
+  outsidePositions = new Float32Array(MAX_POINTS * 3);
+  outGeom.setAttribute('position', new THREE.BufferAttribute(outsidePositions, 3));
+  const outMat = new THREE.PointsMaterial({
+    color: 0xf85149, size: size, transparent: true, opacity: 0.7,
+    map: createCircleTexture('#f85149'), blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  outsidePoints = new THREE.Points(outGeom, outMat);
+  scene.add(outsidePoints);
+}
+
+function updateShapeMesh() {
+  if (shapeMesh) scene.remove(shapeMesh);
+  if (wireframeLine) scene.remove(wireframeLine);
+  
+  const geom = sim.shape.createGeometry();
+  
+  const isLight = document.body.getAttribute('data-theme') === 'light';
+  const accentColor = isLight ? 0x0969da : 0x58a6ff;
+  
+  const meshMat = new THREE.MeshStandardMaterial({
+    color: accentColor,
+    transparent: true,
+    opacity: 0.16,
+    side: THREE.DoubleSide,
+    roughness: 0.2,
+    metalness: 0.1
+  });
+  shapeMesh = new THREE.Mesh(geom, meshMat);
+  scene.add(shapeMesh);
+  
+  const wireGeom = new THREE.WireframeGeometry(geom);
+  const wireMat = new THREE.LineBasicMaterial({
+    color: accentColor,
+    transparent: true,
+    opacity: 0.28,
+    linewidth: 0.5
+  });
+  wireframeLine = new THREE.LineSegments(wireGeom, wireMat);
+  scene.add(wireframeLine);
+  
+  updateBoundingBox();
+}
+
+function updateBoundingBox() {
+  if (boundingBoxLine) scene.remove(boundingBoxLine);
+  if (gridHelper) scene.remove(gridHelper);
+  
+  const b = sim.shape.bounds;
+  const dx = b.xMax - b.xMin;
+  const dy = b.zMax - b.zMin; // height
+  const dz = b.yMax - b.yMin; // depth
+  
+  const cx = (b.xMin + b.xMax) / 2;
+  const cy = (b.zMin + b.zMax) / 2;
+  const cz = (b.yMin + b.yMax) / 2;
+  
+  const boxGeom = new THREE.BoxGeometry(dx, dy, dz);
+  const edges = new THREE.EdgesGeometry(boxGeom);
+  
+  const isLight = document.body.getAttribute('data-theme') === 'light';
+  const centerColor = isLight ? 0x0969da : 0x58a6ff;
+  const gridColor = isLight ? 0xd0d7de : 0x30363d;
+  
+  const boxMat = new THREE.LineBasicMaterial({
+    color: centerColor,
+    linewidth: 1,
+    transparent: true,
+    opacity: 0.35
+  });
+  boundingBoxLine = new THREE.LineSegments(edges, boxMat);
+  boundingBoxLine.position.set(cx, cy, cz);
+  scene.add(boundingBoxLine);
+  
+  const gridSize = Math.max(dx, dz) * 1.5;
+  gridHelper = new THREE.GridHelper(gridSize, 14, centerColor, gridColor);
+  gridHelper.position.set(cx, b.zMin, cz);
+  scene.add(gridHelper);
+  
+  if (controls) {
+    controls.target.set(cx, cy, cz);
+  }
+}
+
+function updateThreeThemeColors() {
+  if (!scene) return;
+  updateBoundingBox();
+  if (shapeMesh) {
+    const isLight = document.body.getAttribute('data-theme') === 'light';
+    const col = isLight ? 0x0969da : 0x58a6ff;
+    shapeMesh.material.color.setHex(col);
+    wireframeLine.material.color.setHex(col);
+  }
+}
+
+/* ── POINTS LAYER ── */
+function addSampleToScene(x, y, z, isInside) {
+  // Map x_math = x, y_math = z (depth), z_math = y (height)
+  // ThreeJS coordinates: x_3js = x_math, y_3js = z_math, z_3js = y_math
+  if (isInside) {
+    const idx = (insideIdx % MAX_POINTS) * 3;
+    insidePositions[idx] = x;
+    insidePositions[idx+1] = z;
+    insidePositions[idx+2] = y;
+    insideIdx++;
+    insidePoints.geometry.attributes.position.needsUpdate = true;
+    insidePoints.geometry.setDrawRange(0, Math.min(insideIdx, MAX_POINTS));
+  } else {
+    const idx = (outsideIdx % MAX_POINTS) * 3;
+    outsidePositions[idx] = x;
+    outsidePositions[idx+1] = z;
+    outsidePositions[idx+2] = y;
+    outsideIdx++;
+    outsidePoints.geometry.attributes.position.needsUpdate = true;
+    outsidePoints.geometry.setDrawRange(0, Math.min(outsideIdx, MAX_POINTS));
+  }
+}
+
+function drawSamples(count){
+  const b=sim.shape.bounds, bw=b.xMax-b.xMin, bh=b.yMax-b.yMin, bd=b.zMax-b.zMin;
+  for(let i=0;i<count;i++){
+    const x=b.xMin+Math.random()*bw;
+    const y=b.yMin+Math.random()*bh;
+    const z=b.zMin+Math.random()*bd;
+    const ins=sim.shape.inside(x,y,z);
+    
+    sim.total++;
+    if(ins) sim.inside++;
+    
+    addSampleToScene(x, y, z, ins);
+  }
+  
+  const n=sim.total;
+  if(n<=20||n%HIST_STEP===0){
+    const bv=bw*bh*bd, est=(sim.inside/n)*bv, p=sim.inside/n;
+    const se=n>1?Math.sqrt(p*(1-p)/n)*bv:0;
+    sim.history.push({n,est,se});
+    if(sim.history.length>HIST_MAX)sim.history.shift();
+  }
+}
+
+/* ── SIMPSON'S DOUBLE GRID HEATMAP (for custom_fn) ── */
+function drawSimpsonStrips(){
+  if(sim.key!=='custom_fn'||!SHAPES.custom_fn._fn) return;
+  const W=parseInt(simpC.style.width), H=CH;
+  const pL=44,pR=10,pT=10,pB=26, pw=W-pL-pR, ph=H-pT-pB;
+  const ctx=scCtx;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=cv('--canvas-bg');ctx.fillRect(0,0,W,H);
+
+  const fn=SHAPES.custom_fn._fn;
+  const b=sim.shape.bounds;
+  const xMin=b.xMin,xMax=b.xMax,yMin=b.yMin,yMax=b.yMax;
+  let n=Math.min(simpState.n,30); if(n%2!==0)n++; // cap display for clean lines
+
+  const hx=(xMax-xMin)/n, hy=(yMax-yMin)/n;
+  const cellSizeX = pw / n;
+  const cellSizeY = ph / n;
+  
+  let zMaxVal = b.zMax / 1.15;
+  if (zMaxVal <= 0) zMaxVal = 1.0;
+
+  // Draw 2D custom function heatmap
+  for(let i=0;i<n;i++){
+    const x = xMin + (i + 0.5)*hx;
+    const px = pL + (i/n)*pw;
+    for(let j=0;j<n;j++){
+      const y = yMin + (j + 0.5)*hy;
+      const py = pT + (1 - (j + 1)/n)*ph;
+      
+      let val = 0; try{val=fn(x,y);}catch{}
+      if (!isFinite(val)) val = 0;
+      val = Math.max(0, val);
+      
+      const t = Math.min(1.0, val / zMaxVal);
+      // Map 0 -> zMaxVal to Blue -> Gold/Cyan in RGB
+      const r = Math.round(58 + t*(227-58));
+      const g = Math.round(166 + t*(179-166));
+      const bl = Math.round(255 - t*(255-65));
+      ctx.fillStyle = `rgb(${r},${g},${bl})`;
+      ctx.fillRect(px, py, cellSizeX + 0.5, cellSizeY + 0.5);
+    }
+  }
+
+  // Draw grid lines
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=0.5;
+  for(let i=0;i<=n;i++){
+    const px = pL + (i/n)*pw;
+    ctx.beginPath();ctx.moveTo(px,pT);ctx.lineTo(px,pT+ph);ctx.stroke();
+    const py = pT + (i/n)*ph;
+    ctx.beginPath();ctx.moveTo(pL,py);ctx.lineTo(pL+pw,py);ctx.stroke();
+  }
+
+  // Draw grid intersection node dots
+  for(let i=0;i<=n;i++){
+    const px = pL + (i/n)*pw;
+    for(let j=0;j<=n;j++){
+      const py = pT + (1 - j/n)*ph;
+      ctx.fillStyle = (i===0||i===n||j===0||j===n) ? cv('--accent') : 
+                      ((i%2===0 && j%2===0) ? cv('--gold') : cv('--simp-color'));
+      ctx.beginPath();ctx.arc(px,py,2.0,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  // Labels
+  ctx.fillStyle=cv('--text-2');ctx.font='9px monospace';ctx.textAlign='center';
+  ctx.fillText(xMin.toFixed(2), pL, pT+ph+11);
+  ctx.fillText(xMax.toFixed(2), pL+pw, pT+ph+11);
+  ctx.fillText('x-axis', pL+pw/2, pT+ph+11);
+  
+  ctx.textAlign='right';
+  ctx.fillText(yMin.toFixed(2), pL-4, pT+ph+3);
+  ctx.fillText(yMax.toFixed(2), pL-4, pT+3);
+  
+  ctx.save();
+  ctx.translate(9, pT+ph/2);ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center';ctx.fillText('y-axis', 0, 0);
+  ctx.restore();
+
+  ctx.fillStyle=cv('--text-2');ctx.font='9px sans-serif';ctx.textAlign='center';
+  ctx.fillText(`Simpson's 2D double-grid (displaying ${n}x${n} of ${simpState.n}x${simpState.n})`,pL+pw/2,H-1);
+
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=1;ctx.strokeRect(pL,pT,pw,ph);
+}
+
+/* ── CONVERGENCE PLOT ── */
+function drawConv(){
+  const ctx=cvCtx, W=parseInt(convC.style.width), H=CH;
+  const pL=44,pR=10,pT=10,pB=26, pw=W-pL-pR, ph=H-pT-pB;
+  ctx.clearRect(0,0,W,H);ctx.fillStyle=cv('--canvas-bg');ctx.fillRect(0,0,W,H);
+  if(sim.history.length<2){
+    ctx.fillStyle=cv('--text-2');ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Run simulation to watch convergence…',W/2,H/2);ctx.textAlign='left';return;
+  }
+  const xmax=sim.history[sim.history.length-1].n;
+  const exact=sim.shape.exactVolume;
+  const ests=sim.history.map(h=>h.est), ses=sim.history.map(h=>h.se);
+  let ylo=Math.min(...ests),yhi=Math.max(...ests);
+  if(exact!==null){ylo=Math.min(ylo,exact*.75);yhi=Math.max(yhi,exact*1.25);}
+  if(simpState.area!==null){ylo=Math.min(ylo,simpState.area*.85);yhi=Math.max(yhi,simpState.area*1.15);}
+  const ypad=(yhi-ylo)*.12;ylo-=ypad;yhi+=ypad;
+  if(ylo<0)ylo=0;if(yhi<=ylo)yhi=ylo+1;
+  const px=n=>pL+(n/xmax)*pw, py=v=>pT+(1-(v-ylo)/(yhi-ylo))*ph;
+
+  // Grid
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=0.5;ctx.setLineDash([2,4]);
+  for(let i=0;i<=4;i++){
+    const yy=pT+(i/4)*ph;ctx.beginPath();ctx.moveTo(pL,yy);ctx.lineTo(pL+pw,yy);ctx.stroke();
+    ctx.fillStyle=cv('--text-2');ctx.font='9px monospace';ctx.textAlign='right';
+    ctx.fillText((yhi-i/4*(yhi-ylo)).toFixed(2),pL-3,yy+3);
+    const nn=i/4*xmax;ctx.textAlign='center';
+    ctx.fillText(nn>=1000?(nn/1000).toFixed(1)+'k':Math.round(nn).toString(),pL+i/4*pw,H-5);
+  }
+  ctx.setLineDash([]);ctx.strokeStyle=cv('--border');ctx.lineWidth=1;ctx.strokeRect(pL,pT,pw,ph);
+
+  // 95% CI band
+  ctx.beginPath();
+  for(let i=0;i<sim.history.length;i++){const x=px(sim.history[i].n),yUp=py(sim.history[i].est+1.96*sim.history[i].se);i===0?ctx.moveTo(x,yUp):ctx.lineTo(x,yUp);}
+  for(let i=sim.history.length-1;i>=0;i--){const x=px(sim.history[i].n),yDn=py(sim.history[i].est-1.96*sim.history[i].se);ctx.lineTo(x,yDn);}
+  ctx.closePath();ctx.fillStyle='rgba(88,166,255,0.08)';ctx.fill();
+
+  // Exact dashed line
+  if(exact!==null&&exact>=ylo&&exact<=yhi){
+    const ey=py(exact);ctx.strokeStyle=cv('--purple');ctx.lineWidth=1.5;ctx.setLineDash([7,4]);
+    ctx.beginPath();ctx.moveTo(pL,ey);ctx.lineTo(pL+pw,ey);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=cv('--purple');ctx.font='9px monospace';ctx.textAlign='left';ctx.fillText('exact',pL+3,ey-3);
+  }
+
+  // Simpson's dashed line
+  if(simpState.area!==null){
+    const sy=py(simpState.area);
+    if(sy>=pT&&sy<=pT+ph){
+      ctx.strokeStyle=cv('--simp-color');ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+      ctx.beginPath();ctx.moveTo(pL,sy);ctx.lineTo(pL+pw,sy);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=cv('--simp-color');ctx.font='9px monospace';ctx.textAlign='right';
+      ctx.fillText("Simpson's",pL+pw-2,sy-3);
+    }
+  }
+
+  // MC estimate line
+  ctx.strokeStyle=cv('--accent');ctx.lineWidth=1.8;ctx.setLineDash([]);
+  ctx.beginPath();
+  for(let i=0;i<sim.history.length;i++){const x=px(sim.history[i].n),y=py(sim.history[i].est);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();
+
+  // Glowing endpoint
+  const last=sim.history[sim.history.length-1];
+  const epx=px(last.n),epy=py(last.est);
+  const grd=ctx.createRadialGradient(epx,epy,0,epx,epy,12);
+  grd.addColorStop(0,'rgba(88,166,255,.5)');grd.addColorStop(1,'rgba(88,166,255,0)');
+  ctx.fillStyle=grd;ctx.beginPath();ctx.arc(epx,epy,12,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=cv('--accent');ctx.beginPath();ctx.arc(epx,epy,3.5,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle=cv('--text-2');ctx.font='9px sans-serif';ctx.textAlign='center';
+  ctx.fillText('N (samples)',pL+pw/2,H-0);
+  ctx.save();ctx.translate(9,pT+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('Estimated Volume',0,0);ctx.restore();
+}
+
+/* ── COMPARISON TABLE UPDATE ── */
+function updateComparison(){
+  const n=sim.total,exact=sim.shape.exactVolume;
+  const b=sim.shape.bounds;
+  const boxVol = (b.xMax-b.xMin)*(b.yMax-b.yMin)*(b.zMax-b.zMin);
+  const mcEst=n>0?(sim.inside/n)*boxVol:null;
+  const sEst=simpState.area;
+
+  document.getElementById('cmpExact').textContent=exact!==null?exact.toFixed(7):'—';
+
+  if(mcEst!==null){
+    document.getElementById('cmpMC').textContent=mcEst.toFixed(7);
+    if(exact!==null)document.getElementById('cmpMCErr').textContent=(Math.abs(mcEst-exact)/exact*100).toFixed(4)+'%';
+    else document.getElementById('cmpMCErr').textContent='—';
+  } else {
+    document.getElementById('cmpMC').textContent='—';document.getElementById('cmpMCErr').textContent='—';
+  }
+
+  if(sEst!==null){
+    document.getElementById('cmpSimp').textContent=sEst.toFixed(7);
+    if(exact!==null)document.getElementById('cmpSimpErr').textContent=(Math.abs(sEst-exact)/exact*100).toFixed(4)+'%';
+    else document.getElementById('cmpSimpErr').textContent='—';
+  } else {
+    document.getElementById('cmpSimp').textContent='—';document.getElementById('cmpSimpErr').textContent='—';
+  }
+
+  // Winner badge
+  document.getElementById('cmpMCWin').innerHTML='';
+  document.getElementById('cmpSimpWin').innerHTML='';
+  if(mcEst!==null&&sEst!==null&&exact!==null){
+    const mcE=Math.abs(mcEst-exact), sE=Math.abs(sEst-exact);
+    const winner=mcE<sE?'mc':'simp';
+    document.getElementById(winner==='mc'?'cmpMCWin':'cmpSimpWin').innerHTML='<span class="win-badge">✓ closer</span>';
+    const note=winner==='simp'
+      ?`Simpson's is ${(mcE/sE).toFixed(1)}× closer to exact with n=${simpState.n} subdivisions vs N=${n.toLocaleString()} MC samples.`
+      :`Monte Carlo is ${(sE/mcE).toFixed(1)}× closer with N=${n.toLocaleString()} samples vs Simpson's n=${simpState.n}.`;
+    document.getElementById('cmpNote').textContent=note;
+  } else {
+    document.getElementById('cmpNote').textContent='Run Monte Carlo and calculate Simpson\'s to compare accuracy.';
+  }
+}
+
+/* ── STATS UPDATE ── */
+function updateStats(){
+  const n=sim.total,ins=sim.inside,out=n-ins;
+  const b=sim.shape.bounds,ba=(b.xMax-b.xMin)*(b.yMax-b.yMin)*(b.zMax-b.zMin);
+  const est=n>0?(ins/n)*ba:null,p=n>0?ins/n:0;
+  const se=n>1?Math.sqrt(p*(1-p)/n)*ba:null,exact=sim.shape.exactVolume;
+  const fi=v=>v===null?'—':v.toLocaleString();
+  const ff=(v,d=6)=>v===null?'—':v.toFixed(d);
+  document.getElementById('stTotal').textContent=fi(n);
+  document.getElementById('stIn').textContent=fi(ins);
+  document.getElementById('stOut').textContent=fi(out);
+  document.getElementById('stFrac').textContent=n>0?p.toFixed(7):'—';
+  document.getElementById('stBox').textContent=ba.toFixed(5);
+  document.getElementById('stEst').textContent=ff(est);
+  document.getElementById('stExact').textContent=sim.shape.exactStr;
+  if(est!==null&&exact!==null&&exact>0)document.getElementById('stErr').textContent=(Math.abs(est-exact)/exact*100).toFixed(4)+'%';
+  else document.getElementById('stErr').textContent='—';
+  document.getElementById('stSE').textContent=ff(se);
+  if(se!==null&&est!==null){const ci=1.96*se;document.getElementById('stCI').textContent=`[${(est-ci).toFixed(4)}, ${(est+ci).toFixed(4)}]`;}
+  else document.getElementById('stCI').textContent='—';
+  const eff=n>0?(p*100).toFixed(2)+'%':'—';
+  document.getElementById('stEff').textContent=eff;
+  document.getElementById('effBar').style.width=n>0?(p*100).toFixed(2)+'%':'0%';
+  const now=performance.now(),dt=(now-sim.lastRateT)/1000;
+  if(dt>=RATE_INT/1000){sim.rate=Math.round((sim.total-sim.lastRateN)/dt);sim.lastRateN=sim.total;sim.lastRateT=now;}
+  document.getElementById('rateEl').textContent=sim.rate.toLocaleString();
+  updateComparison();
+}
+
+/* ── ANIMATION LOOP ── */
+function animLoop(ts){
+  if(!sim.running)return;
+  const el=ts-sim.lastTs;
+  if(el>=sim.interval){
+    sim.lastTs=ts-(el%sim.interval);
+    drawSamples(sim.spf);
+    updateStats();
+    drawConv();
+    
+    // Auto-rotation disabled
+    
+    sim.stepPhase=(sim.stepPhase+1)%5;
+    for(let i=1;i<=5;i++)document.getElementById('as'+i).classList.toggle('active',i-1===sim.stepPhase);
+  }
+}
+
+/* ── SIM CONTROLS ── */
+function startSim(){
+  if(sim.running)return;
+  sim.running=true;
+  sim.lastTs=performance.now();
+  document.getElementById('sDot').className='status-dot running';
+  document.getElementById('sTxt').textContent='Running';
+  
+  // Start ThreeJS loop if not already running
+  if (!sim.animId) {
+    animate3D();
+  }
+  
+  const loop = (ts) => {
+    if (!sim.running) return;
+    animLoop(ts);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+function pauseSim(){
+  sim.running=false;
+  document.getElementById('sDot').className='status-dot paused';
+  document.getElementById('sTxt').textContent='Paused';
+}
+
+function stepSim(){
+  pauseSim();
+  drawSamples(sim.spf);
+  updateStats();
+  drawConv();
+}
+
+function resetSim(){
+  pauseSim();
+  sim.total=0;sim.inside=0;sim.history=[];
+  insideIdx=0; outsideIdx=0;
+  
+  if (insidePoints) {
+    insidePoints.geometry.setDrawRange(0, 0);
+    insidePoints.rotation.set(0,0,0);
+  }
+  if (outsidePoints) {
+    outsidePoints.geometry.setDrawRange(0, 0);
+    outsidePoints.rotation.set(0,0,0);
+  }
+  if (shapeMesh && wireframeLine) {
+    shapeMesh.rotation.set(0,0,0);
+    wireframeLine.rotation.set(0,0,0);
+  }
+  
+  document.getElementById('sDot').className='status-dot';
+  document.getElementById('sTxt').textContent='Idle';
+  updateStats();
+  drawConv();
+  for(let i=1;i<=5;i++)document.getElementById('as'+i).classList.remove('active');
+}
+
+/* ── SHAPE SELECTOR HANDLER ── */
+function onShapeChange(){
+  const select = document.getElementById('shapeSelect');
+  sim.key = select.value;
+  sim.shape = SHAPES[sim.key];
+  
+  // Show/Hide custom panels
+  document.getElementById('cfPanel').classList.toggle('vis', sim.key==='custom_fn');
+  
+  // Update header text
+  document.getElementById('cvFormula').textContent = sim.shape.formula;
+  document.getElementById('cvDesc').textContent = sim.shape.desc;
+  
+  resetSim();
+  updateShapeMesh();
+  runSimpson(true);
+}
+
+/* ── CUSTOM FUNCTION HANDLER ── */
+function applyCustomFn(){
+  const inp = document.getElementById('fnInp').value;
+  try {
+    const fn = parseFn3D(inp);
+    // test call
+    fn(0.5, 0.5);
+    
+    const xMin = parseFloat(document.getElementById('xMin').value);
+    const xMax = parseFloat(document.getElementById('xMax').value);
+    const yMin = parseFloat(document.getElementById('yMin').value);
+    const yMax = parseFloat(document.getElementById('yMax').value);
+    
+    if (isNaN(xMin) || isNaN(xMax) || isNaN(yMin) || isNaN(yMax) || xMin >= xMax || yMin >= yMax) {
+      throw new Error("Invalid boundaries.");
+    }
+    
+    // Dynamically estimate zMax over 30x30 grid
+    let maxVal = 0;
+    const grid = 30;
+    for (let i = 0; i <= grid; i++) {
+      const x = xMin + (i / grid) * (xMax - xMin);
+      for (let j = 0; j <= grid; j++) {
+        const y = yMin + (j / grid) * (yMax - yMin);
+        const val = fn(x, y);
+        if (isFinite(val) && val > maxVal) {
+          maxVal = val;
+        }
+      }
+    }
+    const zMax = maxVal > 0 ? maxVal * 1.15 : 1.0;
+    
+    // Numerically approximate exact volume with 200x200 Simpson double integral
+    const exactVolume = simpson2D_calc(fn, xMin, xMax, yMin, yMax, 200);
+    
+    SHAPES.custom_fn._fn = fn;
+    SHAPES.custom_fn.bounds = { xMin, xMax, yMin, yMax, zMin: 0, zMax };
+    SHAPES.custom_fn.exactVolume = exactVolume;
+    SHAPES.custom_fn.exactStr = exactVolume.toFixed(6);
+    
+    document.getElementById('fnError').style.display = 'none';
+    
+    // Update headers and redraw
+    document.getElementById('cvFormula').textContent = `z = ${inp}`;
+    document.getElementById('cvDesc').textContent = `Volume under surface, exact ≈ ${exactVolume.toFixed(6)}`;
+    
+    resetSim();
+    updateShapeMesh();
+    runSimpson(true);
+  } catch (e) {
+    const errEl = document.getElementById('fnError');
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+/* ── EXPORT CSV ── */
+function exportCSV(){
+  if(sim.history.length===0){alert('Run simulation to generate data first!');return;}
+  let csv = 'Samples,MC Estimate,MC Error %,Simpson Estimate,Simpson Error %,Exact Volume\n';
+  const exact = sim.shape.exactVolume;
+  const sEst = simpState.area;
+  const sErr = (sEst!==null && exact!==null) ? (Math.abs(sEst-exact)/exact*100).toFixed(5)+'%' : '—';
+  
+  sim.history.forEach(h=>{
+    const mcErr = (exact!==null) ? (Math.abs(h.est-exact)/exact*100).toFixed(5)+'%' : '—';
+    csv += `${h.n},${h.est.toFixed(6)},${mcErr},${sEst!==null?sEst.toFixed(6):'—'},${sErr},${exact!==null?exact.toFixed(6):'—'}\n`;
+  });
+  
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `integration_3d_${sim.key}_N${sim.total}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ── TAB TOGLE ── */
+function switchTab(tabId){
+  const simTab = document.getElementById('simTab');
+  const theoryTab = document.getElementById('theoryTab');
+  const pyTab = document.getElementById('pyTab');
+  const btns = document.querySelectorAll('.tab-btn');
+
+  simTab.style.display = (tabId === 'sim') ? 'grid' : 'none';
+  theoryTab.style.display = (tabId === 'theory') ? 'block' : 'none';
+  pyTab.style.display = (tabId === 'py') ? 'block' : 'none';
+
+  btns[0].classList.toggle('active', tabId === 'sim');
+  btns[1].classList.toggle('active', tabId === 'theory');
+  btns[2].classList.toggle('active', tabId === 'py');
+
+  if (tabId === 'sim') onResize();
+  if (tabId === 'theory' && window.MathJax && window.MathJax.typesetPromise) {
+    window.MathJax.typesetPromise([theoryTab]);
+  }
+}
+
+function copyPythonCode() {
+  const codeText = document.getElementById('pythonCodeDisplay').textContent;
+  navigator.clipboard.writeText(codeText).then(() => {
+    const icon = document.getElementById('copyIcon');
+    const txt = document.getElementById('copyTxt');
+    icon.textContent = '✔️';
+    txt.textContent = 'Copied!';
+    setTimeout(() => {
+      icon.textContent = '📋';
+      txt.textContent = 'Copy Code';
+    }, 2000);
+  }).catch(err => {
+    alert('Failed to copy: ' + err);
+  });
+}
+
+function toggleTheme(){
+  const body=document.body;
+  const next=body.getAttribute('data-theme')==='dark'?'light':'dark';
+  body.setAttribute('data-theme',next);
+  
+  const icon=document.getElementById('thIcon');
+  const lbl=document.getElementById('thLbl');
+  if(next==='light'){
+    icon.textContent='🌙';lbl.textContent='Dark';
+  } else {
+    icon.textContent='☀️';lbl.textContent='Light';
+  }
+  
+  if (sim.history.length > 0) drawConv();
+  if (sim.key === 'custom_fn') drawSimpsonStrips();
+  
+  updateThreeThemeColors();
+}
+
+function onResize() {
+  // Resize ThreeJS Renderer
+  const container = document.getElementById('mainWrap');
+  if (renderer && camera) {
+    renderer.setSize(700, 600);
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+  }
+  
+  // Resize Convergence Plot Canvas
+  const cw = Math.min(document.getElementById('convWrap').clientWidth || CW, CW);
+  setupCanvas(convC, cw, CH);
+  setupCanvas(simpC, cw, CH);
+  
+  if (sim.history.length > 0) drawConv();
+  if (sim.key === 'custom_fn') drawSimpsonStrips();
+}
+
+/* ── INITIALIZATION ── */
+window.addEventListener('load', ()=>{
+  initCanvases();
+  init3D();
+  onShapeChange();
+  window.addEventListener('resize', onResize);
+});
+</script>
+</body>
+</html>

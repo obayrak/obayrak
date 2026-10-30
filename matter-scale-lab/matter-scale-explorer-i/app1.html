@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matter Scale Explorer • + Potential Energy</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000508;
+  --panel:#060d14;
+  --border:rgba(0,200,255,0.15);
+  --accent:#00c8ff;
+  --accent2:#ff6b35;
+  --accent3:#7fff6b;
+  --text:#d0e8f0;
+  --muted:#4a6a7a;
+  --mono:'JetBrains Mono',monospace;
+  --title:'Orbitron',sans-serif;
+  --body:'Inter',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+#app{display:flex;flex-direction:column;height:100vh;font-family:var(--body)}
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem 1.5rem;
+  background:linear-gradient(90deg,#000d18,#001525,#000d18);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;z-index:10
+}
+.logo{font-family:var(--title);font-size:1.1rem;color:var(--accent);letter-spacing:.15em;font-weight:700}
+.logo span{color:var(--accent2)}
+#scale-readout{font-family:var(--mono);font-size:.7rem;color:var(--accent);background:rgba(0,200,255,.06);
+  border:1px solid var(--border);border-radius:4px;padding:.3rem .75rem;letter-spacing:.05em}
+#main{flex:1;display:flex;position:relative;overflow:hidden}
+#canvas{display:block;width:100%;height:100%}
+/* Scale rail */
+#scale-rail{
+  position:absolute;right:16px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  z-index:20;user-select:none
+}
+.scale-stop{
+  display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;
+  transition:all .2s;opacity:.4
+}
+.scale-stop.active,.scale-stop:hover{opacity:1}
+.scale-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--muted);border:1px solid rgba(0,200,255,.3);
+  transition:all .25s;flex-shrink:0
+}
+.scale-stop.active .scale-dot{
+  background:var(--accent);box-shadow:0 0 10px var(--accent);
+  border-color:var(--accent);width:10px;height:10px
+}
+.scale-name{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-align:right;transition:color .2s;white-space:nowrap}
+.scale-stop.active .scale-name,.scale-stop:hover .scale-name{color:var(--accent)}
+.scale-line{width:1px;height:18px;background:linear-gradient(var(--border),var(--border));margin-left:4px}
+/* Info panel */
+#info-panel{
+  position:absolute;left:16px;bottom:16px;width:300px;
+  background:rgba(6,13,20,.92);border:1px solid var(--border);border-radius:10px;
+  padding:1rem 1.1rem;backdrop-filter:blur(10px);z-index:20
+}
+#info-title{font-family:var(--title);font-size:.85rem;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem}
+#info-scale{font-family:var(--mono);font-size:.65rem;color:var(--accent2);margin-bottom:.5rem}
+#info-desc{font-size:.78rem;color:var(--text);line-height:1.65;font-weight:300}
+#info-facts{margin-top:.6rem;display:flex;flex-direction:column;gap:.25rem}
+.fact{font-family:var(--mono);font-size:.63rem;color:var(--muted);padding:.2rem .4rem;
+  background:rgba(0,200,255,.04);border-left:2px solid rgba(0,200,255,.2);border-radius:0 3px 3px 0}
+.fact span{color:var(--accent3)}
+/* Navigation */
+#nav-hints{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  display:flex;gap:.75rem;z-index:20
+}
+.nav-btn{
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  background:rgba(6,13,20,.85);border:1px solid var(--border);
+  border-radius:5px;padding:.35rem .8rem;cursor:pointer;
+  transition:all .18s;backdrop-filter:blur(8px)
+}
+.nav-btn:hover{color:var(--accent);border-color:var(--accent);background:rgba(0,200,255,.07)}
+.nav-btn:active{transform:scale(.96)}
+/* Zoom progress */
+#zoom-bar{
+  position:absolute;bottom:16px;right:16px;
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);
+  writing-mode:vertical-rl;letter-spacing:.1em;z-index:20;
+  display:flex;flex-direction:column;align-items:center;gap:6px
+}
+#zoom-track{width:3px;height:120px;background:rgba(0,200,255,.08);border-radius:2px;position:relative}
+#zoom-thumb{
+  position:absolute;width:3px;border-radius:2px;
+  background:linear-gradient(var(--accent),var(--accent2));
+  bottom:0;transition:height .4s ease
+}
+/* Potential energy badge */
+#potential-badge{
+  position:absolute;top:16px;right:280px;
+  background:rgba(255,107,53,.9);color:#fff;
+  font-family:var(--mono);font-size:.65rem;padding:4px 12px;
+  border-radius:9999px;letter-spacing:.5px;box-shadow:0 4px 12px -2px rgba(255,107,53,.4);
+  z-index:30;display:flex;align-items:center;gap:6px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div class="logo">MATTER<span>SCALE</span></div>
+    <div id="scale-readout">Scale: 1 cm</div>
+    <div style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">← → or click rail to zoom • Potential energy now shown on every scale</div>
+    <div id="potential-badge">U(r) LIVE</div>
+  </div>
+  <div id="main">
+    <canvas id="canvas"></canvas>
+    
+    <!-- Scale rail -->
+    <div id="scale-rail">
+      <div class="scale-stop active" data-level="0" onclick="goToLevel(0)">
+        <span class="scale-name">Crystal<br>1 cm</span>
+        <div class="scale-dot"></div>
+      </div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="1" onclick="goToLevel(1)">
+        <span class="scale-name">Unit Cell<br>1 nm</span>
+        <div class="scale-dot"></div>
+      </div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="2" onclick="goToLevel(2)">
+        <span class="scale-name">Molecule<br>0.3 nm</span>
+        <div class="scale-dot"></div>
+      </div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="3" onclick="goToLevel(3)">
+        <span class="scale-name">Atom<br>100 pm</span>
+        <div class="scale-dot"></div>
+      </div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="4" onclick="goToLevel(4)">
+        <span class="scale-name">Nucleus<br>1 fm×10⁵</span>
+        <div class="scale-dot"></div>
+      </div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="5" onclick="goToLevel(5)">
+        <span class="scale-name">Quarks<br>&lt;1 am</span>
+        <div class="scale-dot"></div>
+      </div>
+    </div>
+
+    <!-- Info panel -->
+    <div id="info-panel">
+      <div id="info-title">CRYSTAL LATTICE</div>
+      <div id="info-scale">Scale: ~1 cm · NaCl structure</div>
+      <div id="info-desc">A crystal is a solid whose atoms are arranged in a highly ordered, repeating pattern extending in all three spatial dimensions — the crystal lattice.</div>
+      <div id="info-facts">
+        <div class="fact">Bond length: <span>0.282 nm</span></div>
+        <div class="fact">Unit cells: <span>~10²¹ per cm³</span></div>
+        <div class="fact">Symmetry: <span>Face-centered cubic (FCC)</span></div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div id="nav-hints">
+      <button class="nav-btn" onclick="prevLevel()">◀ ZOOM OUT</button>
+      <button class="nav-btn" onclick="nextLevel()">ZOOM IN ▶</button>
+    </div>
+
+    <!-- Zoom bar -->
+    <div id="zoom-bar">
+      <span>10⁻¹⁵m</span>
+      <div id="zoom-track"><div id="zoom-thumb"></div></div>
+      <span>10⁻²m</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// HELPER: Safe hex → rgba converter (fixes the NaN error)
+function hexToRgba(hex, alpha = 1) {
+  const cleaned = hex.replace('#', '');
+  const r = parseInt(cleaned.substring(0, 2), 16);
+  const g = parseInt(cleaned.substring(2, 4), 16);
+  const b = parseInt(cleaned.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// ═══════════════════════════════════════════════════════
+// LEVEL DEFINITIONS
+const LEVELS = [
+  {
+    id: 0, name: 'CRYSTAL LATTICE', scale: '~1 cm · NaCl structure',
+    desc: 'A crystal is a solid whose atoms are arranged in a highly ordered, repeating pattern extending in all three spatial dimensions — the crystal lattice. This long-range order gives crystals their characteristic shape, cleavage planes, and optical properties.',
+    facts: [['Bond length','0.282 nm'],['Unit cells','~10²¹ per cm³'],['Symmetry','Face-centered cubic (FCC)']],
+    potentialTitle: 'Ionic Coulomb Potential'
+  },
+  {
+    id: 1, name: 'UNIT CELL', scale: '~1 nm · cubic unit cell',
+    desc: 'The unit cell is the smallest repeating unit of the crystal lattice. In NaCl (table salt), Na⁺ and Cl⁻ ions alternate in a face-centered cubic arrangement. Each ion is surrounded by 6 oppositely-charged neighbours.',
+    facts: [['Cell edge','0.564 nm'],['Ions per cell','4 Na⁺ + 4 Cl⁻'],['Madelung const','1.7476']],
+    potentialTitle: 'Madelung Ionic Potential'
+  },
+  {
+    id: 2, name: 'MOLECULE', scale: '~0.3 nm · H₂O cluster',
+    desc: 'At the molecular scale, individual molecules become visible. Water (H₂O) has a bent geometry with a bond angle of 104.5°. Hydrogen bonds (dashed) between molecules give water its anomalously high surface tension and boiling point.',
+    facts: [['O-H bond','0.096 nm'],['Bond angle','104.5°'],['H-bond energy','~20 kJ/mol']],
+    potentialTitle: 'Lennard-Jones Potential'
+  },
+  {
+    id: 3, name: 'ATOM', scale: '~100 pm · Hydrogen (Bohr model + QM)',
+    desc: 'The atom consists of a dense positive nucleus surrounded by a quantum mechanical electron cloud. Electron orbitals are probability distributions, not fixed orbits. The hydrogen 1s orbital is a spherical cloud of charge density.',
+    facts: [['Bohr radius','52.9 pm'],['Nucleus size','~1 fm (10⁻¹⁵ m)'],['Electron mass','9.1×10⁻³¹ kg']],
+    potentialTitle: 'Coulomb Potential (H atom)'
+  },
+  {
+    id: 4, name: 'ATOMIC NUCLEUS', scale: '~1–10 fm · Protons & neutrons',
+    desc: 'The nucleus is an incredibly dense cluster of protons and neutrons (nucleons) held together by the strong nuclear force, which overcomes electromagnetic repulsion between protons. Nuclear density is ~2.3×10¹⁷ kg/m³.',
+    facts: [['Proton radius','0.87 fm'],['Nuclear density','2.3×10¹⁷ kg/m³'],['Strong force range','~1–3 fm']],
+    potentialTitle: 'Yukawa Nuclear Potential'
+  },
+  {
+    id: 5, name: 'QUARKS & GLUONS', scale: '< 10⁻¹⁸ m · QCD confinement',
+    desc: 'Protons and neutrons are made of quarks bound by gluons — the carriers of the strong force. Each proton contains 2 up quarks and 1 down quark. Quarks are never observed in isolation (confinement). The gluon field carries color charge.',
+    facts: [['Quark types','u (2/3e), d (−1/3e)'],['Gluons','8 color combinations'],['Confinement','QCD string tension']],
+    potentialTitle: 'QCD Linear Confinement'
+  }
+];
+
+// ═══════════════════════════════════════════════════════
+// RENDERER SETUP
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+let currentLevel = 0;
+let transitioning = false;
+let transProgress = 0;
+let transFrom = 0;
+let transTo = 0;
+let transStart = null;
+const TRANS_DURATION = 900;
+let animT = 0;
+let raf;
+
+function resize(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = canvas.width = rect.width;
+  H = canvas.height = rect.height;
+  cx = W/2; cy = H/2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Noise helpers ──
+function noise(x,y,t){ return Math.sin(x*3.1+t)*Math.cos(y*2.7-t*0.7)*0.5+0.5; }
+function hash(n){ return (Math.sin(n)*43758.5453)%1; }
+
+// ═══════════════════════════════════════════════════════
+// POTENTIAL ENERGY GRAPH (unchanged)
+function drawPotentialGraph(ctx, baseX, baseY, level, t){
+  const w = 255;
+  const h = 138;
+  ctx.save();
+  ctx.shadowColor = '#ff6b35';
+  ctx.shadowBlur = 12;
+  ctx.fillStyle = 'rgba(6,13,20,0.96)';
+  ctx.fillRect(baseX, baseY, w, h);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#ff6b35';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(baseX+6, baseY+6, w-12, h-12);
+  ctx.fillStyle = '#00c8ff';
+  ctx.font = '700 10px JetBrains Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText('POTENTIAL ENERGY U(r)', baseX + w/2, baseY + 20);
+  ctx.fillStyle = '#7fff6b';
+  ctx.font = '500 8.5px JetBrains Mono';
+  ctx.fillText(LEVELS[level].potentialTitle, baseX + w/2, baseY + 32);
+  const gx = baseX + 38;
+  const gy = baseY + 48;
+  const gw = w - 68;
+  const gh = h - 72;
+  ctx.strokeStyle = '#4a6a7a';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(gx, gy + gh);
+  ctx.lineTo(gx + gw, gy + gh);
+  ctx.moveTo(gx, gy);
+  ctx.lineTo(gx, gy + gh);
+  ctx.stroke();
+  ctx.fillStyle = '#4a6a7a';
+  ctx.font = '8px JetBrains Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText('r →', gx + gw/2, gy + gh + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('U(r)', gx - 8, gy + gh/2 + 4);
+  ctx.strokeStyle = '#ff6b35';
+  ctx.lineWidth = 2.8;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#ff6b35';
+  ctx.beginPath();
+  const steps = 92;
+  for(let i = 0; i <= steps; i++){
+    const frac = i / steps;
+    const r = 0.08 + frac * 5.5;
+    let u = 0;
+    switch(level){
+      case 0: case 1: u = -1.8 / (r + 0.25); break;
+      case 2:
+        const sigma = 1.1;
+        const sr = sigma / (r * 0.9 + 0.3);
+        u = 4 * (Math.pow(sr,12) - Math.pow(sr,6));
+        break;
+      case 3: u = -3.5 / (r + 0.15); break;
+      case 4: u = -4.2 * Math.exp(-r * 1.8) / (r + 0.4); break;
+      case 5: u = 2.4 * r - 1.8; break;
+    }
+    const normalizedU = Math.max(-3.5, Math.min(2.5, u));
+    const plotY = gy + gh * (1 - (normalizedU + 3.5) / 6);
+    const plotX = gx + frac * gw;
+    if(i === 0) ctx.moveTo(plotX, plotY);
+    else ctx.lineTo(plotX, plotY);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#7fff6b';
+  ctx.font = '7px JetBrains Mono';
+  ctx.textAlign = 'center';
+  ctx.fillText('equilibrium', gx + gw*0.4, gy + gh - 8);
+  ctx.fillStyle = 'rgba(255,107,53,0.9)';
+  ctx.fillText('attractive', gx + 6, gy + 12);
+  ctx.fillStyle = '#00c8ff';
+  ctx.fillText('repulsive', gx + gw - 6, gy + 12);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+// DRAW FUNCTIONS (with fixed quark color handling)
+function drawCrystal(t, alpha){ /* unchanged – same as previous version */ 
+  ctx.save(); ctx.globalAlpha = alpha;
+  const nx=14, ny=10; const spacing = Math.min(W,H)*0.065;
+  const isoX = spacing; const isoY = spacing*0.55;
+  const offX = cx - (nx/2)*isoX + isoX/2;
+  const offY = cy - (ny/2)*isoY*2 + isoY;
+  for(let row=0;row<ny;row++) for(let col=0;col<nx;col++){
+    const x = offX + col*isoX + (row%2)*isoX/2;
+    const y = offY + row*isoY*1.1;
+    const isNa = (row+col)%2===0;
+    if(col<nx-1){ const x2 = offX + (col+1)*isoX + (row%2)*isoX/2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x2,y); ctx.strokeStyle=`rgba(100,180,200,0.18)`; ctx.lineWidth=1; ctx.stroke(); }
+    if(row<ny-1){ const x2 = offX + col*isoX + ((row+1)%2)*isoX/2; const y2 = offY + (row+1)*isoY*1.1; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x2,y2); ctx.strokeStyle=`rgba(100,180,200,0.15)`; ctx.lineWidth=1; ctx.stroke(); }
+  }
+  for(let row=0;row<ny;row++) for(let col=0;col<nx;col++){
+    const isNa = (row+col)%2===0;
+    const baseX = offX + col*isoX + (row%2)*isoX/2;
+    const baseY = offY + row*isoY*1.1;
+    const seed = row*100+col;
+    const vx = Math.sin(t*2.3+seed*1.7)*2;
+    const vy = Math.cos(t*1.9+seed*2.3)*2;
+    const x = baseX+vx, y = baseY+vy;
+    const r = isNa ? spacing*0.18 : spacing*0.25;
+    const glowR = isNa ? `rgba(80,180,255,` : `rgba(255,120,80,`;
+    const grad = ctx.createRadialGradient(x,y,0,x,y,r*2.5);
+    grad.addColorStop(0, glowR+'0.6)'); grad.addColorStop(0.4, glowR+'0.25)'); grad.addColorStop(1, glowR+'0)');
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(x,y,r*2.5,0,Math.PI*2); ctx.fill();
+    const ionGrad = ctx.createRadialGradient(x-r*.3,y-r*.3,r*.1,x,y,r);
+    if(isNa){ ionGrad.addColorStop(0,'#a0d8ff'); ionGrad.addColorStop(0.5,'#4090ff'); ionGrad.addColorStop(1,'#1030a0'); }
+    else { ionGrad.addColorStop(0,'#ffc0a0'); ionGrad.addColorStop(0.5,'#ff6030'); ionGrad.addColorStop(1,'#a02010'); }
+    ctx.fillStyle=ionGrad; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    if(spacing>35){ ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.font=`${r*0.9}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(isNa?'Na⁺':'Cl⁻',x,y); }
+  }
+  const cpY = cy - spacing*0.5;
+  const cpGrad = ctx.createLinearGradient(cx-W*.4,cpY,cx+W*.4,cpY);
+  cpGrad.addColorStop(0,'rgba(0,200,255,0)'); cpGrad.addColorStop(0.5,'rgba(0,200,255,0.08)'); cpGrad.addColorStop(1,'rgba(0,200,255,0)');
+  ctx.fillStyle=cpGrad; ctx.fillRect(cx-W*.4,cpY-2,W*.8,4);
+  drawPotentialGraph(ctx, W - 275, H - 168, 0, t);
+  ctx.restore();
+}
+
+function drawUnitCell(t, alpha){ /* unchanged */ 
+  ctx.save(); ctx.globalAlpha = alpha;
+  const s = Math.min(W,H)*0.22;
+  const iso = (x3,y3,z3) => ({ x: cx + (x3-z3)*s*0.866, y: cy + (x3+z3)*s*0.5 - y3*s });
+  const corners = [[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
+  const faces = [[0.5,0,0.5],[0.5,1,0.5],[0,0.5,0.5],[1,0.5,0.5],[0.5,0.5,0],[0.5,0.5,1]];
+  const edges = [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+  ctx.strokeStyle='rgba(0,200,255,0.35)'; ctx.lineWidth=1.5;
+  edges.forEach(([a,b])=>{ const A=iso(...corners[a]),B=iso(...corners[b]); ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); });
+  const phase = t*0.8;
+  const allIons = [...corners.map(c=>({pos:c,isNa:true})), ...faces.map(f=>({pos:f,isNa:false}))];
+  allIons.forEach(({pos,isNa})=>{
+    const vib = 0.015; const seed = pos[0]*3+pos[1]*7+pos[2]*13;
+    const px=[...pos]; px[0]+=Math.sin(phase+seed)*vib; px[1]+=Math.cos(phase*1.3+seed*1.4)*vib; px[2]+=Math.sin(phase*0.9+seed*2.1)*vib;
+    const {x,y} = iso(...px);
+    const r = isNa ? s*0.08 : s*0.13;
+    const grad = ctx.createRadialGradient(x-r*.3,y-r*.3,0,x,y,r);
+    if(isNa){ grad.addColorStop(0,'#c0e8ff'); grad.addColorStop(0.6,'#3070e0'); grad.addColorStop(1,'#102060'); }
+    else { grad.addColorStop(0,'#ffd0b0'); grad.addColorStop(0.6,'#e05020'); grad.addColorStop(1,'#801010'); }
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    const gc = ctx.createRadialGradient(x,y,0,x,y,r*3); gc.addColorStop(0,isNa?'rgba(60,120,240,0.2)':'rgba(220,80,30,0.2)'); gc.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=gc; ctx.beginPath(); ctx.arc(x,y,r*3,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.8)'; ctx.font=`${r*1.1}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(isNa?'Na⁺':'Cl⁻',x,y+1);
+  });
+  ctx.fillStyle='rgba(0,200,255,0.5)'; ctx.font=`12px JetBrains Mono`; ctx.textAlign='left';
+  const corner0 = iso(0,0,0); ctx.fillText('a = 0.564 nm', corner0.x+8, corner0.y+4);
+  drawPotentialGraph(ctx, W - 275, H - 168, 1, t);
+  ctx.restore();
+}
+
+function drawMolecule(t, alpha){ /* unchanged */ 
+  ctx.save(); ctx.globalAlpha = alpha;
+  const molecules = [{x:0,y:0,rot:t*0.3,scale:1.0},{x:-0.35,y:0.3,rot:-t*0.2+1.2,scale:0.85},{x:0.38,y:-0.28,rot:t*0.25+0.8,scale:0.85},{x:-0.3,y:-0.35,rot:-t*0.18+2.1,scale:0.75},{x:0.32,y:0.38,rot:t*0.22+1.5,scale:0.75},{x:0.0,y:-0.48,rot:-t*0.28+0.5,scale:0.68},{x:-0.48,y:0.02,rot:t*0.15+3.0,scale:0.68}];
+  const R = Math.min(W,H)*0.32;
+  for(let i=0;i<molecules.length;i++) for(let j=i+1;j<molecules.length;j++){
+    const a=molecules[i], b=molecules[j];
+    const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<0.65){
+      const ax=cx+a.x*R, ay=cy+a.y*R, bx=cx+b.x*R, by=cy+b.y*R;
+      const str=Math.max(0,(0.65-d)/0.65);
+      ctx.setLineDash([6,5]); ctx.strokeStyle=`rgba(100,200,255,${str*0.4})`; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  molecules.forEach(({x,y,rot,scale})=>{
+    const mx=cx+x*R, my=cy+y*R;
+    const ms=Math.min(W,H)*0.075*scale;
+    const bondAngle=104.5*Math.PI/180; const hLen=ms*0.9;
+    const h1x=mx+Math.cos(rot-bondAngle/2)*hLen; const h1y=my+Math.sin(rot-bondAngle/2)*hLen;
+    const h2x=mx+Math.cos(rot+bondAngle/2)*hLen; const h2y=my+Math.sin(rot+bondAngle/2)*hLen;
+    ctx.strokeStyle='rgba(180,220,255,0.55)'; ctx.lineWidth=ms*0.18; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(h1x,h1y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(h2x,h2y); ctx.stroke();
+    const or=ms*0.45;
+    const og=ctx.createRadialGradient(mx-or*.3,my-or*.3,0,mx,my,or);
+    og.addColorStop(0,'#ff9060'); og.addColorStop(0.5,'#dd3010'); og.addColorStop(1,'#880800');
+    ctx.fillStyle=og; ctx.beginPath(); ctx.arc(mx,my,or,0,Math.PI*2); ctx.fill();
+    [rot+Math.PI-0.4, rot+Math.PI+0.4].forEach(angle=>{ const lpx=mx+Math.cos(angle)*or*1.1; const lpy=my+Math.sin(angle)*or*1.1; ctx.fillStyle='rgba(80,180,255,0.3)'; ctx.beginPath(); ctx.arc(lpx,lpy,or*0.3,0,Math.PI*2); ctx.fill(); });
+    ctx.fillStyle='#fff'; ctx.font=`bold ${or*0.85}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('O',mx,my);
+    [[h1x,h1y],[h2x,h2y]].forEach(([hx,hy])=>{
+      const hr=ms*0.22; const hg=ctx.createRadialGradient(hx-hr*.3,hy-hr*.3,0,hx,hy,hr);
+      hg.addColorStop(0,'#ffffff'); hg.addColorStop(0.5,'#aad8ff'); hg.addColorStop(1,'#6090c0');
+      ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#334'; ctx.font=`bold ${hr*0.9}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('H',hx,hy);
+    });
+    ctx.fillStyle='rgba(100,200,255,0.6)'; ctx.font=`${ms*0.18}px JetBrains Mono`; ctx.fillText('δ⁻',mx+or*0.6,my-or*0.8);
+    ctx.fillStyle='rgba(255,180,80,0.6)'; [[h1x,h1y],[h2x,h2y]].forEach(([hx,hy])=>{ ctx.fillText('δ⁺',hx,hy-ms*0.28); });
+  });
+  drawPotentialGraph(ctx, W - 275, H - 168, 2, t);
+  ctx.restore();
+}
+
+function drawAtom(t, alpha){ /* unchanged */ 
+  ctx.save(); ctx.globalAlpha = alpha;
+  const R = Math.min(W,H)*0.36;
+  const N=1800;
+  ctx.save();
+  for(let i=0;i<N;i++){
+    const seed=i*2.3+Math.floor(t*20);
+    const u=Math.abs((Math.sin(i*34.7+t*0.5)*0.5+0.5));
+    const r=(-Math.log(1-u*0.999)*0.6)*R*0.55;
+    const phi=hash(i*1.618+t*0.03)*Math.PI*2;
+    const theta=Math.acos(2*hash(i*2.414+t*0.02)-1);
+    const px=cx + r*Math.sin(theta)*Math.cos(phi);
+    const py=cy + r*Math.sin(theta)*Math.sin(phi)*0.6;
+    const prob=Math.exp(-r/R*3);
+    ctx.fillStyle=`rgba(80,160,255,${(prob*0.5+0.05).toFixed(3)})`;
+    const ds=Math.max(0.8,prob*2.5);
+    ctx.fillRect(px-ds/2,py-ds/2,ds,ds);
+  }
+  ctx.restore();
+  for(let layer=0;layer<5;layer++){
+    const lr = R*(0.08+layer*0.12);
+    const lAlpha = Math.exp(-layer*0.8)*0.15;
+    ctx.strokeStyle=`rgba(80,140,255,${lAlpha})`;
+    ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,lr,0,Math.PI*2); ctx.stroke();
+  }
+  const nr=6;
+  const ng=ctx.createRadialGradient(cx-nr*.3,cy-nr*.3,0,cx,cy,nr*2);
+  ng.addColorStop(0,'#fff8f0'); ng.addColorStop(0.3,'#ff9000'); ng.addColorStop(1,'rgba(255,80,0,0)');
+  ctx.fillStyle=ng; ctx.beginPath(); ctx.arc(cx,cy,nr*2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#ffe080'; ctx.beginPath(); ctx.arc(cx,cy,nr,0,Math.PI*2); ctx.fill();
+  ctx.setLineDash([6,8]); ctx.strokeStyle='rgba(0,200,255,0.25)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(cx,cy,R*0.28,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  const ex=cx+R*0.28*Math.cos(t*2.4);
+  const ey=cy+R*0.28*Math.sin(t*2.4)*0.5;
+  const er=5;
+  const eg=ctx.createRadialGradient(ex,ey,0,ex,ey,er*3);
+  eg.addColorStop(0,'#ffffff'); eg.addColorStop(0.3,'#80d0ff'); eg.addColorStop(1,'rgba(0,150,255,0)');
+  ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(ex,ey,er*3,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#e0f4ff'; ctx.beginPath(); ctx.arc(ex,ey,er,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(0,200,255,0.7)'; ctx.font='12px JetBrains Mono'; ctx.textAlign='left';
+  ctx.fillText('e⁻ (classical orbit)',ex+8,ey-4);
+  ctx.fillStyle='rgba(255,220,80,0.7)'; ctx.textAlign='center'; ctx.fillText('p⁺',cx,cy+nr+14);
+  ctx.fillStyle='rgba(80,150,255,0.5)'; ctx.font='11px JetBrains Mono';
+  ctx.fillText('electron cloud |ψ|²',cx,cy-R*0.52);
+  ctx.fillStyle='rgba(100,180,200,0.35)'; ctx.font='10px JetBrains Mono';
+  ctx.textAlign='center'; ctx.fillText('Bohr radius a₀ = 52.9 pm',cx+R*0.28*0.5,cy+R*0.5+20);
+  drawPotentialGraph(ctx, W - 275, H - 168, 3, t);
+  ctx.restore();
+}
+
+function drawNucleus(t, alpha){ /* unchanged */ 
+  ctx.save(); ctx.globalAlpha = alpha;
+  const R = Math.min(W,H)*0.26;
+  const positions = [[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0.5,0.5,0.7],[-0.5,0.5,-0.7],[0.7,-0.5,0.3],[-0.7,-0.3,0.5],[0.3,0.8,-0.3],[-0.3,-0.8,0.4]];
+  const nucleons = positions.map((p,i)=>({bx:p[0],by:p[1],bz:p[2],isProton: i<6}));
+  for(let r=R*0.8;r>0;r-=R*0.06){ const a=((R*0.8-r)/R*0.8)*0.06; ctx.fillStyle=`rgba(255,180,50,${a})`; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill(); }
+  for(let i=0;i<nucleons.length;i++) for(let j=i+1;j<nucleons.length;j++){
+    const a=nucleons[i], b=nucleons[j];
+    const dx=a.bx-b.bx, dy=a.by-b.by, dz=a.bz-b.bz;
+    const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    if(d<1.5){
+      const ax2=cx+a.bx*R*0.35, ay2=cy+a.by*R*0.35, bx2=cx+b.bx*R*0.35, by2=cy+b.by*R*0.35;
+      const alpha2=Math.max(0,(1.5-d)/1.5)*0.2*Math.abs(Math.sin(t*3+i+j));
+      ctx.strokeStyle=`rgba(255,220,80,${alpha2})`; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(ax2,ay2); ctx.lineTo(bx2,by2); ctx.stroke();
+    }
+  }
+  nucleons.forEach(({bx,by,bz,isProton},i)=>{
+    const phase=t*1.2+i*0.8; const jitter=0.06;
+    const x=cx+(bx+Math.sin(phase)*jitter)*R*0.35;
+    const y=cy+(by+Math.cos(phase*1.3)*jitter)*R*0.35;
+    const z=bz; const r=R*0.13; const depthScale=0.88+z*0.12; const rr=r*depthScale;
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(x+rr*0.3,y+rr*0.3,rr,rr*0.7,0,0,Math.PI*2); ctx.fill();
+    const g=ctx.createRadialGradient(x-rr*0.3,y-rr*0.3,rr*0.05,x,y,rr);
+    if(isProton){ g.addColorStop(0,'#ffe0c0'); g.addColorStop(0.4,'#ff6020'); g.addColorStop(1,'#8a1000'); }
+    else { g.addColorStop(0,'#e0e8f8'); g.addColorStop(0.4,'#6080c0'); g.addColorStop(1,'#101840'); }
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,rr,0,Math.PI*2); ctx.fill();
+    const hl=ctx.createRadialGradient(x-rr*.4,y-rr*.4,0,x-rr*.25,y-rr*.25,rr*.6);
+    hl.addColorStop(0,'rgba(255,255,255,0.45)'); hl.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=hl; ctx.beginPath(); ctx.arc(x,y,rr,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.font=`bold ${rr*0.65}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(isProton?'p⁺':'n⁰',x,y);
+  });
+  ctx.fillStyle='rgba(255,100,30,0.8)'; ctx.font='12px JetBrains Mono'; ctx.textAlign='left';
+  ctx.fillText('● Proton (p⁺)', cx+R*0.65, cy-20);
+  ctx.fillStyle='rgba(100,130,200,0.8)'; ctx.fillText('● Neutron (n⁰)', cx+R*0.65, cy+4);
+  ctx.fillStyle='rgba(255,220,80,0.5)'; ctx.fillText('〜 Strong force', cx+R*0.65, cy+28);
+  drawPotentialGraph(ctx, W - 275, H - 168, 4, t);
+  ctx.restore();
+}
+
+function drawQuarks(t, alpha){
+  ctx.save(); ctx.globalAlpha = alpha;
+  const R = Math.min(W,H)*0.28;
+  const hadrons = [
+    {x:-R*0.55,y:0,quarks:[{type:'u',charge:'+2/3',color:'#ff4040'},{type:'u',charge:'+2/3',color:'#40ff80'},{type:'d',charge:'-1/3',color:'#4080ff'}],label:'PROTON (uud)'},
+    {x:R*0.55,y:0,quarks:[{type:'u',charge:'+2/3',color:'#ff4040'},{type:'d',charge:'-1/3',color:'#40ff80'},{type:'d',charge:'-1/3',color:'#4080ff'}],label:'NEUTRON (udd)'}
+  ];
+  hadrons.forEach(({x:hx,y:hy,quarks,label})=>{
+    const hcx=cx+hx, hcy=cy+hy;
+    const qR=R*0.36;
+    const bagGrad=ctx.createRadialGradient(hcx,hcy,0,hcx,hcy,qR*1.1);
+    bagGrad.addColorStop(0,'rgba(20,30,60,0.0)'); bagGrad.addColorStop(0.7,'rgba(40,20,80,0.3)'); bagGrad.addColorStop(0.9,'rgba(80,50,150,0.5)'); bagGrad.addColorStop(1,'rgba(120,80,200,0.0)');
+    ctx.fillStyle=bagGrad; ctx.beginPath(); ctx.arc(hcx,hcy,qR*1.1,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(180,100,255,0.3)'; ctx.lineWidth=2; ctx.setLineDash([8,6]); ctx.beginPath(); ctx.arc(hcx,hcy,qR*1.1,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    const qPositions = quarks.map((_,i)=>{ const angle=t*0.9+i*Math.PI*2/3; const orbitR=qR*0.45; return {x:hcx+Math.cos(angle)*orbitR, y:hcy+Math.sin(angle)*orbitR*0.7}; });
+    for(let i=0;i<3;i++) for(let j=i+1;j<3;j++){
+      const a=qPositions[i], b=qPositions[j];
+      const steps=24; ctx.beginPath();
+      for(let s=0;s<=steps;s++){
+        const frac=s/steps;
+        const lx=a.x+(b.x-a.x)*frac;
+        const ly=a.y+(b.y-a.y)*frac;
+        const perpX=-(b.y-a.y)/Math.hypot(b.x-a.x,b.y-a.y);
+        const perpY=(b.x-a.x)/Math.hypot(b.x-a.x,b.y-a.y);
+        const wave=Math.sin(frac*Math.PI*5+t*4)*8;
+        const px2=lx+perpX*wave, py2=ly+perpY*wave;
+        s===0?ctx.moveTo(px2,py2):ctx.lineTo(px2,py2);
+      }
+      ctx.strokeStyle=`rgba(200,150,255,0.5)`; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    quarks.forEach(({type,charge,color},i)=>{
+      const {x:qx,y:qy}=qPositions[i];
+      const qr=R*0.1;
+      // FIXED: use safe hexToRgba instead of fragile string replace
+      const cg=ctx.createRadialGradient(qx,qy,0,qx,qy,qr*3.5);
+      cg.addColorStop(0, hexToRgba(color, 0.45));
+      ctx.globalAlpha=alpha*0.5;
+      ctx.fillStyle=color+'44'; ctx.beginPath(); ctx.arc(qx,qy,qr*3.5,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=alpha;
+      const qg=ctx.createRadialGradient(qx-qr*.3,qy-qr*.3,0,qx,qy,qr);
+      qg.addColorStop(0,'#ffffff'); qg.addColorStop(0.3,color); qg.addColorStop(1,color+'88');
+      ctx.fillStyle=qg; ctx.beginPath(); ctx.arc(qx,qy,qr,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font=`bold ${qr*0.85}px JetBrains Mono`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(type,qx,qy);
+      ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font=`${qr*0.55}px JetBrains Mono`; ctx.fillText(charge,qx,qy+qr*1.5);
+    });
+    ctx.fillStyle='rgba(200,150,255,0.7)'; ctx.font='11px JetBrains Mono'; ctx.textAlign='center'; ctx.fillText(label,hcx,hcy+qR*1.35);
+    ctx.fillStyle='rgba(255,80,80,0.7)'; ctx.font='10px JetBrains Mono'; ctx.fillText('● Red',hcx-qR*.6,hcy-qR*1.25);
+    ctx.fillStyle='rgba(80,255,128,0.7)'; ctx.fillText('● Green',hcx,hcy-qR*1.25);
+    ctx.fillStyle='rgba(80,128,255,0.7)'; ctx.fillText('● Blue',hcx+qR*.6,hcy-qR*1.25);
+  });
+  ctx.fillStyle='rgba(180,120,255,0.6)'; ctx.font='11px JetBrains Mono'; ctx.textAlign='center';
+  ctx.fillText('∿∿ Gluon exchange (strong force / QCD)', cx, cy+R*0.82);
+  ctx.fillStyle='rgba(120,100,200,0.5)'; ctx.font='10px JetBrains Mono';
+  ctx.fillText('Quark confinement: color charge always sums to white', cx, cy+R*0.82+16);
+  drawPotentialGraph(ctx, W - 275, H - 168, 5, t);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+// BACKGROUND & OTHER DRAW FUNCTIONS (unchanged)
+function drawBackground(t){
+  const bgGrad = ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(W,H));
+  bgGrad.addColorStop(0,'#010c18'); bgGrad.addColorStop(1,'#000508');
+  ctx.fillStyle=bgGrad; ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.globalAlpha=0.04;
+  ctx.strokeStyle='#00c8ff'; ctx.lineWidth=0.5;
+  const hexR=40, hexW=hexR*Math.sqrt(3), hexH=hexR*2;
+  for(let row=-2;row<H/hexH+2;row++){
+    for(let col=-2;col<W/hexW+2;col++){
+      const xOff=(row%2)*hexW/2;
+      const hx=col*hexW+xOff, hy=row*hexH*0.75;
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3-Math.PI/6;
+        const px=hx+hexR*Math.cos(a), py=hy+hexR*Math.sin(a);
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+const DRAWFNS = [drawCrystal, drawUnitCell, drawMolecule, drawAtom, drawNucleus, drawQuarks];
+
+// ═══════════════════════════════════════════════════════
+// TRANSITION & MAIN LOOP
+function goToLevel(level){
+  if(level===currentLevel && !transitioning) return;
+  transFrom = currentLevel;
+  transTo = level;
+  transStart = null;
+  transitioning = true;
+  updateUI(level);
+}
+function nextLevel(){ if(currentLevel<5) goToLevel(currentLevel+1); }
+function prevLevel(){ if(currentLevel>0) goToLevel(currentLevel-1); }
+
+const SCALES = ['1 cm','1 nm','0.3 nm','100 pm','1–10 fm','< 1 am'];
+function updateUI(level){
+  document.getElementById('scale-readout').textContent = `Scale: ${SCALES[level]}`;
+  const lv = LEVELS[level];
+  document.getElementById('info-title').textContent = lv.name;
+  document.getElementById('info-scale').textContent = lv.scale;
+  document.getElementById('info-desc').textContent = lv.desc;
+  const factsEl = document.getElementById('info-facts');
+  factsEl.innerHTML = lv.facts.map(([k,v])=>`<div class="fact">${k}: <span>${v}</span></div>`).join('');
+  document.querySelectorAll('.scale-stop').forEach((el,i)=>{ el.classList.toggle('active',i===level); });
+  const pct = (level/5)*100;
+  document.getElementById('zoom-thumb').style.height = pct + '%';
+}
+
+function render(timestamp){
+  animT = timestamp * 0.001;
+  ctx.clearRect(0,0,W,H);
+  drawBackground(animT);
+  if(transitioning){
+    if(!transStart) transStart = timestamp;
+    const elapsed = timestamp - transStart;
+    transProgress = Math.min(1, elapsed / TRANS_DURATION);
+    const e = transProgress < 0.5 ? 4*transProgress**3 : 1 - Math.pow(-2*transProgress+2,3)/2;
+    if(transProgress < 0.5){
+      DRAWFNS[transFrom](animT, 1 - e*2);
+    } else {
+      DRAWFNS[transTo](animT, (e-0.5)*2);
+    }
+    if(transProgress >= 1){
+      transitioning = false;
+      currentLevel = transTo;
+    }
+  } else {
+    DRAWFNS[currentLevel](animT, 1);
+  }
+  raf = requestAnimationFrame(render);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') nextLevel();
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') prevLevel();
+  const num = parseInt(e.key);
+  if(num>=1 && num<=6) goToLevel(num-1);
+});
+
+updateUI(0);
+raf = requestAnimationFrame(render);
+
+console.log('%c✅ Matter Scale Explorer – Runtime error FIXED (NaN color in quark gradient)', 'color:#7fff6b;font-family:JetBrains Mono;font-size:13px');
+</script>
+</body>
+</html>

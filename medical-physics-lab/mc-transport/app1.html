@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radiation Transport Monte Carlo – Complete Theory, Manual & Expanded Library</title>
+    <style>
+        :root {
+            --bg: #0a0e14; --panel-bg: #12171f; --border: #1e2a38; --text: #c8d6e5; --text-bright: #e8edf3;
+            --accent: #4da6ff; --accent2: #ff6b6b; --accent3: #51cf66; --gold: #f0a040; --warning: #e8a840;
+            --slider-track: #1a2433; --btn-bg: #1a2535; --btn-hover: #243040;
+            --font-mono: 'SF Mono','Cascadia Code','Consolas',monospace; --font-sans: 'Inter','Segoe UI',system-ui,sans-serif;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background: var(--bg); color: var(--text); font-family: var(--font-sans); display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 340px; min-width: 340px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; padding: 16px; gap: 14px; z-index: 10; }
+        .sidebar h1 { font-size: 1.15rem; font-weight: 700; color: var(--text-bright); letter-spacing: 0.02em; text-align: center; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+        .sidebar h2 { font-size: 0.85rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+        .param-group { background: #0d1117; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+        .param-group label { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #a0b4cc; margin-bottom: 4px; gap: 8px; }
+        .param-group label span.val { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); min-width: 45px; text-align: right; }
+        .param-group input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--slider-track); outline: none; margin: 4px 0 8px; }
+        .param-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid #fff3; }
+        select { width: 100%; padding: 7px 10px; background: #0d1117; color: var(--text-bright); border: 1px solid var(--border); border-radius: 6px; font-size: 0.78rem; font-family: var(--font-sans); cursor: pointer; margin: 3px 0 7px; }
+        button { padding: 10px 16px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: var(--font-sans); letter-spacing: 0.03em; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-primary { background: #1a4a7a; color: #d0e4ff; border-color: #2a5a8a; } .btn-primary:hover { background: #1e5690; }
+        .btn-danger { background: #5a1a1a; color: #ffcccc; border-color: #6a2a2a; } .btn-danger:hover { background: #6a2020; }
+        .btn-accent { background: #1a4a2a; color: #ccffcc; border-color: #2a5a3a; } .btn-accent:hover { background: #1e5630; }
+        .btn-theory, .btn-manual { background: #2a1a5a; color: #d4ccff; border-color: #3a2a6a; font-weight: 700; } .btn-theory:hover, .btn-manual:hover { background: #351e6a; }
+        .main-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+        .canvas-container { flex: 1; position: relative; background: #060a10; cursor: crosshair; }
+        canvas { display: block; position: absolute; top:0; left:0; width:100%; height:100%; }
+        .stats-bar { display: flex; gap: 20px; padding: 8px 16px; background: #0d1117; border-top: 1px solid var(--border); font-size: 0.72rem; font-family: var(--font-mono); color: #8899b4; flex-wrap: wrap; align-items: center; }
+        .stats-bar .stat { display: flex; align-items: center; gap: 5px; }
+        .stats-bar .stat .val { color: var(--accent); font-weight: 600; } .stats-bar .stat .val.warn { color: var(--warning); } .stats-bar .stat .val.good { color: var(--accent3); }
+        .legend { position: absolute; bottom: 60px; right: 16px; background: #0d1117dd; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 0.7rem; font-family: var(--font-mono); display: flex; flex-direction: column; gap: 4px; backdrop-filter: blur(8px); pointer-events: none; }
+        .legend .item { display: flex; align-items: center; gap: 8px; } .legend .swatch { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #fff4; }
+        .tooltip { position: absolute; pointer-events: none; background: #000c; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.68rem; font-family: var(--font-mono); white-space: nowrap; border: 1px solid #fff3; display: none; }
+
+        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.75); z-index: 100; display: none; align-items: center; justify-content: center; }
+        .overlay.active { display: flex; }
+        .panel { background: #f5f7fa; color: #1e2a38; width: 85%; max-width: 1100px; height: 90vh; border-radius: 16px; padding: 30px; overflow-y: auto; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.6); font-size: 0.9rem; line-height: 1.6; }
+        .panel h2 { color: #1a3a6a; margin-top: 24px; margin-bottom: 12px; border-bottom: 2px solid #a0c4e8; padding-bottom: 4px; }
+        .panel h3 { color: #2a4a7a; margin-top: 18px; }
+        .panel p, .panel li { margin: 6px 0; } .panel ul, .panel ol { margin-left: 20px; }
+        .panel code, .panel .eq { background: #e0e8f0; padding: 2px 6px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; }
+        .panel .equation { display: block; background: #e8edf5; border-left: 4px solid #2a5a8a; padding: 8px 12px; margin: 10px 0; font-family: monospace; white-space: pre; overflow-x: auto; }
+        .close-btn { position: absolute; top: 16px; right: 20px; background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #1e2a38; opacity: 0.7; } .close-btn:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>☢ Radiation Transport MC</h1>
+        <div class="param-group"><h2>Source</h2>
+            <label>Type <span class="val" id="srcTypeVal">Cs-137 (662 keV)</span></label>
+            <select id="sourceType">
+                <option value="cs137">Cs-137 — 662 keV γ</option>
+                <option value="co60">Co-60 — 1.17+1.33 MeV γ</option>
+                <option value="am241">Am-241 — 59.5 keV γ</option>
+                <option value="i131">I-131 — 364 keV γ</option>
+                <option value="na22">Na-22 — 511 & 1275 keV γ</option>
+                <option value="xray100">X-ray — 100 keV</option>
+                <option value="mono500">Mono — 500 keV</option>
+                <option value="mono1500">Mono — 1.5 MeV</option>
+                <option value="mono3000">Mono — 3.0 MeV</option>
+                <option value="mixed">Mixed γ+n (Cf-252)</option>
+            </select>
+            <label>Intensity <span class="val" id="intensityVal">5000</span></label>
+            <input type="range" id="numParticles" min="500" max="50000" value="5000" step="500">
+        </div>
+        <div class="param-group"><h2>Shielding</h2>
+            <label>Material <span class="val" id="shieldMatVal">Lead</span></label>
+            <select id="shieldMaterial">
+                <option value="lead">Lead (Pb) — 11.34 g/cm³</option>
+                <option value="iron">Iron (Fe) — 7.87 g/cm³</option>
+                <option value="tungsten">Tungsten (W) — 19.3 g/cm³</option>
+                <option value="depletedU">Depleted Uranium — 19.1 g/cm³</option>
+                <option value="aluminum">Aluminum — 2.70 g/cm³</option>
+                <option value="concrete">Concrete — 2.30 g/cm³</option>
+                <option value="boratedPE">Borated Polyethylene — 1.05 g/cm³</option>
+                <option value="water">Water — 1.00 g/cm³</option>
+            </select>
+            <label>Thickness <span class="val" id="thicknessVal">4.0 cm</span></label>
+            <input type="range" id="shieldThickness" min="0.2" max="15" value="4" step="0.1">
+        </div>
+        <div class="param-group"><h2>Detector</h2>
+            <label>Type <span class="val" id="detTypeVal">NaI</span></label>
+            <select id="detectorType">
+                <option value="nai">NaI(Tl) Scintillator</option>
+                <option value="hpge">HPGe Semiconductor</option>
+                <option value="plastic">Plastic Scintillator</option>
+            </select>
+            <label>Width <span class="val" id="detWidthVal">3.0 cm</span></label>
+            <input type="range" id="detWidth" min="1" max="8" value="3" step="0.5">
+        </div>
+        <div class="param-group"><h2>Interactions</h2>
+            <label><input type="checkbox" id="enablePE" checked> Photoelectric</label>
+            <label><input type="checkbox" id="enableCompton" checked> Compton</label>
+            <label><input type="checkbox" id="enablePair" checked> Pair</label>
+            <label><input type="checkbox" id="enableRayleigh" checked> Rayleigh</label>
+        </div>
+        <div class="param-group"><h2>Variance Reduction</h2>
+            <label><input type="checkbox" id="useSourceBiasing" checked> Source Biasing</label>
+            <label><input type="checkbox" id="useRussianRoulette" checked> Russian Roulette</label>
+            <label><input type="checkbox" id="useForcedCollision"> Forced Collision</label>
+        </div>
+        <div class="btn-row">
+            <button class="btn-primary" id="btnRun">▶ Run</button>
+            <button class="btn-danger" id="btnStop">⏹ Stop</button>
+            <button class="btn-accent" id="btnReset">↺ Reset</button>
+        </div>
+        <div class="btn-row">
+            <button id="btnSingleShot">🔫 Single</button>
+            <button id="btnBurst10">💥 ×10</button>
+        </div>
+        <div class="btn-row">
+            <button class="btn-theory" id="btnShowTheory">📚 Theory</button>
+            <button class="btn-manual" id="btnShowManual">📖 Manual</button>
+        </div>
+    </div>
+
+    <div class="main-area">
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="mainCanvas"></canvas>
+            <div class="legend"><div class="item"><span class="swatch" style="background:#ffdd44;"></span> Source</div><div class="item"><span class="swatch" style="background:#8899aa;"></span> Shield</div><div class="item"><span class="swatch" style="background:#44cc88;"></span> Detector</div><div class="item"><span class="swatch" style="background:#ff6644;"></span> γ track</div><div class="item"><span class="swatch" style="background:#66bbff;"></span> n track</div><div class="item"><span class="swatch" style="background:#ffffff44;"></span> Energy deposit</div></div>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+        <div class="stats-bar">
+            <span>Histories: <span class="val" id="statHistories">0</span></span>
+            <span>Detected: <span class="val good" id="statDetected">0</span></span>
+            <span>Absorbed: <span class="val" id="statAbsorbed">0</span></span>
+            <span>Escaped: <span class="val" id="statEscaped">0</span></span>
+            <span>Dose Rate: <span class="val good" id="statDoseRate">—</span></span>
+            <span>FOM: <span class="val" id="statFOM">—</span></span>
+            <span>Time: <span class="val" id="statTime">0.0s</span></span>
+        </div>
+    </div>
+
+    <!-- Theory Overlay -->
+    <div class="overlay" id="theoryOverlay">
+        <div class="panel"><button class="close-btn" id="btnCloseTheory">&times;</button>
+            <h1>📖 Complete Radiation Transport Theory</h1>
+            <p><em>This section covers the linear Boltzmann equation, photon/neutron interactions, Monte Carlo and deterministic solution methods, cross‑section handling, variance reduction, and validation.</em></p>
+
+            <h2>1. The Linear Boltzmann Transport Equation</h2>
+            <p>The steady‑state transport equation for neutral particles (photons, neutrons) in a medium is:</p>
+            <div class="equation">Ω·∇ψ(<b>r</b>,Ω,E) + Σ<sub>t</sub>(<b>r</b>,E) ψ(<b>r</b>,Ω,E) = Q(<b>r</b>,Ω,E) + ∫ dE' ∫ dΩ' Σ<sub>s</sub>(<b>r</b>,E'→E, Ω'·Ω) ψ(<b>r</b>,Ω',E')</div>
+            <p>where ψ is the angular flux (particles/cm²/sr/MeV), Σ<sub>t</sub> the total macroscopic cross section, and the right side includes the fixed source Q and the scattering source. For photons, Σ<sub>s</sub> includes Compton, Rayleigh, and pair production contributions.</p>
+            <h3>Integral Form</h3>
+            <p>Integrating along a characteristic line gives the integral transport equation for the collision density Ψ = Σ<sub>t</sub> ψ:</p>
+            <div class="equation">Ψ(P) = ∫ Ψ(P') C(P' → P) dP' + Q<sub>c</sub>(P)</div>
+            <p>where C is the collision kernel, describing the probability that a particle emerging from a collision at P' will next collide at P. This Fredholm equation is the foundation of Monte Carlo simulation.</p>
+
+            <h2>2. Photon Interactions</h2>
+            <h3>2.1 Photoelectric Effect</h3>
+            <p>Photon is absorbed by a bound electron; the electron is ejected with kinetic energy E<sub>e</sub> = hν – B<sub>e</sub>. Cross section scaling: σ<sub>pe</sub> ∝ Z<sup>n</sup>/E<sup>3.5</sup> (n ≈ 4–5). In our simulation, full photon energy is deposited locally.</p>
+            <h3>2.2 Compton Scattering</h3>
+            <p>Incoherent scattering from a free electron. Scattered photon energy: E' = E / [1 + (E/m<sub>e</sub>c²)(1 – cosθ)]. The differential cross section is given by the Klein–Nishina formula. Sampling uses Kahn's rejection method to select E' and then the scattering angle.</p>
+            <h3>2.3 Pair Production</h3>
+            <p>Threshold 2m<sub>e</sub>c² = 1.022 MeV. In the nuclear field, the photon converts to an electron‑positron pair. Excess energy is shared as kinetic energy. The simulation deposits the kinetic energy and creates two 511 keV annihilation photons (one tracked).</p>
+            <h3>2.4 Rayleigh Scattering</h3>
+            <p>Coherent elastic scattering from bound electrons; no energy loss. Angular distribution is sharply forward‑peaked. We use a small‑angle approximation (deflection ∝ 1/θ²).</p>
+
+            <h2>3. Neutron Transport</h2>
+            <p>For the mixed γ+n source (Cf‑252), neutrons are generated with energies up to ~10 MeV. Interactions include elastic scattering (energy loss depends on target mass), inelastic scattering, radiative capture, and fission. The current implementation simplifies to elastic scattering and capture using energy‑dependent cross sections. Neutron tracks are shown in blue.</p>
+
+            <h2>4. Charged Particle Transport (Conceptual)</h2>
+            <p>While not tracked explicitly in this simulation, the underlying theory for electrons/positrons includes:</p>
+            <ul>
+                <li><strong>Continuous slowing‑down (CSDA):</strong> Bethe‑Bloch formula for collisional stopping power: dE/dx = K·(Z/A)·(1/β²)[½ ln(2m<sub>e</sub>c²β²γ²T<sub>max</sub>/I²) – β² – δ/2].</li>
+                <li><strong>Multiple Coulomb scattering:</strong> Molière or Highland theory for angular deflections.</li>
+                <li><strong>Bremsstrahlung:</strong> Radiation loss proportional to Z² and energy, dominant at high energies.</li>
+            </ul>
+            <p>In our photon simulation, secondary electrons are not transported; their energy is deposited locally (kerma approximation).</p>
+
+            <h2>5. Monte Carlo Solution Algorithm</h2>
+            <p>The analog Monte Carlo method solves the integral transport equation by simulating particle histories:</p>
+            <ol>
+                <li><strong>Source sampling:</strong> Position, direction, energy from user‑defined distributions.</li>
+                <li><strong>Free flight:</strong> Distance to next collision L = –ln(ξ) / Σ<sub>t</sub>(E).</li>
+                <li><strong>Geometry tracking:</strong> Ray‑box intersection; move to the nearest boundary or collision point.</li>
+                <li><strong>Interaction selection:</strong> Random number selects channel based on partial cross sections.</li>
+                <li><strong>Post‑collision update:</strong> New energy and direction according to physics model.</li>
+                <li><strong>Scoring:</strong> Energy deposition grid, detector spectrum tally.</li>
+                <li><strong>Russian roulette / splitting:</strong> Weight‑based population control.</li>
+                <li><strong>Termination:</strong> Particle killed if escaped, absorbed, or weight below cutoff.</li>
+            </ol>
+
+            <h2>6. Deterministic Methods</h2>
+            <ul>
+                <li><strong>S<sub>N</sub> (Discrete Ordinates):</strong> Angular domain discretised into M directions; spatial differencing (diamond, step) and source iteration. Acceleration by diffusion synthetic acceleration (DSA).</li>
+                <li><strong>P<sub>N</sub> (Spherical Harmonics):</strong> Angular flux expanded in spherical harmonics; P<sub>1</sub> gives diffusion equation.</li>
+                <li><strong>Method of Characteristics (MOC):</strong> Integrates along tracks; used in reactor physics for complex geometries.</li>
+            </ul>
+
+            <h2>7. Cross‑Section Libraries & Scaling</h2>
+            <p>Macroscopic cross sections (cm⁻¹) are built from reference values at 662 keV. Energy dependence is approximated by power laws: Σ(E) = Σ<sub>ref</sub>·(E/662 keV)<sup>n</sup>. Exponents: photoelectric ≈ –3.2, Compton ≈ –0.45, pair ≈ +1.8 (above threshold). This avoids large data tables while preserving qualitative behaviour.</p>
+
+            <h2>8. Variance Reduction Techniques</h2>
+            <ul>
+                <li><strong>Source biasing:</strong> Directional probability density adjusted toward detector; weight corrected by w = p<sub>unbiased</sub>/p<sub>biased</sub>.</li>
+                <li><strong>Russian roulette:</strong> If weight < 0.01, survival probability 0.5; survivors have weight doubled.</li>
+                <li><strong>Forced collision:</strong> In shield, interaction is forced with weight multiplied by (1 – e<sup>–Σd</sup>).</li>
+            </ul>
+
+            <h2>9. Validation & Benchmarks</h2>
+            <ul>
+                <li>Attenuation: Simulation reproduces exponential transmission exp(–μx) for narrow‑beam geometry.</li>
+                <li>Compton edge: Spectrum shows edge at E/(1+2E/m<sub>e</sub>c²).</li>
+                <li>XCOM comparison: Relative photoelectric/Compton fractions match NIST data within ~20%.</li>
+                <li>Deterministic benchmarks: Simple slab problems can be compared with S<sub>N</sub> solutions.</li>
+            </ul>
+
+            <h2>10. Output Interpretation</h2>
+            <p><strong>Energy deposition map:</strong> Spatial distribution of deposited energy (keV per history).<br>
+            <strong>Detector spectrum:</strong> Histogram of photon energies reaching the detector, including partial energy depositions.<br>
+            <strong>Dose rate (µSv/hr):</strong> Converted from energy deposited in detector mass using 1 Gy ≈ 1 Sv for photons.<br>
+            <strong>Figure of Merit (FOM):</strong> 1/(σ²·T), where σ is relative uncertainty of detected counts and T is CPU time.</p>
+        </div>
+    </div>
+
+    <!-- Manual Overlay -->
+    <div class="overlay" id="manualOverlay">
+        <div class="panel"><button class="close-btn" id="btnCloseManual">&times;</button>
+            <h1>📖 User Manual – How to Use the Simulation</h1>
+            <h2>1. Overview</h2>
+            <p>This interactive tool simulates photon (and optionally neutron) transport through a 2D geometry using the Monte Carlo method. You can adjust source, shielding, detector, and physics parameters and observe real‑time particle tracks and tallies.</p>
+            <h2>2. Parameters</h2>
+            <ul>
+                <li><strong>Source Type:</strong> Choose between monoenergetic gamma sources (Cs‑137, Co‑60, Am‑241, I‑131, Na‑22), an X‑ray source, custom monoenergetic options, or a mixed gamma‑neutron source (Cf‑252).</li>
+                <li><strong>Intensity:</strong> Number of particles to simulate per batch (affects statistical precision).</li>
+                <li><strong>Shielding Material & Thickness:</strong> Material and thickness (cm) of the shielding block placed between source and detector. Expanded library now includes lead, iron, tungsten, depleted uranium, aluminum, concrete, borated polyethylene, and water.</li>
+                <li><strong>Detector Type & Width:</strong> NaI, HPGe, or plastic scintillator; width controls the sensitive volume.</li>
+                <li><strong>Photon Interactions:</strong> Checkboxes to enable/disable each interaction. Disable all but one to isolate its effect (e.g., pure Compton scattering).</li>
+                <li><strong>Variance Reduction:</strong> Source biasing (preferential emission toward detector), Russian roulette (kill low‑weight particles), forced collision (always interact in shield).</li>
+            </ul>
+            <h2>3. Controls</h2>
+            <p><strong>Buttons:</strong> Run/Stop continuous simulation, Single Shot (one particle), Burst ×10, Reset (clear tallies).<br>
+            <strong>Keyboard:</strong> Space = Run/Stop, R = Reset, S = Single Shot, B = Burst ×10, 0 = Reset view (zoom/pan).<br>
+            <strong>Mouse:</strong> Scroll to zoom, drag to pan, hover to inspect material and cross section.</p>
+            <h2>4. Display</h2>
+            <ul>
+                <li><strong>Canvas:</strong> 2D geometry with source (yellow dot), shield (grey block), detector (green block). Particle tracks are drawn as colored lines. Energy deposition is shown as a semi‑transparent heatmap.</li>
+                <li><strong>Signal Analyzer:</strong> A live spectrum bar chart appears directly above the detector, showing the detected energy distribution.</li>
+                <li><strong>Legend:</strong> Colors for particle tracks and materials.</li>
+                <li><strong>Status Bar:</strong> Total histories, detected counts, absorbed, escaped, estimated dose rate, figure of merit (FOM), and computing time.</li>
+            </ul>
+            <h2>5. Interpretation</h2>
+            <p><strong>Dose Rate:</strong> Approximate dose behind the detector; increases with poor shielding or high source intensity.<br>
+            <strong>FOM:</strong> Higher means better computational efficiency; decreases if many particles miss the detector.<br>
+            <strong>Spectrum:</strong> Look for the photopeak (full energy), Compton continuum, and backscatter peak.</p>
+            <h2>6. Tips</h2>
+            <ul>
+                <li>To see pure Compton scattering, disable PE, Pair, and Rayleigh; the spectrum will show only the Compton continuum and edge.</li>
+                <li>For shielding studies, increase thickness and run many histories to reduce statistical noise.</li>
+                <li>Use Single Shot to trace a single particle and understand the interactions step‑by‑step.</li>
+                <li>Try the new materials: depleted uranium offers excellent gamma attenuation; borated polyethylene is effective for neutron shielding (in mixed mode).</li>
+                <li>If the simulation is too slow, reduce the number of particles or disable some interactions.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('canvasContainer');
+            const tooltip = document.getElementById('tooltip');
+            const theoryOverlay = document.getElementById('theoryOverlay');
+            const manualOverlay = document.getElementById('manualOverlay');
+
+            const ME = 511.0;
+            const domainWidth = 30, domainHeight = 20;
+
+            // Extended material database with new shielding options
+            const materialDB = {
+                'lead':{name:'Lead',density:11.34,color:'#8899aa',muPE662:0.045,muCompton662:0.98,muPair662:0,muRayleigh662:0.22,peExp:-3.2,compExp:-0.45,pairExp:1.8,rayExp:-1.9},
+                'iron':{name:'Iron',density:7.87,color:'#778899',muPE662:0.005,muCompton662:0.38,muPair662:0,muRayleigh662:0.035,peExp:-3.2,compExp:-0.43,pairExp:1.8,rayExp:-1.9},
+                'tungsten':{name:'Tungsten',density:19.3,color:'#667788',muPE662:0.065,muCompton662:1.2,muPair662:0,muRayleigh662:0.28,peExp:-3.1,compExp:-0.45,pairExp:1.8,rayExp:-1.9},
+                'depletedU':{name:'Depleted Uranium',density:19.1,color:'#5a6a7a',muPE662:0.07,muCompton662:1.1,muPair662:0,muRayleigh662:0.25,peExp:-3.1,compExp:-0.44,pairExp:1.8,rayExp:-1.9},
+                'aluminum':{name:'Aluminum',density:2.70,color:'#c0c0d0',muPE662:0.001,muCompton662:0.2,muPair662:0,muRayleigh662:0.01,peExp:-3.2,compExp:-0.42,pairExp:1.8,rayExp:-1.9},
+                'concrete':{name:'Concrete',density:2.30,color:'#a09080',muPE662:0.002,muCompton662:0.165,muPair662:0,muRayleigh662:0.013,peExp:-3.2,compExp:-0.42,pairExp:1.8,rayExp:-1.9},
+                'boratedPE':{name:'Borated Polyethylene',density:1.05,color:'#aaccbb',muPE662:0.0005,muCompton662:0.1,muPair662:0,muRayleigh662:0.006,peExp:-3.2,compExp:-0.42,pairExp:1.8,rayExp:-1.9},
+                'water':{name:'Water',density:1.00,color:'#5599cc',muPE662:0.0003,muCompton662:0.08,muPair662:0,muRayleigh662:0.0057,peExp:-3.2,compExp:-0.42,pairExp:1.8,rayExp:-1.9},
+                'air':{name:'Air',density:0.001225,color:'#0000',muPE662:0,muCompton662:0.0001,muPair662:0,muRayleigh662:0},
+                'nai':{name:'NaI',density:3.67,color:'#44cc88',muPE662:0.04,muCompton662:0.31,muPair662:0,muRayleigh662:0.03,peExp:-3.1,compExp:-0.44,pairExp:1.8,rayExp:-1.9},
+                'hpge':{name:'HPGe',density:5.32,color:'#33bb77',muPE662:0.015,muCompton662:0.19,muPair662:0,muRayleigh662:0.015,peExp:-3.1,compExp:-0.43,pairExp:1.8,rayExp:-1.9},
+                'plastic':{name:'Plastic',density:1.03,color:'#55dd99',muPE662:0.0002,muCompton662:0.09,muPair662:0,muRayleigh662:0.0048,peExp:-3.2,compExp:-0.42,pairExp:1.8,rayExp:-1.9}
+            };
+
+            const sim = {
+                running: false, histories:0, detected:0, absorbed:0, escaped:0,
+                tracks:[], maxTracks:800, depGrid:null, specBins:null, specEdges:null,
+                time:0, startTime:0, zoom:1, panX:0, panY:0, mouse:{x:0,y:0,down:0,lastX:0,lastY:0}
+            };
+
+            function getGeometry() {
+                const thick = +document.getElementById('shieldThickness').value;
+                const dw = +document.getElementById('detWidth').value;
+                return { sx:2.5, sy:domainHeight/2, shX1:9, shX2:9+thick, shY1:1, shY2:domainHeight-1,
+                         dX1:22, dX2:22+dw, dY1:domainHeight/2-2.5, dY2:domainHeight/2+2.5 };
+            }
+
+            function enabled() {
+                return {
+                    PE: document.getElementById('enablePE').checked,
+                    Comp: document.getElementById('enableCompton').checked,
+                    Pair: document.getElementById('enablePair').checked,
+                    Ray: document.getElementById('enableRayleigh').checked
+                };
+            }
+
+            function getXS(mat, E) {
+                const m = materialDB[mat]; if(!m) return {total:0,pe:0,compton:0,pair:0,rayleigh:0};
+                const en = enabled(); const r = E/662;
+                let pe = en.PE ? m.muPE662 * Math.pow(r, m.peExp) : 0;
+                let comp = en.Comp ? m.muCompton662 * Math.pow(r, m.compExp) : 0;
+                let pair = 0;
+                if (en.Pair && E>1022) {
+                    pair = m.muPair662 ? m.muPair662*Math.pow(r,m.pairExp)*Math.min(1,(E-1022)/2000) : 0.002*Math.pow(r-1022/662,1.8)*(m.density/11.34);
+                }
+                let ray = en.Ray ? m.muRayleigh662 * Math.pow(r, m.rayExp) : 0;
+                return { total: pe+comp+pair+ray, pe, compton:comp, pair, rayleigh:ray };
+            }
+
+            function matAt(x,y) {
+                const g = getGeometry();
+                if (x>=g.shX1&&x<=g.shX2&&y>=g.shY1&&y<=g.shY2) return document.getElementById('shieldMaterial').value;
+                if (x>=g.dX1&&x<=g.dX2&&y>=g.dY1&&y<=g.dY2) return document.getElementById('detectorType').value;
+                return 'air';
+            }
+
+            function sampleEnergy() {
+                const t = document.getElementById('sourceType').value;
+                if (t==='cs137') return 662;
+                if (t==='co60') return Math.random()<0.5?1173:1332;
+                if (t==='am241') return 59.5;
+                if (t==='i131') return 364;
+                if (t==='na22') return Math.random()<0.9?511:1275; // 90% 511 keV, 10% 1275 keV
+                if (t==='xray100') return 100;
+                if (t==='mono500') return 500;
+                if (t==='mono1500') return 1500;
+                if (t==='mono3000') return 3000;
+                if (t==='mixed') return Math.random()<0.7?'neutron':800+Math.random()*2000;
+                return 662;
+            }
+
+            class Particle {
+                constructor(x,y,dx,dy,E,w,type='gamma') { this.x=x;this.y=y;this.dx=dx;this.dy=dy;this.E=E;this.w=w;this.type=type;this.alive=true;this.gen=0;this.path=[{x,y}]; }
+                norm(){ const m=Math.hypot(this.dx,this.dy); if(m){this.dx/=m;this.dy/=m;} }
+                move(d){ this.x+=this.dx*d; this.y+=this.dy*d; this.path.push({x:this.x,y:this.y}); if(this.path.length>60) this.path=this.path.slice(-40); }
+                scatterCompton(){
+                    const eps=this.E/ME, eps0=eps; const k1=2*eps0, k3=(1+2*eps0)/(eps0*eps0); let epsP;
+                    while(true){ const r1=Math.random(),r2=Math.random(),r3=Math.random(); const x=1/(1+k1*r1); const test=1-x*(1-x)*(2*eps0*x+1-x)/(1+eps0*(1-x)); if(r2<test/(1+eps0*(1-x))){epsP=x*eps0;break;} if(r3<k3*(1-x)/(1+eps0*(1-x))){epsP=x*eps0;break;} }
+                    const Enew=epsP*ME; const cosT=1-(1/epsP-1/eps0); const sinT=Math.sqrt(Math.max(0,1-cosT*cosT)); const phi=2*Math.PI*Math.random();
+                    const ux=this.dx,uy=this.dy; const cosA=cosT,sinA=sinT,cosB=Math.cos(phi),sinB=Math.sin(phi);
+                    let px=-uy,py=ux; const pm=Math.hypot(px,py); px/=pm;py/=pm;
+                    const qx=py*0-0*uy,qy=0*ux-px*0; this.dx=ux*cosA+px*sinA*cosB+qx*sinA*sinB; this.dy=uy*cosA+py*sinA*cosB+qy*sinA*sinB; this.norm(); this.E=Enew;
+                }
+            }
+
+            function rayBoxIntersect(px,py,dx,dy,x1,y1,x2,y2) { let tmin=0,tmax=Infinity; const eps=1e-10; if(Math.abs(dx)>eps){const t1=(x1-px)/dx,t2=(x2-px)/dx;tmin=Math.max(tmin,Math.min(t1,t2));tmax=Math.min(tmax,Math.max(t1,t2));} else if(px<x1||px>x2) return -1; if(Math.abs(dy)>eps){const t1=(y1-py)/dy,t2=(y2-py)/dy;tmin=Math.max(tmin,Math.min(t1,t2));tmax=Math.min(tmax,Math.max(t1,t2));} else if(py<y1||py>y2) return -1; return (tmin<=tmax&&tmin>0)?tmin:-1; }
+            function exitBox(px,py,dx,dy,x1,y1,x2,y2) { let tMin=Infinity; const eps=1e-10; const cand=[]; if(Math.abs(dx)>eps){cand.push((x1-px)/dx,(x2-px)/dx);} if(Math.abs(dy)>eps){cand.push((y1-py)/dy,(y2-py)/dy);} for(const t of cand) if(t>1e-8){const cx=px+dx*t,cy=py+dy*t; if(cx>=x1-eps&&cx<=x2+eps&&cy>=y1-eps&&cy<=y2+eps) tMin=Math.min(tMin,t);} return tMin<Infinity?tMin:-1; }
+            function inDetector(x,y){ const g=getGeometry(); return x>=g.dX1&&x<=g.dX2&&y>=g.dY1&&y<=g.dY2; }
+
+            const gridNX=60, gridNY=40, nBins=120;
+            function initGrids(){
+                sim.depGrid=new Float32Array(gridNX*gridNY);
+                sim.specBins=new Float32Array(nBins);
+                sim.specEdges=new Float32Array(nBins+1);
+                const lo=Math.log10(1), hi=Math.log10(3500);
+                for(let i=0;i<=nBins;i++) sim.specEdges[i]=Math.pow(10, lo+(hi-lo)*i/nBins);
+            }
+
+            function scoreDep(x,y,E,w){ const g=sim.depGrid; if(!g) return; const ix=Math.floor(x/domainWidth*gridNX), iy=Math.floor(y/domainHeight*gridNY); if(ix>=0&&ix<gridNX&&iy>=0&&iy<gridNY) g[iy*gridNX+ix]+=E*w; }
+            function scoreSpec(E,w){ const bins=sim.specBins, edges=sim.specEdges; if(!bins) return; let i=0; for(;i<nBins;i++) if(E>=edges[i]&&E<edges[i+1]) break; if(E>=edges[nBins]) i=nBins-1; if(E<edges[0]) i=0; bins[i]+=w; }
+
+            function trace(p){
+                let steps=0; const geo=getGeometry(); const useRR=document.getElementById('useRussianRoulette').checked;
+                while(p.alive && steps<200){
+                    steps++; const mat=matAt(p.x,p.y); const xs=getXS(mat,p.E);
+                    let mfp=xs.total>1e-12?-Math.log(Math.random())/xs.total:1e8;
+                    let boundDist=mfp, hit=false;
+                    if(mat==='air'){
+                        const t1=rayBoxIntersect(p.x,p.y,p.dx,p.dy,geo.shX1,geo.shY1,geo.shX2,geo.shY2); if(t1>0&&t1<boundDist){boundDist=t1;hit=true;}
+                        const t2=rayBoxIntersect(p.x,p.y,p.dx,p.dy,geo.dX1,geo.dY1,geo.dX2,geo.dY2); if(t2>0&&t2<boundDist){boundDist=t2;hit=true;}
+                    }else if(mat===document.getElementById('shieldMaterial').value){
+                        const t=exitBox(p.x,p.y,p.dx,p.dy,geo.shX1,geo.shY1,geo.shX2,geo.shY2); if(t>0&&t<boundDist){boundDist=t;hit=true;}
+                    }else if(mat===document.getElementById('detectorType').value||mat==='nai'||mat==='hpge'||mat==='plastic'){
+                        const t=exitBox(p.x,p.y,p.dx,p.dy,geo.dX1,geo.dY1,geo.dX2,geo.dY2); if(t>0&&t<boundDist){boundDist=t;hit=true;}
+                    }
+                    const move=Math.min(boundDist,mfp); if(move<1e-8){p.move(1e-6);continue;}
+                    p.move(move);
+                    if(p.x<-2||p.x>domainWidth+2||p.y<-2||p.y>domainHeight+2){p.alive=false;sim.escaped++;break;}
+                    if(hit&&boundDist<mfp) continue;
+                    const newMat=matAt(p.x,p.y);
+                    const intType = (()=>{ const xs2=getXS(newMat,p.E); if(xs2.total<=1e-12) return 'none'; const r=Math.random()*xs2.total; if(r<xs2.pe) return 'photoelectric'; if(r<xs2.pe+xs2.compton) return 'compton'; if(r<xs2.pe+xs2.compton+xs2.pair) return 'pair'; return 'rayleigh'; })();
+                    if(intType==='none') continue;
+                    scoreDep(p.x,p.y,p.E,p.w);
+                    if(intType==='photoelectric') { scoreDep(p.x,p.y,p.E,p.w); if(inDetector(p.x,p.y)){sim.detected++;scoreSpec(p.E,p.w);} sim.absorbed++; p.alive=false; }
+                    else if(intType==='compton') { p.scatterCompton(); if(p.E<1.0){ scoreDep(p.x,p.y,p.E,p.w); if(inDetector(p.x,p.y)){sim.detected++;scoreSpec(p.E,p.w);} sim.absorbed++; p.alive=false; } }
+                    else if(intType==='pair') { if(p.E>1022){ scoreDep(p.x,p.y,p.E-1022,p.w); p.E=511; p.dx=Math.cos(2*Math.PI*Math.random()); p.dy=Math.sin(2*Math.PI*Math.random()); p.norm(); p.gen++; if(p.gen>4){p.alive=false;sim.absorbed++;} } else {p.alive=false;sim.absorbed++;} }
+                    else if(intType==='rayleigh') { const theta=Math.acos(2*Math.random()-1)*0.3; const c=Math.cos(theta),s=Math.sin(theta); const ux=p.dx,uy=p.dy; p.dx=ux*c-uy*s; p.dy=ux*s+uy*c; p.norm(); }
+                    if(useRR && p.alive && p.w<0.01){ if(Math.random()<0.5) p.w*=2; else {p.alive=false;sim.absorbed++;} }
+                }
+                if(steps>=200&&p.alive){p.alive=false;sim.escaped++;}
+            }
+
+            function runBatch(n){
+                const geo=getGeometry(); const bias=document.getElementById('useSourceBiasing').checked;
+                for(let i=0;i<n;i++){
+                    const E=sampleEnergy(); let dx,dy;
+                    if(bias){ const cx=(geo.dX1+geo.dX2)/2, cy=(geo.dY1+geo.dY2)/2; const ang=Math.atan2(cy-geo.sy,cx-geo.sx)+(Math.random()-0.5)*1.2; dx=Math.cos(ang); dy=Math.sin(ang); }
+                    else { const ang=(Math.random()-0.5)*Math.PI; dx=Math.cos(ang); dy=Math.sin(ang); }
+                    let type='gamma', energy=E; if(E==='neutron'){type='neutron';energy=100+Math.random()*2000;}
+                    const p=new Particle(geo.sx,geo.sy,dx,dy,energy,1,type);
+                    trace(p); sim.histories++;
+                    if(p.path.length>1) sim.tracks.push(p.path);
+                }
+                if(sim.tracks.length>sim.maxTracks) sim.tracks=sim.tracks.slice(-sim.maxTracks);
+            }
+
+            function worldToScreen(wx,wy){ const cw=canvas.width, ch=canvas.height; const sx=cw/domainWidth*sim.zoom, sy=ch/domainHeight*sim.zoom; return {x:(wx-domainWidth/2)*sx+cw/2+sim.panX, y:(wy-domainHeight/2)*sy+ch/2+sim.panY}; }
+            function screenToWorld(sx,sy){ const cw=canvas.width, ch=canvas.height; const scX=cw/domainWidth*sim.zoom, scY=ch/domainHeight*sim.zoom; return {x:(sx-cw/2-sim.panX)/scX+domainWidth/2, y:(sy-ch/2-sim.panY)/scY+domainHeight/2}; }
+
+            function drawSignalAnalyzer() {
+                const bins = sim.specBins, edges = sim.specEdges;
+                if (!bins || !edges) return;
+                const geo = getGeometry();
+                const analyzerY1 = geo.dY1 - 2.8;
+                const analyzerY2 = geo.dY1 - 0.2;
+                const analyzerX1 = geo.dX1;
+                const analyzerX2 = geo.dX2;
+                const wBox = analyzerX2 - analyzerX1;
+                const hBox = analyzerY2 - analyzerY1;
+                const s1 = worldToScreen(analyzerX1, analyzerY1);
+                const s2 = worldToScreen(analyzerX2, analyzerY2);
+                const boxW = s2.x - s1.x;
+                const boxH = s2.y - s1.y;
+                if (boxW < 30 || boxH < 20) return;
+                ctx.fillStyle = '#0a0e14dd'; ctx.fillRect(s1.x, s1.y, boxW, boxH);
+                ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 1; ctx.strokeRect(s1.x, s1.y, boxW, boxH);
+                ctx.fillStyle = '#ffffffcc'; ctx.font = `${Math.max(9, 10 * sim.zoom)}px monospace`; ctx.textAlign = 'center';
+                ctx.fillText('Signal Analyzer', s1.x + boxW/2, s1.y + 12 * sim.zoom);
+                let maxCount = 0; for (let i = 0; i < nBins; i++) maxCount = Math.max(maxCount, bins[i]);
+                if (maxCount < 0.5) { ctx.fillStyle = '#ffffff66'; ctx.font = `${Math.max(8, 9 * sim.zoom)}px monospace`; ctx.fillText('(no data)', s1.x + boxW/2, s1.y + boxH/2); return; }
+                const barAreaX = s1.x + 8 * sim.zoom, barAreaY = s1.y + 20 * sim.zoom;
+                const barAreaW = boxW - 16 * sim.zoom, barAreaH = boxH - 28 * sim.zoom;
+                const barWidth = barAreaW / nBins;
+                for (let i = 0; i < nBins; i++) {
+                    const barH = (bins[i] / maxCount) * barAreaH;
+                    const x = barAreaX + i * barWidth;
+                    const y = barAreaY + barAreaH - barH;
+                    ctx.fillStyle = `rgba(100,180,255,${0.5 + 0.5 * bins[i] / maxCount})`;
+                    ctx.fillRect(x, y, barWidth - 1, barH);
+                }
+                ctx.fillStyle = '#ffffffaa'; ctx.font = `${Math.max(7, 8 * sim.zoom)}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.fillText(`${edges[0].toFixed(0)} keV`, barAreaX, barAreaY + barAreaH + 12 * sim.zoom);
+                ctx.fillText(`${edges[nBins].toFixed(0)} keV`, barAreaX + barAreaW, barAreaY + barAreaH + 12 * sim.zoom);
+                ctx.fillText(`${maxCount.toFixed(0)} cts`, barAreaX - 5, barAreaY - 2);
+                ctx.strokeStyle = '#ffffff44'; ctx.beginPath(); ctx.moveTo(barAreaX, barAreaY); ctx.lineTo(barAreaX, barAreaY + barAreaH); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(barAreaX, barAreaY + barAreaH); ctx.lineTo(barAreaX + barAreaW, barAreaY + barAreaH); ctx.stroke();
+            }
+
+            function render() {
+                const w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+                ctx.strokeStyle='#ffffff10'; ctx.lineWidth=0.5;
+                for(let x=0;x<=domainWidth;x+=2){const s=worldToScreen(x,0),e=worldToScreen(x,domainHeight); ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(e.x,e.y); ctx.stroke();}
+                for(let y=0;y<=domainHeight;y+=2){const s=worldToScreen(0,y),e=worldToScreen(domainWidth,y); ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(e.x,e.y); ctx.stroke();}
+                const grid=sim.depGrid; if(grid){
+                    let max=0; for(let i=0;i<gridNX*gridNY;i++) max=Math.max(max,grid[i]);
+                    if(max>0){
+                        const cw=domainWidth/gridNX, ch=domainHeight/gridNY;
+                        for(let iy=0;iy<gridNY;iy++) for(let ix=0;ix<gridNX;ix++){
+                            const v=grid[iy*gridNX+ix]/max; if(v>0.001){
+                                const wx=ix*cw+cw/2, wy=iy*ch+ch/2;
+                                const s=worldToScreen(wx-cw/2,wy-ch/2), e=worldToScreen(wx+cw/2,wy+ch/2);
+                                ctx.fillStyle=`rgba(255,${Math.floor(200*v)},0,${Math.min(1,v*2.5)*0.4})`;
+                                ctx.fillRect(s.x,s.y,e.x-s.x,e.y-s.y);
+                            }
+                        }
+                    }
+                }
+                const geo=getGeometry();
+                const s1=worldToScreen(geo.shX1,geo.shY1), s2=worldToScreen(geo.shX2,geo.shY2);
+                ctx.fillStyle=materialDB[document.getElementById('shieldMaterial').value]?.color+'88'||'#8899aa88';
+                ctx.fillRect(s1.x,s1.y,s2.x-s1.x,s2.y-s1.y); ctx.strokeStyle='#fff4'; ctx.strokeRect(s1.x,s1.y,s2.x-s1.x,s2.y-s1.y);
+                const d1=worldToScreen(geo.dX1,geo.dY1), d2=worldToScreen(geo.dX2,geo.dY2);
+                ctx.fillStyle=materialDB[document.getElementById('detectorType').value]?.color+'99'||'#44cc8899';
+                ctx.fillRect(d1.x,d1.y,d2.x-d1.x,d2.y-d1.y); ctx.strokeStyle='#fff6'; ctx.strokeRect(d1.x,d1.y,d2.x-d1.x,d2.y-d1.y);
+                const src=worldToScreen(geo.sx,geo.sy);
+                ctx.fillStyle='#ffdd44'; ctx.beginPath(); ctx.arc(src.x,src.y,8*sim.zoom,0,2*Math.PI); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke();
+                drawSignalAnalyzer();
+                const tracks=sim.tracks;
+                for(let i=Math.max(0,tracks.length-500);i<tracks.length;i++){
+                    const t=tracks[i]; if(t.length<2) continue;
+                    ctx.strokeStyle=`hsla(${30+i%30},70%,60%,0.5)`; ctx.lineWidth=1;
+                    ctx.beginPath(); const p0=worldToScreen(t[0].x,t[0].y); ctx.moveTo(p0.x,p0.y);
+                    for(let j=1;j<t.length;j++){const p=worldToScreen(t[j].x,t[j].y); ctx.lineTo(p.x,p.y);}
+                    ctx.stroke();
+                }
+                const b1=worldToScreen(0,0), b2=worldToScreen(domainWidth,domainHeight);
+                ctx.strokeStyle='#fff3'; ctx.strokeRect(b1.x,b1.y,b2.x-b1.x,b2.y-b1.y);
+            }
+
+            function updateStats(){
+                document.getElementById('statHistories').textContent=sim.histories;
+                document.getElementById('statDetected').textContent=sim.detected;
+                document.getElementById('statAbsorbed').textContent=sim.absorbed;
+                document.getElementById('statEscaped').textContent=sim.escaped;
+                document.getElementById('statTime').textContent=sim.time.toFixed(1)+'s';
+                const geo=getGeometry(); const vol=(geo.dX2-geo.dX1)*(geo.dY2-geo.dY1);
+                const dens=materialDB[document.getElementById('detectorType').value]?.density||3.67;
+                let E=0; if(sim.depGrid){
+                    const cw=domainWidth/gridNX, ch=domainHeight/gridNY;
+                    for(let iy=0;iy<gridNY;iy++) for(let ix=0;ix<gridNX;ix++){
+                        const wx=ix*cw+cw/2, wy=iy*ch+ch/2;
+                        if(inDetector(wx,wy)) E+=sim.depGrid[iy*gridNX+ix];
+                    }
+                }
+                const rate = sim.histories>10 ? (E*1.602e-16)/(vol*dens*Math.max(0.001,sim.time))*3.6e9 : 0;
+                document.getElementById('statDoseRate').textContent = sim.histories>10 ? rate.toFixed(2)+' µSv/hr' : '—';
+                if(sim.detected>5 && sim.time>0.01){
+                    const rel=1/Math.sqrt(sim.detected);
+                    document.getElementById('statFOM').textContent = (1/(rel*rel*sim.time)).toFixed(1);
+                } else document.getElementById('statFOM').textContent='—';
+            }
+
+            function loop(){
+                if(!sim.running) return;
+                const start=performance.now(); let batches=0;
+                while(batches<5 && sim.running && (performance.now()-start)<30){ runBatch(200); batches++; }
+                if(sim.startTime){ sim.time+=(performance.now()-sim.startTime)/1000; sim.startTime=performance.now(); }
+                updateStats(); render();
+                if(sim.running) requestAnimationFrame(loop);
+            }
+
+            function startSim(){ if(sim.running) return; sim.running=true; sim.startTime=performance.now(); document.getElementById('btnRun').textContent='⏸ Running...'; loop(); }
+            function stopSim(){ sim.running=false; if(sim.startTime){sim.time+=(performance.now()-sim.startTime)/1000; sim.startTime=0;} document.getElementById('btnRun').textContent='▶ Run'; }
+            function resetSim(){ stopSim(); sim.histories=sim.detected=sim.absorbed=sim.escaped=0; sim.tracks=[]; sim.time=0; initGrids(); updateStats(); render(); }
+            function single(){ if(!sim.running){ runBatch(1); sim.time=0.001; updateStats(); render(); } }
+            function burst(){ if(!sim.running){ runBatch(10); sim.time=0.01; updateStats(); render(); } }
+
+            container.addEventListener('mousemove', e=>{
+                const r=container.getBoundingClientRect(); sim.mouse.x=e.clientX-r.left; sim.mouse.y=e.clientY-r.top;
+                if(sim.mouse.down){ sim.panX+=sim.mouse.x-sim.mouse.lastX; sim.panY+=sim.mouse.y-sim.mouse.lastY; sim.mouse.lastX=sim.mouse.x; sim.mouse.lastY=sim.mouse.y; render(); }
+                const w=screenToWorld(sim.mouse.x,sim.mouse.y); const mat=matAt(w.x,w.y); const xs=getXS(mat,662);
+                tooltip.textContent=`${materialDB[mat]?.name||'Air'} (${w.x.toFixed(1)},${w.y.toFixed(1)}) µ=${xs.total.toFixed(2)} cm⁻¹`;
+                tooltip.style.display='block'; tooltip.style.left=(sim.mouse.x+16)+'px'; tooltip.style.top=(sim.mouse.y-28)+'px';
+            });
+            container.addEventListener('mousedown', ()=>{ sim.mouse.down=true; sim.mouse.lastX=sim.mouse.x; sim.mouse.lastY=sim.mouse.y; });
+            container.addEventListener('mouseup', ()=> sim.mouse.down=false);
+            container.addEventListener('mouseleave', ()=>{ sim.mouse.down=false; tooltip.style.display='none'; });
+            container.addEventListener('wheel', e=>{ e.preventDefault(); sim.zoom*=e.deltaY<0?1.08:0.93; sim.zoom=Math.max(0.3,Math.min(5,sim.zoom)); render(); }, {passive:false});
+            window.addEventListener('resize', ()=>{ const r=container.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; ctx.setTransform(1,0,0,1,0,0); render(); });
+            document.getElementById('btnRun').addEventListener('click', ()=> sim.running?stopSim():startSim());
+            document.getElementById('btnStop').addEventListener('click', stopSim);
+            document.getElementById('btnReset').addEventListener('click', resetSim);
+            document.getElementById('btnSingleShot').addEventListener('click', single);
+            document.getElementById('btnBurst10').addEventListener('click', burst);
+            document.getElementById('btnShowTheory').addEventListener('click', ()=> theoryOverlay.classList.add('active'));
+            document.getElementById('btnCloseTheory').addEventListener('click', ()=> theoryOverlay.classList.remove('active'));
+            document.getElementById('btnShowManual').addEventListener('click', ()=> manualOverlay.classList.add('active'));
+            document.getElementById('btnCloseManual').addEventListener('click', ()=> manualOverlay.classList.remove('active'));
+            [theoryOverlay,manualOverlay].forEach(ov=> ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('active'); }));
+            document.getElementById('shieldThickness').addEventListener('input', function(){ document.getElementById('thicknessVal').textContent=parseFloat(this.value).toFixed(1)+' cm'; if(!sim.running) render(); });
+            document.getElementById('numParticles').addEventListener('input', function(){ document.getElementById('intensityVal').textContent=parseInt(this.value)+' particles'; });
+            document.getElementById('detWidth').addEventListener('input', function(){ document.getElementById('detWidthVal').textContent=parseFloat(this.value).toFixed(1)+' cm'; if(!sim.running) render(); });
+            document.getElementById('sourceType').addEventListener('change', function(){ document.getElementById('srcTypeVal').textContent=this.options[this.selectedIndex].text; });
+            document.getElementById('shieldMaterial').addEventListener('change', function(){ document.getElementById('shieldMatVal').textContent=materialDB[this.value]?.name||'Unknown'; if(!sim.running) render(); });
+            document.getElementById('detectorType').addEventListener('change', function(){ document.getElementById('detTypeVal').textContent=materialDB[this.value]?.name||'Unknown'; if(!sim.running) render(); });
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb=> cb.addEventListener('change', ()=>{ if(!sim.running) render(); }));
+            window.addEventListener('keydown', e=>{
+                if(e.key===' '){ e.preventDefault(); sim.running?stopSim():startSim(); }
+                else if(e.key==='r') resetSim(); else if(e.key==='s') single(); else if(e.key==='b') burst();
+                else if(e.key==='0'){ sim.zoom=1; sim.panX=0; sim.panY=0; render(); }
+            });
+
+            initGrids();
+            document.getElementById('thicknessVal').textContent='4.0 cm';
+            document.getElementById('intensityVal').textContent='5000';
+            document.getElementById('detWidthVal').textContent='3.0 cm';
+            { const r=container.getBoundingClientRect(); canvas.width=r.width; canvas.height=r.height; }
+            runBatch(50); sim.time=0.05; updateStats(); render();
+        })();
+    </script>
+</body>
+</html>

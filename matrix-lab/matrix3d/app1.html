@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Matrix Transform Simulator</title>
+<script>
+try{var _t=localStorage.getItem('rot3d-theme');if(_t==='day'||_t==='night')document.documentElement.setAttribute('data-theme',_t);}catch(_){}
+</script>
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
+  svg:{fontCache:'global'},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']},
+  startup:{pageReady:()=>MathJax.startup.defaultPageReady().then(()=>{window.__mjReady=true;flushTypeset();})}
+};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --mono:'JetBrains Mono','Consolas','Menlo',monospace;
+  --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+  --bg:#070b12;--surf:#0e1522;--panel:#0b121e;--border:#25364d;--border2:#3a4f6b;
+  --ax:#ffb347;--ay:#1ff0d2;--az:#ff6a9f;
+  --orig:#6b8db0;--final:#eaf2ff;
+  --text:#dce8f2;--dim:#8ba3b8;--code:#080d16;--hover:rgba(255,255,255,.06);--sel:rgba(31,240,210,.3);
+  --glow:0 0 10px rgba(31,240,210,.35);
+}
+:root[data-theme="day"]{
+  color-scheme:light;
+  --bg:#e8edf4;--surf:#ffffff;--panel:#f5f8fb;--border:#cdd7e3;--border2:#a8b7c9;
+  --ax:#b45309;--ay:#00796b;--az:#c2185b;
+  --orig:#7d90a6;--final:#14202e;
+  --text:#17222e;--dim:#52657a;--code:#e8eef6;--hover:rgba(0,121,107,.08);--sel:rgba(0,121,107,.25);
+  --glow:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+::selection{background:var(--sel);color:var(--text)}
+:focus-visible{outline:2px solid var(--ay);outline-offset:1px}
+body{font-family:var(--ui);font-size:15px;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;transition:background .2s,color .2s}
+
+/* header */
+header{flex-shrink:0;display:flex;align-items:center;gap:20px;padding:10px 24px;border-bottom:1px solid var(--border);background:var(--surf);flex-wrap:wrap}
+.brand{font-family:'Orbitron',var(--ui);font-size:1.3rem;font-weight:900;letter-spacing:4px}
+.brand .x{color:var(--ax)}.brand .y{color:var(--ay)}.brand .z{color:var(--az)}.brand .w{color:var(--dim)}
+.hsub{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:1.5px;margin-top:3px}
+.htabs{display:flex;margin-left:auto}
+.htab{padding:12px 22px;font-size:13.5px;font-weight:700;letter-spacing:1px;color:var(--dim);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;text-transform:uppercase}
+.htab:hover{color:var(--text);background:var(--hover)}
+.htab.active{color:var(--ay);border-bottom-color:var(--ay)}
+.themebtns{display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}
+.thbtn{padding:8px 15px;background:var(--panel);border:none;color:var(--text);cursor:pointer;font-family:var(--ui);font-size:14px;font-weight:600;transition:all .15s}
+.thbtn+.thbtn{border-left:1px solid var(--border2)}
+.thbtn:hover{background:var(--hover)}
+.thbtn.active{background:var(--ay);color:var(--surf)}
+
+.tpage{display:none;flex:1;min-height:0;overflow:hidden}
+.tpage.active{display:flex;flex-direction:column}
+
+/* sim layout */
+.sim-wrap{flex:1;min-height:0;display:grid;grid-template-columns:310px minmax(0,1fr) 360px;grid-template-rows:minmax(0,1fr) 210px;
+  grid-template-areas:"left main right" "bottom bottom bottom";gap:8px;padding:8px}
+.ctrl-panel{grid-area:left;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow-y:auto;padding:16px}
+.canvas-area{grid-area:main;background:var(--bg);border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;min-width:0;min-height:0}
+canvas#c3d{position:absolute;inset:0;display:block}
+.mat-strip{grid-area:bottom;background:var(--surf);border:1px solid var(--border);border-radius:6px;overflow-x:auto;overflow-y:hidden;display:flex;align-items:center;gap:8px;padding:8px 16px}
+.right-panel{grid-area:right;background:var(--panel);border:1px solid var(--border);border-radius:6px;overflow-y:auto;padding:16px}
+.ctrl-panel::-webkit-scrollbar,.right-panel::-webkit-scrollbar,.mat-strip::-webkit-scrollbar,.doc-page::-webkit-scrollbar{width:8px;height:8px}
+.ctrl-panel::-webkit-scrollbar-thumb,.right-panel::-webkit-scrollbar-thumb,.mat-strip::-webkit-scrollbar-thumb,.doc-page::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* shared components */
+.sec{font-size:12.5px;font-weight:700;letter-spacing:1.8px;color:var(--ay);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.sec.x{color:var(--ax)}.sec.z{color:var(--az)}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.lbl{font-size:14px;width:30px;text-align:right;font-weight:600}
+.lbl.x{color:var(--ax)}.lbl.y{color:var(--ay)}.lbl.z{color:var(--az)}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:5px;background:var(--border2);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;background:var(--ay);border:2px solid var(--surf)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;cursor:pointer;background:var(--ay);border:2px solid var(--surf)}
+input[type=range].x::-webkit-slider-thumb{background:var(--ax)}
+input[type=range].y::-webkit-slider-thumb{background:var(--ay)}
+input[type=range].z::-webkit-slider-thumb{background:var(--az)}
+.vval{width:60px;font-size:13.5px;text-align:right;font-family:var(--mono);font-weight:500}
+.vval.x{color:var(--ax)}.vval.y{color:var(--ay)}.vval.z{color:var(--az)}
+.ctrl-group{margin-bottom:18px}
+.shape-row{display:flex;gap:6px;flex-wrap:wrap}
+.sbtn{padding:7px 11px;font-size:13.5px;font-weight:500;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s}
+.sbtn:hover{background:var(--hover)}
+.sbtn.active{border-color:var(--ax);color:var(--ax);font-weight:700}
+.order-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.obtn{flex:1;padding:8px 4px;font-size:13px;font-weight:600;text-align:center;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s}
+.obtn:hover{background:var(--hover)}
+.obtn.active{border-color:var(--ay);color:var(--ay);font-weight:700}
+.btn{flex:1;padding:9px 0;font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:.6px;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;text-transform:uppercase;transition:all .2s}
+.btn:hover{border-color:var(--ay);color:var(--ay)}
+.btn.ay{border-color:var(--ay);color:var(--ay)}.btn.ax{border-color:var(--ax);color:var(--ax)}.btn.az{border-color:var(--az);color:var(--az)}
+.btn-row{display:flex;gap:6px;margin-bottom:6px}
+.toggle-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.toggle-lbl{font-size:14px;color:var(--text);flex:1}
+.toggle{width:40px;height:22px;background:var(--border2);border-radius:11px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--ay)}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;background:var(--surf);border-radius:50%;top:3px;left:3px;transition:left .2s}
+.toggle.on::after{left:21px}
+
+/* 4x4 matrix display */
+.mat4{display:inline-flex;flex-direction:column;gap:3px;padding:8px 8px;position:relative;flex-shrink:0}
+.mat4::before,.mat4::after{content:'';position:absolute;top:0;bottom:0;width:5px;border:2px solid currentColor}
+.mat4::before{left:0;border-right:none;border-radius:3px 0 0 3px}
+.mat4::after{right:0;border-left:none;border-radius:0 3px 3px 0}
+.mat4.cx{color:var(--ax)}.mat4.cy{color:var(--ay)}.mat4.cz{color:var(--az)}.mat4.cw{color:var(--dim)}.mat4.cf{color:var(--final)}
+.mrow{display:flex;gap:3px}
+.mc{width:56px;text-align:right;font-size:13.5px;font-weight:500;padding:1px 3px;font-family:var(--mono);color:var(--text)}
+.mc.hi{color:inherit;font-weight:700}
+.mc.dim{color:var(--dim);opacity:.75}
+.mc.id{color:var(--dim);opacity:.9}
+.mname{font-size:14px;font-weight:600;text-align:center;margin-bottom:3px;color:inherit}
+.op{font-size:1.4rem;color:var(--dim);align-self:center;padding:0 2px;flex-shrink:0}
+.eq{font-size:1.6rem;color:var(--ay);align-self:center;padding:0 4px;flex-shrink:0}
+
+.readout{background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:11px 14px;margin-bottom:11px}
+.readout .rlbl{font-size:12px;font-weight:700;letter-spacing:1.4px;color:var(--dim);margin-bottom:6px}
+.kv{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin:4px 0}
+.kv .k{color:var(--dim)}
+.kv span:last-child{font-family:var(--mono);font-weight:700}
+.kv .vx{color:var(--ax)}.kv .vy{color:var(--ay)}.kv .vz{color:var(--az)}.kv .vw{color:var(--dim)}.kv .vf{color:var(--final)}
+
+.status-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:color-mix(in srgb,var(--surf) 90%,transparent);border:1px solid var(--border2);padding:5px 18px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:2px;color:var(--text)}
+.anim-prog{position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--border)}
+.anim-fill{height:100%;background:var(--ay);width:0%;transition:width .05s}
+.axis-legend{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--surf) 85%,transparent);padding:8px 12px;border-radius:6px;border:1px solid var(--border)}
+.al{font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.al-dot{width:14px;height:4px;border-radius:2px}
+.hint{font-size:13px;color:var(--dim);margin-top:8px}
+
+/* physics & manual */
+.doc-page{flex:1;overflow-y:auto;padding:36px 40px 60px;max-width:960px;margin:0 auto;width:100%}
+h2.dh{font-size:1.1rem;font-weight:700;letter-spacing:1.5px;color:var(--ay);margin:34px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border2);text-transform:uppercase}
+h2.dh:first-child{margin-top:0}
+h2.dh.x{color:var(--ax)}h2.dh.z{color:var(--az)}
+p.dp{font-size:16px;color:var(--text);margin-bottom:14px;line-height:1.8}
+.mblock{background:var(--code);border:1px solid var(--border);border-left:4px solid var(--ay);border-radius:0 6px 6px 0;padding:12px 20px;margin:14px 0;font-size:15.5px;color:var(--text);line-height:1.8;overflow-x:auto}
+.mblock.x{border-left-color:var(--ax)}.mblock.z{border-left-color:var(--az)}
+.mblock.mono{font-family:var(--mono);font-size:14.5px;white-space:pre;line-height:1.9}
+.mblock .cm{color:var(--dim)}
+.igrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.icard{background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:16px}
+.icard h3{font-size:13.5px;font-weight:700;letter-spacing:1.5px;color:var(--ax);margin-bottom:8px;text-transform:uppercase}
+.icard p{font-size:15px;color:var(--text);line-height:1.7}
+.step-m{display:flex;gap:16px;margin:14px 0;align-items:flex-start}
+.sn{width:34px;height:34px;border-radius:50%;flex-shrink:0;border:2px solid var(--ay);color:var(--ay);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+.st{font-size:15.5px;color:var(--text);padding-top:4px;line-height:1.7}
+.st strong{color:var(--ax)}
+.ktag{display:inline-block;background:var(--surf);border:1px solid var(--border2);padding:1px 8px;border-radius:4px;font-size:13.5px;color:var(--ay);font-family:var(--mono)}
+mjx-container{color:inherit}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;margin:.5em 0 !important}
+.mblock mjx-container[display="true"]{margin:.3em 0 !important}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">3D·<span class="x">R</span><span class="y">o</span><span class="z">t</span><span class="w">·</span><span class="x">T</span><span class="y">r</span><span class="z">a</span><span class="w">ns</span></div>
+    <div class="hsub">4×4 Homogeneous · Euler Angles · Perspective Projection</div>
+  </div>
+  <div class="htabs">
+    <div class="htab active" onclick="switchTab('sim')">⬡ Simulator</div>
+    <div class="htab" onclick="switchTab('physics')">∇ Physics</div>
+    <div class="htab" onclick="switchTab('manual')">≡ Manual</div>
+  </div>
+  <div class="themebtns" role="group" aria-label="Theme">
+    <button class="thbtn" id="btn-night" onclick="setTheme('night')">☾ Night</button>
+    <button class="thbtn" id="btn-day" onclick="setTheme('day')">★ Day</button>
+  </div>
+</header>
+
+<!-- ================================================================ SIMULATOR -->
+<div id="tpage-sim" class="tpage active">
+<div class="sim-wrap">
+
+  <!-- LEFT CONTROLS -->
+  <div class="ctrl-panel">
+    <div class="sec x">Rotation Angles</div>
+    <div class="ctrl-group">
+      <div class="row">
+        <span class="lbl x">\(R_x\)</span>
+        <input type="range" class="x" id="rx" min="-180" max="180" value="30" oninput="sync()">
+        <span class="vval x" id="vrx">30°</span>
+      </div>
+      <div class="row">
+        <span class="lbl y">\(R_y\)</span>
+        <input type="range" class="y" id="ry" min="-180" max="180" value="45" oninput="sync()">
+        <span class="vval y" id="vry">45°</span>
+      </div>
+      <div class="row">
+        <span class="lbl z">\(R_z\)</span>
+        <input type="range" class="z" id="rz" min="-180" max="180" value="20" oninput="sync()">
+        <span class="vval z" id="vrz">20°</span>
+      </div>
+    </div>
+
+    <div class="sec">Translation</div>
+    <div class="ctrl-group">
+      <div class="row">
+        <span class="lbl x">\(t_x\)</span>
+        <input type="range" class="x" id="tx" min="-150" max="150" value="60" oninput="sync()">
+        <span class="vval x" id="vtx">60</span>
+      </div>
+      <div class="row">
+        <span class="lbl y">\(t_y\)</span>
+        <input type="range" class="y" id="ty" min="-150" max="150" value="40" oninput="sync()">
+        <span class="vval y" id="vty">40</span>
+      </div>
+      <div class="row">
+        <span class="lbl z">\(t_z\)</span>
+        <input type="range" class="z" id="tz" min="-150" max="150" value="-30" oninput="sync()">
+        <span class="vval z" id="vtz">-30</span>
+      </div>
+    </div>
+
+    <div class="sec z">Scale</div>
+    <div class="ctrl-group">
+      <div class="row">
+        <span class="lbl" style="color:var(--az)">\(s\)</span>
+        <input type="range" class="z" id="sc" min="0.2" max="2.5" step="0.05" value="1" oninput="sync()">
+        <span class="vval z" id="vsc">1.00×</span>
+      </div>
+    </div>
+
+    <div class="sec">Rotation Order</div>
+    <div class="ctrl-group">
+      <div class="order-row">
+        <div class="obtn active" onclick="setOrder(this,'XYZ')">XYZ</div>
+        <div class="obtn" onclick="setOrder(this,'ZYX')">ZYX</div>
+        <div class="obtn" onclick="setOrder(this,'YXZ')">YXZ</div>
+        <div class="obtn" onclick="setOrder(this,'ZXY')">ZXY</div>
+      </div>
+      <div class="hint">\(M=T\cdot R_{\text{order}}\cdot S\)</div>
+    </div>
+
+    <div class="sec x">Shape</div>
+    <div class="ctrl-group">
+      <div class="shape-row">
+        <div class="sbtn active" onclick="setShape(this,'cube')">Cube</div>
+        <div class="sbtn" onclick="setShape(this,'tetra')">Tetra</div>
+        <div class="sbtn" onclick="setShape(this,'octa')">Octa</div>
+        <div class="sbtn" onclick="setShape(this,'axes')">Axes</div>
+        <div class="sbtn" onclick="setShape(this,'house')">House</div>
+      </div>
+    </div>
+
+    <div class="sec">Options</div>
+    <div class="ctrl-group">
+      <div class="toggle-row">
+        <span class="toggle-lbl">Show original ghost</span>
+        <div class="toggle on" id="tog-ghost" onclick="toggle(this,'showGhost')"></div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-lbl">Depth coloring</span>
+        <div class="toggle on" id="tog-depth" onclick="toggle(this,'depthColor')"></div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-lbl">Show vertex dots</span>
+        <div class="toggle on" id="tog-vdot" onclick="toggle(this,'showDots')"></div>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-lbl">Auto-rotate Y</span>
+        <div class="toggle" id="tog-autorot" onclick="toggle(this,'autoRot')"></div>
+      </div>
+    </div>
+
+    <div class="sec">Animation</div>
+    <div class="ctrl-group">
+      <div class="btn-row">
+        <button class="btn ay" onclick="runAnim()">▶ Play</button>
+        <button class="btn" onclick="resetAnim()">↺ Reset</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn ax" onclick="stepAnim()">⊳ Step</button>
+        <button class="btn az" onclick="togglePause()">⏸ Pause</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="lbl" style="color:var(--dim);width:40px;font-size:13px">spd</span>
+        <input type="range" class="y" id="aspd" min="0.3" max="3" step="0.1" value="1" oninput="syncSpd()">
+        <span class="vval y" id="vspd">1.0×</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS CENTER -->
+  <div class="canvas-area">
+    <canvas id="c3d"></canvas>
+    <div class="axis-legend">
+      <div class="al"><div class="al-dot" style="background:var(--ax)"></div><span style="color:var(--ax)">X axis</span></div>
+      <div class="al"><div class="al-dot" style="background:var(--ay)"></div><span style="color:var(--ay)">Y axis</span></div>
+      <div class="al"><div class="al-dot" style="background:var(--az)"></div><span style="color:var(--az)">Z axis</span></div>
+      <div class="al"><div class="al-dot" style="background:var(--orig)"></div><span style="color:var(--dim)">Original</span></div>
+      <div class="al"><div class="al-dot" style="background:var(--final)"></div><span style="color:var(--text)">Transformed</span></div>
+    </div>
+    <div class="status-bar" id="status">IDLE</div>
+    <div class="anim-prog"><div class="anim-fill" id="aprog"></div></div>
+  </div>
+
+  <!-- MATRIX STRIP -->
+  <div class="mat-strip" id="mat-strip"></div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="sec">Combined \(M=T\,R\,S\)</div>
+    <div id="combined-mat"></div>
+
+    <div class="sec" style="margin-top:16px">Vertex: First Point</div>
+    <div class="readout">
+      <div class="rlbl">ORIGINAL \(P_0\)</div>
+      <div class="kv"><span class="k">\(x\)</span><span class="vx" id="op-x">—</span></div>
+      <div class="kv"><span class="k">\(y\)</span><span class="vy" id="op-y">—</span></div>
+      <div class="kv"><span class="k">\(z\)</span><span class="vz" id="op-z">—</span></div>
+    </div>
+    <div class="readout">
+      <div class="rlbl">TRANSFORMED \(P'\)</div>
+      <div class="kv"><span class="k">\(x'\)</span><span class="vx" id="tp-x">—</span></div>
+      <div class="kv"><span class="k">\(y'\)</span><span class="vy" id="tp-y">—</span></div>
+      <div class="kv"><span class="k">\(z'\)</span><span class="vz" id="tp-z">—</span></div>
+    </div>
+
+    <div class="sec" style="margin-top:14px">Properties</div>
+    <div class="readout">
+      <div class="kv"><span class="k">\(\det R_x\)</span><span class="vf" id="d-rx">—</span></div>
+      <div class="kv"><span class="k">\(\det R_y\)</span><span class="vf" id="d-ry">—</span></div>
+      <div class="kv"><span class="k">\(\det R_z\)</span><span class="vf" id="d-rz">—</span></div>
+      <div class="kv"><span class="k">\(\det T\)</span><span class="vf" id="d-t">—</span></div>
+      <div class="kv"><span class="k">\(\det M\)</span><span class="vf" id="d-m">—</span></div>
+      <div class="kv"><span class="k">\(|R_x|\) eigen</span><span class="vf">\(e^{\pm i\alpha}\)</span></div>
+      <div class="kv"><span class="k">order</span><span class="vf" id="rot-order">—</span></div>
+      <div class="kv"><span class="k">scale</span><span class="vz" id="sv">—</span></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ================================================================ PHYSICS -->
+<div id="tpage-physics" class="tpage">
+<div class="doc-page">
+
+  <h2 class="dh">3D Rotation Matrices — The SO(3) Group</h2>
+  <p class="dp">In 3D space, a rotation is described by an axis and an angle. The set of all 3×3 proper rotation matrices (\(\det=+1\), \(R^{\mathsf T}=R^{-1}\)) forms the <strong style="color:var(--ay)">Special Orthogonal group SO(3)</strong>. Euler angles decompose any rotation into three successive rotations about the X, Y, and Z axes.</p>
+
+  <h2 class="dh x">\(R_x(\alpha)\) — Rotation about X-axis</h2>
+  <div class="mblock x">
+\[R_x(\alpha)=\begin{bmatrix}1&amp;0&amp;0&amp;0\\0&amp;\cos\alpha&amp;-\sin\alpha&amp;0\\0&amp;\sin\alpha&amp;\cos\alpha&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+Effect: Y and Z components rotate; X unchanged
+\[\det R_x=\cos^2\alpha+\sin^2\alpha=1\quad\text{(always)}\]
+  </div>
+
+  <h2 class="dh">\(R_y(\beta)\) — Rotation about Y-axis</h2>
+  <div class="mblock">
+\[R_y(\beta)=\begin{bmatrix}\cos\beta&amp;0&amp;\sin\beta&amp;0\\0&amp;1&amp;0&amp;0\\-\sin\beta&amp;0&amp;\cos\beta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+Effect: X and Z components rotate; Y unchanged<br>
+Note: sign convention swapped vs \(R_x, R_z\) to maintain right-hand rule
+  </div>
+
+  <h2 class="dh z">\(R_z(\gamma)\) — Rotation about Z-axis</h2>
+  <div class="mblock z">
+\[R_z(\gamma)=\begin{bmatrix}\cos\gamma&amp;-\sin\gamma&amp;0&amp;0\\\sin\gamma&amp;\cos\gamma&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+Effect: X and Y components rotate; Z unchanged
+  </div>
+
+  <h2 class="dh">4×4 Homogeneous Translation Matrix</h2>
+  <p class="dp">In 3D, translation cannot be expressed as a 3×3 linear map. By embedding 3D space into 4D projective space with homogeneous coordinate \(w=1\), translation becomes a 4×4 matrix multiplication — enabling all affine transforms to compose as matrix products.</p>
+  <div class="mblock">
+\[T(t_x,t_y,t_z)=\begin{bmatrix}1&amp;0&amp;0&amp;t_x\\0&amp;1&amp;0&amp;t_y\\0&amp;0&amp;1&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+\[T\,[x,y,z,1]^{\mathsf T}=[x+t_x,\;y+t_y,\;z+t_z,\;1]^{\mathsf T}\]
+\[\det T=1\ \ \rightarrow\ \ \text{rigid body, volume-preserving}\]
+  </div>
+
+  <h2 class="dh x">Combined Transform &amp; Euler Order</h2>
+  <p class="dp">The combined 4×4 transform matrix for Euler XYZ order (rotate X first, then Y, then Z, then translate) is:</p>
+  <div class="mblock x">
+\[M=T\,R_z\,R_y\,R_x\,S\qquad\text{(XYZ Euler, right-to-left application)}\]
+\[P'=M\,[x,y,z,1]^{\mathsf T}\]
+<span class="cm">Matrix multiplication is NOT commutative in 3D!</span>
+\[R_zR_yR_x\neq R_xR_yR_z\quad\text{(generally)}\]
+<span class="cm">ZYX order: extrinsic vs XYZ: intrinsic — same physical rotation</span>
+  </div>
+
+  <h2 class="dh z">Gimbal Lock — The Euler Angle Singularity</h2>
+  <p class="dp">When the middle rotation angle (\(R_y\) for XYZ order) reaches ±90°, the first and third rotation axes become aligned — losing one degree of freedom. This is <strong style="color:var(--az)">Gimbal Lock</strong>: rotations around two axes produce the same effect, and certain orientations cannot be reached.</p>
+  <div class="mblock z">
+At \(R_y=90^\circ\):
+\[R_z\,R_y(90^\circ)\,R_x=\text{only 2 independent DOF remain}\]
+\(\cos 90^\circ=0,\ \sin 90^\circ=1\ \rightarrow\ R_y\) degenerates:
+\[R_y(90^\circ)=\begin{bmatrix}0&amp;0&amp;1&amp;0\\0&amp;1&amp;0&amp;0\\-1&amp;0&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+Solution: use quaternions \(q=[w,x,y,z]\) with \(|q|=1\)
+  </div>
+
+  <div class="igrid">
+    <div class="icard">
+      <h3>Quaternion Representation</h3>
+      <p>Unit quaternions \(q=\cos(\theta/2)+\sin(\theta/2)(x\,\mathbf i+y\,\mathbf j+z\,\mathbf k)\) avoid gimbal lock and enable smooth SLERP interpolation. Game engines (Unity, Unreal) use quaternions internally but expose Euler angles in UI.</p>
+    </div>
+    <div class="icard">
+      <h3>Axis-Angle Form</h3>
+      <p>Any 3D rotation = single rotation by angle \(\theta\) about unit axis \(\hat n\). Rodrigues' formula: \(R=I\cos\theta+(1-\cos\theta)(\hat n\otimes\hat n)+[\hat n]_\times\sin\theta\). Compact but hard to compose sequentially.</p>
+    </div>
+    <div class="icard">
+      <h3>Robotics — DH Parameters</h3>
+      <p>Denavit-Hartenberg convention chains 4×4 homogeneous matrices per joint. The end-effector pose = \(T_1T_2\cdots T_n\) where each \(T_i\) encodes joint offset, link length, twist, and angle.</p>
+    </div>
+    <div class="icard">
+      <h3>Computer Vision</h3>
+      <p>Camera extrinsics are 4×4 matrices \([R|\mathbf t]\) mapping world coordinates to camera coordinates. Projection additionally applies the 3×4 intrinsic matrix \(K\) to yield pixel coordinates via perspective divide.</p>
+    </div>
+  </div>
+
+  <h2 class="dh">Perspective Projection Used in This Simulator</h2>
+  <div class="mblock">
+Camera at position \((0,0,-d)\) looking toward \(+Z\). Perspective divide (pinhole model):
+\[x_{\text{screen}}=\frac{f\,x}{z+d}+c_x,\qquad y_{\text{screen}}=\frac{f\,y}{z+d}+c_y\]
+\(f\) = focal length (≈ 600 px here) · \(d\) = camera distance (≈ 600 units) · \(c_x,c_y\) = canvas center
+<br>Depth factor for edge brightness: \(\alpha\propto 1/(z+d)^{0.3}\)
+  </div>
+</div>
+</div>
+
+<!-- ================================================================ MANUAL -->
+<div id="tpage-manual" class="tpage">
+<div class="doc-page">
+
+  <h2 class="dh">Quick Start</h2>
+
+  <div class="step-m"><div class="sn">1</div>
+  <div class="st"><strong>Choose a Shape</strong> — Under "Shape" in the left panel. <span class="ktag">Cube</span> shows all 12 edges. <span class="ktag">Tetra</span> is a tetrahedron (4 faces). <span class="ktag">Octa</span> is an octahedron. <span class="ktag">Axes</span> shows the coordinate frame. <span class="ktag">House</span> is a house silhouette useful for visualizing orientation.</div></div>
+
+  <div class="step-m"><div class="sn">2</div>
+  <div class="st"><strong>Set Euler Angles</strong> — <span class="ktag">\(R_x\)</span> rotates around the X-axis (amber). <span class="ktag">\(R_y\)</span> rotates around Y (teal). <span class="ktag">\(R_z\)</span> rotates around Z (pink). Each slider runs −180° to +180°.</div></div>
+
+  <div class="step-m"><div class="sn">3</div>
+  <div class="st"><strong>Set Translation</strong> — <span class="ktag">\(t_x\)</span>, <span class="ktag">\(t_y\)</span>, <span class="ktag">\(t_z\)</span> move the shape along each world axis after rotation. The 4th column of the combined matrix shows these values.</div></div>
+
+  <div class="step-m"><div class="sn">4</div>
+  <div class="st"><strong>Choose Rotation Order</strong> — <span class="ktag">XYZ</span> applies \(R_x\) first, then \(R_y\), then \(R_z\) (intrinsic). <span class="ktag">ZYX</span> is the aerospace convention. Change order with the same angle values and observe how the final pose differs — matrix multiplication is not commutative.</div></div>
+
+  <div class="step-m"><div class="sn">5</div>
+  <div class="st"><strong>Animate</strong> — <span class="ktag">▶ Play</span> interpolates the shape from identity to final transform in stages: Scale → Rotation → Translation. <span class="ktag">⊳ Step</span> advances one stage. <span class="ktag">↺ Reset</span> returns to identity. <span class="ktag">⏸ Pause</span> freezes mid-animation.</div></div>
+
+  <div class="step-m"><div class="sn">6</div>
+  <div class="st"><strong>Read the Matrix Strip</strong> — The bottom bar shows the individual 4×4 matrices: <strong>\(S\)</strong> (scale), <strong>\(R_x\)</strong>, <strong>\(R_y\)</strong>, <strong>\(R_z\)</strong>, <strong>\(T\)</strong> and the final combined <strong>\(M\)</strong>. The right panel shows \(M\) in full and det values.</div></div>
+
+  <div class="step-m"><div class="sn">7</div>
+  <div class="st"><strong>Enable Auto-Rotate Y</strong> — Toggle "Auto-rotate Y" in Options. The shape continuously rotates around Y, letting you appreciate its 3D form. All other transforms still apply on top.</div></div>
+
+  <h2 class="dh x">Canvas Rendering Guide</h2>
+  <div class="mblock x mono">COLOR CODE:
+  Amber (─)   — X-axis direction / Rx matrix column
+  Teal  (─)   — Y-axis direction / Ry matrix column
+  Pink  (─)   — Z-axis direction / Rz matrix column
+  Gray  (─)   — Original shape ghost (at identity)
+  White (─)   — Transformed shape  (dark in Day theme)
+
+DEPTH COLORING (when enabled):
+  Edges closer to camera → brighter
+  Edges farther away    → dimmer
+  Creates pseudo-3D depth cue without full shading</div>
+
+  <h2 class="dh">Keyboard Shortcuts</h2>
+  <div class="mblock mono">Space      — Play / Pause animation
+R          — Reset to identity
+S          — Step animation forward
+X / x      — Rx angle ±5°
+Y / y      — Ry angle ±5°
+Z / z      — Rz angle ±5°
+←/→        — tx ±10
+↑/↓        — ty ±10</div>
+
+  <h2 class="dh z">Understanding the 4×4 Display</h2>
+  <div class="mblock z">
+Matrix strip reads left-to-right:
+\[S\times R_x\times R_y\times R_z\times T=M\]
+Applied right-to-left to a point:
+\[P'=M\,p=T\,\bigl(R_z\,(R_y\,(R_x\,(S\,p)))\bigr)\]
+Homogeneous point and result:
+\[p=[x,y,z,1]^{\mathsf T},\qquad P'=[x',y',z',1]^{\mathsf T}\]
+If \(w'\neq1\) after projection matrix: divide by \(w'\) (perspective divide).<br>
+This simulator uses \(w=1\) (affine only — no perspective matrix in \(M\)).
+  </div>
+</div>
+</div>
+
+<!-- ================================================================ SCRIPT -->
+<script>
+// ─── MathJax helpers ──────────────────────────────────────────────────
+const pendingTypeset=new Set();let typesetScheduled=false,mjQueue=Promise.resolve();
+function flushTypeset(){
+  typesetScheduled=false;
+  if(!window.__mjReady||!window.MathJax||!MathJax.typesetPromise)return;
+  const els=Array.from(pendingTypeset);pendingTypeset.clear();
+  if(!els.length)return;
+  mjQueue=mjQueue.then(()=>MathJax.typesetPromise(els)).catch(()=>{});
+}
+const HTML_CACHE={};
+function setHTML(id,html){
+  if(HTML_CACHE[id]===html)return;
+  HTML_CACHE[id]=html;
+  const el=document.getElementById(id);if(!el)return;
+  try{if(window.MathJax&&MathJax.typesetClear)MathJax.typesetClear([el]);}catch(_){}
+  el.innerHTML=html;
+  pendingTypeset.add(el);
+  if(!typesetScheduled){typesetScheduled=true;requestAnimationFrame(flushTypeset);}
+}
+
+// ─── Theme (canvas palette) ───────────────────────────────────────────
+const THEMES={
+  night:{ghost:'#5a82a8',ghostA:0.45,final:'#eaf2ff',grid:'#14263a',x:'#ffb347',y:'#1ff0d2',z:'#ff6a9f',n:'#8a9db3'},
+  day:  {ghost:'#7d90a6',ghostA:0.6,final:'#14202e',grid:'#d5dee9',x:'#b45309',y:'#00796b',z:'#c2185b',n:'#6b7a8c'}
+};
+let theme=document.documentElement.getAttribute('data-theme')==='day'?'day':'night';
+let TH=THEMES[theme];
+function setTheme(t){
+  theme=t==='day'?'day':'night';TH=THEMES[theme];
+  document.documentElement.setAttribute('data-theme',theme);
+  try{localStorage.setItem('rot3d-theme',theme);}catch(_){}
+  document.getElementById('btn-night').classList.toggle('active',theme==='night');
+  document.getElementById('btn-day').classList.toggle('active',theme==='day');
+}
+
+// ─── State ────────────────────────────────────────────────────────────
+let state = {
+  rx:30, ry:45, rz:20, tx:60, ty:40, tz:-30, sc:1,
+  order:'XYZ',
+  showGhost:true, depthColor:true, showDots:true, autoRot:false,
+  animState:'idle', animT:0, animStep:0, stepProg:0,
+  animSpeed:1, autoAngle:0, currentShape:'cube', paused:false
+};
+
+// ─── Shapes (vertices + edges) ─────────────────────────────────────────
+const S = 80;
+const SHAPES = {
+  cube: {
+    verts:[[-S,-S,-S],[S,-S,-S],[S,S,-S],[-S,S,-S],
+           [-S,-S, S],[S,-S, S],[S,S, S],[-S,S, S]],
+    edges:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],
+           [0,4],[1,5],[2,6],[3,7]]
+  },
+  tetra: {
+    verts:[[0,S,0],[S,-S,S],[-S,-S,S],[0,-S,-S*1.4]],
+    edges:[[0,1],[0,2],[0,3],[1,2],[2,3],[3,1]]
+  },
+  octa: {
+    verts:[[0,S,0],[0,-S,0],[S,0,0],[-S,0,0],[0,0,S],[0,0,-S]],
+    edges:[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],
+           [2,4],[4,3],[3,5],[5,2]]
+  },
+  axes: {
+    verts:[[0,0,0],[S*1.4,0,0],[0,S*1.4,0],[0,0,S*1.4],
+           [-S*0.6,0,0],[0,-S*0.6,0],[0,0,-S*0.6]],
+    edges:[[0,1],[0,2],[0,3],[0,4],[0,5],[0,6]],
+    edgeColors:['x','y','z','x','y','z']   // theme keys (x/y/z axis colours)
+  },
+  house: {
+    verts:[[-S,-S,-S],[S,-S,-S],[S,S,-S],[-S,S,-S],
+           [-S,-S, S],[S,-S, S],[S,S, S],[-S,S, S],
+           [0,S*1.7,0]],
+    edges:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],
+           [0,4],[1,5],[2,6],[3,7],
+           [2,8],[3,8],[6,8],[7,8]]
+  }
+};
+
+// ─── Matrix Math ───────────────────────────────────────────────────────
+function mat4id() {
+  return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+}
+
+function mat4mul(A, B) {
+  const C = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  for(let i=0;i<4;i++) for(let j=0;j<4;j++)
+    for(let k=0;k<4;k++) C[i][j] += A[i][k]*B[k][j];
+  return C;
+}
+
+function mat4mulv(M, v) {
+  return M.map(row => row.reduce((s,m,k)=>s+m*v[k], 0));
+}
+
+function det4(M) {
+  const m=M; const s=(i,j)=>{
+    const sub=M.filter((_,r)=>r!==i).map(r=>r.filter((_,c)=>c!==j));
+    return sub[0][0]*(sub[1][1]*sub[2][2]-sub[1][2]*sub[2][1])
+          -sub[0][1]*(sub[1][0]*sub[2][2]-sub[1][2]*sub[2][0])
+          +sub[0][2]*(sub[1][0]*sub[2][1]-sub[1][1]*sub[2][0]);
+  };
+  return m[0][0]*s(0,0)-m[0][1]*s(0,1)+m[0][2]*s(0,2)-m[0][3]*s(0,3);
+}
+
+function makeRx(deg) {
+  const a=deg*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[1,0,0,0],[0,c,-s,0],[0,s,c,0],[0,0,0,1]];
+}
+function makeRy(deg) {
+  const a=deg*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[c,0,s,0],[0,1,0,0],[-s,0,c,0],[0,0,0,1]];
+}
+function makeRz(deg) {
+  const a=deg*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[c,-s,0,0],[s,c,0,0],[0,0,1,0],[0,0,0,1]];
+}
+function makeT(tx,ty,tz) {
+  return [[1,0,0,tx],[0,1,0,ty],[0,0,1,tz],[0,0,0,1]];
+}
+function makeS(s) {
+  return [[s,0,0,0],[0,s,0,0],[0,0,s,0],[0,0,0,1]];
+}
+
+function getCombined() {
+  const Rx=makeRx(state.rx), Ry=makeRy(state.ry), Rz=makeRz(state.rz);
+  const T=makeT(state.tx,state.ty,state.tz), Sc=makeS(state.sc);
+  const orders = {
+    'XYZ': mat4mul(mat4mul(Rz, Ry), Rx),
+    'ZYX': mat4mul(mat4mul(Rx, Ry), Rz),
+    'YXZ': mat4mul(mat4mul(Rz, Rx), Ry),
+    'ZXY': mat4mul(mat4mul(Ry, Rx), Rz),
+  };
+  const Rot = orders[state.order] || orders['XYZ'];
+  return { Rx, Ry, Rz, T, Sc, M: mat4mul(T, mat4mul(Rot, Sc)) };
+}
+
+// ─── Animation ─────────────────────────────────────────────────────────
+function lerpMat(A, B, t) {
+  return A.map((row,i)=>row.map((v,j)=>v+(B[i][j]-v)*t));
+}
+
+function getAnimMat() {
+  const {M, Sc, T, Rx, Ry, Rz} = getCombined();
+  const orders = {
+    'XYZ': mat4mul(mat4mul(makeRz(state.rz), makeRy(state.ry)), makeRx(state.rx)),
+    'ZYX': mat4mul(mat4mul(makeRx(state.rx), makeRy(state.ry)), makeRz(state.rz)),
+    'YXZ': mat4mul(mat4mul(makeRz(state.rz), makeRx(state.rx)), makeRy(state.ry)),
+    'ZXY': mat4mul(mat4mul(makeRy(state.ry), makeRx(state.rx)), makeRz(state.rz)),
+  };
+  const Rot = orders[state.order];
+  const ScaleOnly = Sc;
+  const RotApplied = mat4mul(Rot, Sc);
+  const {animStep:step, stepProg:t} = state;
+
+  if(step===0) return mat4id();
+  if(step===1) return lerpMat(mat4id(), ScaleOnly, t);
+  if(step===2) return lerpMat(ScaleOnly, RotApplied, t);
+  if(step===3) return lerpMat(RotApplied, M, t);
+  return M;
+}
+
+let lastTs = null;
+const STEP_DUR = 1.4;
+
+function animFrame(ts) {
+  if(!lastTs) lastTs = ts;
+  const dt = (ts - lastTs)/1000;
+  lastTs = ts;
+
+  if(state.autoRot) { state.autoAngle = (state.autoAngle||0) + dt*30; }
+
+  if(state.animState==='running' && !state.paused) {
+    state.stepProg += dt * state.animSpeed / STEP_DUR;
+    if(state.stepProg >= 1) {
+      state.stepProg = 0;
+      state.animStep++;
+      if(state.animStep > 3) {
+        state.animStep = 3; state.stepProg = 1;
+        state.animState = 'done';
+        setStatus('COMPLETE ✓');
+        document.getElementById('aprog').style.width = '100%';
+      }
+    }
+    const prog = Math.min(100, ((state.animStep-1 + state.stepProg)/3)*100);
+    document.getElementById('aprog').style.width = prog+'%';
+    const labels = ['─','SCALING…','ROTATING…','TRANSLATING…','DONE'];
+    if(state.animState==='running') setStatus(labels[Math.min(state.animStep,4)]);
+  }
+
+  draw();
+  requestAnimationFrame(animFrame);
+}
+
+function runAnim() {
+  if(state.animState==='done'){ resetAnim(); }
+  state.animState='running'; state.animStep=1; state.stepProg=0; lastTs=null; state.paused=false;
+  setStatus('SCALING…');
+}
+function resetAnim() {
+  state.animState='idle'; state.animStep=0; state.stepProg=0; lastTs=null; state.paused=false;
+  document.getElementById('aprog').style.width='0%';
+  setStatus('IDLE');
+}
+function stepAnim() {
+  state.paused=true; state.animState='paused';
+  state.stepProg=1;
+  if(state.animStep<3) state.animStep++;
+  else state.animStep=3;
+  const labels=['IDENTITY','SCALED','ROTATED','TRANSLATED'];
+  setStatus(labels[state.animStep]);
+}
+function togglePause() {
+  if(state.animState==='idle') return;
+  state.paused = !state.paused;
+  if(!state.paused) { state.animState='running'; lastTs=null; }
+  setStatus(state.paused?'PAUSED':'RUNNING…');
+}
+function setStatus(s) { document.getElementById('status').textContent = s; }
+
+// ─── Canvas / Rendering ────────────────────────────────────────────────
+const canvas = document.getElementById('c3d');
+const ctx = canvas.getContext('2d');
+const FOCAL = 620, CAMD = 620;
+
+function resize() {
+  const a = canvas.parentElement;
+  canvas.width = Math.max(1, a.clientWidth);
+  canvas.height = Math.max(1, a.clientHeight);
+}
+
+function project(x, y, z) {
+  const d = z + CAMD;
+  if(d < 1) return null;
+  const f = FOCAL / d;
+  return [x*f + canvas.width/2, -y*f + canvas.height/2, z];
+}
+
+function drawShape3D(verts, edges, mat, color, alpha=1, edgeColors=null) {
+  const tverts = verts.map(v => mat4mulv(mat, [...v,1]));
+  const autoMat = state.autoRot ? makeRy(state.autoAngle) : mat4id();
+
+  edges.forEach((e,ei) => {
+    const a3 = mat4mulv(autoMat, tverts[e[0]]);
+    const b3 = mat4mulv(autoMat, tverts[e[1]]);
+    const pa = project(a3[0],a3[1],a3[2]);
+    const pb = project(b3[0],b3[1],b3[2]);
+    if(!pa||!pb) return;
+
+    let c = edgeColors ? edgeColors[Math.min(ei,edgeColors.length-1)] : color;
+    let a = alpha;
+    if(state.depthColor) {
+      const zMid = (a3[2]+b3[2])/2;
+      const br = Math.max(0.15, Math.min(1, 1 - zMid/(CAMD*1.6)));
+      a *= br;
+    }
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = c;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pa[0],pa[1]); ctx.lineTo(pb[0],pb[1]);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  if(state.showDots) {
+    tverts.forEach(v => {
+      const vr = mat4mulv(autoMat, v);
+      const p = project(vr[0],vr[1],vr[2]);
+      if(!p) return;
+      let a = alpha;
+      if(state.depthColor) a *= Math.max(0.1, 1-vr[2]/(CAMD*1.4));
+      ctx.save(); ctx.globalAlpha=a;
+      ctx.beginPath(); ctx.arc(p[0],p[1],3,0,Math.PI*2);
+      ctx.fillStyle = color; ctx.fill();
+      ctx.restore();
+    });
+  }
+}
+
+function draw() {
+  if(!canvas.width) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // subtle grid
+  ctx.save(); ctx.strokeStyle=TH.grid; ctx.lineWidth=1;
+  const cx=canvas.width/2, cy=canvas.height/2;
+  for(let i=-30;i<=30;i++){
+    ctx.beginPath(); ctx.moveTo(cx+i*50,0); ctx.lineTo(cx+i*50,canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,cy+i*50); ctx.lineTo(canvas.width,cy+i*50); ctx.stroke();
+  }
+  ctx.restore();
+
+  const sh = SHAPES[state.currentShape];
+  const {M} = getCombined();
+  const shEdgeCols = sh.edgeColors ? sh.edgeColors.map(k=>TH[k]) : null;
+
+  // ghost (original)
+  if(state.showGhost) {
+    drawShape3D(sh.verts, sh.edges, mat4id(), TH.ghost, TH.ghostA, shEdgeCols?shEdgeCols.map(()=>TH.ghost):null);
+  }
+
+  // animated shape
+  const animMat = (state.animState==='idle') ? M : getAnimMat();
+  drawShape3D(sh.verts, sh.edges, animMat, TH.final, 0.95, shEdgeCols);
+
+  updateReadouts(M);
+}
+
+// ─── UI Updates ───────────────────────────────────────────────────────
+function fmt(v,d=3) { return (v>=0?'+':'')+v.toFixed(d); }
+function fmtN(v,d=3) { return v.toFixed(d); }
+
+// label is a LaTeX string (without delimiters)
+function buildMat4HTML(M, cls, label) {
+  const colorCls = (i,j) => {
+    if(j===3 && i<3) return 'hi';
+    if(i===j) return 'hi';
+    if(Math.abs(M[i][j]) < 0.0001) return 'dim';
+    return '';
+  };
+  let h = `<div class="mat4 ${cls}">`;
+  h += `<div class="mname">\\(${label}\\)</div>`;
+  M.forEach((row,i) => {
+    h += '<div class="mrow">';
+    row.forEach((v,j) => {
+      const cc = colorCls(i,j);
+      const isId = (i===j && Math.abs(v-1)<0.0001) || (i!==j && Math.abs(v)<0.0001 && j!==3);
+      h += `<span class="mc ${isId&&cc!='hi'?'id':cc}">${fmtN(v,2)}</span>`;
+    });
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function updateReadouts(M) {
+  const {Rx,Ry,Rz,T,Sc} = getCombined();
+  const sh = SHAPES[state.currentShape];
+  const p0 = sh.verts[0];
+  const tp = mat4mulv(M, [...p0,1]);
+
+  document.getElementById('op-x').textContent = fmtN(p0[0],2);
+  document.getElementById('op-y').textContent = fmtN(p0[1],2);
+  document.getElementById('op-z').textContent = fmtN(p0[2],2);
+  document.getElementById('tp-x').textContent = fmtN(tp[0],2);
+  document.getElementById('tp-y').textContent = fmtN(tp[1],2);
+  document.getElementById('tp-z').textContent = fmtN(tp[2],2);
+
+  document.getElementById('d-rx').textContent = fmtN(det4(Rx),4);
+  document.getElementById('d-ry').textContent = fmtN(det4(Ry),4);
+  document.getElementById('d-rz').textContent = fmtN(det4(Rz),4);
+  document.getElementById('d-t').textContent  = fmtN(det4(T),4);
+  document.getElementById('d-m').textContent  = fmtN(det4(M),4);
+  document.getElementById('rot-order').textContent = state.order;
+  document.getElementById('sv').textContent = fmtN(state.sc,3)+'×';
+
+  setHTML('combined-mat', buildMat4HTML(M,'cf','M=T\\,R\\,S'));
+
+  let html = '';
+  html += buildMat4HTML(Sc,'cy','S\\ (\\mathrm{scale})');
+  html += '<div class="op">×</div>';
+  const lx='R_x('+fmtN(state.rx,0)+'^\\circ)', ly='R_y('+fmtN(state.ry,0)+'^\\circ)', lz='R_z('+fmtN(state.rz,0)+'^\\circ)';
+  if(state.order==='XYZ'||state.order==='YXZ') {
+    html += buildMat4HTML(Rx,'cx',lx);
+    html += '<div class="op">×</div>';
+    html += buildMat4HTML(Ry,'cy',ly);
+    html += '<div class="op">×</div>';
+    html += buildMat4HTML(Rz,'cz',lz);
+  } else {
+    html += buildMat4HTML(Rz,'cz',lz);
+    html += '<div class="op">×</div>';
+    html += buildMat4HTML(Ry,'cy',ly);
+    html += '<div class="op">×</div>';
+    html += buildMat4HTML(Rx,'cx',lx);
+  }
+  html += '<div class="op">×</div>';
+  html += buildMat4HTML(T,'cy','T(t_x,t_y,t_z)');
+  html += '<div class="eq">=</div>';
+  html += buildMat4HTML(M,'cf','M\\ (\\mathrm{combined})');
+  setHTML('mat-strip', html);
+}
+
+// ─── Controls ─────────────────────────────────────────────────────────
+function sync() {
+  state.rx = +document.getElementById('rx').value;
+  state.ry = +document.getElementById('ry').value;
+  state.rz = +document.getElementById('rz').value;
+  state.tx = +document.getElementById('tx').value;
+  state.ty = +document.getElementById('ty').value;
+  state.tz = +document.getElementById('tz').value;
+  state.sc = +document.getElementById('sc').value;
+
+  document.getElementById('vrx').textContent = state.rx.toFixed(0)+'°';
+  document.getElementById('vry').textContent = state.ry.toFixed(0)+'°';
+  document.getElementById('vrz').textContent = state.rz.toFixed(0)+'°';
+  document.getElementById('vtx').textContent = state.tx.toFixed(0);
+  document.getElementById('vty').textContent = state.ty.toFixed(0);
+  document.getElementById('vtz').textContent = state.tz.toFixed(0);
+  document.getElementById('vsc').textContent = state.sc.toFixed(2)+'×';
+}
+function syncSpd() {
+  state.animSpeed = +document.getElementById('aspd').value;
+  document.getElementById('vspd').textContent = state.animSpeed.toFixed(1)+'×';
+}
+function setShape(el, s) {
+  state.currentShape = s;
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function setOrder(el, o) {
+  state.order = o;
+  document.querySelectorAll('.obtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function toggle(el, key) {
+  state[key] = !state[key];
+  el.classList.toggle('on', state[key]);
+}
+function switchTab(id) {
+  document.querySelectorAll('.htab').forEach((t,i)=>{
+    const ids=['sim','physics','manual'];
+    t.classList.toggle('active', ids[i]===id);
+  });
+  document.querySelectorAll('.tpage').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tpage-'+id).classList.add('active');
+  if(id==='sim') resize();
+}
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const nudge = (id, val, min, max) => {
+    const el = document.getElementById(id);
+    el.value = Math.max(min, Math.min(max, +el.value+val));
+    sync();
+  };
+  if(e.code==='Space'){e.preventDefault(); state.paused?togglePause():runAnim();}
+  if(e.code==='KeyR') resetAnim();
+  if(e.code==='KeyS') stepAnim();
+  if(e.key==='X') nudge('rx', 5,-180,180);
+  if(e.key==='x') nudge('rx',-5,-180,180);
+  if(e.key==='Y') nudge('ry', 5,-180,180);
+  if(e.key==='y') nudge('ry',-5,-180,180);
+  if(e.key==='Z') nudge('rz', 5,-180,180);
+  if(e.key==='z') nudge('rz',-5,-180,180);
+  if(e.code==='ArrowRight') nudge('tx',10,-150,150);
+  if(e.code==='ArrowLeft')  nudge('tx',-10,-150,150);
+  if(e.code==='ArrowUp')    nudge('ty',10,-150,150);
+  if(e.code==='ArrowDown')  nudge('ty',-10,-150,150);
+});
+
+// ─── Init ──────────────────────────────────────────────────────────────
+window.addEventListener('resize', ()=>{ resize(); });
+document.getElementById('btn-night').classList.toggle('active',theme==='night');
+document.getElementById('btn-day').classList.toggle('active',theme==='day');
+resize();
+sync(); syncSpd();
+requestAnimationFrame(animFrame);
+</script>
+</body>
+</html>

@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feynman Path Integral — Monte Carlo Simulator</title>
+
+<!-- Apply saved theme before first paint (avoids flash) -->
+<script>
+(function(){
+  var t='night';
+  try{ var s=localStorage.getItem('pimc-theme'); if(s==='day'||s==='night') t=s; }catch(e){}
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+
+<!-- MathJax: typesetting is explicit (startup.typeset:false) so dynamic content can be re-typeset on demand -->
+<script>
+window.__mjReady = false;
+// Safe, queued typesetting helper used for static AND dynamically generated content
+window.mjTypeset = function(el){
+  if(!window.__mjReady || !window.MathJax || !MathJax.typesetPromise) return; // full-body pass runs once MathJax is ready
+  MathJax.startup.promise = MathJax.startup.promise
+    .then(function(){ return MathJax.typesetPromise(el ? [el] : undefined); })
+    .catch(function(e){ console.warn('MathJax typeset error:', e && e.message ? e.message : e); });
+};
+window.MathJax = {
+  tex: { inlineMath:[['$','$'],['\\(','\\)']], displayMath:[['$$','$$'],['\\[','\\]']], tags:'none' },
+  chtml: { scale: 1.08 },
+  options: { skipHtmlTags:['script','noscript','style','textarea','pre'] },
+  startup: {
+    typeset: false,
+    pageReady: function(){
+      return MathJax.startup.defaultPageReady().then(function(){
+        window.__mjReady = true;
+        window.mjTypeset(document.body);
+      });
+    }
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ════════════════════════════════════════════════
+   THEME TOKENS
+   ════════════════════════════════════════════════ */
+:root, :root[data-theme="night"] {
+  color-scheme: dark;
+  --bg:    #0b1220;   /* page */
+  --bg2:   #111a2b;   /* header / sidebar / panels */
+  --bg3:   #172236;   /* cards / equation boxes */
+  --bg4:   #0d1524;   /* inputs */
+  --bdr:   #2a3a55;
+  --bdr2:  #1f2d45;
+  --t:     #e8eef7;   /* primary text */
+  --t2:    #bac8dc;   /* secondary text */
+  --t3:    #8fa1bb;   /* muted text */
+  --accent:#38bdf8;
+  --amber: #fbbf24;
+  --green: #34d399;
+  --red:   #fb7185;
+  --purple:#c084fc;
+  --accent-soft: rgba(56,189,248,.14);
+  --green-soft:  rgba(52,211,153,.14);
+  --red-soft:    rgba(251,113,133,.14);
+  --amber-soft:  rgba(251,191,36,.14);
+  --code-bg: #0d1524;
+  --code-fg: #6ee7b7;
+  --sel-bg: #38bdf8;  --sel-fg: #06121f;
+  --chip: rgba(11,18,32,.80);
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+  /* canvas palette */
+  --cv-bg:  #08101d;
+  --cv-bg2: #0d1626;
+  --cv-grid:#1a2840;
+  --cv-zero:#37507a;
+  --cv-axis:#6b82a3;
+  --cv-tick:#c0cde0;
+  --cv-label:#9db0cb;
+  --heat:   56,189,248;
+  --ps1: 56,189,248;  --ps2: 192,132,252;  --ps3: 251,113,133;
+  --bar-a: 56,189,248; --bar-b: 129,140,248;
+}
+:root[data-theme="day"] {
+  color-scheme: light;
+  --bg:    #eef2f7;
+  --bg2:   #f8fafc;
+  --bg3:   #ffffff;
+  --bg4:   #ffffff;
+  --bdr:   #c3cfdf;
+  --bdr2:  #dbe3ee;
+  --t:     #0f172a;
+  --t2:    #334155;
+  --t3:    #52627a;
+  --accent:#0369a1;
+  --amber: #b45309;
+  --green: #15803d;
+  --red:   #be123c;
+  --purple:#7e22ce;
+  --accent-soft: rgba(3,105,161,.10);
+  --green-soft:  rgba(21,128,61,.10);
+  --red-soft:    rgba(190,18,60,.08);
+  --amber-soft:  rgba(180,83,9,.10);
+  --code-bg: #f1f5f9;
+  --code-fg: #166534;
+  --sel-bg: #0369a1;  --sel-fg: #ffffff;
+  --chip: rgba(255,255,255,.88);
+  --shadow: 0 1px 2px rgba(15,23,42,.10);
+  --cv-bg:  #ffffff;
+  --cv-bg2: #fbfcfe;
+  --cv-grid:#e3e9f1;
+  --cv-zero:#94a3b8;
+  --cv-axis:#64748b;
+  --cv-tick:#334155;
+  --cv-label:#475569;
+  --heat:   3,105,161;
+  --ps1: 3,105,161;  --ps2: 126,34,206;  --ps3: 190,18,60;
+  --bar-a: 3,105,161; --bar-b: 79,70,229;
+}
+
+/* ════════════════════════════════════════════════
+   BASE
+   ════════════════════════════════════════════════ */
+:root { --hdr-h:60px; --tab-h:44px; --chrome: calc(var(--hdr-h) + var(--tab-h)); }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body { background:var(--bg); color:var(--t); font-family:'Inter','Segoe UI',system-ui,sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+::selection { background:var(--sel-bg); color:var(--sel-fg); }
+mjx-container { color:inherit; }
+
+/* HEADER */
+#hdr { height:var(--hdr-h); background:var(--bg2); border-bottom:1px solid var(--bdr);
+  display:flex; align-items:center; padding:0 20px; gap:18px; flex-shrink:0; }
+#hdr-title { font-size:18px; font-weight:700; color:var(--accent); letter-spacing:.02em; white-space:nowrap; }
+#hdr-sub { font-size:12px; font-weight:500; color:var(--t3); letter-spacing:.06em; margin-top:1px; }
+#hdr-badge { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600;
+  padding:5px 12px; border-radius:999px; border:1px solid var(--bdr); white-space:nowrap; }
+#hdr-badge.ready { color:var(--green); border-color:var(--green); background:var(--green-soft); }
+#hdr-badge.run   { color:var(--green); border-color:var(--green); background:var(--green-soft); }
+#hdr-badge.pause { color:var(--amber); border-color:var(--amber); background:var(--amber-soft); }
+
+/* THEME SWITCH */
+#theme-switch { display:flex; border:1px solid var(--bdr); border-radius:8px; overflow:hidden; flex-shrink:0; }
+.theme-btn { font-family:inherit; font-size:13px; font-weight:600; padding:7px 14px; cursor:pointer;
+  background:var(--bg3); color:var(--t2); border:none; transition:background .15s,color .15s; }
+.theme-btn + .theme-btn { border-left:1px solid var(--bdr); }
+.theme-btn:hover { color:var(--t); }
+.theme-btn.on { background:var(--accent); color:var(--sel-fg); }
+.theme-btn:focus-visible, .btn:focus-visible, .tab:focus-visible, select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* TABS */
+#tabs { height:var(--tab-h); background:var(--bg2); border-bottom:1px solid var(--bdr);
+  display:flex; align-items:stretch; padding:0 14px; flex-shrink:0; }
+.tab { font-size:13px; font-weight:600; letter-spacing:.07em; padding:0 20px; cursor:pointer;
+  color:var(--t2); border-bottom:3px solid transparent; display:flex; align-items:center;
+  transition:color .15s,border-color .15s; text-transform:uppercase; user-select:none; }
+.tab:hover { color:var(--t); }
+.tab.on { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* PANELS */
+.panel { display:none; height:calc(100vh - var(--chrome)); overflow:hidden; }
+.panel.on { display:flex; flex-direction:column; }
+.panel.doc-panel { overflow-y:auto; }
+.panel.doc-panel.on { display:block; }
+
+/* ── THEORY / HELP ── */
+.theory-body { max-width:940px; margin:0 auto; padding:36px 28px 72px; }
+.th-section { margin-bottom:40px; }
+.th-h { font-size:14px; font-weight:700; color:var(--amber); text-transform:uppercase;
+  letter-spacing:.09em; margin-bottom:16px; padding-bottom:9px; border-bottom:1px solid var(--bdr); }
+.th-p { color:var(--t2); line-height:1.85; margin-bottom:14px; font-size:16.5px; }
+.th-p strong { color:var(--t); font-weight:600; }
+.th-p em { color:var(--t); }
+.eq-box { background:var(--bg3); border:1px solid var(--bdr); border-left:4px solid var(--accent);
+  padding:16px 22px; margin:16px 0; border-radius:6px; overflow-x:auto; color:var(--t); font-size:16.5px; box-shadow:var(--shadow); }
+.eq-lbl { font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase;
+  letter-spacing:.08em; margin-bottom:8px; }
+.th-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
+.th-card { background:var(--bg3); border:1px solid var(--bdr); border-radius:6px; padding:16px 18px; box-shadow:var(--shadow); }
+.th-card-h { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:9px;
+  text-transform:uppercase; letter-spacing:.07em; }
+.th-card-p { font-size:15.5px; color:var(--t2); line-height:1.75; }
+.th-card-p strong { color:var(--t); }
+.alg-box { background:var(--code-bg); border:1px solid var(--bdr); border-left:4px solid var(--green);
+  padding:16px 22px; margin:16px 0; border-radius:6px; font-family:'JetBrains Mono',monospace;
+  font-size:14px; color:var(--code-fg); line-height:1.95; overflow-x:auto; }
+.alg-comment { color:var(--t3); }
+.help-list { color:var(--t2); font-size:16px; line-height:1.85; padding-left:22px; }
+.help-list li { margin-bottom:6px; }
+.help-list strong { color:var(--t); }
+kbd, .kv { font-family:'JetBrains Mono',monospace; font-size:.9em; background:var(--bg3);
+  border:1px solid var(--bdr); border-radius:4px; padding:1px 6px; color:var(--t); }
+
+/* ── SIMULATION ── */
+#sim-panel { display:none; }
+#sim-panel.on { display:grid; grid-template-columns:304px 1fr; height:calc(100vh - var(--chrome)); }
+
+#ctrl { background:var(--bg2); border-right:1px solid var(--bdr);
+  overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:10px; }
+.cg { background:var(--bg3); border:1px solid var(--bdr2); border-radius:6px; padding:12px; box-shadow:var(--shadow); }
+.cg-h { font-size:12px; font-weight:700; color:var(--accent); letter-spacing:.09em;
+  text-transform:uppercase; margin-bottom:11px; }
+.cr { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.cl { font-size:13.5px; font-weight:500; color:var(--t2); flex:0 0 116px; line-height:1.3; }
+.cv { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:var(--amber);
+  flex:0 0 46px; text-align:right; }
+
+input[type=range] { -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:5px;
+  background:var(--bdr); border-radius:3px; outline:none; cursor:pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px;
+  border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg3);
+  box-shadow:0 0 0 1px var(--accent); transition:transform .1s; }
+input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.2); }
+input[type=range]::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:var(--accent);
+  border:2px solid var(--bg3); cursor:pointer; }
+input[type=range]::-moz-range-track { height:5px; background:var(--bdr); border-radius:3px; }
+input[type=range]:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+
+select { background:var(--bg4); border:1px solid var(--bdr); color:var(--t);
+  font-family:inherit; font-size:14px; font-weight:500; padding:8px 10px;
+  border-radius:6px; width:100%; outline:none; cursor:pointer; }
+select:focus { border-color:var(--accent); }
+option { background:var(--bg4); color:var(--t); }
+
+.btns { display:flex; gap:7px; }
+.btn { flex:1; padding:10px 4px; border-radius:6px; font-family:inherit; font-size:13px; font-weight:700;
+  letter-spacing:.04em; cursor:pointer; transition:filter .15s, box-shadow .15s; background:var(--bg4); }
+.btn:hover { filter:brightness(1.12); }
+.btn-run { color:var(--green); border:1px solid var(--green); background:var(--green-soft); }
+.btn-run.on { background:var(--green); color:var(--bg); }
+.btn-stp { color:var(--red);   border:1px solid var(--red);   background:var(--red-soft); }
+.btn-rst { color:var(--amber); border:1px solid var(--amber); background:var(--amber-soft); }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.stb { background:var(--bg4); border:1px solid var(--bdr2); border-radius:5px; padding:7px 9px; }
+.stl { font-size:12px; font-weight:500; color:var(--t3); margin-bottom:2px; }
+.stv { font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600; color:var(--accent); }
+.stv.amber { color:var(--amber); }
+.stv.green { color:var(--green); }
+#st-exact { margin-top:9px; font-size:13.5px; color:var(--amber); line-height:1.5; overflow-x:auto; }
+
+.trow { display:flex; align-items:center; gap:9px; margin-bottom:7px; }
+input[type=checkbox] { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; flex-shrink:0; }
+.tl { font-size:14px; font-weight:500; color:var(--t2); cursor:pointer; }
+
+/* Main view */
+#main-view { display:grid; grid-template-rows:1fr 210px; overflow:hidden; min-width:0; }
+#path-wrap { position:relative; background:var(--cv-bg); overflow:hidden; min-height:0; }
+#pathCanvas { display:block; width:100%; height:100%; }
+.overlay-chip { background:var(--chip); border:1px solid var(--bdr2); border-radius:5px; pointer-events:none; }
+#canvas-info { position:absolute; top:8px; right:12px; text-align:right; padding:5px 10px;
+  font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--t2); line-height:1.7; }
+#canvas-info span { color:var(--accent); font-weight:600; }
+#path-label { position:absolute; top:8px; left:12px; padding:5px 10px; font-size:12px; font-weight:700;
+  color:var(--t2); letter-spacing:.08em; text-transform:uppercase; }
+#path-legend { position:absolute; bottom:8px; left:14px; display:flex; align-items:center;
+  gap:18px; pointer-events:none; font-size:12.5px; font-weight:500; color:var(--t2); }
+.leg { display:flex; align-items:center; gap:7px; }
+.leg-line { width:28px; height:3px; border-radius:2px; }
+.lg-low  { background:rgb(var(--ps1)); }
+.lg-high { background:linear-gradient(90deg, rgb(var(--ps2)), rgb(var(--ps3))); }
+.lg-cl   { background:var(--amber); height:4px; }
+#eqm-badge { position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-size:12px; font-weight:700; letter-spacing:.06em; color:var(--amber);
+  background:var(--chip); border:1px solid var(--amber);
+  padding:4px 12px; border-radius:999px; pointer-events:none; opacity:0; transition:opacity .5s; }
+
+#bot-panels { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--bdr); min-height:0; }
+.bp { position:relative; background:var(--cv-bg2); overflow:hidden; min-width:0; }
+.bp:first-child { border-right:1px solid var(--bdr); }
+.bp-lbl { position:absolute; top:8px; left:12px; font-size:12px; font-weight:700;
+  color:var(--t2); letter-spacing:.08em; text-transform:uppercase; z-index:2; pointer-events:none; }
+.bp canvas { display:block; width:100%; height:100%; }
+
+/* ── ANALYSIS ── */
+#anal-panel { display:none; }
+#anal-panel.on { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr;
+  height:calc(100vh - var(--chrome)); gap:1px; background:var(--bdr); }
+.ap { background:var(--cv-bg2); position:relative; overflow:hidden; min-width:0; min-height:0; }
+.ap-title { position:absolute; top:10px; left:14px; font-size:13px; font-weight:700;
+  color:var(--amber); letter-spacing:.05em; z-index:2; pointer-events:none; }
+.ap canvas { display:block; width:100%; height:100%; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:9px; height:9px; }
+::-webkit-scrollbar-track { background:var(--bg2); }
+::-webkit-scrollbar-thumb { background:var(--bdr); border-radius:5px; border:2px solid var(--bg2); }
+::-webkit-scrollbar-thumb:hover { background:var(--t3); }
+* { scrollbar-color:var(--bdr) var(--bg2); scrollbar-width:thin; }
+
+@media (max-width:1000px){
+  #sim-panel.on { grid-template-columns:262px 1fr; }
+  .cl { flex-basis:96px; }
+  .th-grid { grid-template-columns:1fr; }
+  #hdr-sub { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div>
+    <div id="hdr-title">$\langle x|e^{-HT}|x\rangle$ — FEYNMAN PATH INTEGRAL</div>
+    <div id="hdr-sub">MONTE CARLO SIMULATOR · EUCLIDEAN PIMC · $\hbar = m = 1$</div>
+  </div>
+  <div id="hdr-badge" class="ready">● READY</div>
+  <div id="theme-switch" role="group" aria-label="Color theme">
+    <button class="theme-btn" id="btn-night" type="button" aria-pressed="true">☾ Night</button>
+    <button class="theme-btn" id="btn-day" type="button" aria-pressed="false">★ Day</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div id="tabs" role="tablist">
+  <div class="tab on" data-tab="theory" role="tab" tabindex="0">Theory</div>
+  <div class="tab" data-tab="sim" role="tab" tabindex="0">Simulation</div>
+  <div class="tab" data-tab="anal" role="tab" tabindex="0">Analysis</div>
+  <div class="tab" data-tab="help" role="tab" tabindex="0">Help</div>
+</div>
+
+<!-- THEORY PANEL -->
+<div class="panel doc-panel on" id="theory-panel">
+<div class="theory-body">
+
+<div class="th-section">
+  <div class="th-h">I. The Path Integral Formulation</div>
+  <div class="th-p">
+    In 1948, Richard Feynman reformulated quantum mechanics using a principle that particles
+    do not travel a single definite path between two points — instead, they simultaneously
+    explore <em>all possible paths</em>. The probability amplitude for propagation from
+    $(x_a, t_a)$ to $(x_b, t_b)$ is computed by summing the phase factor $e^{iS/\hbar}$
+    over every conceivable path, where $S$ is the classical action functional.
+  </div>
+  <div class="eq-box">
+    <div class="eq-lbl">Feynman Propagator (Real Time)</div>
+    $$K(x_b, t_b;\, x_a, t_a) = \int_{x(t_a)=x_a}^{x(t_b)=x_b} \mathcal{D}[x(t)]\; e^{\,iS[x]/\hbar}$$
+  </div>
+  <div class="th-p">
+    Each path $x(t)$ receives a complex amplitude $e^{iS/\hbar}$.
+    Paths near the <strong>classical trajectory</strong> (which extremizes $S$) have nearby
+    phases that add <em>constructively</em>, while random paths cancel by destructive interference.
+    This recovers classical mechanics in the $\hbar \to 0$ limit.
+  </div>
+</div>
+
+<div class="th-section">
+  <div class="th-h">II. The Classical Action Functional</div>
+  <div class="eq-box">
+    <div class="eq-lbl">Action</div>
+    $$S[x(t)] = \int_{t_a}^{t_b} \mathcal{L}(x, \dot{x},t)\,dt = \int_{t_a}^{t_b}\!\left[\frac{m\dot{x}^2}{2} - V(x)\right]dt$$
+  </div>
+  <div class="th-p">
+    The principle of stationary action $\delta S = 0$ selects the classical path satisfying the
+    Euler–Lagrange equation $m\ddot{x} = -\partial V/\partial x$.
+    Quantum corrections arise from paths with $S \sim \hbar$ around the classical extremum.
+  </div>
+</div>
+
+<div class="th-section">
+  <div class="th-h">III. Wick Rotation & Euclidean Path Integrals</div>
+  <div class="th-p">
+    For Monte Carlo sampling, we perform a <strong>Wick rotation</strong> to imaginary time
+    $\tau = it$, transforming the oscillatory factor $e^{iS/\hbar}$ into a real
+    Boltzmann-like weight $e^{-S_E/\hbar}$ — the key to PIMC.
+  </div>
+  <div class="eq-box">
+    <div class="eq-lbl">Euclidean Action</div>
+    $$S_E[x(\tau)] = \int_0^{\beta\hbar}\!\left[\frac{m}{2}\!\left(\frac{dx}{d\tau}\right)^{\!2} + V(x)\right]d\tau, \qquad \beta = \frac{1}{k_BT}$$
+  </div>
+  <div class="eq-box">
+    <div class="eq-lbl">Euclidean Propagator / Partition Function</div>
+    $$Z = \int \mathcal{D}[x(\tau)]\; e^{-S_E[x]/\hbar} \;=\; \operatorname{Tr}\!\left[e^{-\beta\hat{H}}\right]$$
+  </div>
+  <div class="th-p">
+    At low temperature ($\beta \to \infty$), the dominant contribution comes from
+    the ground state: $Z \to e^{-\beta E_0}$. Path configurations sampled with weight
+    $e^{-S_E}$ give direct access to quantum ground-state properties.
+  </div>
+</div>
+
+<div class="th-section">
+  <div class="th-h">IV. Discretization & Monte Carlo</div>
+  <div class="th-p">
+    The imaginary-time interval $[0,\beta]$ is divided into $N$ slices of width
+    $\varepsilon = \beta/N$. Each path becomes a sequence of positions
+    $\{x_0, x_1, \ldots, x_N\}$.
+  </div>
+  <div class="eq-box">
+    <div class="eq-lbl">Discretized Euclidean Action</div>
+    $$S_E^{(N)} = \sum_{i=0}^{N-1}\left[\frac{m}{2\varepsilon}(x_{i+1}-x_i)^2 + \varepsilon\, V(x_i)\right], \qquad \varepsilon = \frac{\beta}{N}$$
+  </div>
+  <div class="th-p">
+    The <strong>Metropolis algorithm</strong> generates paths distributed according to
+    $e^{-S_E}$. Each step proposes a displacement of one time slice and accepts or
+    rejects based on the change in local action, visiting only neighboring links.
+  </div>
+  <div class="alg-box">
+    <span class="alg-comment"># Metropolis sweep over all internal slices</span><br>
+    for i in 1 … N-1:<br>
+    &nbsp;&nbsp;x_new = x[i] + δ × Uniform(−1, +1)<br>
+    &nbsp;&nbsp;ΔS = S_local(x_new) − S_local(x[i])<br>
+    &nbsp;&nbsp;if ΔS &lt; 0 or rand() &lt; exp(−ΔS): accept<br>
+    &nbsp;&nbsp;else: reject
+  </div>
+  <div class="eq-box">
+    <div class="eq-lbl">Thermodynamic Energy Estimator</div>
+    $$\langle E \rangle = \frac{N}{2\beta} - \left\langle \frac{1}{N}\sum_{i=0}^{N-1} \frac{m(x_{i+1}-x_i)^2}{2\varepsilon^2}\right\rangle + \left\langle\frac{1}{N}\sum_{i=0}^{N-1}V(x_i)\right\rangle$$
+  </div>
+</div>
+
+<div class="th-section">
+  <div class="th-h">V. Quantum Systems</div>
+  <div class="th-grid">
+    <div class="th-card">
+      <div class="th-card-h">Free Particle</div>
+      <div class="th-card-p">$V(x)=0$. Classical path is straight line. Quantum paths diffuse freely; spread $\propto\sqrt{\beta}$. Ground state is a plane wave.</div>
+    </div>
+    <div class="th-card">
+      <div class="th-card-h">Harmonic Oscillator</div>
+      <div class="th-card-p">$V(x)=\frac{1}{2}m\omega^2 x^2$. Exact ground state energy $E_0=\frac{1}{2}\hbar\omega$. Classical path follows $\sinh(\omega\tau)$; paths form Gaussian distribution.</div>
+    </div>
+    <div class="th-card">
+      <div class="th-card-h">Double Well</div>
+      <div class="th-card-p">$V(x)=\lambda(x^2-a^2)^2$. Quantum tunneling between wells. PIMC captures instanton paths (kink solutions) crossing the barrier.</div>
+    </div>
+    <div class="th-card">
+      <div class="th-card-h">Particle in a Box</div>
+      <div class="th-card-p">$V(x)=0$ for $|x|&lt;L$, $\infty$ otherwise. Paths confined to the box; energy levels $E_n=\frac{n^2\pi^2\hbar^2}{2mL^2}$. Ground state $\psi_0\propto\cos(\pi x/2L)$.</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .theory-body -->
+</div><!-- theory-panel -->
+
+<!-- SIMULATION PANEL -->
+<div class="panel" id="sim-panel">
+  <!-- Controls -->
+  <div id="ctrl">
+
+    <div class="cg">
+      <div class="cg-h">System</div>
+      <select id="sel-sys" aria-label="Physical system">
+        <option value="harmonic">Harmonic Oscillator</option>
+        <option value="doublewell">Double Well</option>
+        <option value="free">Free Particle</option>
+        <option value="box">Particle in Box</option>
+      </select>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Path Ensemble</div>
+      <div class="cr"><span class="cl">Paths</span>
+        <input type="range" id="sl-npaths" min="5" max="60" value="25" step="5">
+        <span class="cv" id="lbl-npaths">25</span></div>
+      <div class="cr"><span class="cl">Time slices $N$</span>
+        <input type="range" id="sl-nslices" min="16" max="100" value="48" step="4">
+        <span class="cv" id="lbl-nslices">48</span></div>
+      <div class="cr"><span class="cl">$\beta$ (inv. temp)</span>
+        <input type="range" id="sl-beta" min="1" max="16" value="6" step="0.5">
+        <span class="cv" id="lbl-beta">6.0</span></div>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Potential Parameters</div>
+      <div class="cr"><span class="cl">$\omega$ (harmonic)</span>
+        <input type="range" id="sl-omega" min="0.2" max="3" value="1" step="0.1">
+        <span class="cv" id="lbl-omega">1.0</span></div>
+      <div class="cr"><span class="cl">$\lambda$ (well depth)</span>
+        <input type="range" id="sl-lambda" min="0.05" max="1.5" value="0.25" step="0.05">
+        <span class="cv" id="lbl-lambda">0.25</span></div>
+      <div class="cr"><span class="cl">$a$ (well pos)</span>
+        <input type="range" id="sl-a" min="0.5" max="3.0" value="1.5" step="0.1">
+        <span class="cv" id="lbl-a">1.5</span></div>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Monte Carlo</div>
+      <div class="cr"><span class="cl">Step size $\delta$</span>
+        <input type="range" id="sl-step" min="0.05" max="2.5" value="0.8" step="0.05">
+        <span class="cv" id="lbl-step">0.80</span></div>
+      <div class="cr"><span class="cl">Speed</span>
+        <input type="range" id="sl-speed" min="1" max="20" value="5" step="1">
+        <span class="cv" id="lbl-speed">5</span></div>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Display</div>
+      <div class="trow"><input type="checkbox" id="ck-classical" checked>
+        <label class="tl" for="ck-classical">Classical path</label></div>
+      <div class="trow"><input type="checkbox" id="ck-density" checked>
+        <label class="tl" for="ck-density">Density heatmap</label></div>
+      <div class="trow"><input type="checkbox" id="ck-slices">
+        <label class="tl" for="ck-slices">Slice markers</label></div>
+      <div class="trow"><input type="checkbox" id="ck-glow" checked>
+        <label class="tl" for="ck-glow">Path glow effect</label></div>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Controls</div>
+      <div class="btns">
+        <button class="btn btn-run" id="btn-run" type="button">▶ Run</button>
+        <button class="btn btn-stp" id="btn-stp" type="button">■ Stop</button>
+        <button class="btn btn-rst" id="btn-rst" type="button">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="cg">
+      <div class="cg-h">Live Statistics</div>
+      <div class="stats">
+        <div class="stb"><div class="stl">Steps</div><div class="stv" id="st-steps">0</div></div>
+        <div class="stb"><div class="stl">Accept %</div><div class="stv green" id="st-accept">—</div></div>
+        <div class="stb"><div class="stl">$\langle E\rangle$</div><div class="stv amber" id="st-energy">—</div></div>
+        <div class="stb"><div class="stl">$\langle S_E\rangle$</div><div class="stv" id="st-action">—</div></div>
+      </div>
+      <div id="st-exact"></div>
+    </div>
+
+  </div><!-- #ctrl -->
+
+  <!-- Main canvas area -->
+  <div id="main-view">
+    <div id="path-wrap">
+      <canvas id="pathCanvas"></canvas>
+      <div id="path-label" class="overlay-chip">PATH ENSEMBLE · $x(\tau)$</div>
+      <div id="canvas-info" class="overlay-chip">
+        System: <span id="ci-sys">HARMONIC</span><br>
+        $\beta$ = <span id="ci-beta">6.0</span> · $N$ = <span id="ci-n">48</span>
+      </div>
+      <div id="eqm-badge">EQUILIBRATING…</div>
+      <div id="path-legend">
+        <div class="leg"><div class="leg-line lg-low"></div><span>Low action</span></div>
+        <div class="leg"><div class="leg-line lg-high"></div><span>High action</span></div>
+        <div class="leg"><div class="leg-line lg-cl"></div><span>Classical path</span></div>
+      </div>
+    </div>
+    <div id="bot-panels">
+      <div class="bp">
+        <div class="bp-lbl">Potential $V(x)$</div>
+        <canvas id="potCanvas"></canvas>
+      </div>
+      <div class="bp">
+        <div class="bp-lbl">Position density $\rho(x)$</div>
+        <canvas id="densCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+</div><!-- sim-panel -->
+
+<!-- ANALYSIS PANEL -->
+<div class="panel" id="anal-panel">
+  <div class="ap">
+    <div class="ap-title">Action convergence $\langle S_E\rangle$</div>
+    <canvas id="actCanvas"></canvas>
+  </div>
+  <div class="ap">
+    <div class="ap-title">Energy estimator $\langle E\rangle$</div>
+    <canvas id="enCanvas"></canvas>
+  </div>
+  <div class="ap">
+    <div class="ap-title">Position histogram $\rho(x)$ — mid-slice</div>
+    <canvas id="histCanvas"></canvas>
+  </div>
+  <div class="ap">
+    <div class="ap-title">Metropolis acceptance rate</div>
+    <canvas id="accCanvas"></canvas>
+  </div>
+</div>
+
+<!-- HELP PANEL -->
+<div class="panel doc-panel" id="help-panel">
+<div class="theory-body">
+
+  <div class="th-section">
+    <div class="th-h">Quick Start</div>
+    <ol class="help-list">
+      <li>Open the <strong>Simulation</strong> tab and choose a <strong>System</strong>.</li>
+      <li>Press <strong>▶ Run</strong>. Each path is pinned at $x_0 = x_N = 0$ and its internal slices are updated by Metropolis sweeps. A short <em>equilibrating</em> badge is shown during the first 80 steps.</li>
+      <li>Watch $\langle E\rangle$ converge toward the exact reference value (shown when one is available) and compare the sampled density with the theoretical $|\psi_0|^2$.</li>
+      <li>Open the <strong>Analysis</strong> tab for action, energy, histogram and acceptance-rate traces.</li>
+    </ol>
+  </div>
+
+  <div class="th-section">
+    <div class="th-h">Controls</div>
+    <div class="th-grid">
+      <div class="th-card">
+        <div class="th-card-h">Path Ensemble</div>
+        <div class="th-card-p"><strong>Paths</strong> sets how many independent paths are sampled. <strong>Time slices</strong> $N$ sets the discretization (changing $N$ or the system re-initializes all paths). $\beta$ is the total imaginary time; $\varepsilon = \beta/N$.</div>
+      </div>
+      <div class="th-card">
+        <div class="th-card-h">Potential Parameters</div>
+        <div class="th-card-p">$\omega$ controls the harmonic potential, while $\lambda$ and $a$ set the depth and position of the double-well minima. Changes apply live; press <strong>Reset</strong> to re-equilibrate from scratch.</div>
+      </div>
+      <div class="th-card">
+        <div class="th-card-h">Monte Carlo</div>
+        <div class="th-card-p">The step size $\delta$ is the maximum single-slice displacement. <strong>Speed</strong> is the number of Metropolis sweeps performed per animation frame.</div>
+      </div>
+      <div class="th-card">
+        <div class="th-card-h">Display</div>
+        <div class="th-card-p">Toggle the classical path, the 2D density heatmap accumulated over all slices, slice markers (for $N \le 40$) and the glow effect.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="th-section">
+    <div class="th-h">Reading the Plots</div>
+    <ul class="help-list">
+      <li><strong>Path ensemble:</strong> path colour reflects action — low-action paths are the most probable under $e^{-S_E}$ and are drawn brightest.</li>
+      <li><strong>Position density:</strong> histogram of the mid-slice positions; the dashed curve is the analytic ground-state density where one exists (harmonic oscillator, box).</li>
+      <li><strong>Acceptance rate:</strong> a rate above 60% suggests $\delta$ is too small, below 20% too large; roughly 30–60% is a good working range.</li>
+      <li><strong>Energy:</strong> the thermodynamic estimator is noisy for large $N$; use the moving average (white/dark line) and a larger $\beta$ to approach the ground-state energy.</li>
+    </ul>
+  </div>
+
+  <div class="th-section">
+    <div class="th-h">Tips</div>
+    <ul class="help-list">
+      <li>Use the <strong>☾ Night</strong> / <strong>★ Day</strong> buttons at the top right to switch themes; the choice is remembered in this browser.</li>
+      <li>For the double well, increase $\beta$ to see tunnelling kinks between wells; reduce $\lambda$ for easier barrier crossing.</li>
+      <li>Reducing the number of paths and the speed makes the simulation lighter on slower machines.</li>
+    </ul>
+  </div>
+
+</div>
+</div><!-- help-panel -->
+
+<script>
+// ─────────────────────────────────────────────
+//  THEME / PALETTE (single source of truth = CSS variables)
+// ─────────────────────────────────────────────
+const FM = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+const FS = 'Inter, "Segoe UI", system-ui, sans-serif';
+let C = {};
+
+function readPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const g   = n => cs.getPropertyValue(n).trim();
+  const rgb = n => g(n).split(',').map(Number);
+  C = {
+    name: document.documentElement.getAttribute('data-theme'),
+    bg: g('--cv-bg'), bg2: g('--cv-bg2'), grid: g('--cv-grid'), zero: g('--cv-zero'),
+    axis: g('--cv-axis'), tick: g('--cv-tick'), label: g('--cv-label'),
+    accent: g('--accent'), amber: g('--amber'), green: g('--green'),
+    purple: g('--purple'), red: g('--red'), text: g('--t'),
+    heat: g('--heat'),
+    stops: [rgb('--ps1'), rgb('--ps2'), rgb('--ps3')],
+    barA: rgb('--bar-a'), barB: rgb('--bar-b'),
+  };
+}
+function lerpC(a, b, t) { return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function pathColor(t) {
+  const s = C.stops;
+  const c = t < 0.5 ? lerpC(s[0], s[1], t*2) : lerpC(s[1], s[2], (t-0.5)*2);
+  return c.map(Math.round);
+}
+function setTheme(name, persist) {
+  if (name !== 'day') name = 'night';
+  document.documentElement.setAttribute('data-theme', name);
+  if (persist) { try { localStorage.setItem('pimc-theme', name); } catch (e) {} }
+  readPalette();
+  const n = document.getElementById('btn-night'), d = document.getElementById('btn-day');
+  n.classList.toggle('on', name === 'night'); n.setAttribute('aria-pressed', name === 'night');
+  d.classList.toggle('on', name === 'day');   d.setAttribute('aria-pressed', name === 'day');
+}
+document.getElementById('btn-night').addEventListener('click', () => setTheme('night', true));
+document.getElementById('btn-day').addEventListener('click',   () => setTheme('day', true));
+setTheme(document.documentElement.getAttribute('data-theme'), false);
+
+// ─────────────────────────────────────────────
+//  TAB NAVIGATION
+// ─────────────────────────────────────────────
+const TAB_MAP = { theory:'theory-panel', sim:'sim-panel', anal:'anal-panel', help:'help-panel' };
+function activateTab(t) {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+  t.classList.add('on');
+  const tid = t.dataset.tab;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  const panel = document.getElementById(TAB_MAP[tid]);
+  panel.classList.add('on');
+  if (window.mjTypeset) window.mjTypeset(panel);
+  setTimeout(() => { Renderer.resizeAll(); }, 50);
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => activateTab(t));
+  t.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateTab(t); } });
+});
+
+// ─────────────────────────────────────────────
+//  PIMC STATE
+// ─────────────────────────────────────────────
+const S = {
+  system: 'harmonic',
+  nPaths: 25, nSlices: 48, beta: 6.0,
+  mass: 1.0, omega: 1.0, lambda: 0.25, a: 1.5, boxSize: 3.2,
+  stepSize: 0.8, speed: 5,
+  running: false,
+  showClassical: true, showDensity: true, showSlices: false, showGlow: true,
+  paths: [],
+  stepCount: 0,
+  acceptHist: [], energyHist: [], actionHist: [],
+  posHist: new Float64Array(120),
+  posHistCount: 0,
+  densMap: null,   // 2D density: [tauBins × xBins]
+  densMapT: 80, densMapX: 80,
+  densMapCount: 0,
+  xRange: 4.5,
+  eqPhase: true,  // equilibrating
+};
+
+// ─────────────────────────────────────────────
+//  PHYSICS  (unchanged)
+// ─────────────────────────────────────────────
+function potential(x) {
+  switch(S.system) {
+    case 'free':       return 0;
+    case 'harmonic':   return 0.5 * S.mass * S.omega * S.omega * x * x;
+    case 'doublewell': return S.lambda * Math.pow(x*x - S.a*S.a, 2);
+    case 'box':        return Math.abs(x) <= S.boxSize ? 0 : 1e8;
+  }
+  return 0;
+}
+
+function localAction(path, i) {
+  const eps = S.beta / S.nSlices;
+  let s = eps * potential(path[i]);
+  if (i > 0) {
+    const dx = path[i] - path[i-1];
+    s += S.mass * dx * dx / (2 * eps);
+  }
+  if (i < S.nSlices) {
+    const dx = path[i+1] - path[i];
+    s += S.mass * dx * dx / (2 * eps);
+  }
+  return s;
+}
+
+function totalAction(path) {
+  const N = S.nSlices, eps = S.beta / N;
+  let act = 0;
+  for (let i = 0; i < N; i++) {
+    const dx = path[i+1] - path[i];
+    act += S.mass * dx * dx / (2 * eps) + eps * potential(path[i]);
+  }
+  return act;
+}
+
+function energyEstimate(path) {
+  const N = S.nSlices, eps = S.beta / N;
+  let kinSum = 0, potSum = 0;
+  for (let i = 0; i < N; i++) {
+    const dx = path[i+1] - path[i];
+    kinSum += S.mass * dx * dx / (2 * eps * eps);
+    potSum += potential(path[i]);
+  }
+  return N / (2 * S.beta) - kinSum / N + potSum / N;
+}
+
+function classicalPath(nPts) {
+  nPts = nPts || 200;
+  const pts = new Float64Array(nPts + 1);
+  const b = S.beta;
+  switch(S.system) {
+    case 'harmonic': {
+      const w = S.omega;
+      const sh = Math.sinh(w * b);
+      for (let i = 0; i <= nPts; i++) {
+        const tau = (i / nPts) * b;
+        pts[i] = Math.abs(sh) < 1e-9
+          ? (i / nPts)  // degenerate: linear
+          : (0 * Math.sinh(w*(b-tau)) + 0 * Math.sinh(w*tau)) / sh;
+        // x0=x1=0 → classical path is identically 0
+      }
+      break;
+    }
+    case 'free':
+    case 'box':
+    default: {
+      for (let i = 0; i <= nPts; i++) pts[i] = 0;
+      break;
+    }
+    case 'doublewell': {
+      // Approximate: show the tunneling instanton path
+      // x(τ) = a * tanh(2*a*√λ * (τ - β/2))
+      const w0 = 2 * S.a * Math.sqrt(S.lambda) * 2;
+      for (let i = 0; i <= nPts; i++) {
+        const tau = (i / nPts) * b - b/2;
+        pts[i] = S.a * Math.tanh(w0 * tau);
+      }
+      break;
+    }
+  }
+  return pts;
+}
+
+function exactEnergy() {
+  if (S.system === 'harmonic') {
+    const x = 0.5 * S.beta * S.omega;
+    return 0.5 * S.omega * (Math.exp(x)+Math.exp(-x)) / (Math.exp(x)-Math.exp(-x)+1e-15);
+  }
+  if (S.system === 'free') return 0.5 / S.beta;
+  if (S.system === 'box') {
+    const E1 = Math.PI * Math.PI / (2 * S.boxSize * S.boxSize);
+    return E1;
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────
+//  PATH INIT & METROPOLIS  (unchanged)
+// ─────────────────────────────────────────────
+function initPaths() {
+  S.paths = [];
+  S.stepCount = 0;
+  S.acceptHist = []; S.energyHist = []; S.actionHist = [];
+  S.posHist = new Float64Array(120);
+  S.posHistCount = 0;
+  S.densMap = new Float32Array(S.densMapT * S.densMapX);
+  S.densMapCount = 0;
+  S.eqPhase = true;
+  document.getElementById('eqm-badge').style.opacity = '1';
+
+  for (let p = 0; p < S.nPaths; p++) {
+    const path = new Float64Array(S.nSlices + 1);
+    path[0] = 0; path[S.nSlices] = 0;
+    for (let i = 1; i < S.nSlices; i++) {
+      const noise = (Math.random()-0.5) * 2.5;
+      path[i] = noise;
+      if (S.system === 'box') path[i] = Math.max(-S.boxSize*0.9, Math.min(S.boxSize*0.9, path[i]));
+    }
+    S.paths.push(path);
+  }
+}
+
+function metropolisPath(path) {
+  const N = S.nSlices;
+  let acc = 0;
+  for (let i = 1; i < N; i++) {
+    const xOld = path[i];
+    const sOld = localAction(path, i);
+    let xNew = xOld + (Math.random()-0.5)*2*S.stepSize;
+    if (S.system === 'box') xNew = Math.max(-S.boxSize*0.98, Math.min(S.boxSize*0.98, xNew));
+    path[i] = xNew;
+    const sNew = localAction(path, i);
+    const dS = sNew - sOld;
+    if (dS < 0 || Math.random() < Math.exp(-Math.min(dS, 50))) {
+      acc++;
+    } else {
+      path[i] = xOld;
+    }
+  }
+  return acc / (N - 1);
+}
+
+function doStep() {
+  const np = S.paths.length;
+  let totAcc = 0, totE = 0, totS = 0;
+
+  for (let p = 0; p < np; p++) {
+    totAcc += metropolisPath(S.paths[p]);
+    totE   += energyEstimate(S.paths[p]);
+    totS   += totalAction(S.paths[p]);
+  }
+
+  S.stepCount++;
+  const avgAcc = totAcc / np;
+  const avgE   = totE / np;
+  const avgS   = totS / np;
+
+  S.acceptHist.push(avgAcc);
+  S.energyHist.push(avgE);
+  S.actionHist.push(avgS);
+  if (S.acceptHist.length > 600) { S.acceptHist.shift(); S.energyHist.shift(); S.actionHist.shift(); }
+
+  // Position histogram (middle slice)
+  const mid = Math.floor(S.nSlices / 2);
+  const hn = S.posHist.length;
+  for (const path of S.paths) {
+    const x = path[mid];
+    const bin = Math.floor((x + S.xRange) / (2 * S.xRange) * hn);
+    if (bin >= 0 && bin < hn) S.posHist[bin]++;
+    S.posHistCount++;
+  }
+
+  // 2D density map: accumulate all slices
+  if (S.stepCount % 3 === 0) {
+    const T = S.densMapT, X = S.densMapX;
+    for (const path of S.paths) {
+      for (let i = 0; i <= S.nSlices; i++) {
+        const tb = Math.floor((i / S.nSlices) * T);
+        const xb = Math.floor((path[i] + S.xRange) / (2*S.xRange) * X);
+        if (tb>=0&&tb<T&&xb>=0&&xb<X) S.densMap[tb*X + xb]++;
+      }
+    }
+    S.densMapCount++;
+  }
+
+  // Equilibration check
+  if (S.eqPhase && S.stepCount > 80) {
+    S.eqPhase = false;
+    document.getElementById('eqm-badge').style.opacity = '0';
+  }
+
+  return { avgAcc, avgE, avgS };
+}
+
+// ─────────────────────────────────────────────
+//  RENDERER  (HiDPI-aware, theme-aware)
+// ─────────────────────────────────────────────
+const Renderer = {
+  pathC: null, potC: null, densC: null,
+  actC: null, enC: null, histC: null, accC: null,
+
+  all() { return [this.pathC, this.potC, this.densC, this.actC, this.enC, this.histC, this.accC]; },
+
+  init() {
+    this.pathC = document.getElementById('pathCanvas');
+    this.potC  = document.getElementById('potCanvas');
+    this.densC = document.getElementById('densCanvas');
+    this.actC  = document.getElementById('actCanvas');
+    this.enC   = document.getElementById('enCanvas');
+    this.histC = document.getElementById('histCanvas');
+    this.accC  = document.getElementById('accCanvas');
+    this.resizeAll();
+    const ro = new ResizeObserver(() => { this.resizeAll(); });
+    this.all().forEach(c => { if (c) ro.observe(c.parentElement); });
+  },
+
+  resizeAll() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.all().forEach(c => {
+      if (!c) return;
+      const r = c.parentElement.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        const w = Math.round(r.width), h = Math.round(r.height);
+        if (c._w !== w || c._h !== h || c._dpr !== dpr) {
+          c._w = w; c._h = h; c._dpr = dpr;
+          c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+        }
+      }
+    });
+  },
+
+  // Prepare a context in logical (CSS-pixel) coordinates
+  setup(c) {
+    const ctx = c.getContext('2d');
+    const d = c._dpr || 1;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.textBaseline = 'alphabetic';
+    ctx.shadowBlur = 0;
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    return ctx;
+  },
+
+  // ── PATH CANVAS ──
+  drawPaths() {
+    const canvas = this.pathC;
+    if (!canvas || !canvas._w || canvas._w < 10) return;
+    const ctx = this.setup(canvas);
+    const W = canvas._w, H = canvas._h;
+    const mx = 64, my = 24, mr = 18, mb = 62;
+    const cW = W-mx-mr, cH = H-my-mb;
+
+    const tauX = tau  => mx + (tau / S.beta) * cW;
+    const posY = x    => my + (1 - (x + S.xRange) / (2*S.xRange)) * cH;
+
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0,0,W,H);
+
+    // ── 2D density heatmap ──
+    if (S.showDensity && S.densMap && S.densMapCount > 0) {
+      const T = S.densMapT, X = S.densMapX;
+      let maxD = 0;
+      for (let k=0;k<S.densMap.length;k++) if(S.densMap[k]>maxD) maxD=S.densMap[k];
+      if (maxD > 0) {
+        const iw = cW/T, ih = cH/X;
+        for (let t=0;t<T;t++) {
+          for (let x=0;x<X;x++) {
+            const v = S.densMap[t*X+x] / maxD;
+            if (v < 0.01) continue;
+            const alpha = Math.pow(v, 0.5) * 0.55;
+            ctx.fillStyle = `rgba(${C.heat},${alpha})`;
+            ctx.fillRect(mx+t*iw, my+x*ih, iw+1, ih+1);
+          }
+        }
+      }
+    }
+
+    // ── Grid ──
+    ctx.strokeStyle = C.grid;
+    ctx.lineWidth = 1;
+    for (let i=0;i<=6;i++) {
+      const x = tauX(i*S.beta/6);
+      ctx.beginPath(); ctx.moveTo(x,my); ctx.lineTo(x,my+cH); ctx.stroke();
+    }
+    for (let j=-4;j<=4;j++) {
+      const y = posY(j);
+      if (y<my||y>my+cH) continue;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+    // Zero line
+    ctx.strokeStyle = C.zero; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(mx,posY(0)); ctx.lineTo(mx+cW,posY(0)); ctx.stroke();
+
+    // ── Compute action range ──
+    const actions = S.paths.map(p => totalAction(p));
+    const minA = Math.min(...actions), maxA = Math.max(...actions);
+    const rA = maxA - minA + 1e-6;
+
+    // Sort: high action drawn first (dim, behind)
+    const order = actions.map((a,i)=>({a,i})).sort((x,y)=>y.a-x.a);
+    const baseAlpha = C.name === 'day' ? 0.20 : 0.12;
+
+    // ── Draw paths ──
+    for (const {a,i} of order) {
+      const t = (a - minA) / rA;  // 0=low action, 1=high action
+      const weight = Math.exp(-Math.max(0, a - minA) * 0.3);
+      const [r,g,b] = pathColor(t);
+      const alpha = baseAlpha + 0.42 * weight;
+
+      if (S.showGlow && weight > 0.5) {
+        ctx.shadowColor = `rgba(${r},${g},${b},0.5)`;
+        ctx.shadowBlur = 4;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+      ctx.lineWidth = 1.2 + weight * 0.6;
+      ctx.beginPath();
+      const path = S.paths[i];
+      for (let k=0;k<=S.nSlices;k++) {
+        const px = tauX(k*S.beta/S.nSlices);
+        const py = posY(Math.max(-S.xRange*1.05, Math.min(S.xRange*1.05, path[k])));
+        if (k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+
+      // Slice markers
+      if (S.showSlices && S.nSlices <= 40) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(1,alpha+0.15)})`;
+        for (let k=1;k<S.nSlices;k+=2) {
+          const px = tauX(k*S.beta/S.nSlices);
+          const py = posY(Math.max(-S.xRange*1.05, Math.min(S.xRange*1.05, path[k])));
+          ctx.beginPath(); ctx.arc(px,py,2.4,0,Math.PI*2); ctx.fill();
+        }
+      }
+    }
+    ctx.shadowBlur = 0;
+
+    // ── Classical path ──
+    if (S.showClassical) {
+      const cp = classicalPath(200);
+      ctx.shadowColor = C.amber;
+      ctx.shadowBlur = S.showGlow ? 8 : 0;
+      ctx.strokeStyle = C.amber;
+      ctx.lineWidth = 2.75;
+      ctx.beginPath();
+      for (let k=0;k<=200;k++) {
+        const px = tauX(k*S.beta/200);
+        const py = posY(Math.max(-S.xRange*1.05, Math.min(S.xRange*1.05, cp[k])));
+        if (k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    // ── Axes ──
+    ctx.strokeStyle = C.axis; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(mx,my); ctx.lineTo(mx,my+cH); ctx.lineTo(mx+cW,my+cH);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = C.tick;
+    ctx.font = `12.5px ${FM}`;
+    ctx.textAlign = 'center';
+    for (let i=0;i<=5;i++) {
+      const tau = i*S.beta/5;
+      ctx.fillText(tau.toFixed(1), tauX(tau), my+cH+19);
+    }
+    ctx.fillStyle = C.label;
+    ctx.font = `13px ${FS}`;
+    ctx.fillText('τ  (imaginary time)', mx+cW/2, my+cH+38);
+
+    ctx.textAlign = 'right';
+    for (let j=-4;j<=4;j+=2) {
+      const y=posY(j);
+      if(y<my||y>my+cH) continue;
+      ctx.fillStyle=C.tick; ctx.font=`12.5px ${FM}`;
+      ctx.fillText(j.toString(), mx-8, y+4);
+    }
+    ctx.save();
+    ctx.translate(16, my+cH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.textAlign='center'; ctx.fillStyle=C.label; ctx.font=`13px ${FS}`;
+    ctx.fillText('x  (position)', 0, 0);
+    ctx.restore();
+
+    // Endpoint dots
+    ctx.shadowColor=C.accent; ctx.shadowBlur=S.showGlow?8:0;
+    ctx.fillStyle=C.accent; ctx.strokeStyle=C.bg; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(tauX(0),posY(0),5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(tauX(S.beta),posY(0),5.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.shadowBlur=0;
+  },
+
+  // ── POTENTIAL ──
+  drawPotential() {
+    const c = this.potC;
+    if (!c||!c._w||c._w<10) return;
+    const ctx = this.setup(c);
+    const W = c._w, H = c._h;
+    const mx=50,my=32,mr=12,mb=34;
+    const cW=W-mx-mr, cH=H-my-mb;
+
+    ctx.fillStyle = C.bg2;
+    ctx.fillRect(0,0,W,H);
+
+    const nPts=300, xMin=-S.xRange, xMax=S.xRange;
+    const xs = Array.from({length:nPts},(_,i)=>xMin+(i/(nPts-1))*(xMax-xMin));
+    const vs = xs.map(x=>potential(x));
+    const vsClipped = vs.map(v=>Math.min(v, 1e4));
+
+    let vMax = Math.max(...vsClipped.filter(v=>v<1e4));
+    if (vMax < 0.1) vMax = 1;
+    vMax *= 1.15;
+    const vRange = vMax;
+
+    const xP = x => mx + (x-xMin)/(xMax-xMin)*cW;
+    const vP = v => my + (1 - Math.min(v,vMax)/vRange)*cH;
+
+    // Grid
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=4;j++){
+      const y=my+j*cH/4;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+    for(let j=-4;j<=4;j++){
+      const x=xP(j); if(x<mx||x>mx+cW) continue;
+      ctx.beginPath(); ctx.moveTo(x,my); ctx.lineTo(x,my+cH); ctx.stroke();
+    }
+
+    // Fill under potential
+    ctx.beginPath();
+    ctx.moveTo(xP(xs[0]), vP(vsClipped[0]));
+    for(let i=1;i<nPts;i++) ctx.lineTo(xP(xs[i]), vP(vsClipped[i]));
+    ctx.lineTo(xP(xs[nPts-1]), my+cH);
+    ctx.lineTo(xP(xs[0]), my+cH);
+    ctx.closePath();
+    ctx.globalAlpha=0.12; ctx.fillStyle=C.accent; ctx.fill(); ctx.globalAlpha=1;
+
+    // Potential curve
+    ctx.beginPath();
+    ctx.moveTo(xP(xs[0]), vP(vsClipped[0]));
+    for(let i=1;i<nPts;i++) ctx.lineTo(xP(xs[i]), vP(vsClipped[i]));
+    ctx.strokeStyle=C.accent; ctx.lineWidth=2.25;
+    ctx.shadowColor=C.accent; ctx.shadowBlur=S.showGlow?6:0;
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    // Axes
+    ctx.strokeStyle=C.axis; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(mx,my); ctx.lineTo(mx,my+cH); ctx.lineTo(mx+cW,my+cH); ctx.stroke();
+
+    // V=0 line
+    const y0=vP(0);
+    ctx.strokeStyle=C.zero; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(mx,y0); ctx.lineTo(mx+cW,y0); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Tick labels
+    ctx.fillStyle=C.tick; ctx.font=`11.5px ${FM}`;
+    ctx.textAlign='right';
+    ctx.fillText(vMax.toFixed(1), mx-6, my+10);
+    ctx.fillText('0', mx-6, vP(0)+4);
+    ctx.textAlign='center';
+    for(let j=-4;j<=4;j+=2){
+      const px=xP(j); if(px<mx||px>mx+cW) continue;
+      ctx.fillText(j, px, my+cH+16);
+    }
+    ctx.fillStyle=C.label; ctx.font=`12.5px ${FS}`;
+    ctx.fillText('x', mx+cW/2, H-5);
+
+    // System label (top-right inside plot)
+    ctx.fillStyle=C.amber; ctx.font=`700 12px ${FS}`;
+    ctx.textAlign='right';
+    const sysLabel={free:'FREE PARTICLE',harmonic:'HARMONIC',doublewell:'DOUBLE WELL',box:'PARTICLE IN BOX'};
+    ctx.fillText(sysLabel[S.system]||'', mx+cW-6, my+16);
+  },
+
+  // ── DENSITY ──
+  drawDensity() {
+    const c = this.densC;
+    if (!c||!c._w||c._w<10) return;
+    const ctx = this.setup(c);
+    const W=c._w,H=c._h;
+    const mx=50,my=32,mr=12,mb=34;
+    const cW=W-mx-mr,cH=H-my-mb;
+
+    ctx.fillStyle=C.bg2;
+    ctx.fillRect(0,0,W,H);
+
+    // Grid
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=4;j++){
+      const y=my+j*cH/4;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+
+    const hn = S.posHist.length;
+    const maxBin = Math.max(...S.posHist, 1);
+    const bw = cW / hn;
+    const barAlpha = C.name === 'day' ? 0.70 : 0.65;
+
+    for(let i=0;i<hn;i++){
+      const v = S.posHist[i]/maxBin;
+      if(v<0.005) continue;
+      const h2 = v*cH*0.92;
+      const x = mx + i*bw;
+      const y = my+cH-h2;
+      const [r,g,b] = lerpC(C.barA, C.barB, i/hn).map(Math.round);
+      ctx.fillStyle=`rgba(${r},${g},${b},${barAlpha})`;
+      ctx.fillRect(x,y,bw-0.3,h2);
+    }
+
+    // Theoretical curve for harmonic
+    if(S.system==='harmonic' && S.stepCount>0){
+      const norm = Math.sqrt(S.mass*S.omega/Math.PI);
+      ctx.beginPath();
+      for(let i=0;i<=200;i++){
+        const x=-S.xRange+i*2*S.xRange/200;
+        const psi2 = norm*Math.exp(-S.mass*S.omega*x*x);
+        const px=mx+(x+S.xRange)/(2*S.xRange)*cW;
+        const py=my+cH-psi2/norm*cH*0.92;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.strokeStyle=C.amber; ctx.lineWidth=2;
+      ctx.setLineDash([6,4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle=C.amber; ctx.font=`600 12px ${FM}`;
+      ctx.textAlign='right';
+      ctx.fillText('|ψ₀|² theory', W-mr-6, my+16);
+    }
+    if(S.system==='box' && S.stepCount>0){
+      const L=S.boxSize;
+      const A=1/Math.sqrt(L);
+      ctx.beginPath();
+      for(let i=0;i<=200;i++){
+        const x=-S.xRange+i*2*S.xRange/200;
+        let psi2=0;
+        if(Math.abs(x)<L) psi2=A*A*Math.cos(Math.PI*x/(2*L))**2;
+        const px=mx+(x+S.xRange)/(2*S.xRange)*cW;
+        const py=my+cH-psi2/(A*A)*cH*0.92;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.strokeStyle=C.amber; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Axes
+    ctx.strokeStyle=C.axis; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(mx,my); ctx.lineTo(mx,my+cH); ctx.lineTo(mx+cW,my+cH); ctx.stroke();
+
+    // x labels
+    ctx.fillStyle=C.tick; ctx.font=`11.5px ${FM}`; ctx.textAlign='center';
+    for(let j=-4;j<=4;j+=2){
+      const px=mx+(j+S.xRange)/(2*S.xRange)*cW;
+      if(px<mx||px>mx+cW) continue;
+      ctx.fillText(j, px, my+cH+16);
+    }
+    ctx.fillStyle=C.label; ctx.font=`12.5px ${FS}`;
+    ctx.fillText('x', mx+cW/2, H-5);
+
+    ctx.fillStyle=C.label; ctx.font=`12px ${FM}`; ctx.textAlign='left';
+    ctx.fillText(`N=${S.posHistCount}`, mx+6, my+16);
+  },
+
+  // ── ANALYSIS: ACTION ──
+  drawAction() {
+    const c = this.actC;
+    if(!c||!c._w||c._w<10) return;
+    const ctx=this.setup(c);
+    const W=c._w,H=c._h;
+    const mx=72,my=44,mr=16,mb=42;
+    const cW=W-mx-mr,cH=H-my-mb;
+
+    ctx.fillStyle=C.bg2; ctx.fillRect(0,0,W,H);
+    if(S.actionHist.length<3) { this._noData(ctx,W,H); return; }
+
+    const data=S.actionHist.slice(-400);
+    const minA=Math.min(...data)*0.95, maxA=Math.max(...data)*1.05;
+    const range=maxA-minA+1e-9;
+    const toX=i=>mx+i/(data.length-1)*cW;
+    const toY=v=>my+(1-(v-minA)/range)*cH;
+
+    // Grid
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=5;j++){
+      const y=my+j*cH/5;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+
+    // Area fill
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      const y=toY(Math.max(minA,Math.min(maxA,data[i])));
+      if(i===0) ctx.moveTo(toX(i),y); else ctx.lineTo(toX(i),y);
+    }
+    ctx.lineTo(toX(data.length-1),my+cH); ctx.lineTo(toX(0),my+cH); ctx.closePath();
+    ctx.globalAlpha=0.10; ctx.fillStyle=C.accent; ctx.fill(); ctx.globalAlpha=1;
+
+    // Line
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      const y=toY(Math.max(minA,Math.min(maxA,data[i])));
+      if(i===0) ctx.moveTo(toX(i),y); else ctx.lineTo(toX(i),y);
+    }
+    ctx.strokeStyle=C.accent; ctx.lineWidth=1.75;
+    ctx.shadowColor=C.accent; ctx.shadowBlur=S.showGlow?4:0;
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    // Moving avg
+    const maw=30;
+    if(data.length>maw){
+      ctx.beginPath();
+      for(let i=maw;i<data.length;i++){
+        const avg=data.slice(i-maw,i).reduce((a,b)=>a+b)/maw;
+        const y=toY(Math.max(minA,Math.min(maxA,avg)));
+        if(i===maw) ctx.moveTo(toX(i),y); else ctx.lineTo(toX(i),y);
+      }
+      ctx.strokeStyle=C.amber; ctx.lineWidth=2.25; ctx.stroke();
+    }
+
+    this._axes(ctx,W,H,mx,my,cW,cH,null,[minA,maxA],5,'Step','⟨S_E⟩');
+    ctx.fillStyle=C.accent; ctx.font=`700 14px ${FM}`; ctx.textAlign='left';
+    ctx.fillText(`⟨S_E⟩ = ${(data[data.length-1]||0).toFixed(2)}`, mx+8, my+20);
+  },
+
+  // ── ANALYSIS: ENERGY ──
+  drawEnergy() {
+    const c = this.enC;
+    if(!c||!c._w||c._w<10) return;
+    const ctx=this.setup(c);
+    const W=c._w,H=c._h;
+    const mx=72,my=44,mr=16,mb=42;
+    const cW=W-mx-mr,cH=H-my-mb;
+
+    ctx.fillStyle=C.bg2; ctx.fillRect(0,0,W,H);
+    if(S.energyHist.length<3){ this._noData(ctx,W,H); return; }
+
+    const data=S.energyHist.slice(-400);
+    const filt=data.filter(e=>Math.abs(e)<200);
+    if(filt.length<3){ this._noData(ctx,W,H); return; }
+    const minE=Math.min(...filt)-0.2, maxE=Math.max(...filt)+0.2;
+    const range=maxE-minE+1e-9;
+    const toX=i=>mx+i/(data.length-1)*cW;
+    const toY=v=>my+(1-(v-minE)/range)*cH;
+
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=5;j++){
+      const y=my+j*cH/5;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+
+    // Area fill
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      const v=Math.max(minE,Math.min(maxE,data[i]));
+      if(i===0) ctx.moveTo(toX(i),toY(v)); else ctx.lineTo(toX(i),toY(v));
+    }
+    ctx.lineTo(toX(data.length-1),my+cH); ctx.lineTo(toX(0),my+cH); ctx.closePath();
+    ctx.globalAlpha=0.10; ctx.fillStyle=C.green; ctx.fill(); ctx.globalAlpha=1;
+
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      const v=Math.max(minE,Math.min(maxE,data[i]));
+      if(i===0) ctx.moveTo(toX(i),toY(v)); else ctx.lineTo(toX(i),toY(v));
+    }
+    ctx.strokeStyle=C.green; ctx.lineWidth=1.75;
+    ctx.shadowColor=C.green; ctx.shadowBlur=S.showGlow?4:0;
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    // Moving avg
+    const maw=40;
+    if(data.length>maw){
+      ctx.beginPath();
+      for(let i=maw;i<data.length;i++){
+        const avg=data.slice(i-maw,i).filter(e=>Math.abs(e)<200).reduce((a,b)=>a+b,0)/maw;
+        const v=Math.max(minE,Math.min(maxE,avg));
+        if(i===maw) ctx.moveTo(toX(i),toY(v)); else ctx.lineTo(toX(i),toY(v));
+      }
+      ctx.strokeStyle=C.text; ctx.lineWidth=1.75; ctx.stroke();
+    }
+
+    // Exact energy line
+    const Eex = exactEnergy();
+    if(Eex!==null && Eex>minE && Eex<maxE){
+      const yE=toY(Eex);
+      ctx.setLineDash([7,5]);
+      ctx.strokeStyle=C.amber; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(mx,yE); ctx.lineTo(mx+cW,yE); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle=C.amber; ctx.font=`600 12.5px ${FM}`; ctx.textAlign='right';
+      ctx.fillText(`E_exact = ${Eex.toFixed(4)}`, mx+cW-6, yE-6);
+    }
+
+    this._axes(ctx,W,H,mx,my,cW,cH,null,[minE,maxE],5,'Step','⟨E⟩');
+    const recent=S.energyHist.slice(-50).filter(e=>Math.abs(e)<200);
+    const avgE=recent.length?recent.reduce((a,b)=>a+b,0)/recent.length:0;
+    ctx.fillStyle=C.green; ctx.font=`700 14px ${FM}`; ctx.textAlign='left';
+    ctx.fillText(`⟨E⟩ = ${avgE.toFixed(4)}`, mx+8, my+20);
+  },
+
+  // ── ANALYSIS: HISTOGRAM ──
+  drawHistogram() {
+    const c=this.histC;
+    if(!c||!c._w||c._w<10) return;
+    const ctx=this.setup(c);
+    const W=c._w,H=c._h;
+    const mx=72,my=44,mr=16,mb=42;
+    const cW=W-mx-mr,cH=H-my-mb;
+
+    ctx.fillStyle=C.bg2; ctx.fillRect(0,0,W,H);
+
+    const hn=S.posHist.length;
+    const maxBin=Math.max(...S.posHist,1);
+    const bw=cW/hn;
+
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=5;j++){
+      const y=my+j*cH/5;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+
+    // Bars
+    const barAlpha = C.name === 'day' ? 0.72 : 0.68;
+    for(let i=0;i<hn;i++){
+      const v=S.posHist[i]/maxBin;
+      if(v<0.005) continue;
+      const h2=v*cH*0.95;
+      const x=mx+i*bw; const y=my+cH-h2;
+      const [r,g,b]=lerpC(C.barA,C.barB,i/hn).map(Math.round);
+      ctx.fillStyle=`rgba(${r},${g},${b},${barAlpha})`;
+      ctx.fillRect(x,y,bw-0.3,h2);
+    }
+
+    // Smooth outline
+    ctx.beginPath();
+    for(let i=0;i<hn;i++){
+      const v=S.posHist[i]/maxBin;
+      const x=mx+(i+0.5)*bw;
+      const y=my+cH-v*cH*0.95;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=C.accent; ctx.lineWidth=1.75; ctx.stroke();
+
+    // Theory overlays
+    if(S.system==='harmonic' && S.stepCount>20){
+      const norm=Math.sqrt(S.mass*S.omega/Math.PI);
+      ctx.beginPath();
+      for(let i=0;i<=300;i++){
+        const x=-S.xRange+i*2*S.xRange/300;
+        const psi2=norm*Math.exp(-S.mass*S.omega*x*x);
+        const px=mx+(x+S.xRange)/(2*S.xRange)*cW;
+        const py=my+cH-psi2/norm*cH*0.95;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.strokeStyle=C.amber; ctx.lineWidth=2.25;
+      ctx.stroke();
+    }
+
+    this._axes(ctx,W,H,mx,my,cW,cH,[-S.xRange,S.xRange],null,5,'x','ρ(x)');
+    ctx.fillStyle=C.label; ctx.font=`12px ${FM}`; ctx.textAlign='left';
+    ctx.fillText(`Samples: ${S.posHistCount}`, mx+8, my+20);
+  },
+
+  // ── ANALYSIS: ACCEPTANCE ──
+  drawAcceptance() {
+    const c=this.accC;
+    if(!c||!c._w||c._w<10) return;
+    const ctx=this.setup(c);
+    const W=c._w,H=c._h;
+    const mx=72,my=44,mr=16,mb=42;
+    const cW=W-mx-mr,cH=H-my-mb;
+
+    ctx.fillStyle=C.bg2; ctx.fillRect(0,0,W,H);
+    if(S.acceptHist.length<3){ this._noData(ctx,W,H); return; }
+
+    const data=S.acceptHist.slice(-400);
+    const toX=i=>mx+i/(data.length-1)*cW;
+    const toY=v=>my+(1-v)*cH;
+
+    ctx.strokeStyle=C.grid; ctx.lineWidth=1;
+    for(let j=0;j<=4;j++){
+      const y=my+j*cH/4;
+      ctx.beginPath(); ctx.moveTo(mx,y); ctx.lineTo(mx+cW,y); ctx.stroke();
+    }
+
+    // Ideal ~50% line
+    ctx.strokeStyle=C.amber; ctx.globalAlpha=0.55; ctx.lineWidth=1.25; ctx.setLineDash([6,5]);
+    const y50=toY(0.5);
+    ctx.beginPath(); ctx.moveTo(mx,y50); ctx.lineTo(mx+cW,y50); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    ctx.fillStyle=C.amber; ctx.font=`600 12px ${FM}`;
+    ctx.textAlign='right'; ctx.fillText('50%', mx+cW-6, y50-5);
+
+    // Acceptance area
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      if(i===0) ctx.moveTo(toX(i),toY(data[i])); else ctx.lineTo(toX(i),toY(data[i]));
+    }
+    ctx.lineTo(toX(data.length-1),my+cH); ctx.lineTo(toX(0),my+cH); ctx.closePath();
+    ctx.globalAlpha=0.10; ctx.fillStyle=C.purple; ctx.fill(); ctx.globalAlpha=1;
+
+    ctx.beginPath();
+    for(let i=0;i<data.length;i++){
+      if(i===0) ctx.moveTo(toX(i),toY(data[i])); else ctx.lineTo(toX(i),toY(data[i]));
+    }
+    ctx.strokeStyle=C.purple; ctx.lineWidth=1.75;
+    ctx.shadowColor=C.purple; ctx.shadowBlur=S.showGlow?4:0;
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    // Moving avg
+    const maw=30;
+    if(data.length>maw){
+      ctx.beginPath();
+      for(let i=maw;i<data.length;i++){
+        const avg=data.slice(i-maw,i).reduce((a,b)=>a+b)/maw;
+        if(i===maw) ctx.moveTo(toX(i),toY(avg)); else ctx.lineTo(toX(i),toY(avg));
+      }
+      ctx.strokeStyle=C.text; ctx.lineWidth=1.75; ctx.stroke();
+    }
+
+    this._axes(ctx,W,H,mx,my,cW,cH,null,[0,1],5,'Step','Accept');
+    const recent=S.acceptHist.slice(-50);
+    const avg=recent.reduce((a,b)=>a+b,0)/recent.length;
+    const pct=`${(avg*100).toFixed(1)}%`;
+    ctx.fillStyle=C.purple; ctx.font=`700 14px ${FM}`; ctx.textAlign='left';
+    ctx.fillText(pct, mx+8, my+20);
+    const pw=ctx.measureText(pct).width;
+    ctx.fillStyle = avg>0.6 ? C.red : avg<0.2 ? C.amber : C.green;
+    ctx.font=`600 12.5px ${FS}`;
+    ctx.fillText(avg>0.6?'↑ δ too small':avg<0.2?'↓ δ too large':'✓ optimal range', mx+8+pw+12, my+20);
+  },
+
+  _noData(ctx,W,H){
+    ctx.fillStyle=C.label; ctx.font=`14px ${FS}`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Run simulation to collect data…', W/2, H/2);
+    ctx.textBaseline='alphabetic';
+  },
+
+  _axes(ctx,W,H,mx,my,cW,cH,xRange,yRange,ticks,xLbl,yLbl){
+    ctx.strokeStyle=C.axis; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(mx,my); ctx.lineTo(mx,my+cH); ctx.lineTo(mx+cW,my+cH); ctx.stroke();
+
+    ctx.fillStyle=C.tick; ctx.font=`12px ${FM}`;
+    if(yRange){
+      const [lo,hi]=yRange;
+      ctx.textAlign='right';
+      for(let j=0;j<=ticks;j++){
+        const v=lo+j*(hi-lo)/ticks;
+        const y=my+(1-j/ticks)*cH;
+        ctx.fillText(Math.abs(v)<1?v.toFixed(3):v.toFixed(1), mx-7, y+4);
+      }
+    }
+    if(xRange){
+      ctx.textAlign='center';
+      for(let v=Math.ceil(xRange[0]); v<=xRange[1]; v++){
+        if(v%2) continue;
+        const px=mx+(v-xRange[0])/(xRange[1]-xRange[0])*cW;
+        ctx.fillText(String(v), px, my+cH+17);
+      }
+    }
+    ctx.textAlign='center';
+    ctx.fillStyle=C.label; ctx.font=`13px ${FS}`;
+    ctx.fillText(xLbl, mx+cW/2, H-8);
+    ctx.save();
+    ctx.translate(16,my+cH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(yLbl, 0, 0); ctx.restore();
+  },
+
+  drawAll() {
+    this.drawPaths();
+    this.drawPotential();
+    this.drawDensity();
+  },
+  drawAnalysis() {
+    this.drawAction();
+    this.drawEnergy();
+    this.drawHistogram();
+    this.drawAcceptance();
+  },
+};
+
+// ─────────────────────────────────────────────
+//  EXACT-ENERGY LABEL (LaTeX, re-typeset only when it changes)
+// ─────────────────────────────────────────────
+let exactKey = '';
+function updateExact() {
+  const el = document.getElementById('st-exact');
+  const Eex = exactEnergy();
+  if (Eex === null) { if (exactKey !== 'none') { exactKey = 'none'; el.innerHTML = ''; } return; }
+  const key = [S.system, S.beta, S.omega, S.boxSize].join('|');
+  if (key === exactKey) return;
+  exactKey = key;
+  let f;
+  if (S.system === 'harmonic')  f = '\\tfrac{\\omega}{2}\\coth\\!\\left(\\tfrac{\\beta\\omega}{2}\\right)';
+  else if (S.system === 'free') f = '\\tfrac{1}{2\\beta}';
+  else                          f = '\\tfrac{\\pi^2}{2L^2}';
+  el.innerHTML = '$E_{\\text{exact}} = ' + f + ' = ' + Eex.toFixed(4) + '$';
+  if (window.mjTypeset) window.mjTypeset(el);
+}
+
+// ─────────────────────────────────────────────
+//  ANIMATION LOOP
+// ─────────────────────────────────────────────
+let rafId = null;
+function animate() {
+  if (S.running) {
+    for (let i=0; i<S.speed; i++) doStep();
+    // Update stats
+    const n = S.actionHist.length;
+    if (n > 0) {
+      document.getElementById('st-steps').textContent  = S.stepCount;
+      const acc = S.acceptHist.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,S.acceptHist.length);
+      const en  = S.energyHist.slice(-20).filter(e=>Math.abs(e)<200).reduce((a,b)=>a+b,0)/
+                  Math.min(20,S.energyHist.filter(e=>Math.abs(e)<200).length||1);
+      const act = S.actionHist.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,S.actionHist.length);
+      document.getElementById('st-accept').textContent = (acc*100).toFixed(1)+'%';
+      document.getElementById('st-energy').textContent = isFinite(en)?en.toFixed(3):'…';
+      document.getElementById('st-action').textContent = act.toFixed(2);
+    }
+    updateExact();
+  }
+
+  // Draw whichever tab is active
+  const simOn  = document.getElementById('sim-panel').classList.contains('on');
+  const analOn = document.getElementById('anal-panel').classList.contains('on');
+  if (simOn)  Renderer.drawAll();
+  if (analOn) Renderer.drawAnalysis();
+
+  rafId = requestAnimationFrame(animate);
+}
+
+// ─────────────────────────────────────────────
+//  UI BINDINGS
+// ─────────────────────────────────────────────
+function bindSlider(id, labelId, key, decimals, cb){
+  const el=document.getElementById(id);
+  const lbl=document.getElementById(labelId);
+  el.addEventListener('input',()=>{
+    S[key]=parseFloat(el.value);
+    lbl.textContent=parseFloat(el.value).toFixed(decimals);
+    if(cb) cb();
+  });
+}
+
+function updateInfoOverlay(){
+  document.getElementById('ci-sys').textContent = S.system.toUpperCase();
+  document.getElementById('ci-beta').textContent = S.beta.toFixed(1);
+  document.getElementById('ci-n').textContent    = S.nSlices;
+}
+
+function adjustPaths(){
+  const np=S.nPaths;
+  while(S.paths.length < np){
+    const path=new Float64Array(S.nSlices+1);
+    path[0]=0; path[S.nSlices]=0;
+    for(let i=1;i<S.nSlices;i++) path[i]=(Math.random()-0.5)*2.5;
+    S.paths.push(path);
+  }
+  while(S.paths.length > np) S.paths.pop();
+}
+
+function setBadge(state){
+  const b=document.getElementById('hdr-badge');
+  b.className=state;
+  b.textContent={ready:'● READY',run:'● RUNNING',pause:'● PAUSED'}[state];
+}
+
+bindSlider('sl-npaths','lbl-npaths','nPaths',0,adjustPaths);
+bindSlider('sl-nslices','lbl-nslices','nSlices',0,()=>{
+  initPaths(); updateInfoOverlay();
+});
+bindSlider('sl-beta','lbl-beta','beta',1,()=>updateInfoOverlay());
+bindSlider('sl-omega','lbl-omega','omega',1,null);
+bindSlider('sl-lambda','lbl-lambda','lambda',2,null);
+bindSlider('sl-a','lbl-a','a',1,null);
+bindSlider('sl-step','lbl-step','stepSize',2,null);
+bindSlider('sl-speed','lbl-speed','speed',0,null);
+
+document.getElementById('sel-sys').addEventListener('change',e=>{
+  S.system=e.target.value;
+  initPaths(); updateInfoOverlay();
+});
+
+document.getElementById('ck-classical').addEventListener('change',e=>{ S.showClassical=e.target.checked; });
+document.getElementById('ck-density').addEventListener('change',e=>{ S.showDensity=e.target.checked; });
+document.getElementById('ck-slices').addEventListener('change',e=>{ S.showSlices=e.target.checked; });
+document.getElementById('ck-glow').addEventListener('change',e=>{ S.showGlow=e.target.checked; });
+
+document.getElementById('btn-run').addEventListener('click',()=>{
+  S.running=true;
+  document.getElementById('btn-run').classList.add('on');
+  setBadge('run');
+});
+document.getElementById('btn-stp').addEventListener('click',()=>{
+  S.running=false;
+  document.getElementById('btn-run').classList.remove('on');
+  setBadge('pause');
+});
+document.getElementById('btn-rst').addEventListener('click',()=>{
+  S.running=false;
+  document.getElementById('btn-run').classList.remove('on');
+  setBadge('ready');
+  initPaths();
+  document.getElementById('st-steps').textContent='0';
+  document.getElementById('st-accept').textContent='—';
+  document.getElementById('st-energy').textContent='—';
+  document.getElementById('st-action').textContent='—';
+  document.getElementById('st-exact').textContent='';
+  exactKey='';
+});
+
+// Start-up
+window.addEventListener('load', ()=>{
+  Renderer.init();
+  initPaths();
+  updateInfoOverlay();
+  animate();
+  // MathJax typesets the whole page itself once it is ready (see pageReady); this
+  // is a safety net in case MathJax finished loading before this handler ran.
+  setTimeout(()=>{ if(window.mjTypeset) window.mjTypeset(document.body); }, 1200);
+});
+</script>
+</body>
+</html>

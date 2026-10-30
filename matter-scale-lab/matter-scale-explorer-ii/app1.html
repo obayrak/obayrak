@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matter Scale Explorer • 3D Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#000508;
+  --panel:#060d14;
+  --border:rgba(0,200,255,0.15);
+  --accent:#00c8ff;
+  --accent2:#ff6b35;
+  --accent3:#7fff6b;
+  --text:#d0e8f0;
+  --muted:#4a6a7a;
+  --mono:'JetBrains Mono',monospace;
+  --title:'Orbitron',sans-serif;
+  --body:'Inter',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+#app{display:flex;flex-direction:column;height:100vh;font-family:var(--body)}
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem 1.5rem;
+  background:linear-gradient(90deg,#000d18,#001525,#000d18);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;z-index:10
+}
+.logo{font-family:var(--title);font-size:1.1rem;color:var(--accent);letter-spacing:.15em;font-weight:700}
+.logo span{color:var(--accent2)}
+#scale-readout{font-family:var(--mono);font-size:.7rem;color:var(--accent);background:rgba(0,200,255,.06);
+  border:1px solid var(--border);border-radius:4px;padding:.3rem .75rem;letter-spacing:.05em}
+#main{flex:1;display:flex;position:relative;overflow:hidden}
+#three-container{width:100%;height:100%;position:relative;background:#010c18}
+#potential-canvas{
+  position:absolute;bottom:24px;right:24px;width:260px;height:150px;
+  border:2px solid #ff6b35;border-radius:12px;box-shadow:0 10px 20px -5px rgba(255,107,53,.3);
+  z-index:25;pointer-events:none;background:rgba(6,13,20,.96);
+}
+/* Scale rail */
+#scale-rail{
+  position:absolute;right:16px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  z-index:30;user-select:none
+}
+.scale-stop{
+  display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;
+  transition:all .2s;opacity:.4
+}
+.scale-stop.active,.scale-stop:hover{opacity:1}
+.scale-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--muted);border:1px solid rgba(0,200,255,.3);
+  transition:all .25s;flex-shrink:0
+}
+.scale-stop.active .scale-dot{
+  background:var(--accent);box-shadow:0 0 10px var(--accent);
+  border-color:var(--accent);width:10px;height:10px
+}
+.scale-name{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-align:right;transition:color .2s;white-space:nowrap}
+.scale-stop.active .scale-name,.scale-stop:hover .scale-name{color:var(--accent)}
+.scale-line{width:1px;height:18px;background:linear-gradient(var(--border),var(--border));margin-left:4px}
+/* Info panel */
+#info-panel{
+  position:absolute;left:16px;bottom:16px;width:300px;
+  background:rgba(6,13,20,.92);border:1px solid var(--border);border-radius:10px;
+  padding:1rem 1.1rem;backdrop-filter:blur(10px);z-index:30
+}
+#info-title{font-family:var(--title);font-size:.85rem;color:var(--accent);letter-spacing:.08em;margin-bottom:.4rem}
+#info-scale{font-family:var(--mono);font-size:.65rem;color:var(--accent2);margin-bottom:.5rem}
+#info-desc{font-size:.78rem;color:var(--text);line-height:1.65;font-weight:300}
+#info-facts{margin-top:.6rem;display:flex;flex-direction:column;gap:.25rem}
+.fact{font-family:var(--mono);font-size:.63rem;color:var(--muted);padding:.2rem .4rem;
+  background:rgba(0,200,255,.04);border-left:2px solid rgba(0,200,255,.2);border-radius:0 3px 3px 0}
+.fact span{color:var(--accent3)}
+/* Navigation */
+#nav-hints{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  display:flex;gap:.75rem;z-index:30
+}
+.nav-btn{
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  background:rgba(6,13,20,.85);border:1px solid var(--border);
+  border-radius:5px;padding:.35rem .8rem;cursor:pointer;
+  transition:all .18s;backdrop-filter:blur(8px)
+}
+.nav-btn:hover{color:var(--accent);border-color:var(--accent);background:rgba(0,200,255,.07)}
+.nav-btn:active{transform:scale(.96)}
+/* Zoom progress */
+#zoom-bar{
+  position:absolute;bottom:16px;right:300px;
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);
+  writing-mode:vertical-rl;letter-spacing:.1em;z-index:30;
+  display:flex;flex-direction:column;align-items:center;gap:6px
+}
+#zoom-track{width:3px;height:120px;background:rgba(0,200,255,.08);border-radius:2px;position:relative}
+#zoom-thumb{
+  position:absolute;width:3px;border-radius:2px;
+  background:linear-gradient(var(--accent),var(--accent2));
+  bottom:0;transition:height .4s ease
+}
+/* View mode controls */
+#view-controls{
+  position:absolute;top:16px;left:16px;display:flex;gap:6px;z-index:30;
+  background:rgba(6,13,20,.92);border:1px solid var(--border);border-radius:8px;
+  padding:4px;overflow:hidden
+}
+.view-btn{
+  padding:6px 14px;font-family:var(--mono);font-size:.75rem;color:#fff;
+  background:#334155;border-radius:6px;cursor:pointer;transition:all .2s;
+}
+.view-btn.active{background:#00c8ff;color:#000508;font-weight:600}
+#potential-badge{
+  position:absolute;top:16px;right:300px;
+  background:rgba(255,107,53,.9);color:#fff;
+  font-family:var(--mono);font-size:.65rem;padding:4px 12px;
+  border-radius:9999px;letter-spacing:.5px;box-shadow:0 4px 12px -2px rgba(255,107,53,.4);
+  z-index:30;display:flex;align-items:center;gap:6px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div class="logo">MATTER<span>SCALE</span> • 3D</div>
+    <div id="scale-readout">Scale: 1 cm</div>
+    <div style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">Drag to rotate • Scroll to zoom • View modes + U(r) live</div>
+    <div id="potential-badge">U(r) LIVE</div>
+  </div>
+  <div id="main">
+    <div id="three-container"></div>
+    <canvas id="potential-canvas" width="260" height="150"></canvas>
+    
+    <!-- Scale rail -->
+    <div id="scale-rail">
+      <div class="scale-stop active" data-level="0" onclick="goToLevel(0)"><span class="scale-name">Crystal<br>1 cm</span><div class="scale-dot"></div></div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="1" onclick="goToLevel(1)"><span class="scale-name">Unit Cell<br>1 nm</span><div class="scale-dot"></div></div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="2" onclick="goToLevel(2)"><span class="scale-name">Molecule<br>0.3 nm</span><div class="scale-dot"></div></div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="3" onclick="goToLevel(3)"><span class="scale-name">Atom<br>100 pm</span><div class="scale-dot"></div></div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="4" onclick="goToLevel(4)"><span class="scale-name">Nucleus<br>1 fm×10⁵</span><div class="scale-dot"></div></div>
+      <div class="scale-line"></div>
+      <div class="scale-stop" data-level="5" onclick="goToLevel(5)"><span class="scale-name">Quarks<br>&lt;1 am</span><div class="scale-dot"></div></div>
+    </div>
+
+    <!-- Info panel -->
+    <div id="info-panel">
+      <div id="info-title">CRYSTAL LATTICE</div>
+      <div id="info-scale">Scale: ~1 cm · NaCl structure</div>
+      <div id="info-desc">A crystal is a solid whose atoms are arranged in a highly ordered, repeating pattern extending in all three spatial dimensions — the crystal lattice.</div>
+      <div id="info-facts">
+        <div class="fact">Bond length: <span>0.282 nm</span></div>
+        <div class="fact">Unit cells: <span>~10²¹ per cm³</span></div>
+        <div class="fact">Symmetry: <span>Face-centered cubic (FCC)</span></div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div id="nav-hints">
+      <button class="nav-btn" onclick="prevLevel()">◀ ZOOM OUT</button>
+      <button class="nav-btn" onclick="nextLevel()">ZOOM IN ▶</button>
+    </div>
+
+    <!-- Zoom bar -->
+    <div id="zoom-bar">
+      <span>10⁻¹⁵m</span>
+      <div id="zoom-track"><div id="zoom-thumb"></div></div>
+      <span>10⁻²m</span>
+    </div>
+
+    <!-- View mode controls -->
+    <div id="view-controls">
+      <div onclick="setViewMode('cross')" id="btn-cross" class="view-btn active">📐 Cross-Section</div>
+      <div onclick="setViewMode('full')" id="btn-full" class="view-btn">🔮 Full 3D Opaque</div>
+      <div onclick="setViewMode('transparent')" id="btn-transparent" class="view-btn">🌫️ Transparent</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Global Three.js variables
+let scene, camera, renderer, clippingPlane;
+let currentLevel = 0;
+let currentViewMode = 'cross';
+let orbitTarget = { x: 0, y: 0, z: 0 };
+let isDragging = false;
+let prevMouseX = 0, prevMouseY = 0;
+let levelObjects = []; // meshes to clear on level change
+
+const canvas3D = document.getElementById('three-container');
+const potentialCanvas = document.getElementById('potential-canvas');
+const ctxPot = potentialCanvas.getContext('2d');
+
+let W = canvas3D.clientWidth;
+let H = canvas3D.clientHeight;
+
+// LEVEL DEFINITIONS (same as before)
+const LEVELS = [
+  { id: 0, name: 'CRYSTAL LATTICE', scale: '~1 cm · NaCl structure', desc: '...', facts: [['Bond length','0.282 nm'],['Unit cells','~10²¹ per cm³'],['Symmetry','Face-centered cubic (FCC)']], potentialTitle: 'Ionic Coulomb Potential' },
+  { id: 1, name: 'UNIT CELL', scale: '~1 nm · cubic unit cell', desc: '...', facts: [['Cell edge','0.564 nm'],['Ions per cell','4 Na⁺ + 4 Cl⁻'],['Madelung const','1.7476']], potentialTitle: 'Madelung Ionic Potential' },
+  { id: 2, name: 'MOLECULE', scale: '~0.3 nm · H₂O cluster', desc: '...', facts: [['O-H bond','0.096 nm'],['Bond angle','104.5°'],['H-bond energy','~20 kJ/mol']], potentialTitle: 'Lennard-Jones Potential' },
+  { id: 3, name: 'ATOM', scale: '~100 pm · Hydrogen', desc: '...', facts: [['Bohr radius','52.9 pm'],['Nucleus size','~1 fm'],['Electron mass','9.1×10⁻³¹ kg']], potentialTitle: 'Coulomb Potential (H atom)' },
+  { id: 4, name: 'ATOMIC NUCLEUS', scale: '~1–10 fm', desc: '...', facts: [['Proton radius','0.87 fm'],['Nuclear density','2.3×10¹⁷ kg/m³'],['Strong force range','~1–3 fm']], potentialTitle: 'Yukawa Nuclear Potential' },
+  { id: 5, name: 'QUARKS & GLUONS', scale: '< 10⁻¹⁸ m', desc: '...', facts: [['Quark types','u (2/3e), d (−1/3e)'],['Gluons','8 color combinations'],['Confinement','QCD string tension']], potentialTitle: 'QCD Linear Confinement' }
+];
+
+const SCALES = ['1 cm','1 nm','0.3 nm','100 pm','1–10 fm','< 1 am'];
+
+// Initialize Three.js
+function initThree() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x010c18);
+  
+  camera = new THREE.PerspectiveCamera(50, W/H, 0.1, 200);
+  camera.position.set(18, 14, 22);
+  
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  renderer.localClippingEnabled = true;
+  canvas3D.appendChild(renderer.domElement);
+  
+  clippingPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+  
+  // Lights
+  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambient);
+  const dir1 = new THREE.DirectionalLight(0x00c8ff, 1.4);
+  dir1.position.set(20, 25, 15);
+  scene.add(dir1);
+  const dir2 = new THREE.DirectionalLight(0xff6b35, 0.9);
+  dir2.position.set(-25, -15, -20);
+  scene.add(dir2);
+  
+  // Orbit controls
+  addOrbitControls();
+  
+  // First level
+  loadLevel3D(0);
+  animateThree();
+}
+
+// Simple orbit controls (drag + zoom)
+function addOrbitControls() {
+  const container = renderer.domElement;
+  container.addEventListener('mousedown', e => { isDragging = true; prevMouseX = e.clientX; prevMouseY = e.clientY; });
+  window.addEventListener('mouseup', () => isDragging = false);
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const deltaX = (e.clientX - prevMouseX) * 0.0045;
+    const deltaY = (e.clientY - prevMouseY) * 0.0045;
+    const radius = camera.position.length();
+    let theta = Math.atan2(camera.position.z, camera.position.x);
+    let phi = Math.acos(camera.position.y / radius);
+    theta -= deltaX;
+    phi = Math.max(0.2, Math.min(Math.PI - 0.2, phi + deltaY));
+    camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
+    camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
+    camera.position.y = radius * Math.cos(phi);
+    camera.lookAt(orbitTarget.x, orbitTarget.y, orbitTarget.z);
+    prevMouseX = e.clientX; prevMouseY = e.clientY;
+  });
+  container.addEventListener('wheel', e => {
+    const dist = camera.position.length();
+    const factor = e.deltaY > 0 ? 1.12 : 0.89;
+    const newDist = Math.max(8, Math.min(60, dist * factor));
+    camera.position.multiplyScalar(newDist / dist);
+  });
+}
+
+// Clear previous level objects
+function clearLevel() {
+  levelObjects.forEach(obj => scene.remove(obj));
+  levelObjects = [];
+}
+
+// Load 3D model for each level
+function loadLevel3D(level) {
+  clearLevel();
+  orbitTarget = { x: 0, y: 0, z: 0 };
+  
+  const scaleFactor = 8; // visual scaling
+  
+  if (level === 0) { // Crystal Lattice – FCC NaCl
+    const group = new THREE.Group();
+    const nx = 5, spacing = 2.2;
+    for (let x = -nx; x <= nx; x++) {
+      for (let y = -nx; y <= nx; y++) {
+        for (let z = -nx; z <= nx; z++) {
+          const isNa = (x + y + z) % 2 === 0;
+          const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.65, 32, 32),
+            new THREE.MeshPhongMaterial({ color: isNa ? 0x40a0ff : 0xff6040, shininess: 60 })
+          );
+          mesh.position.set(x * spacing, y * spacing, z * spacing);
+          group.add(mesh);
+          levelObjects.push(mesh);
+        }
+      }
+    }
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  else if (level === 1) { // Unit Cell
+    const group = new THREE.Group();
+    // Cube wireframe
+    const cubeGeo = new THREE.BoxGeometry(8, 8, 8);
+    const cubeMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, wireframe: true, transparent: true, opacity: 0.6 });
+    const cube = new THREE.Mesh(cubeGeo, cubeMat);
+    group.add(cube);
+    levelObjects.push(cube);
+    // Corners (Na+)
+    const corners = [[-4,-4,-4],[4,-4,-4],[-4,4,-4],[4,4,-4],[-4,-4,4],[4,-4,4],[-4,4,4],[4,4,4]];
+    corners.forEach(p => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.9, 32, 32), new THREE.MeshPhongMaterial({ color: 0x40a0ff }));
+      m.position.set(p[0], p[1], p[2]);
+      group.add(m); levelObjects.push(m);
+    });
+    // Face centers (Cl-)
+    const faces = [[0,0,-4],[0,0,4],[0,-4,0],[0,4,0],[-4,0,0],[4,0,0]];
+    faces.forEach(p => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1.15, 32, 32), new THREE.MeshPhongMaterial({ color: 0xff6040 }));
+      m.position.set(p[0], p[1], p[2]);
+      group.add(m); levelObjects.push(m);
+    });
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  else if (level === 2) { // Water molecules cluster
+    const group = new THREE.Group();
+    const positions = [[0,0,0],[-3,2,1],[3,-2,-1],[-2,-3,2],[2,3,-2],[0,-2,-3]];
+    positions.forEach((pos,i) => {
+      const mol = new THREE.Group();
+      // Oxygen
+      const o = new THREE.Mesh(new THREE.SphereGeometry(1.1, 32, 32), new THREE.MeshPhongMaterial({ color: 0xff4040, shininess: 80 }));
+      mol.add(o);
+      // Hydrogens
+      const h1 = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), new THREE.MeshPhongMaterial({ color: 0xf0f0ff }));
+      h1.position.set(1.8, 1.2, 0);
+      mol.add(h1);
+      const h2 = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), new THREE.MeshPhongMaterial({ color: 0xf0f0ff }));
+      h2.position.set(-1.8, 1.2, 0);
+      mol.add(h2);
+      // Bonds
+      const bondMat = new THREE.MeshPhongMaterial({ color: 0x88ccff });
+      const bond1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.2, 8), bondMat);
+      bond1.position.set(0.9, 0.6, 0);
+      bond1.rotation.z = Math.PI / 6;
+      mol.add(bond1);
+      const bond2 = bond1.clone();
+      bond2.rotation.z = -Math.PI / 6;
+      mol.add(bond2);
+      mol.position.set(pos[0], pos[1], pos[2]);
+      mol.rotation.y = i * 0.8;
+      group.add(mol);
+      levelObjects.push(mol);
+    });
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  else if (level === 3) { // Hydrogen atom – nucleus + electron cloud
+    const group = new THREE.Group();
+    // Nucleus
+    const nucleus = new THREE.Mesh(new THREE.SphereGeometry(1.2, 64, 64), new THREE.MeshPhongMaterial({ color: 0xffaa00, emissive: 0xff5500 }));
+    group.add(nucleus);
+    levelObjects.push(nucleus);
+    // Electron cloud (2000 points)
+    const pointsGeo = new THREE.BufferGeometry();
+    const positions = [];
+    for (let i = 0; i < 2000; i++) {
+      const r = 4.5 * Math.pow(Math.random(), 0.4);
+      const theta = Math.acos(2 * Math.random() - 1);
+      const phi = Math.random() * Math.PI * 2;
+      positions.push(r * Math.sin(theta) * Math.cos(phi));
+      positions.push(r * Math.sin(theta) * Math.sin(phi));
+      positions.push(r * Math.cos(theta));
+    }
+    pointsGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const pointsMat = new THREE.PointsMaterial({ color: 0x88ddff, size: 0.12, transparent: true, opacity: 0.75 });
+    const cloud = new THREE.Points(pointsGeo, pointsMat);
+    group.add(cloud);
+    levelObjects.push(cloud);
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  else if (level === 4) { // Nucleus – packed nucleons
+    const group = new THREE.Group();
+    const positions = [[0,0,0],[2,0,0],[-2,0,0],[0,2,0],[0,-2,0],[0,0,2],[1,1,1],[-1,1,-1],[1,-1,1],[-1,-1,-1],[1.5,0.5,0.5],[-1.5,-0.5,0.5]];
+    positions.forEach((p,i) => {
+      const isProton = i < 6;
+      const nucleon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.95, 32, 32),
+        new THREE.MeshPhongMaterial({ color: isProton ? 0xff6040 : 0x6090ff })
+      );
+      nucleon.position.set(p[0], p[1], p[2]);
+      group.add(nucleon);
+      levelObjects.push(nucleon);
+    });
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  else if (level === 5) { // Quarks & gluons inside proton
+    const group = new THREE.Group();
+    // Confinement bag
+    const bag = new THREE.Mesh(
+      new THREE.SphereGeometry(5.5, 64, 64),
+      new THREE.MeshPhongMaterial({ color: 0x9966ff, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+    );
+    group.add(bag);
+    levelObjects.push(bag);
+    // 3 quarks (uud)
+    const colors = [0xff4040, 0x40ff80, 0x4080ff];
+    const quarkGroup = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const q = new THREE.Mesh(
+        new THREE.SphereGeometry(1.1, 32, 32),
+        new THREE.MeshPhongMaterial({ color: colors[i], emissive: colors[i], emissiveIntensity: 0.6 })
+      );
+      q.userData = { angle: i * Math.PI * 2 / 3 };
+      quarkGroup.add(q);
+      levelObjects.push(q);
+    }
+    group.add(quarkGroup);
+    levelObjects.push(quarkGroup);
+    scene.add(group);
+    levelObjects.push(group);
+  }
+  
+  // Update clipping
+  updateClipping();
+}
+
+// Update clipping plane based on view mode
+function updateClipping() {
+  renderer.localClippingEnabled = currentViewMode === 'cross';
+  if (currentViewMode === 'cross') {
+    clippingPlane.normal.set(1, 0.3, 0.2).normalize();
+    clippingPlane.constant = 0;
+    scene.traverse(obj => { if (obj.material) obj.material.clippingPlanes = [clippingPlane]; });
+  } else {
+    scene.traverse(obj => { if (obj.material) obj.material.clippingPlanes = []; });
+  }
+}
+
+// Animation loop
+function animateThree() {
+  requestAnimationFrame(animateThree);
+  
+  // Subtle per-level animation
+  levelObjects.forEach(obj => {
+    if (obj.userData && obj.userData.angle !== undefined) { // quarks
+      obj.position.x = 2.8 * Math.cos(Date.now() * 0.001 + obj.userData.angle);
+      obj.position.z = 2.8 * Math.sin(Date.now() * 0.001 + obj.userData.angle);
+    }
+    if (currentLevel === 3 && obj instanceof THREE.Points) { // electron cloud breathing
+      obj.scale.setScalar(1 + Math.sin(Date.now() * 0.002) * 0.08);
+    }
+    if (currentLevel === 0) obj.rotation.y += 0.0003; // crystal slow spin
+  });
+  
+  renderer.render(scene, camera);
+}
+
+// Potential energy graph (same logic as before, now on separate canvas)
+function drawPotentialGraph(level) {
+  const w = 260, h = 150;
+  ctxPot.clearRect(0, 0, w, h);
+  ctxPot.shadowColor = '#ff6b35';
+  ctxPot.shadowBlur = 12;
+  ctxPot.fillStyle = 'rgba(6,13,20,0.96)';
+  ctxPot.fillRect(0, 0, w, h);
+  ctxPot.shadowBlur = 0;
+  ctxPot.strokeStyle = '#ff6b35';
+  ctxPot.lineWidth = 3;
+  ctxPot.strokeRect(10, 10, w-20, h-20);
+  
+  ctxPot.fillStyle = '#00c8ff';
+  ctxPot.font = '700 11px JetBrains Mono';
+  ctxPot.textAlign = 'center';
+  ctxPot.fillText('POTENTIAL ENERGY U(r)', w/2, 26);
+  ctxPot.fillStyle = '#7fff6b';
+  ctxPot.font = '500 9px JetBrains Mono';
+  ctxPot.fillText(LEVELS[level].potentialTitle, w/2, 39);
+  
+  const gx = 38, gy = 54, gw = w - 72, gh = h - 82;
+  ctxPot.strokeStyle = '#4a6a7a';
+  ctxPot.lineWidth = 2;
+  ctxPot.beginPath();
+  ctxPot.moveTo(gx, gy + gh); ctxPot.lineTo(gx + gw, gy + gh);
+  ctxPot.moveTo(gx, gy); ctxPot.lineTo(gx, gy + gh);
+  ctxPot.stroke();
+  
+  ctxPot.fillStyle = '#4a6a7a';
+  ctxPot.font = '8px JetBrains Mono';
+  ctxPot.fillText('r →', gx + gw/2, gy + gh + 14);
+  ctxPot.textAlign = 'right';
+  ctxPot.fillText('U', gx - 8, gy + gh/2 + 4);
+  
+  ctxPot.strokeStyle = '#ff6b35';
+  ctxPot.lineWidth = 3;
+  ctxPot.shadowBlur = 8;
+  ctxPot.shadowColor = '#ff6b35';
+  ctxPot.beginPath();
+  const steps = 80;
+  for (let i = 0; i <= steps; i++) {
+    const frac = i / steps;
+    const r = 0.08 + frac * 5.5;
+    let u = 0;
+    switch(level){
+      case 0: case 1: u = -1.8 / (r + 0.25); break;
+      case 2: const sr = 1.1 / (r * 0.9 + 0.3); u = 4 * (Math.pow(sr,12) - Math.pow(sr,6)); break;
+      case 3: u = -3.5 / (r + 0.15); break;
+      case 4: u = -4.2 * Math.exp(-r * 1.8) / (r + 0.4); break;
+      case 5: u = 2.4 * r - 1.8; break;
+    }
+    const normU = Math.max(-3.5, Math.min(2.5, u));
+    const py = gy + gh * (1 - (normU + 3.5) / 6);
+    const px = gx + frac * gw;
+    i === 0 ? ctxPot.moveTo(px, py) : ctxPot.lineTo(px, py);
+  }
+  ctxPot.stroke();
+  ctxPot.shadowBlur = 0;
+}
+
+// Level change
+function goToLevel(level) {
+  if (level === currentLevel) return;
+  currentLevel = level;
+  document.querySelectorAll('.scale-stop').forEach((el,i) => el.classList.toggle('active', i === level));
+  document.getElementById('scale-readout').textContent = `Scale: ${SCALES[level]}`;
+  const lv = LEVELS[level];
+  document.getElementById('info-title').textContent = lv.name;
+  document.getElementById('info-scale').textContent = lv.scale;
+  document.getElementById('info-desc').textContent = lv.desc;
+  const factsEl = document.getElementById('info-facts');
+  factsEl.innerHTML = lv.facts.map(([k,v]) => `<div class="fact">${k}: <span>${v}</span></div>`).join('');
+  const pct = (level / 5) * 100;
+  document.getElementById('zoom-thumb').style.height = pct + '%';
+  
+  loadLevel3D(level);
+  drawPotentialGraph(level);
+}
+
+// View mode
+function setViewMode(mode) {
+  currentViewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.id === `btn-${mode}`));
+  updateClipping();
+  if (mode === 'transparent') {
+    scene.traverse(obj => { if (obj.material && obj.material.transparent !== undefined) obj.material.transparent = true; obj.material.opacity = 0.35; });
+  } else if (mode === 'full') {
+    scene.traverse(obj => { if (obj.material && obj.material.transparent !== undefined) obj.material.transparent = false; obj.material.opacity = 1; });
+  }
+}
+
+// Resize handler
+window.addEventListener('resize', () => {
+  W = canvas3D.clientWidth;
+  H = canvas3D.clientHeight;
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  renderer.setSize(W, H);
+});
+
+// Navigation
+function nextLevel() { if (currentLevel < 5) goToLevel(currentLevel + 1); }
+function prevLevel() { if (currentLevel > 0) goToLevel(currentLevel - 1); }
+
+// Start
+initThree();
+drawPotentialGraph(0);
+console.log('%c✅ Matter Scale Explorer 3D – fully converted with cross-section / transparent / full 3D views + live U(r)', 'color:#7fff6b;font-family:JetBrains Mono');
+</script>
+</body>
+</html>

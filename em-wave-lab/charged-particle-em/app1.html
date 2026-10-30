@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EM Particle Dynamics Simulator</title>
+
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  }
+};
+</script>
+
+<script
+id="MathJax-script"
+async
+src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #05050f;
+  --panel: #09091a;
+  --panel2: #0c0c20;
+  --border: #18183a;
+  --border2: #22224a;
+  --ce: #00d4ff;
+  --cb: #c040ff;
+  --cp: #ffe040;
+  --cv: #00ff99;
+  --cr: #ff4466;
+  --text: #c0d0f0;
+  --dim: #4a5880;
+  --dim2: #2a3560;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  background: var(--bg);
+  color: var(--text);
+  display: flex; flex-direction: column; height: 100vh;
+}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 14px;
+  height: 38px;
+  display: flex; align-items: center; gap: 16px;
+  flex-shrink: 0; z-index: 10;
+}
+.logo {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700; font-size: 15px;
+  color: var(--cp); letter-spacing: 3px;
+  white-space: nowrap;
+}
+.logo span { color: var(--ce); }
+.tabs { display: flex; gap: 2px; }
+.tab-btn {
+  background: none; border: 1px solid transparent;
+  color: var(--dim); padding: 4px 14px;
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  cursor: pointer; letter-spacing: 1.5px; text-transform: uppercase;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text); border-color: var(--border2); }
+.tab-btn.active { color: var(--cp); border-color: var(--cp); background: #ffe04011; }
+.header-right { margin-left: auto; font-size: 10px; color: var(--dim); letter-spacing: 1px; }
+
+/* ── TABS ────────────────────────────────────────────────── */
+.tab-pane { display: none; flex: 1; overflow: hidden; }
+.tab-pane.active { display: flex; }
+
+/* ── SIM LAYOUT ─────────────────────────────────────────── */
+#tab-sim { flex-direction: row; }
+
+/* ── CONTROLS PANEL ──────────────────────────────────────── */
+.ctrl-panel {
+  width: 250px; min-width: 250px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column;
+}
+.ctrl-panel::-webkit-scrollbar { width: 3px; }
+.ctrl-panel::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.csec {
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.csec-hdr {
+  padding: 5px 10px;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel2);
+}
+.csec-hdr.etype { color: var(--ce); border-left: 2px solid var(--ce); }
+.csec-hdr.btype { color: var(--cb); border-left: 2px solid var(--cb); }
+.csec-hdr.ptype { color: var(--cp); border-left: 2px solid var(--cp); }
+.csec-hdr.vtype { color: var(--cv); border-left: 2px solid var(--cv); }
+.csec-hdr.ntype { color: var(--dim); border-left: 2px solid var(--border2); }
+.csec-body { padding: 8px 10px; }
+
+.srow { margin-bottom: 7px; }
+.slbl {
+  display: flex; justify-content: space-between;
+  font-size: 9px; margin-bottom: 2px; color: var(--dim);
+}
+.slbl .sval { color: var(--text); min-width: 48px; text-align: right; font-size: 10px; }
+input[type=range] {
+  width: 100%; height: 2px; appearance: none;
+  background: var(--border2); outline: none; border-radius: 1px; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  appearance: none; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--dim); cursor: pointer;
+}
+.srow.et input[type=range]::-webkit-slider-thumb { background: var(--ce); }
+.srow.bt input[type=range]::-webkit-slider-thumb { background: var(--cb); }
+.srow.vt input[type=range]::-webkit-slider-thumb { background: var(--cv); }
+.srow.pt input[type=range]::-webkit-slider-thumb { background: var(--cp); }
+
+.btn-row { display: flex; gap: 4px; padding: 7px 10px; }
+.cbtn {
+  flex: 1; background: none;
+  border: 1px solid var(--border2); color: var(--dim);
+  padding: 5px 4px; font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; cursor: pointer; text-align: center;
+  transition: all 0.2s; letter-spacing: 1px;
+}
+.cbtn:hover { border-color: var(--cp); color: var(--cp); background: #ffe04010; }
+.cbtn.run { border-color: var(--cv); color: var(--cv); background: #00ff9910; }
+.cbtn.reset:hover { border-color: var(--cr); color: var(--cr); background: #ff446610; }
+
+.preset-btn {
+  display: block; width: 100%; background: none;
+  border: none; border-bottom: 1px solid var(--border);
+  color: var(--dim); text-align: left;
+  padding: 6px 10px; font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; cursor: pointer; transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+.preset-btn:hover { background: #ffe04008; color: var(--cp); }
+.preset-btn:last-child { border-bottom: none; }
+.preset-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+
+/* ── VIZ AREA ────────────────────────────────────────────── */
+.viz-area {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+}
+.view-bar {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 5px 10px; display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.vbar-lbl { font-size: 9px; color: var(--dim); letter-spacing: 1.5px; margin-right: 4px; }
+.vbtn {
+  background: none; border: 1px solid var(--border2); color: var(--dim);
+  padding: 3px 9px; font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; cursor: pointer; transition: all 0.15s;
+}
+.vbtn:hover { border-color: var(--text); color: var(--text); }
+.vbtn.active { border-color: var(--cp); color: var(--cp); background: #ffe04012; }
+.vbtn.tog { padding: 3px 7px; }
+.vbtn.tog.on { border-color: var(--cv); color: var(--cv); background: #00ff9910; }
+.vbar-sep { width: 1px; height: 14px; background: var(--border2); margin: 0 4px; }
+.vbar-info { margin-left: auto; display: flex; gap: 14px; font-size: 10px; }
+.vbi-item { display: flex; gap: 5px; }
+.vbi-lbl { color: var(--dim); }
+.vbi-val { color: var(--cp); min-width: 52px; }
+
+.canvas-wrap {
+  flex: 1; position: relative; overflow: hidden;
+  background: var(--bg);
+}
+canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; }
+canvas.active { display: block; }
+
+/* ── KPI BAR ─────────────────────────────────────────────── */
+.kpi-bar {
+  background: var(--panel); border-top: 1px solid var(--border);
+  padding: 5px 12px; display: flex; flex-wrap: wrap; gap: 14px;
+  flex-shrink: 0;
+}
+.kpi { display: flex; gap: 5px; align-items: baseline; }
+.kl { font-size: 9px; color: var(--dim); letter-spacing: 1px; }
+.kv { font-size: 10px; color: var(--text); min-width: 64px; }
+.kv.hi { color: var(--cp); }
+.kv.hie { color: var(--ce); }
+.kv.hib { color: var(--cb); }
+
+/* ── PHYSICS & HELP TABS ──────────────────────────────────── */
+#tab-physics, #tab-help {
+  overflow-y: auto; flex-direction: column;
+  padding: 32px 48px; gap: 0;
+}
+#tab-physics::-webkit-scrollbar, #tab-help::-webkit-scrollbar { width: 4px; }
+#tab-physics::-webkit-scrollbar-thumb, #tab-help::-webkit-scrollbar-thumb { background: var(--border2); }
+.doc-wrap { max-width: 860px; width: 100%; margin: 0 auto; }
+
+.doc-h1 {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 20px; color: var(--cp); letter-spacing: 3px;
+  border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 24px;
+}
+.doc-h2 {
+  font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--ce); margin: 28px 0 10px; padding-left: 8px;
+  border-left: 2px solid var(--ce);
+}
+.doc-h2.b { color: var(--cb); border-left-color: var(--cb); }
+.doc-h2.p { color: var(--cp); border-left-color: var(--cp); }
+.doc-h2.v { color: var(--cv); border-left-color: var(--cv); }
+.doc-p { font-size: 11px; line-height: 1.9; color: var(--text); margin-bottom: 10px; }
+.doc-p code { color: var(--cp); background: #ffe04011; padding: 1px 4px; border-radius: 2px; }
+
+.eqbox {
+  background: var(--panel); border: 1px solid var(--border);
+  border-left: 3px solid var(--cp);
+  padding: 10px 14px; margin: 10px 0;
+  font-size: 12px; color: var(--cp); line-height: 1.7;
+}
+.eqbox.e { border-left-color: var(--ce); color: var(--ce); }
+.eqbox.b { border-left-color: var(--cb); color: var(--cb); }
+.eqbox.v { border-left-color: var(--cv); color: var(--cv); }
+.eqlbl {
+  font-size: 9px; color: var(--dim); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 5px;
+}
+.tbl { width: 100%; border-collapse: collapse; font-size: 10px; margin: 12px 0; }
+.tbl th { background: var(--panel2); padding: 6px 10px; color: var(--dim); text-align: left; font-weight: normal; letter-spacing: 1px; border-bottom: 1px solid var(--border2); }
+.tbl td { padding: 5px 10px; border-bottom: 1px solid var(--border)88; color: var(--text); vertical-align: top; line-height: 1.5; }
+.tbl tr:hover td { background: var(--panel2); }
+.tag {
+  display: inline-block; padding: 1px 6px; border-radius: 2px;
+  font-size: 9px; margin-right: 3px; letter-spacing: 0.5px;
+}
+.te { background: #00d4ff15; color: var(--ce); border: 1px solid #00d4ff33; }
+.tb { background: #c040ff15; color: var(--cb); border: 1px solid #c040ff33; }
+.tp { background: #ffe04015; color: var(--cp); border: 1px solid #ffe04033; }
+.tv { background: #00ff9915; color: var(--cv); border: 1px solid #00ff9933; }
+.doc-tip {
+  background: var(--panel2); border: 1px solid var(--border2);
+  border-left: 3px solid var(--cv); padding: 10px 14px; margin: 14px 0;
+  font-size: 10px; color: var(--cv); line-height: 1.7;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ EM <span>PARTICLE</span> DYNAMICS</div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(event,'sim')">SIMULATION</button>
+    <button class="tab-btn" onclick="switchTab(event,'physics')">PHYSICS</button>
+    <button class="tab-btn" onclick="switchTab(event,'help')">HELP</button>
+  </div>
+  <div class="header-right">RK4 · LORENTZ FORCE · 3D DYNAMICS</div>
+</header>
+
+<!-- ═══════════════════ SIMULATION TAB ═══════════════════ -->
+<div id="tab-sim" class="tab-pane active">
+
+  <!-- Controls -->
+  <div class="ctrl-panel">
+
+    <div class="csec">
+      <div class="csec-hdr ptype">◈ Particle</div>
+      <div class="csec-body">
+        <div class="srow pt">
+          <div class="slbl"><span>Mass  m</span><span class="sval" id="dMass">1.000</span></div>
+          <input type="range" id="sMass" min="0.1" max="10" step="0.05" value="1.0" oninput="up('mass',this)">
+        </div>
+        <div class="srow pt">
+          <div class="slbl"><span>Charge  q</span><span class="sval" id="dCharge">+1.000</span></div>
+          <input type="range" id="sCharge" min="-5" max="5" step="0.1" value="1.0" oninput="up('charge',this)">
+        </div>
+      </div>
+    </div>
+
+    <div class="csec">
+      <div class="csec-hdr vtype">◈ Initial Velocity  v₀</div>
+      <div class="csec-body">
+        <div class="srow vt"><div class="slbl"><span>v₀ₓ</span><span class="sval" id="dVx">5.000</span></div>
+          <input type="range" id="sVx" min="-10" max="10" step="0.1" value="5.0" oninput="up('vx',this)"></div>
+        <div class="srow vt"><div class="slbl"><span>v₀ᵧ</span><span class="sval" id="dVy">0.000</span></div>
+          <input type="range" id="sVy" min="-10" max="10" step="0.1" value="0.0" oninput="up('vy',this)"></div>
+        <div class="srow vt"><div class="slbl"><span>v₀_z</span><span class="sval" id="dVz">2.000</span></div>
+          <input type="range" id="sVz" min="-10" max="10" step="0.1" value="2.0" oninput="up('vz',this)"></div>
+      </div>
+    </div>
+
+    <div class="csec">
+      <div class="csec-hdr etype">◈ Electric Field  E</div>
+      <div class="csec-body">
+        <div class="srow et"><div class="slbl"><span>Eₓ</span><span class="sval" id="dEx">0.000</span></div>
+          <input type="range" id="sEx" min="-5" max="5" step="0.1" value="0.0" oninput="up('ex',this)"></div>
+        <div class="srow et"><div class="slbl"><span>Eᵧ</span><span class="sval" id="dEy">0.000</span></div>
+          <input type="range" id="sEy" min="-5" max="5" step="0.1" value="0.0" oninput="up('ey',this)"></div>
+        <div class="srow et"><div class="slbl"><span>E_z</span><span class="sval" id="dEz">0.000</span></div>
+          <input type="range" id="sEz" min="-5" max="5" step="0.1" value="0.0" oninput="up('ez',this)"></div>
+      </div>
+    </div>
+
+    <div class="csec">
+      <div class="csec-hdr btype">◈ Magnetic Field  B</div>
+      <div class="csec-body">
+        <div class="srow bt"><div class="slbl"><span>Bₓ</span><span class="sval" id="dBx">0.000</span></div>
+          <input type="range" id="sBx" min="-5" max="5" step="0.1" value="0.0" oninput="up('bx',this)"></div>
+        <div class="srow bt"><div class="slbl"><span>Bᵧ</span><span class="sval" id="dBy">0.000</span></div>
+          <input type="range" id="sBy" min="-5" max="5" step="0.1" value="0.0" oninput="up('by',this)"></div>
+        <div class="srow bt"><div class="slbl"><span>B_z</span><span class="sval" id="dBz">2.000</span></div>
+          <input type="range" id="sBz" min="-5" max="5" step="0.1" value="2.0" oninput="up('bz',this)"></div>
+      </div>
+    </div>
+
+    <div class="csec">
+      <div class="csec-hdr ntype">◈ Simulation</div>
+      <div class="btn-row">
+        <button class="cbtn run" id="btnRun" onclick="toggleRun()">▶ RUN</button>
+        <button class="cbtn reset" onclick="doReset()">↺ RESET</button>
+      </div>
+      <div class="csec-body" style="padding-top:0">
+        <div class="srow"><div class="slbl"><span>Speed</span><span class="sval" id="dSpeed">5×</span></div>
+          <input type="range" id="sSpeed" min="1" max="30" step="1" value="5" oninput="up('speed',this)"></div>
+        <div class="srow"><div class="slbl"><span>Trail length</span><span class="sval" id="dTrail">3000</span></div>
+          <input type="range" id="sTrail" min="200" max="10000" step="100" value="3000" oninput="up('trail',this)"></div>
+        <div class="srow"><div class="slbl"><span>Δt (step)</span><span class="sval" id="dDt">0.010</span></div>
+          <input type="range" id="sDt" min="0.001" max="0.05" step="0.001" value="0.01" oninput="up('dt',this)"></div>
+      </div>
+    </div>
+
+    <div class="csec">
+      <div class="csec-hdr ntype">◈ Presets</div>
+      <button class="preset-btn" onclick="preset('circ')"><span class="preset-dot" style="background:#c040ff"></span>Circular Orbit  (pure B)</button>
+      <button class="preset-btn" onclick="preset('helix')"><span class="preset-dot" style="background:#00ff99"></span>Helical Motion  (B + v∥)</button>
+      <button class="preset-btn" onclick="preset('exb')"><span class="preset-dot" style="background:#00d4ff"></span>E × B Drift</button>
+      <button class="preset-btn" onclick="preset('cycloid')"><span class="preset-dot" style="background:#ffe040"></span>Cycloid  (E⊥B, v₀=0)</button>
+      <button class="preset-btn" onclick="preset('para')"><span class="preset-dot" style="background:#ff4466"></span>Parabolic  (pure E)</button>
+      <button class="preset-btn" onclick="preset('neg')"><span class="preset-dot" style="background:#ff8040"></span>Negative Charge</button>
+      <button class="preset-btn" onclick="preset('chaos')"><span class="preset-dot" style="background:#ff40ff"></span>Complex 3D Fields</button>
+    </div>
+  </div>
+
+  <!-- Viz area -->
+  <div class="viz-area">
+    <div class="view-bar">
+      <span class="vbar-lbl">VIEW:</span>
+      <button class="vbtn active" id="vb3D"  onclick="setView('3D')">3D</button>
+      <button class="vbtn"        id="vbXY"  onclick="setView('XY')">XY</button>
+      <button class="vbtn"        id="vbXZ"  onclick="setView('XZ')">XZ</button>
+      <button class="vbtn"        id="vbYZ"  onclick="setView('YZ')">YZ</button>
+      <button class="vbtn"        id="vbALL" onclick="setView('ALL')">ALL</button>
+      <div class="vbar-sep"></div>
+      <button class="vbtn tog on" id="tAxes"  onclick="togAxes()">AXES</button>
+      <button class="vbtn tog on" id="tGrid"  onclick="togGrid()">GRID</button>
+      <button class="vbtn tog on" id="tField" onclick="togField()">FIELDS</button>
+      <div class="vbar-info">
+        <div class="vbi-item"><span class="vbi-lbl">STEP</span><span class="vbi-val" id="infoStep">0</span></div>
+        <div class="vbi-item"><span class="vbi-lbl">t =</span><span class="vbi-val" id="infoT">0.000</span></div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap" id="cwrap">
+      <canvas id="c3d" class="active"></canvas>
+      <canvas id="c2d"></canvas>
+      <canvas id="call"></canvas>
+    </div>
+
+    <div class="kpi-bar">
+      <div class="kpi"><span class="kl">POS</span><span class="kv" id="kPos">(0, 0, 0)</span></div>
+      <div class="kpi"><span class="kl">VEL</span><span class="kv" id="kVel">(0, 0, 0)</span></div>
+      <div class="kpi"><span class="kl">|v|</span><span class="kv hi" id="kSpd">0.0000</span></div>
+      <div class="kpi"><span class="kl">KE</span><span class="kv" id="kKE">0.0000</span></div>
+      <div class="kpi"><span class="kl">ωc</span><span class="kv hib" id="kWc">—</span></div>
+      <div class="kpi"><span class="kl">rL</span><span class="kv hib" id="kRL">—</span></div>
+      <div class="kpi"><span class="kl">F</span><span class="kv hie" id="kF">(0, 0, 0)</span></div>
+      <div class="kpi"><span class="kl">|E|</span><span class="kv hie" id="kEm">0.000</span></div>
+      <div class="kpi"><span class="kl">|B|</span><span class="kv hib" id="kBm">0.000</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PHYSICS TAB ═══════════════════════ -->
+<div id="tab-physics" class="tab-pane">
+<div class="doc-wrap">
+  <div class="doc-h1">PHYSICS OF CHARGED PARTICLES IN EM FIELDS</div>
+
+  <div class="doc-h2">1 — The Lorentz Force Law</div>
+  <p class="doc-p">The complete force acting on a particle with charge <code>q</code> and velocity <code>𝐯</code> in combined electric and magnetic fields is the <strong>Lorentz force</strong>:</p>
+  <div class="eqbox">
+    <div class="eqlbl">Lorentz Force</div>
+    𝐅 = q ( 𝐄 + 𝐯 × 𝐁 )
+  </div>
+  <p class="doc-p">The electric term <code>q𝐄</code> acts along the field and does work on the particle. The magnetic term <code>q(𝐯 × 𝐁)</code> is always perpendicular to the velocity, so it <em>deflects but never accelerates</em> — the magnetic force does zero work, meaning it cannot change kinetic energy.</p>
+
+  <div class="doc-h2">2 — Equations of Motion</div>
+  <p class="doc-p">Applying Newton's second law <code>𝐅 = m𝐚</code> gives a coupled first-order ODE system in the state vector <code>𝐲 = (x, y, z, vₓ, vᵧ, v_z)</code>:</p>
+  <div class="eqbox">
+    <div class="eqlbl">State-Space ODEs</div>
+    d𝐫/dt = 𝐯<br>
+    d𝐯/dt = (q/m)( 𝐄 + 𝐯 × 𝐁 )
+  </div>
+  <div class="eqbox e">
+    <div class="eqlbl">Component Form (Cartesian)</div>
+    dvₓ/dt = (q/m)[ Eₓ + vᵧ B_z − v_z Bᵧ ]<br>
+    dvᵧ/dt = (q/m)[ Eᵧ + v_z Bₓ − vₓ B_z ]<br>
+    dv_z/dt = (q/m)[ E_z + vₓ Bᵧ − vᵧ Bₓ ]
+  </div>
+  <p class="doc-p">The cross-coupling through the magnetic field makes this system non-trivial — the component equations are mutually dependent through the velocity components.</p>
+
+  <div class="doc-h2">3 — Numerical Integration: 4th-Order Runge-Kutta</div>
+  <p class="doc-p">This simulator uses <strong>RK4</strong>, which balances accuracy and efficiency. For state <code>𝐲ₙ</code> at time <code>tₙ</code>:</p>
+  <div class="eqbox">
+    <div class="eqlbl">RK4 Step</div>
+    k₁ = f(𝐲ₙ)<br>
+    k₂ = f(𝐲ₙ + ½Δt · k₁)<br>
+    k₃ = f(𝐲ₙ + ½Δt · k₂)<br>
+    k₄ = f(𝐲ₙ + Δt · k₃)<br>
+    𝐲ₙ₊₁ = 𝐲ₙ + (Δt/6)(k₁ + 2k₂ + 2k₃ + k₄)
+  </div>
+  <p class="doc-p">RK4 has global error <code>O(Δt⁴)</code>. The critical stability condition for cyclotron orbits is <code>ωc · Δt ≪ 1</code>, where <code>ωc = |q|B/m</code>. Reducing <code>Δt</code> improves both accuracy and energy conservation.</p>
+
+  <div class="doc-h2 b">4 — Pure Magnetic Field: Circular and Helical Motion</div>
+  <p class="doc-p">With <code>𝐄 = 0</code>, the magnetic force acts as centripetal force. For velocity <code>𝐯⊥</code> perpendicular to <code>𝐁</code>, the particle executes uniform circular motion in the plane perpendicular to <code>𝐁</code>:</p>
+  <div class="eqbox b">
+    <div class="eqlbl">Cyclotron (Larmor) Frequency</div>
+    ωc = |q||𝐁| / m     [rad/s in SI]
+  </div>
+  <div class="eqbox b">
+    <div class="eqlbl">Larmor (Cyclotron) Radius</div>
+    rL = m v⊥ / (|q||𝐁|) = v⊥ / ωc
+  </div>
+  <p class="doc-p">If the velocity has a component <code>v∥</code> along <code>𝐁</code>, the particle moves in a <strong>helix</strong>: it rotates in the transverse plane (circle of radius rL) while drifting along <code>𝐁</code> unchanged. The helix pitch is <code>p = 2π v∥ / ωc</code>. Energy is conserved: <code>|𝐯|² = v⊥² + v∥² = const</code>.</p>
+  <p class="doc-p">The sign of <code>q</code> determines the helicity (left-hand vs right-hand spiral). For the same <code>|q|/m</code>, a proton and an electron orbit in opposite senses.</p>
+
+  <div class="doc-h2 e">5 — Pure Electric Field: Parabolic Motion</div>
+  <p class="doc-p">With <code>𝐁 = 0</code> and uniform <code>𝐄</code>, the particle experiences constant acceleration <code>𝐚 = q𝐄/m</code>. This is exactly analogous to projectile motion in gravity:</p>
+  <div class="eqbox e">
+    <div class="eqlbl">Trajectory (uniform E)</div>
+    𝐫(t) = 𝐫₀ + 𝐯₀ t + ½ (q𝐄/m) t²
+  </div>
+  <p class="doc-p">The work-energy theorem applies: <code>ΔKE = q · ΔV</code>, where <code>ΔV</code> is the electrostatic potential difference. The trajectory is parabolic in the plane containing <code>𝐄</code> and <code>𝐯₀</code>.</p>
+
+  <div class="doc-h2">6 — Crossed Fields: E × B Drift</div>
+  <p class="doc-p">When <code>𝐄 ⊥ 𝐁</code>, all particles regardless of mass, charge sign, or speed drift with the same velocity perpendicular to both fields:</p>
+  <div class="eqbox">
+    <div class="eqlbl">E × B Drift Velocity</div>
+    𝐯_d = (𝐄 × 𝐁) / |𝐁|²
+  </div>
+  <p class="doc-p">This charge-independent drift is fundamental in plasma physics. Superimposed on the cyclotron motion, it produces <strong>cycloidal trajectories</strong>. A particle starting at rest traces a cycloid — forward arcs linked by cusps. The drift speed is purely <code>|E|/|B|</code>, independent of q/m. This is the basis of the <strong>velocity selector</strong> and the <strong>magnetron</strong> device.</p>
+
+  <div class="doc-h2">7 — Gradient and Curvature Drifts</div>
+  <p class="doc-p">In <em>non-uniform</em> magnetic fields (not modeled here for uniform fields), two additional drifts arise:</p>
+  <table class="tbl">
+    <tr><th>Drift</th><th>Origin</th><th>Formula</th></tr>
+    <tr><td><span class="tag tb">∇B drift</span></td><td>Gradient of |B| across orbit radius</td><td>𝐯_∇B = (mv⊥²/2qB³) 𝐁 × ∇B</td></tr>
+    <tr><td><span class="tag tb">Curvature drift</span></td><td>Centrifugal force from following curved field lines</td><td>𝐯_c = (mv∥²/qB²R²) 𝐑 × 𝐁</td></tr>
+  </table>
+  <p class="doc-p">These drifts are charge-dependent and drive current sheets in planetary magnetospheres and tokamak plasmas. They are responsible for the azimuthal drift of radiation belt particles in Earth's magnetic field.</p>
+
+  <div class="doc-h2">8 — Energy Conservation as a Numerical Benchmark</div>
+  <table class="tbl">
+    <tr><th>Field Config</th><th>Conserved Quantity</th><th>RK4 Signature</th></tr>
+    <tr><td><span class="tag tb">Pure B</span></td><td>KE = ½m|𝐯|² (B does no work)</td><td>|v| stays constant to O(Δt⁴)</td></tr>
+    <tr><td><span class="tag te">Pure E</span></td><td>KE + PE = ½mv² + qV</td><td>Total energy conserved</td></tr>
+    <tr><td><span class="tag te">E</span><span class="tag tb">B</span> combined</td><td>Canonical momentum p − qA</td><td>Violated by non-symplectic integrators</td></tr>
+  </table>
+  <p class="doc-p">For pure magnetic fields, energy conservation is a direct test of integration quality. If <code>|v|</code> drifts over many cyclotron periods, reduce <code>Δt</code>. Symplectic integrators (Boris algorithm, Störmer-Verlet) preserve the Hamiltonian structure exactly and are preferred in long-time plasma simulations over RK4.</p>
+
+  <div class="doc-h2">9 — Physical Constants (SI Reference)</div>
+  <table class="tbl">
+    <tr><th>Particle</th><th>Mass (kg)</th><th>Charge (C)</th><th>|q|/m (C/kg)</th><th>ωc at 1T (rad/s)</th></tr>
+    <tr><td>Electron (e⁻)</td><td>9.109 × 10⁻³¹</td><td>−1.602 × 10⁻¹⁹</td><td>1.759 × 10¹¹</td><td>1.759 × 10¹¹</td></tr>
+    <tr><td>Proton (p⁺)</td><td>1.673 × 10⁻²⁷</td><td>+1.602 × 10⁻¹⁹</td><td>9.579 × 10⁷</td><td>9.579 × 10⁷</td></tr>
+    <tr><td>Deuteron</td><td>3.344 × 10⁻²⁷</td><td>+1.602 × 10⁻¹⁹</td><td>4.794 × 10⁷</td><td>4.794 × 10⁷</td></tr>
+    <tr><td>α-particle</td><td>6.645 × 10⁻²⁷</td><td>+3.204 × 10⁻¹⁹</td><td>4.822 × 10⁷</td><td>4.822 × 10⁷</td></tr>
+  </table>
+  <p class="doc-p">This simulator uses <strong>normalized dimensionless units</strong>. The physics scales identically — only the ratio <code>q/m</code> and the field magnitudes determine the orbit geometry.</p>
+</div>
+</div>
+
+<!-- ═══════════════════ HELP TAB ══════════════════════════ -->
+<div id="tab-help" class="tab-pane">
+<div class="doc-wrap">
+  <div class="doc-h1">USER GUIDE</div>
+
+  <div class="doc-h2">Quick Start</div>
+  <p class="doc-p">Click a <strong>Preset</strong> in the left panel to load a ready-made configuration, then press <strong>▶ RUN</strong>. The particle launches from the origin (0,0,0). Press <strong>↺ RESET</strong> to clear the trail and restart from zero — field parameters are preserved. In <strong>3D view</strong>, drag to orbit and scroll to zoom.</p>
+
+  <div class="doc-h2">Parameter Reference</div>
+  <table class="tbl">
+    <tr><th>Control</th><th>Symbol</th><th>Range</th><th>Physical Effect</th></tr>
+    <tr><td><span class="tag tp">Mass</span></td><td>m</td><td>0.1 – 10</td><td>Larger m → larger Larmor radius, slower cyclotron frequency. Does not affect E×B drift.</td></tr>
+    <tr><td><span class="tag tp">Charge</span></td><td>q</td><td>−5 – +5</td><td>Sign reverses orbit sense. Magnitude scales force and cyclotron frequency.</td></tr>
+    <tr><td><span class="tag tv">Velocity v₀</span></td><td>vₓ, vᵧ, v_z</td><td>−10 – +10</td><td>Component ⊥ to B sets Larmor radius. Component ∥ to B sets helix pitch.</td></tr>
+    <tr><td><span class="tag te">Electric E</span></td><td>Eₓ, Eᵧ, E_z</td><td>−5 – +5</td><td>Accelerates particle. E⊥B produces E×B drift. Pure E gives parabola.</td></tr>
+    <tr><td><span class="tag tb">Magnetic B</span></td><td>Bₓ, Bᵧ, B_z</td><td>−5 – +5</td><td>Curves trajectory. B does no work. Sets cyclotron frequency ωc = |q||B|/m.</td></tr>
+  </table>
+
+  <div class="doc-h2">View Modes</div>
+  <table class="tbl">
+    <tr><th>Mode</th><th>Description</th></tr>
+    <tr><td><span class="tag tp">3D</span></td><td>Full 3D perspective via WebGL (Three.js). <strong>Drag</strong> to orbit the scene. <strong>Scroll</strong> to zoom in/out.</td></tr>
+    <tr><td><span class="tag tp">XY</span></td><td>Orthographic projection onto the XY plane (top-down view). Best for seeing circular orbits with B along z.</td></tr>
+    <tr><td><span class="tag tp">XZ</span></td><td>Side-plane projection. Shows sinusoidal cross-section of a helix.</td></tr>
+    <tr><td><span class="tag tp">YZ</span></td><td>Front-plane projection.</td></tr>
+    <tr><td><span class="tag tp">ALL</span></td><td>Four-panel layout: XY, XZ, YZ projections + live telemetry panel. Best overview for 3D trajectories.</td></tr>
+  </table>
+
+  <div class="doc-h2">Overlay Toggles</div>
+  <table class="tbl">
+    <tr><th>Toggle</th><th>Effect</th></tr>
+    <tr><td><span class="tag tv">AXES</span></td><td>Show/hide X (red), Y (green), Z (blue) coordinate axes in 3D view</td></tr>
+    <tr><td><span class="tag tv">GRID</span></td><td>Show/hide the XZ ground plane grid in 3D view</td></tr>
+    <tr><td><span class="tag tv">FIELDS</span></td><td>Show/hide arrow indicators for E field (cyan) and B field (magenta) in 3D view</td></tr>
+  </table>
+
+  <div class="doc-h2">Simulation Settings</div>
+  <table class="tbl">
+    <tr><th>Setting</th><th>Recommended</th><th>Effect</th></tr>
+    <tr><td>Speed</td><td>5 – 15×</td><td>RK4 steps per animation frame. Higher = faster visual but requires stable Δt.</td></tr>
+    <tr><td>Trail length</td><td>2000 – 5000</td><td>Number of past positions displayed. Longer trails are more memory-intensive.</td></tr>
+    <tr><td>Δt</td><td>0.005 – 0.02</td><td>Integration step. Must satisfy ωc · Δt ≪ 1 for stable cyclotron orbits. Reduce if orbit looks jagged.</td></tr>
+  </table>
+
+  <div class="doc-h2">KPI Display</div>
+  <table class="tbl">
+    <tr><th>KPI</th><th>Formula</th><th>What to Watch</th></tr>
+    <tr><td>POS</td><td>(x, y, z)</td><td>Current particle position</td></tr>
+    <tr><td>VEL</td><td>(vₓ, vᵧ, v_z)</td><td>Instantaneous velocity vector</td></tr>
+    <tr><td>|v|</td><td>√(vₓ²+vᵧ²+v_z²)</td><td>Should be constant for pure B — tests energy conservation</td></tr>
+    <tr><td>KE</td><td>½m|v|²</td><td>Kinetic energy. Increases in E field, constant in B field.</td></tr>
+    <tr><td>ωc</td><td>|q||B|/m</td><td>Cyclotron angular frequency (shown only if B ≠ 0)</td></tr>
+    <tr><td>rL</td><td>mv⊥ / (|q||B|)</td><td>Larmor radius of current orbit</td></tr>
+    <tr><td>F</td><td>q(E + v×B)</td><td>Full Lorentz force vector on particle</td></tr>
+  </table>
+
+  <div class="doc-h2">Preset Guide</div>
+  <table class="tbl">
+    <tr><th>Preset</th><th>Fields</th><th>Expected Trajectory</th></tr>
+    <tr><td>Circular Orbit</td><td>B = (0,0,2), E = 0, vz = 0</td><td>Perfect circle in XY plane. Verify |v| = const (energy conservation).</td></tr>
+    <tr><td>Helical Motion</td><td>B = (0,0,2), E = 0, vz ≠ 0</td><td>Helix along z-axis. XY shows circle; XZ shows sine wave.</td></tr>
+    <tr><td>E × B Drift</td><td>E = (2,0,0), B = (0,0,2)</td><td>Cycloidal orbit drifting in +y direction. Drift speed = Ex/Bz = 1.0.</td></tr>
+    <tr><td>Cycloid</td><td>E = (0,2,0), B = (0,0,2), v₀=0</td><td>Classic cycloid. Particle alternately stops and accelerates.</td></tr>
+    <tr><td>Parabolic</td><td>E = (0,2,0), B = 0, vx = 5</td><td>Parabola in XY plane. Identical to projectile motion.</td></tr>
+    <tr><td>Negative Charge</td><td>q = −1, B = (0,0,2)</td><td>Orbit in opposite sense. Demonstrates q-sign effect.</td></tr>
+    <tr><td>Complex 3D</td><td>E and B with multiple components</td><td>Rich 3D trajectory. Use ALL view to see all projections simultaneously.</td></tr>
+  </table>
+
+  <div class="doc-tip">
+    💡 <strong>Tips:</strong> For E×B drift, verify the drift speed = |E|/|B| is independent of q and m by changing those parameters — the drift direction and speed should not change!<br>
+    For stability: always check that <code>ωc × Δt &lt; 0.3</code>. With B=2, m=1, q=1 → ωc=2, so Δt &lt; 0.15. The default Δt=0.01 is safe.<br>
+    Switch to ALL view during helical motion — the XY panel will show a circle and XZ will show a sine wave simultaneously.
+  </div>
+</div>
+</div>
+
+<!-- ════════════ SCRIPTS ════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═════════════════════════════════════════════
+//  SIMULATION STATE
+// ═════════════════════════════════════════════
+const P = {
+  mass:1, charge:1,
+  vx:5, vy:0, vz:2,
+  ex:0, ey:0, ez:0,
+  bx:0, by:0, bz:2,
+  dt:0.01, speed:5, trail:3000
+};
+
+let S = { x:0, y:0, z:0, vx:P.vx, vy:P.vy, vz:P.vz };
+let traj = [];      // {x,y,z} points
+let running = false;
+let simT = 0, simN = 0;
+let curView = '3D';
+let showAxes = true, showGrid = true, showField = true;
+
+// ═════════════════════════════════════════════
+//  RK4 INTEGRATOR
+// ═════════════════════════════════════════════
+function deriv(s) {
+  const qm = P.charge / P.mass;
+  return {
+    dx: s.vx, dy: s.vy, dz: s.vz,
+    dvx: qm*(P.ex + s.vy*P.bz - s.vz*P.by),
+    dvy: qm*(P.ey + s.vz*P.bx - s.vx*P.bz),
+    dvz: qm*(P.ez + s.vx*P.by - s.vy*P.bx)
+  };
+}
+
+function add(s, d, h) {
+  return {
+    x: s.x+h*d.dx, y: s.y+h*d.dy, z: s.z+h*d.dz,
+    vx: s.vx+h*d.dvx, vy: s.vy+h*d.dvy, vz: s.vz+h*d.dvz
+  };
+}
+
+function rk4(s, dt) {
+  const k1 = deriv(s);
+  const k2 = deriv(add(s,k1,dt*0.5));
+  const k3 = deriv(add(s,k2,dt*0.5));
+  const k4 = deriv(add(s,k3,dt));
+  return {
+    x:  s.x  + (dt/6)*(k1.dx  +2*k2.dx  +2*k3.dx  +k4.dx),
+    y:  s.y  + (dt/6)*(k1.dy  +2*k2.dy  +2*k3.dy  +k4.dy),
+    z:  s.z  + (dt/6)*(k1.dz  +2*k2.dz  +2*k3.dz  +k4.dz),
+    vx: s.vx + (dt/6)*(k1.dvx +2*k2.dvx +2*k3.dvx +k4.dvx),
+    vy: s.vy + (dt/6)*(k1.dvy +2*k2.dvy +2*k3.dvy +k4.dvy),
+    vz: s.vz + (dt/6)*(k1.dvz +2*k2.dvz +2*k3.dvz +k4.dvz)
+  };
+}
+
+// ═════════════════════════════════════════════
+//  THREE.JS
+// ═════════════════════════════════════════════
+let scene, cam, ren, gridH, axesH, partMesh, trajLine, trajPos;
+let eArr = null, bArr = null;
+const ORB = { drag:false, az:0.7, el:0.35, r:45, px:0, py:0 };
+const MAXTRAJ = 10000;
+
+function initGL() {
+  const c = document.getElementById('c3d');
+  const wrap = document.getElementById('cwrap');
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05050f);
+  scene.fog = new THREE.FogExp2(0x05050f, 0.003);
+
+  cam = new THREE.PerspectiveCamera(55, wrap.clientWidth/wrap.clientHeight, 0.01, 3000);
+  camOrbit();
+
+  ren = new THREE.WebGLRenderer({ canvas:c, antialias:true });
+  ren.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  ren.setSize(wrap.clientWidth, wrap.clientHeight);
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.9);
+  dl.position.set(12,20,12); scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0x4466ff, 0.3);
+  dl2.position.set(-10,-8,5); scene.add(dl2);
+
+  // Grid
+  gridH = new THREE.GridHelper(80, 40, 0x18183a, 0x0f0f28);
+  scene.add(gridH);
+
+  // Axes
+  axesH = new THREE.AxesHelper(18);
+  scene.add(axesH);
+
+  // Trajectory line with vertex colors
+  trajPos = new Float32Array(MAXTRAJ * 3);
+  const trajColors = new Float32Array(MAXTRAJ * 3);
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.BufferAttribute(trajPos, 3));
+  tg.setAttribute('color', new THREE.BufferAttribute(trajColors, 3));
+  tg.setDrawRange(0,0);
+  const tm = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 1.5 });
+  trajLine = new THREE.Line(tg, tm);
+  scene.add(trajLine);
+
+  // Particle sphere (glow effect via two spheres)
+  const pg = new THREE.SphereGeometry(0.45, 20, 20);
+  const pm = new THREE.MeshPhongMaterial({ color:0xffe040, emissive:0xffe040, emissiveIntensity:0.4, shininess:90 });
+  partMesh = new THREE.Mesh(pg, pm);
+  scene.add(partMesh);
+
+  // Glow halo
+  const glg = new THREE.SphereGeometry(0.85, 16, 16);
+  const glm = new THREE.MeshBasicMaterial({ color:0xffe040, transparent:true, opacity:0.15, side:THREE.FrontSide });
+  const glow = new THREE.Mesh(glg, glm);
+  partMesh.add(glow);
+
+  refreshFieldArrows();
+
+  // Orbit controls
+  c.addEventListener('mousedown', e => { ORB.drag=true; ORB.px=e.clientX; ORB.py=e.clientY; });
+  window.addEventListener('mouseup', () => { ORB.drag=false; });
+  window.addEventListener('mousemove', e => {
+    if (!ORB.drag || curView!=='3D') return;
+    ORB.az += (e.clientX-ORB.px)*0.007;
+    ORB.el += (e.clientY-ORB.py)*0.007;
+    ORB.el = Math.max(-1.35, Math.min(1.35, ORB.el));
+    ORB.px=e.clientX; ORB.py=e.clientY;
+    camOrbit();
+  });
+  c.addEventListener('wheel', e => {
+    ORB.r = Math.max(4, Math.min(300, ORB.r*(1+e.deltaY*0.001)));
+    camOrbit(); e.preventDefault();
+  }, {passive:false});
+
+  // Touch support
+  let lastTouchDist = 0;
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length===1) { ORB.drag=true; ORB.px=e.touches[0].clientX; ORB.py=e.touches[0].clientY; }
+    if (e.touches.length===2) {
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      lastTouchDist=Math.sqrt(dx*dx+dy*dy); ORB.drag=false;
+    }
+    e.preventDefault();
+  },{passive:false});
+  c.addEventListener('touchmove', e => {
+    if (e.touches.length===1 && ORB.drag) {
+      ORB.az+=(e.touches[0].clientX-ORB.px)*0.007;
+      ORB.el+=(e.touches[0].clientY-ORB.py)*0.007;
+      ORB.el=Math.max(-1.35,Math.min(1.35,ORB.el));
+      ORB.px=e.touches[0].clientX; ORB.py=e.touches[0].clientY; camOrbit();
+    }
+    if (e.touches.length===2) {
+      const dx=e.touches[0].clientX-e.touches[1].clientX;
+      const dy=e.touches[0].clientY-e.touches[1].clientY;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      ORB.r=Math.max(4,Math.min(300,ORB.r*(lastTouchDist/d)));
+      lastTouchDist=d; camOrbit();
+    }
+    e.preventDefault();
+  },{passive:false});
+  c.addEventListener('touchend', ()=>{ ORB.drag=false; });
+}
+
+function camOrbit() {
+  if (!cam) return;
+  cam.position.set(
+    ORB.r*Math.cos(ORB.el)*Math.sin(ORB.az),
+    ORB.r*Math.sin(ORB.el),
+    ORB.r*Math.cos(ORB.el)*Math.cos(ORB.az)
+  );
+  cam.lookAt(0,0,0);
+}
+
+function removeArrow(a) {
+  if (!a) return;
+  scene.remove(a);
+  if (a.line) { a.line.geometry.dispose(); a.line.material.dispose(); }
+  if (a.cone) { a.cone.geometry.dispose(); a.cone.material.dispose(); }
+}
+
+function refreshFieldArrows() {
+  if (!scene) return;
+  removeArrow(eArr); eArr=null;
+  removeArrow(bArr); bArr=null;
+  if (!showField) return;
+  const eMag = Math.sqrt(P.ex**2+P.ey**2+P.ez**2);
+  const bMag = Math.sqrt(P.bx**2+P.by**2+P.bz**2);
+  if (eMag>0.01) {
+    const dir = new THREE.Vector3(P.ex,P.ey,P.ez).normalize();
+    const len = Math.min(eMag*4, 18);
+    eArr = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), len, 0x00d4ff, len*0.18, len*0.1);
+    scene.add(eArr);
+  }
+  if (bMag>0.01) {
+    const dir = new THREE.Vector3(P.bx,P.by,P.bz).normalize();
+    const len = Math.min(bMag*4, 18);
+    bArr = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), len, 0xc040ff, len*0.18, len*0.1);
+    scene.add(bArr);
+  }
+}
+
+function update3D() {
+  const n = Math.min(traj.length, MAXTRAJ);
+  const off = Math.max(0, traj.length-MAXTRAJ);
+  const colAttr = trajLine.geometry.attributes.color;
+  const posAttr = trajLine.geometry.attributes.position;
+  for (let i=0; i<n; i++) {
+    const t = traj[off+i];
+    posAttr.array[i*3]=t.x; posAttr.array[i*3+1]=t.y; posAttr.array[i*3+2]=t.z;
+    const a = i/n;
+    // Gold gradient: dim at head, bright at tail
+    colAttr.array[i*3]   = 0.3+0.7*a;
+    colAttr.array[i*3+1] = 0.15+0.72*a;
+    colAttr.array[i*3+2] = 0.0;
+  }
+  posAttr.needsUpdate=true; colAttr.needsUpdate=true;
+  trajLine.geometry.setDrawRange(0,n);
+  if (partMesh && traj.length>0) {
+    const last=traj[traj.length-1];
+    partMesh.position.set(last.x,last.y,last.z);
+  }
+}
+
+// ═════════════════════════════════════════════
+//  2D CANVAS
+// ═════════════════════════════════════════════
+function niceStep(range) {
+  if (range<=0) return 1;
+  const mag = Math.pow(10,Math.floor(Math.log10(range)));
+  const r = range/mag;
+  return r<2?mag:r<5?2*mag:5*mag;
+}
+
+function arrMin(a) { let m=Infinity; for(let i=0;i<a.length;i++) if(a[i]<m) m=a[i]; return m; }
+function arrMax(a) { let m=-Infinity; for(let i=0;i<a.length;i++) if(a[i]>m) m=a[i]; return m; }
+
+function draw2D(canvasId, plane, offX, offY, W, H, ctx2) {
+  const isPanel = !!ctx2;
+  const ctx = ctx2 || document.getElementById(canvasId).getContext('2d');
+  if (!isPanel) { const c=document.getElementById(canvasId); W=c.width; H=c.height; }
+
+  ctx.fillStyle='#05050f'; ctx.fillRect(offX,offY,W,H);
+  if (traj.length<2) return;
+
+  let xs, ys;
+  if (plane==='XY') { xs=traj.map(p=>p.x); ys=traj.map(p=>p.y); }
+  else if (plane==='XZ') { xs=traj.map(p=>p.x); ys=traj.map(p=>p.z); }
+  else { xs=traj.map(p=>p.y); ys=traj.map(p=>p.z); }
+
+  xs.push(0); ys.push(0);
+  let xMin=arrMin(xs), xMax=arrMax(xs);
+  let yMin=arrMin(ys), yMax=arrMax(ys);
+
+  const mg=isPanel?20:45;
+  const xRange=Math.max(xMax-xMin,0.1), yRange=Math.max(yMax-yMin,0.1);
+  const sc=Math.min((W-2*mg)/xRange,(H-2*mg)/yRange);
+  const cx0=offX+W/2-(xMin+xMax)/2*sc;
+  const cy0=offY+H/2+(yMin+yMax)/2*sc;
+
+  const tx=(v)=>cx0+v*sc;
+  const ty=(v)=>cy0-v*sc;
+
+  // Grid lines
+  const gs=niceStep(xRange/6);
+  ctx.strokeStyle='#0e0e24'; ctx.lineWidth=0.8;
+  for(let gx=Math.floor(xMin/gs)*gs; gx<=xMax+gs; gx+=gs){
+    ctx.beginPath(); ctx.moveTo(tx(gx),offY+mg); ctx.lineTo(tx(gx),offY+H-mg); ctx.stroke();
+  }
+  for(let gy=Math.floor(yMin/gs)*gs; gy<=yMax+gs; gy+=gs){
+    ctx.beginPath(); ctx.moveTo(offX+mg,ty(gy)); ctx.lineTo(offX+W-mg,ty(gy)); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle='#22224a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(offX+mg,ty(0)); ctx.lineTo(offX+W-mg,ty(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tx(0),offY+mg); ctx.lineTo(tx(0),offY+H-mg); ctx.stroke();
+
+  // Axis labels
+  if (!isPanel) {
+    ctx.font='9px Share Tech Mono,monospace'; ctx.fillStyle='#3a4868'; ctx.textAlign='center';
+    const lx=plane==='XY'?'x':plane==='XZ'?'x':'y';
+    const ly=plane==='XY'?'y':plane==='XZ'?'z':'z';
+    ctx.fillText(lx.toUpperCase(), offX+W-mg+10, ty(0)+4);
+    ctx.fillText(ly.toUpperCase(), tx(0)-2, offY+mg-6);
+    // Tick values
+    for(let gx=Math.ceil(xMin/gs)*gs; gx<=xMax; gx+=gs){
+      if(Math.abs(gx)<gs*0.01) continue;
+      ctx.fillText(gx.toFixed(gx<10?1:0), tx(gx), ty(0)+12);
+    }
+    ctx.textAlign='right';
+    for(let gy=Math.ceil(yMin/gs)*gs; gy<=yMax; gy+=gs){
+      if(Math.abs(gy)<gs*0.01) continue;
+      ctx.fillText(gy.toFixed(gy<10?1:0), tx(0)-4, ty(gy)+3);
+    }
+  }
+
+  // Trajectory with fade
+  const n=traj.length;
+  ctx.lineWidth = isPanel?1:1.3;
+  for(let i=1; i<n; i++){
+    const a=i/n;
+    ctx.strokeStyle=`rgba(255,224,64,${0.08+0.92*a})`;
+    ctx.beginPath();
+    ctx.moveTo(tx(xs[i-1]), ty(ys[i-1]));
+    ctx.lineTo(tx(xs[i]), ty(ys[i]));
+    ctx.stroke();
+  }
+
+  // Particle dot
+  const lx0=xs[n-1-0+(isPanel?0:0)], ly0=ys[n-1];
+  ctx.beginPath();
+  ctx.arc(tx(lx0),ty(ly0), isPanel?4:6, 0, Math.PI*2);
+  ctx.fillStyle='#ffe040'; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=isPanel?1:1.5; ctx.stroke();
+
+  // Origin marker
+  ctx.beginPath(); ctx.arc(tx(0),ty(0),3,0,Math.PI*2);
+  ctx.fillStyle='#3a4868'; ctx.fill();
+
+  // Plane label
+  if (isPanel) {
+    ctx.font='10px Share Tech Mono,monospace'; ctx.fillStyle='#ffe04099'; ctx.textAlign='left';
+    ctx.fillText(plane, offX+8, offY+16);
+  }
+}
+
+function drawAll() {
+  const c=document.getElementById('call');
+  const W=c.width, H=c.height;
+  const ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const hw=Math.floor(W/2), hh=Math.floor(H/2);
+
+  draw2D(null,'XY',0,0,hw,hh,ctx);
+  draw2D(null,'XZ',hw,0,hw,hh,ctx);
+  draw2D(null,'YZ',0,hh,hw,hh,ctx);
+
+  // 4th panel: telemetry
+  ctx.fillStyle='#08081a'; ctx.fillRect(hw,hh,hw,hh);
+  ctx.strokeStyle='#18183a'; ctx.lineWidth=1;
+  ctx.strokeRect(0,0,W,H);
+  ctx.strokeRect(hw,0,hw,H);
+  ctx.strokeRect(0,hh,W,hh);
+
+  ctx.font='10px Share Tech Mono,monospace';
+  ctx.fillStyle='#ffe040'; ctx.textAlign='left';
+  ctx.fillText('TELEMETRY', hw+12, hh+18);
+
+  const speed=Math.sqrt(S.vx**2+S.vy**2+S.vz**2);
+  const ke=0.5*P.mass*speed**2;
+  const bm=Math.sqrt(P.bx**2+P.by**2+P.bz**2);
+  const em=Math.sqrt(P.ex**2+P.ey**2+P.ez**2);
+  let wc='—',rl='—';
+  if(bm>0.01&&Math.abs(P.charge)>0.01){
+    const wci=Math.abs(P.charge)*bm/P.mass;
+    const bx=P.bx/bm,by=P.by/bm,bz=P.bz/bm;
+    const vd=S.vx*bx+S.vy*by+S.vz*bz;
+    const vp=Math.sqrt(Math.max(0,speed**2-vd**2));
+    wc=wci.toFixed(4); rl=(P.mass*vp/(Math.abs(P.charge)*bm)).toFixed(4);
+  }
+
+  const rows=[
+    ['t', simT.toFixed(4),'#ffe040'],
+    ['steps', simN.toString(),'#ffe040'],
+    ['x', S.x.toFixed(4),'#c0d0f0'],
+    ['y', S.y.toFixed(4),'#c0d0f0'],
+    ['z', S.z.toFixed(4),'#c0d0f0'],
+    ['vx', S.vx.toFixed(4),'#00ff99'],
+    ['vy', S.vy.toFixed(4),'#00ff99'],
+    ['vz', S.vz.toFixed(4),'#00ff99'],
+    ['|v|', speed.toFixed(5),'#ffe040'],
+    ['KE', ke.toFixed(5),'#ffe040'],
+    ['|E|', em.toFixed(4),'#00d4ff'],
+    ['|B|', bm.toFixed(4),'#c040ff'],
+    ['ωc', wc,'#c040ff'],
+    ['rL', rl,'#c040ff'],
+  ];
+  rows.forEach(([lbl,val,col],i)=>{
+    ctx.fillStyle='#4a5880'; ctx.textAlign='left';
+    ctx.fillText(lbl, hw+12, hh+36+i*15);
+    ctx.fillStyle=col; ctx.textAlign='right';
+    ctx.fillText(val, hw+hw-12, hh+36+i*15);
+  });
+}
+
+// ═════════════════════════════════════════════
+//  KPI
+// ═════════════════════════════════════════════
+function updateKPI() {
+  const s=S;
+  const sp=Math.sqrt(s.vx**2+s.vy**2+s.vz**2);
+  const ke=0.5*P.mass*sp**2;
+  const qm=P.charge;
+  const fx=qm*(P.ex+s.vy*P.bz-s.vz*P.by);
+  const fy=qm*(P.ey+s.vz*P.bx-s.vx*P.bz);
+  const fz=qm*(P.ez+s.vx*P.by-s.vy*P.bx);
+  const bm=Math.sqrt(P.bx**2+P.by**2+P.bz**2);
+  const em=Math.sqrt(P.ex**2+P.ey**2+P.ez**2);
+
+  document.getElementById('kPos').textContent=`(${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)})`;
+  document.getElementById('kVel').textContent=`(${s.vx.toFixed(2)}, ${s.vy.toFixed(2)}, ${s.vz.toFixed(2)})`;
+  document.getElementById('kSpd').textContent=sp.toFixed(5);
+  document.getElementById('kKE').textContent=ke.toFixed(5);
+  document.getElementById('kF').textContent=`(${fx.toFixed(2)}, ${fy.toFixed(2)}, ${fz.toFixed(2)})`;
+  document.getElementById('kEm').textContent=em.toFixed(4);
+  document.getElementById('kBm').textContent=bm.toFixed(4);
+  document.getElementById('infoT').textContent=simT.toFixed(3);
+  document.getElementById('infoStep').textContent=simN;
+
+  if(bm>0.01&&Math.abs(P.charge)>0.01){
+    const wc=Math.abs(P.charge)*bm/P.mass;
+    const bx=P.bx/bm,by=P.by/bm,bz=P.bz/bm;
+    const vd=s.vx*bx+s.vy*by+s.vz*bz;
+    const vp=Math.sqrt(Math.max(0,sp**2-vd**2));
+    document.getElementById('kWc').textContent=wc.toFixed(4);
+    document.getElementById('kRL').textContent=(P.mass*vp/(Math.abs(P.charge)*bm)).toFixed(4);
+  } else {
+    document.getElementById('kWc').textContent='—';
+    document.getElementById('kRL').textContent='—';
+  }
+}
+
+// ═════════════════════════════════════════════
+//  UI CALLBACKS
+// ═════════════════════════════════════════════
+function up(name, el) {
+  const v=+el.value;
+  P[name]=v;
+  const fmt = name==='speed'?`${v}×` : name==='trail'?`${v}` : (v>=0?'+':'')+v.toFixed(3);
+  const dispMap={
+    mass:'dMass',charge:'dCharge',vx:'dVx',vy:'dVy',vz:'dVz',
+    ex:'dEx',ey:'dEy',ez:'dEz',bx:'dBx',by:'dBy',bz:'dBz',
+    dt:'dDt',speed:'dSpeed',trail:'dTrail'
+  };
+  document.getElementById(dispMap[name]).textContent=
+    name==='speed'?`${v}×`:name==='trail'?v:name==='dt'?v.toFixed(3):(v>=0?'+':'')+v.toFixed(3);
+  if(['ex','ey','ez','bx','by','bz'].includes(name)) refreshFieldArrows();
+}
+
+function switchTab(evt, id) {
+  document.querySelectorAll('.tab-pane').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e=>e.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  evt.target.classList.add('active');
+  if(id==='sim') setTimeout(()=>{ handleResize(); resizeCanvases(); },30);
+}
+
+function toggleRun() {
+  running=!running;
+  const btn=document.getElementById('btnRun');
+  btn.textContent=running?'⏸ PAUSE':'▶ RUN';
+  btn.classList.toggle('run',running);
+}
+
+function doReset() {
+  running=false;
+  document.getElementById('btnRun').textContent='▶ RUN';
+  document.getElementById('btnRun').classList.remove('run');
+  S={ x:0, y:0, z:0, vx:P.vx, vy:P.vy, vz:P.vz };
+  traj=[];
+  simT=0; simN=0;
+  if(trajLine){ trajLine.geometry.setDrawRange(0,0); trajLine.geometry.attributes.position.needsUpdate=true; }
+  if(partMesh) partMesh.position.set(0,0,0);
+  updateKPI();
+}
+
+function setView(v) {
+  curView=v;
+  document.querySelectorAll('[id^="vb"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('vb'+v).classList.add('active');
+  document.getElementById('c3d').className=(v==='3D')?'active':'';
+  document.getElementById('c2d').className=(v==='XY'||v==='XZ'||v==='YZ')?'active':'';
+  document.getElementById('call').className=(v==='ALL')?'active':'';
+  resizeCanvases();
+}
+
+function togAxes(){ showAxes=!showAxes; document.getElementById('tAxes').classList.toggle('on',showAxes); if(axesH) axesH.visible=showAxes; }
+function togGrid(){ showGrid=!showGrid; document.getElementById('tGrid').classList.toggle('on',showGrid); if(gridH) gridH.visible=showGrid; }
+function togField(){ showField=!showField; document.getElementById('tField').classList.toggle('on',showField); refreshFieldArrows(); }
+
+// ═════════════════════════════════════════════
+//  PRESETS
+// ═════════════════════════════════════════════
+function applyP(cfg) {
+  Object.assign(P,cfg);
+  const map={mass:'sMass',charge:'sCharge',vx:'sVx',vy:'sVy',vz:'sVz',
+             ex:'sEx',ey:'sEy',ez:'sEz',bx:'sBx',by:'sBy',bz:'sBz'};
+  for(const [k,id] of Object.entries(map)){
+    const el=document.getElementById(id);
+    if(el&&k in cfg){ el.value=cfg[k]; up(k,el); }
+  }
+  doReset(); refreshFieldArrows();
+}
+function preset(name){
+  const ps={
+    circ:   {mass:1,charge:1, vx:5,vy:0,vz:0, ex:0,ey:0,ez:0, bx:0,by:0,bz:2},
+    helix:  {mass:1,charge:1, vx:5,vy:0,vz:3, ex:0,ey:0,ez:0, bx:0,by:0,bz:2},
+    exb:    {mass:1,charge:1, vx:0,vy:0,vz:0, ex:2,ey:0,ez:0, bx:0,by:0,bz:2},
+    cycloid:{mass:1,charge:1, vx:0,vy:0,vz:0, ex:0,ey:2,ez:0, bx:0,by:0,bz:2},
+    para:   {mass:1,charge:1, vx:5,vy:0,vz:0, ex:0,ey:2,ez:0, bx:0,by:0,bz:0},
+    neg:    {mass:1,charge:-1,vx:5,vy:0,vz:0, ex:0,ey:0,ez:0, bx:0,by:0,bz:2},
+    chaos:  {mass:1,charge:1, vx:4,vy:1,vz:2, ex:0.5,ey:0,ez:0.3, bx:0,by:0.5,bz:2},
+  };
+  if(ps[name]) applyP(ps[name]);
+}
+
+// ═════════════════════════════════════════════
+//  RESIZE
+// ═════════════════════════════════════════════
+function resizeCanvases() {
+  const wrap=document.getElementById('cwrap');
+  const W=wrap.clientWidth, H=wrap.clientHeight;
+  ['c2d','call'].forEach(id=>{ const c=document.getElementById(id); c.width=W; c.height=H; });
+}
+function handleResize() {
+  const wrap=document.getElementById('cwrap');
+  if(ren&&cam){ ren.setSize(wrap.clientWidth,wrap.clientHeight); cam.aspect=wrap.clientWidth/wrap.clientHeight; cam.updateProjectionMatrix(); }
+}
+window.addEventListener('resize',()=>{ handleResize(); resizeCanvases(); });
+
+// ═════════════════════════════════════════════
+//  ANIMATION LOOP
+// ═════════════════════════════════════════════
+function loop() {
+  requestAnimationFrame(loop);
+  if(running){
+    const steps=P.speed;
+    for(let i=0;i<steps;i++){
+      S=rk4(S,P.dt); simT+=P.dt; simN++;
+      traj.push({x:S.x,y:S.y,z:S.z});
+      if(traj.length>P.trail) traj.shift();
+    }
+    updateKPI();
+  }
+  if(curView==='3D'){ update3D(); ren.render(scene,cam); }
+  else if(curView==='XY'||curView==='XZ'||curView==='YZ') draw2D('c2d',curView);
+  else if(curView==='ALL'){ drawAll(); update3D(); }
+}
+
+// ═════════════════════════════════════════════
+//  INIT
+// ═════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  resizeCanvases();
+  initGL();
+  doReset();
+  loop();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monte Carlo Physics Laboratory</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js" crossorigin="anonymous"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Source+Sans+3:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-void:#03050a; --bg-deep:#070d18; --bg-panel:rgba(8,18,38,0.72);
+  --bg-glass:rgba(12,28,60,0.55); --bg-card:rgba(14,32,68,0.60);
+  --accent-cyan:#00e5ff; --accent-blue:#2979ff; --accent-violet:#7c4dff;
+  --accent-green:#00e676; --accent-amber:#ffab40; --accent-red:#ff5252; --accent-pink:#f50057;
+  --text-primary:#e8f4fd; --text-secondary:#8fb8d8; --text-muted:#4a6a8a; --text-code:#a5f3fc;
+  --border-glow:rgba(0,229,255,0.18); --border-subtle:rgba(0,229,255,0.07);
+  --glow-cyan:0 0 20px rgba(0,229,255,0.35),0 0 60px rgba(0,229,255,0.12);
+  --glow-blue:0 0 20px rgba(41,121,255,0.40),0 0 60px rgba(41,121,255,0.14);
+  --glow-violet:0 0 20px rgba(124,77,255,0.40),0 0 60px rgba(124,77,255,0.14);
+  --glow-green:0 0 20px rgba(0,230,118,0.35),0 0 60px rgba(0,230,118,0.12);
+  --glow-amber:0 0 20px rgba(255,171,64,0.35),0 0 60px rgba(255,171,64,0.12);
+  --font-display:'Exo 2','Rajdhani',sans-serif;
+  --font-body:'Source Sans 3','Fira Sans',sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+  --nav-h:62px; --radius-lg:16px; --radius-md:10px; --radius-sm:6px;
+  --ease-out:cubic-bezier(0.22,1,0.36,1); --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font-body);font-size:15px;line-height:1.65;min-height:100vh;overflow-x:hidden}
+
+/* ── STARFIELD ── */
+#starfield{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.star{position:absolute;border-radius:50%;background:white;animation:twinkle var(--dur,4s) ease-in-out infinite var(--delay,0s)}
+@keyframes twinkle{0%,100%{opacity:var(--min-op,0.1);transform:scale(1)}50%{opacity:var(--max-op,0.7);transform:scale(1.3)}}
+#starfield::after{content:'';position:absolute;inset:0;background:
+  radial-gradient(ellipse 80% 50% at 20% 30%,rgba(41,121,255,0.06) 0%,transparent 60%),
+  radial-gradient(ellipse 60% 40% at 80% 70%,rgba(124,77,255,0.05) 0%,transparent 55%),
+  radial-gradient(ellipse 50% 60% at 50% 50%,rgba(0,229,255,0.03) 0%,transparent 70%)}
+
+/* ── NAVBAR ── */
+#navbar{position:fixed;top:0;left:0;right:0;height:var(--nav-h);z-index:1000;backdrop-filter:blur(24px) saturate(180%);background:rgba(3,5,10,0.82);border-bottom:1px solid var(--border-glow);display:flex;align-items:center;padding:0 24px;gap:0}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0;margin-right:32px}
+.nav-logo-icon{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:var(--glow-cyan);flex-shrink:0}
+.nav-logo-text{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text-primary);letter-spacing:0.03em;line-height:1.1}
+.nav-logo-text span{color:var(--accent-cyan)}
+.nav-logo-sub{font-size:10px;color:var(--text-muted);font-weight:400;letter-spacing:0.12em;text-transform:uppercase}
+#nav-tabs{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;scrollbar-width:none}
+#nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius-sm);border:1px solid transparent;background:transparent;color:var(--text-muted);font-family:var(--font-display);font-size:12px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:all 0.22s var(--ease-out)}
+.nav-tab .tab-icon{font-size:14px}
+.nav-tab:hover{color:var(--text-secondary);background:rgba(0,229,255,0.06);border-color:var(--border-subtle)}
+.nav-tab.active{color:var(--accent-cyan);background:rgba(0,229,255,0.10);border-color:rgba(0,229,255,0.30);box-shadow:0 0 16px rgba(0,229,255,0.15)}
+.nav-status{margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.status-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);font-family:var(--font-mono)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);animation:pulse-dot 2s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ── APP LAYOUT ── */
+#app{position:relative;z-index:1;padding-top:var(--nav-h);min-height:100vh}
+.tab-panel{display:none;padding:32px 28px 64px;max-width:1400px;margin:0 auto;animation:fadeSlideIn 0.35s var(--ease-out) forwards}
+.tab-panel.active{display:block}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── SHARED COMPONENTS ── */
+.glass-panel{background:var(--bg-glass);backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--border-glow);border-radius:var(--radius-lg);padding:28px 32px;position:relative;overflow:hidden}
+.glass-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.4),transparent)}
+.section-label{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:8px}
+.section-label::before{content:'';width:20px;height:1px;background:var(--accent-cyan);opacity:0.6}
+h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;line-height:1.2}
+h1{font-size:clamp(2rem,5vw,3.4rem)} h2{font-size:clamp(1.4rem,3vw,2rem)} h3{font-size:1.25rem} h4{font-size:1rem;font-weight:600}
+.text-cyan{color:var(--accent-cyan)} .text-blue{color:var(--accent-blue)} .text-violet{color:var(--accent-violet)} .text-green{color:var(--accent-green)} .text-amber{color:var(--accent-amber)}
+
+.param-row{display:flex;align-items:center;gap:12px;margin:10px 0}
+.param-label{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);min-width:160px;flex-shrink:0}
+.param-slider{flex:1;-webkit-appearance:none;height:4px;border-radius:4px;background:rgba(0,229,255,0.15);outline:none;cursor:pointer}
+.param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent-cyan);box-shadow:0 0 8px rgba(0,229,255,0.6);cursor:pointer;transition:transform 0.15s}
+.param-slider::-webkit-slider-thumb:hover{transform:scale(1.25)}
+.param-value{font-family:var(--font-mono);font-size:12px;color:var(--accent-cyan);min-width:60px;text-align:right}
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:var(--radius-sm);border:1px solid;font-family:var(--font-display);font-size:13px;font-weight:600;letter-spacing:0.04em;cursor:pointer;transition:all 0.2s var(--ease-out);text-transform:uppercase}
+.btn-primary{background:rgba(0,229,255,0.12);border-color:rgba(0,229,255,0.45);color:var(--accent-cyan)}
+.btn-primary:hover{background:rgba(0,229,255,0.22);box-shadow:var(--glow-cyan);transform:translateY(-1px)}
+.btn-secondary{background:rgba(124,77,255,0.10);border-color:rgba(124,77,255,0.35);color:var(--accent-violet)}
+.btn-secondary:hover{background:rgba(124,77,255,0.20);box-shadow:var(--glow-violet);transform:translateY(-1px)}
+.btn-danger{background:rgba(255,82,82,0.10);border-color:rgba(255,82,82,0.35);color:var(--accent-red)}
+.btn-danger:hover{background:rgba(255,82,82,0.20);box-shadow:0 0 16px rgba(255,82,82,0.3);transform:translateY(-1px)}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.stat-box{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:16px 20px;text-align:center}
+.stat-value{font-family:var(--font-mono);font-size:1.6rem;font-weight:500;color:var(--accent-cyan);line-height:1;margin-bottom:4px}
+.stat-label{font-size:11px;color:var(--text-muted);letter-spacing:0.08em;text-transform:uppercase}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}.grid-4{grid-template-columns:1fr 1fr}.tab-panel{padding:20px 14px 48px}}
+
+.canvas-wrapper{position:relative;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--border-glow);background:rgba(0,0,0,0.4)}
+.canvas-wrapper canvas{display:block;width:100%;height:100%}
+
+.eq-box{background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-left:3px solid var(--accent-cyan);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:14px 20px;margin:12px 0;font-size:15px;color:var(--text-primary);overflow-x:auto}
+
+.callout{display:flex;gap:12px;padding:14px 18px;border-radius:var(--radius-md);margin:14px 0}
+.callout.info{background:rgba(41,121,255,0.08);border:1px solid rgba(41,121,255,0.22)}
+.callout.success{background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.22)}
+.callout.warn{background:rgba(255,171,64,0.08);border:1px solid rgba(255,171,64,0.22)}
+.callout-icon{font-size:18px;flex-shrink:0}
+.callout-body{font-size:13.5px;color:var(--text-secondary)}
+.callout-body strong{color:var(--text-primary)}
+
+.progress-track{background:rgba(0,229,255,0.08);border-radius:4px;height:6px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent-blue),var(--accent-cyan));transition:width 0.4s var(--ease-out);position:relative}
+.progress-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:20px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.5));animation:shimmer 1.2s ease-in-out infinite}
+@keyframes shimmer{0%,100%{opacity:0.4}50%{opacity:1}}
+
+[data-tip]{position:relative;cursor:help}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:rgba(7,13,24,0.96);border:1px solid var(--border-glow);color:var(--text-secondary);font-size:12px;padding:6px 10px;border-radius:var(--radius-sm);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.18s;z-index:100}
+[data-tip]:hover::after{opacity:1}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,229,255,0.4)}
+
+.divider{border:none;border-top:1px solid var(--border-subtle);margin:40px 0}
+
+/* ── INTRO / HERO ── */
+#panel-intro{max-width:100%;padding:0}
+.hero{position:relative;min-height:calc(100vh - var(--nav-h));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;text-align:center;overflow:hidden}
+.hero-bg-canvas{position:absolute;inset:0;z-index:0}
+.hero-content{position:relative;z-index:2;max-width:860px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.25);border-radius:50px;padding:6px 16px;font-family:var(--font-mono);font-size:11px;color:var(--accent-cyan);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:24px;animation:fadeSlideIn 0.6s var(--ease-out) 0.1s both}
+.hero-title{font-size:clamp(2.4rem,6vw,4.2rem);font-weight:800;line-height:1.1;letter-spacing:-0.02em;margin-bottom:20px;animation:fadeSlideIn 0.6s var(--ease-out) 0.2s both}
+.hero-title .highlight{background:linear-gradient(135deg,var(--accent-cyan),var(--accent-blue),var(--accent-violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:1.1rem;color:var(--text-secondary);max-width:620px;margin:0 auto 36px;line-height:1.7;animation:fadeSlideIn 0.6s var(--ease-out) 0.3s both}
+.hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;animation:fadeSlideIn 0.6s var(--ease-out) 0.4s both}
+.btn-hero-primary{padding:14px 32px;font-size:14px;background:linear-gradient(135deg,rgba(0,229,255,0.18),rgba(41,121,255,0.18));border:1px solid rgba(0,229,255,0.5);color:var(--accent-cyan);border-radius:var(--radius-md);font-family:var(--font-display);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.25s var(--ease-out);box-shadow:var(--glow-cyan)}
+.btn-hero-primary:hover{transform:translateY(-2px);background:linear-gradient(135deg,rgba(0,229,255,0.28),rgba(41,121,255,0.28));box-shadow:0 0 40px rgba(0,229,255,0.4),0 0 80px rgba(0,229,255,0.15)}
+.btn-hero-secondary{padding:14px 32px;font-size:14px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text-secondary);border-radius:var(--radius-md);font-family:var(--font-display);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;transition:all 0.25s var(--ease-out)}
+.btn-hero-secondary:hover{border-color:rgba(255,255,255,0.3);color:var(--text-primary);transform:translateY(-2px)}
+.scroll-hint{position:absolute;bottom:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);letter-spacing:0.1em;animation:bounce 2s ease-in-out infinite;z-index:2}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+.intro-content{max-width:1200px;margin:0 auto;padding:64px 40px}
+
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin:40px 0}
+.feature-card{background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:24px;transition:all 0.25s var(--ease-out);cursor:default;position:relative;overflow:hidden}
+.feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,linear-gradient(90deg,var(--accent-cyan),var(--accent-blue)));opacity:0;transition:opacity 0.25s}
+.feature-card:hover{border-color:var(--border-glow);transform:translateY(-3px);background:rgba(14,32,68,0.80);box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{font-size:2rem;margin-bottom:14px;display:block}
+.feature-title{font-family:var(--font-display);font-size:1rem;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+.feature-desc{font-size:13.5px;color:var(--text-muted);line-height:1.6}
+
+.app-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:24px 0}
+.app-item{display:flex;align-items:center;gap:10px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 16px;font-size:13px;color:var(--text-secondary);transition:all 0.2s}
+.app-item:hover{border-color:var(--border-glow);color:var(--text-primary)}
+.app-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+.demo-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin:40px 0}
+.demo-card{background:var(--bg-card);border:1px solid var(--border-glow);border-radius:var(--radius-lg);overflow:hidden}
+.demo-card-header{padding:14px 18px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-secondary)}
+.demo-card-header .live-indicator{width:7px;height:7px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green);animation:pulse-dot 1.5s ease-in-out infinite}
+.demo-canvas{display:block;width:100%;background:rgba(0,0,0,0.3)}
+
+.module-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.module-table th{text-align:left;padding:10px 16px;background:rgba(0,229,255,0.06);color:var(--accent-cyan);font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border-glow)}
+.module-table td{padding:12px 16px;border-bottom:1px solid var(--border-subtle);color:var(--text-secondary);vertical-align:top}
+.module-table tr:last-child td{border-bottom:none}
+.module-table tr:hover td{background:rgba(0,229,255,0.03);cursor:pointer}
+.module-table .module-num{font-family:var(--font-mono);color:var(--text-muted);font-size:12px;width:40px}
+.module-table .module-name{color:var(--text-primary);font-weight:500}
+
+.tag{padding:2px 8px;border-radius:20px;font-size:11px;font-family:var(--font-mono)}
+.tag-cyan{background:rgba(0,229,255,0.12);color:var(--accent-cyan);border:1px solid rgba(0,229,255,0.25)}
+.tag-blue{background:rgba(41,121,255,0.12);color:var(--accent-blue);border:1px solid rgba(41,121,255,0.25)}
+.tag-violet{background:rgba(124,77,255,0.12);color:var(--accent-violet);border:1px solid rgba(124,77,255,0.25)}
+.tag-green{background:rgba(0,230,118,0.12);color:var(--accent-green);border:1px solid rgba(0,230,118,0.25)}
+.tag-amber{background:rgba(255,171,64,0.12);color:var(--accent-amber);border:1px solid rgba(255,171,64,0.25)}
+</style>
+</head>
+<body>
+
+<div id="starfield"></div>
+
+<nav id="navbar">
+  <a class="nav-logo" href="#" onclick="switchTab('intro');return false;">
+    <div class="nav-logo-icon">&#9883;</div>
+    <div>
+      <div class="nav-logo-text">Monte Carlo <span>Lab</span></div>
+      <div class="nav-logo-sub">Computational Physics</div>
+    </div>
+  </a>
+  <div id="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('intro')" data-tab="intro"><span class="tab-icon">🏠</span> Intro</button>
+    <button class="nav-tab" onclick="switchTab('rng')" data-tab="rng"><span class="tab-icon">🎲</span> RNG Lab</button>
+    <button class="nav-tab" onclick="switchTab('walk')" data-tab="walk"><span class="tab-icon">🚶</span> Random Walk</button>
+    <button class="nav-tab" onclick="switchTab('decay')" data-tab="decay"><span class="tab-icon">&#9762;</span> Decay</button>
+    <button class="nav-tab" onclick="switchTab('integration')" data-tab="integration"><span class="tab-icon">&#8747;</span> Integration</button>
+    <button class="nav-tab" onclick="switchTab('ising')" data-tab="ising"><span class="tab-icon">🧲</span> Ising Model</button>
+    <button class="nav-tab" onclick="switchTab('transport')" data-tab="transport"><span class="tab-icon">&#9728;</span> Transport</button>
+    <button class="nav-tab" onclick="switchTab('gas')" data-tab="gas"><span class="tab-icon">💨</span> Gas</button>
+  </div>
+  <div class="nav-status">
+    <div class="status-pill"><div class="status-dot"></div><span id="fps-display">60 FPS</span></div>
+  </div>
+</nav>
+
+<main id="app">
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 0 — INTRODUCTION
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-intro" class="tab-panel active">
+  <div class="hero">
+    <canvas id="hero-canvas" class="hero-bg-canvas"></canvas>
+    <div class="hero-content">
+      <div class="hero-eyebrow">&#9889; Interactive Computational Physics Laboratory</div>
+      <h1 class="hero-title">Monte Carlo<br><span class="highlight">Physics Laboratory</span></h1>
+      <p class="hero-sub">Explore stochastic physics through live simulations. From quantum decay to the Ising model phase transition — every simulation runs in your browser, in real time.</p>
+      <div class="hero-cta">
+        <button class="btn-hero-primary" onclick="switchTab('rng')">&#9654; Start Experimenting</button>
+        <button class="btn-hero-secondary" onclick="document.getElementById('intro-content').scrollIntoView({behavior:'smooth'})">Learn the Theory &#8595;</button>
+      </div>
+    </div>
+    <div class="scroll-hint">
+      <svg width="18" height="24" viewBox="0 0 18 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="16" height="22" rx="8"/><line x1="9" y1="6" x2="9" y2="12"/></svg>
+      <span>SCROLL</span>
+    </div>
+  </div>
+
+  <div id="intro-content" class="intro-content">
+    <div class="glass-panel" style="margin-bottom:28px;">
+      <div class="section-label">Foundations</div>
+      <h2>What are Monte Carlo Methods?</h2>
+      <p style="color:var(--text-secondary);margin:14px 0;max-width:780px;">Monte Carlo methods are a broad class of computational algorithms that rely on <strong style="color:var(--text-primary)">repeated random sampling</strong> to obtain numerical results. Named after the famous casino in Monaco, they harness the power of randomness to solve problems that are deterministically intractable.</p>
+      <div class="callout info"><span class="callout-icon">💡</span><div class="callout-body"><strong>Key Insight:</strong> By sampling from probability distributions and aggregating results, we can estimate integrals, simulate physical systems, and quantify uncertainty — even in high-dimensional spaces where analytical solutions do not exist.</div></div>
+      <div class="eq-box" id="eq-mc-estimator">$$\langle f \rangle \approx \frac{1}{N} \sum_{i=1}^{N} f(x_i), \qquad x_i \sim p(x)$$</div>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">A Monte Carlo estimator: the expectation of <em>f(x)</em> under distribution <em>p(x)</em> is approximated by the sample mean over <em>N</em> random draws.</p>
+      <div class="feature-grid" style="margin-top:28px;">
+        <div class="feature-card" style="--card-accent:linear-gradient(90deg,var(--accent-cyan),var(--accent-blue))"><span class="feature-icon">🎯</span><div class="feature-title">Random Sampling</div><div class="feature-desc">Drawing samples from probability distributions to estimate quantities that resist direct calculation.</div></div>
+        <div class="feature-card" style="--card-accent:linear-gradient(90deg,var(--accent-blue),var(--accent-violet))"><span class="feature-icon">📊</span><div class="feature-title">Statistical Convergence</div><div class="feature-desc">Estimates improve as ∝ 1/√N — doubling precision requires quadrupling the number of samples.</div></div>
+        <div class="feature-card" style="--card-accent:linear-gradient(90deg,var(--accent-violet),var(--accent-pink))"><span class="feature-icon">🌡️</span><div class="feature-title">Statistical Mechanics</div><div class="feature-desc">Physical systems in thermal equilibrium are naturally described by Boltzmann-weighted probability distributions.</div></div>
+        <div class="feature-card" style="--card-accent:linear-gradient(90deg,var(--accent-green),var(--accent-cyan))"><span class="feature-icon">&#8747;</span><div class="feature-title">High-Dim Integration</div><div class="feature-desc">Classical quadrature fails in high dimensions; MC error is dimension-independent at O(N<sup>−½</sup>).</div></div>
+      </div>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom:28px;">
+      <div class="section-label">Theory</div>
+      <h2>Statistical Mechanics &amp; Randomness</h2>
+      <div class="grid-2" style="gap:28px;margin-top:20px;">
+        <div>
+          <p style="color:var(--text-secondary);margin-bottom:16px;">At its core, statistical mechanics describes macroscopic phenomena through the statistical behaviour of microscopic constituents. The probability of finding a system in microstate <em>i</em> with energy <em>E<sub>i</sub></em> at temperature <em>T</em> is:</p>
+          <div class="eq-box" id="eq-boltzmann">$$P_i = \frac{e^{-E_i / k_B T}}{Z}, \quad Z = \sum_j e^{-E_j / k_B T}$$</div>
+          <p style="color:var(--text-muted);font-size:13px;">The Boltzmann distribution — the cornerstone of all equilibrium statistical mechanics. <em>Z</em> is the partition function, normalising the distribution.</p>
+          <div class="eq-box" id="eq-diffusion" style="margin-top:16px;">$$\frac{\partial \rho}{\partial t} = D \nabla^2 \rho$$</div>
+          <p style="color:var(--text-muted);font-size:13px;">The diffusion equation: the macroscopic description of random walk (Brownian) motion, where <em>D</em> is the diffusion coefficient.</p>
+        </div>
+        <div>
+          <h4 style="margin-bottom:12px;color:var(--text-secondary);">Key distributions in this lab</h4>
+          <div class="callout info" style="margin-bottom:10px;"><span class="callout-icon">📈</span><div class="callout-body"><strong>Gaussian / Normal</strong> — appears in random walks, measurement errors, and the Central Limit Theorem.<span style="font-family:var(--font-mono);font-size:12px;display:block;margin-top:4px;">p(x) = (2πσ²)⁻¹/² exp[−(x−μ)²/2σ²]</span></div></div>
+          <div class="callout warn"><span class="callout-icon">&#9889;</span><div class="callout-body"><strong>Poisson</strong> — governs rare events such as radioactive decay, photon counting, cosmic-ray hits.<span style="font-family:var(--font-mono);font-size:12px;display:block;margin-top:4px;">P(k;λ) = λᵏ e⁻λ / k!</span></div></div>
+          <div class="callout success" style="margin-top:10px;"><span class="callout-icon">💨</span><div class="callout-body"><strong>Maxwell–Boltzmann</strong> — speed distribution of ideal gas molecules at temperature T.<span style="font-family:var(--font-mono);font-size:12px;display:block;margin-top:4px;">f(v) ∝ v² exp[−mv²/2k_BT]</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom:28px;">
+      <div class="section-label">Live Previews</div>
+      <h2>Interactive Demos</h2>
+      <p style="color:var(--text-secondary);margin:10px 0 24px;">Three real-time animations — each a teaser for a full module in this lab.</p>
+      <div class="demo-row">
+        <div class="demo-card"><div class="demo-card-header"><div class="live-indicator"></div>2D Random Walk</div><canvas id="demo-walk" class="demo-canvas" height="220"></canvas></div>
+        <div class="demo-card"><div class="demo-card-header"><div class="live-indicator"></div>Particle Diffusion</div><canvas id="demo-diffusion" class="demo-canvas" height="220"></canvas></div>
+        <div class="demo-card"><div class="demo-card-header"><div class="live-indicator"></div>Gaussian Sampling</div><canvas id="demo-gaussian" class="demo-canvas" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom:28px;">
+      <div class="section-label">Applications</div>
+      <h2>Real-World Impact</h2>
+      <p style="color:var(--text-secondary);margin:12px 0 20px;max-width:700px;">Monte Carlo methods power some of the most important computational tools in science and industry.</p>
+      <div class="app-grid">
+        <div class="app-item"><div class="dot" style="background:var(--accent-cyan)"></div> Nuclear Reactor Design</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-blue)"></div> Particle Physics (GEANT4)</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-violet)"></div> Quantum Chemistry</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-green)"></div> Financial Risk (VaR)</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-amber)"></div> Climate Modelling</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-pink)"></div> Drug Discovery</div>
+        <div class="app-item"><div class="dot" style="background:var(--accent-red)"></div> Radiation Therapy</div>
+        <div class="app-item"><div class="dot" style="background:#c0ca33"></div> Astrophysical Simulations</div>
+        <div class="app-item"><div class="dot" style="background:#26c6da"></div> Machine Learning (MCMC)</div>
+        <div class="app-item"><div class="dot" style="background:#ab47bc"></div> Materials Science</div>
+      </div>
+    </div>
+
+    <div class="glass-panel" style="margin-bottom:28px;">
+      <div class="section-label">Curriculum</div>
+      <h2>Laboratory Modules</h2>
+      <p style="color:var(--text-secondary);margin:12px 0 24px;">Click any module to jump directly to it.</p>
+      <div style="overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle);">
+        <table class="module-table">
+          <thead><tr><th class="module-num">#</th><th>Module</th><th>Core Concept</th><th>Key Equations</th><th>Level</th></tr></thead>
+          <tbody>
+            <tr onclick="switchTab('rng')"><td class="module-num">01</td><td class="module-name">🎲 RNG Lab</td><td>Pseudo-random generators, distributions</td><td>CLT, χ² test</td><td><span class="tag tag-green">Intro</span></td></tr>
+            <tr onclick="switchTab('walk')"><td class="module-num">02</td><td class="module-name">🚶 Random Walk</td><td>Brownian motion, diffusion, MSD</td><td>⟨r²⟩ = 2dDt</td><td><span class="tag tag-cyan">Intermediate</span></td></tr>
+            <tr onclick="switchTab('decay')"><td class="module-num">03</td><td class="module-name">&#9762; Radioactive Decay</td><td>Poisson statistics, exponential decay</td><td>N(t) = N₀ e<sup>−λt</sup></td><td><span class="tag tag-cyan">Intermediate</span></td></tr>
+            <tr onclick="switchTab('integration')"><td class="module-num">04</td><td class="module-name">&#8747; MC Integration</td><td>Importance sampling, variance reduction</td><td>I ≈ (V/N) Σf(xᵢ)</td><td><span class="tag tag-blue">Advanced</span></td></tr>
+            <tr onclick="switchTab('ising')"><td class="module-num">05</td><td class="module-name">🧲 Ising Model</td><td>Phase transitions, Metropolis algorithm</td><td>H = −J Σ sᵢsⱼ</td><td><span class="tag tag-violet">Advanced</span></td></tr>
+            <tr onclick="switchTab('transport')"><td class="module-num">06</td><td class="module-name">&#9728; Particle Transport</td><td>Scattering, mean free path, shielding</td><td>I = I₀ e<sup>−μx</sup></td><td><span class="tag tag-violet">Advanced</span></td></tr>
+            <tr onclick="switchTab('gas')"><td class="module-num">07</td><td class="module-name">💨 MC Gas</td><td>Kinetic theory, Maxwell-Boltzmann</td><td>PV = Nk<sub>B</sub>T</td><td><span class="tag tag-amber">Expert</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 1 — RNG LAB
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-rng" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 01</div>
+    <h2>🎲 Random Number Generator Lab</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">All Monte Carlo methods begin here — with high-quality random numbers. Explore how pseudo-random generators work, compare distributions, and verify statistical properties in real time.</p>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Generator Controls</div>
+      <h3 style="margin-bottom:18px;">Configuration</h3>
+      <div style="margin-bottom:18px;">
+        <div class="param-label" style="margin-bottom:8px;">Distribution type</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="rng-dist-btns">
+          <button class="btn btn-primary rng-dist-btn active" data-dist="uniform">Uniform</button>
+          <button class="btn btn-secondary rng-dist-btn" data-dist="gaussian">Gaussian</button>
+          <button class="btn btn-secondary rng-dist-btn" data-dist="exponential">Exponential</button>
+          <button class="btn btn-secondary rng-dist-btn" data-dist="poisson">Poisson</button>
+        </div>
+      </div>
+      <div class="param-row"><span class="param-label" data-tip="Samples added per animation frame">Samples / frame</span><input type="range" class="param-slider" id="rng-rate" min="1" max="200" value="40" step="1"><span class="param-value" id="rng-rate-val">40</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Number of histogram bins">Histogram bins</span><input type="range" class="param-slider" id="rng-bins" min="10" max="80" value="40" step="1"><span class="param-value" id="rng-bins-val">40</span></div>
+      <div class="param-row" id="rng-sigma-row"><span class="param-label" data-tip="Standard deviation of the Gaussian">Std deviation σ</span><input type="range" class="param-slider" id="rng-sigma" min="0.1" max="3" value="1" step="0.05"><span class="param-value" id="rng-sigma-val">1.00</span></div>
+      <div class="param-row" id="rng-lambda-row" style="display:none;"><span class="param-label" data-tip="Rate parameter of exponential distribution">Rate λ</span><input type="range" class="param-slider" id="rng-lambda" min="0.2" max="5" value="1" step="0.1"><span class="param-value" id="rng-lambda-val">1.0</span></div>
+      <div class="param-row" id="rng-mu-row" style="display:none;"><span class="param-label" data-tip="Mean of Poisson distribution">Mean μ</span><input type="range" class="param-slider" id="rng-mu" min="0.5" max="20" value="4" step="0.5"><span class="param-value" id="rng-mu-val">4.0</span></div>
+      <hr class="divider" style="margin:16px 0;">
+      <div class="btn-group">
+        <button class="btn btn-primary" id="rng-play-btn">⏸ Pause</button>
+        <button class="btn btn-danger" id="rng-reset-btn">&#8634; Reset</button>
+        <button class="btn btn-secondary" id="rng-chi-btn" data-tip="Run χ² goodness-of-fit test">χ² Test</button>
+      </div>
+      <div id="rng-chi-result" style="display:none;margin-top:14px;"></div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Live Statistics</div>
+        <h3 style="margin-bottom:18px;">Sample Moments</h3>
+        <div class="grid-2" style="gap:12px;">
+          <div class="stat-box"><div class="stat-value" id="rng-stat-n">0</div><div class="stat-label">Total Samples</div></div>
+          <div class="stat-box"><div class="stat-value" id="rng-stat-mean">—</div><div class="stat-label">Sample Mean</div></div>
+          <div class="stat-box"><div class="stat-value" id="rng-stat-var">—</div><div class="stat-label">Sample Variance</div></div>
+          <div class="stat-box"><div class="stat-value" id="rng-stat-std">—</div><div class="stat-label">Std Deviation</div></div>
+          <div class="stat-box"><div class="stat-value" id="rng-stat-min">—</div><div class="stat-label">Min</div></div>
+          <div class="stat-box"><div class="stat-value" id="rng-stat-max">—</div><div class="stat-label">Max</div></div>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Theory</div>
+        <h4 style="margin-bottom:12px;color:var(--text-secondary);">Expected values</h4>
+        <div id="rng-theory-box" style="font-family:var(--font-mono);font-size:13px;line-height:2;color:var(--text-secondary);"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel" style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <div><div class="section-label">Visualisation</div><h3>Live Histogram</h3></div>
+      <div style="display:flex;align-items:center;gap:16px;font-size:12px;font-family:var(--font-mono);color:var(--text-muted);">
+        <span style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:3px;background:var(--accent-cyan);border-radius:2px;"></span> Sampled</span>
+        <span style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:14px;height:3px;background:var(--accent-green);border-radius:2px;"></span> Theory</span>
+        <span id="rng-convergence" style="color:var(--accent-amber);"></span>
+      </div>
+    </div>
+    <div class="canvas-wrapper" style="height:300px;"><canvas id="rng-canvas"></canvas></div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Convergence</div>
+      <h3 style="margin-bottom:14px;">Mean vs Sample Size</h3>
+      <div id="rng-plotly-mean" style="height:220px;"></div>
+    </div>
+    <div class="glass-panel">
+      <div class="section-label">Error Analysis</div>
+      <h3 style="margin-bottom:14px;">Standard Error vs N</h3>
+      <div id="rng-plotly-error" style="height:220px;"></div>
+      <div class="callout info" style="margin-top:14px;"><span class="callout-icon">📐</span><div class="callout-body">The standard error of the mean decreases as <strong>σ/√N</strong>. Doubling precision requires <strong>4× more samples</strong> — the fundamental trade-off of all Monte Carlo methods.</div></div>
+    </div>
+  </div>
+
+  <div class="glass-panel" style="margin-bottom:24px;">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Pseudo-Random Number Generation</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Linear Congruential Generator</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">The simplest class of PRNG uses a recurrence relation. Modern engines (Mersenne Twister, PCG64) extend this idea with far longer periods and better statistical properties:</p>
+        <div class="eq-box" id="eq-lcg">$$X_{n+1} = (a X_n + c) \mod m$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">JavaScript's <code style="color:var(--text-code)">Math.random()</code> uses a xorshift128+ algorithm with a period of 2¹²⁸ − 1.</p>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;margin-top:20px;">Box-Muller Transform</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">To convert uniform variates U₁, U₂ ∈ (0,1] into a standard normal:</p>
+        <div class="eq-box" id="eq-boxmuller">$$Z_0 = \sqrt{-2\ln U_1}\,\cos(2\pi U_2), \quad Z_1 = \sqrt{-2\ln U_1}\,\sin(2\pi U_2)$$</div>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Central Limit Theorem</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">The CLT guarantees that the mean of <em>N</em> i.i.d. samples from <em>any</em> distribution converges to a Gaussian as N → ∞:</p>
+        <div class="eq-box" id="eq-clt">$$\bar{X}_N \xrightarrow{d} \mathcal{N}\!\left(\mu,\, \frac{\sigma^2}{N}\right)$$</div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;margin-top:20px;">χ² Goodness-of-Fit</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">We can test whether our sampled histogram matches the theoretical distribution using the chi-squared statistic:</p>
+        <div class="eq-box" id="eq-chi2">$$\chi^2 = \sum_{i=1}^{k} \frac{(O_i - E_i)^2}{E_i}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">If χ² / dof ≈ 1 the fit is good; much larger values indicate deviation from theory.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass-panel">
+    <div class="section-label">Comparison</div>
+    <h3 style="margin-bottom:16px;">Distribution Summary</h3>
+    <div style="overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle);">
+      <table class="module-table">
+        <thead><tr><th>Distribution</th><th>PDF / PMF</th><th>Mean</th><th>Variance</th><th>Use in MC</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-cyan">Uniform(a,b)</span></td><td style="font-family:var(--font-mono);font-size:12px;">1/(b−a)</td><td style="font-family:var(--font-mono);font-size:12px;">(a+b)/2</td><td style="font-family:var(--font-mono);font-size:12px;">(b−a)²/12</td><td style="color:var(--text-secondary);font-size:13px;">Basic sampling, rejection method</td></tr>
+          <tr><td><span class="tag tag-blue">Gaussian(μ,σ)</span></td><td style="font-family:var(--font-mono);font-size:12px;">exp[−(x−μ)²/2σ²]</td><td style="font-family:var(--font-mono);font-size:12px;">μ</td><td style="font-family:var(--font-mono);font-size:12px;">σ²</td><td style="color:var(--text-secondary);font-size:13px;">Random walks, noise models</td></tr>
+          <tr><td><span class="tag tag-amber">Exponential(λ)</span></td><td style="font-family:var(--font-mono);font-size:12px;">λ e<sup>−λx</sup></td><td style="font-family:var(--font-mono);font-size:12px;">1/λ</td><td style="font-family:var(--font-mono);font-size:12px;">1/λ²</td><td style="color:var(--text-secondary);font-size:13px;">Decay times, free paths</td></tr>
+          <tr><td><span class="tag tag-violet">Poisson(μ)</span></td><td style="font-family:var(--font-mono);font-size:12px;">μᵏe<sup>−μ</sup>/k!</td><td style="font-family:var(--font-mono);font-size:12px;">μ</td><td style="font-family:var(--font-mono);font-size:12px;">μ</td><td style="color:var(--text-secondary);font-size:13px;">Decay counts, photon arrivals</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 2 — RANDOM WALK
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-walk" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 02</div>
+    <h2>🚶 Random Walk Simulator</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">Simulate stochastic motion in 1D, 2D and 3D. Watch diffusion emerge from pure randomness, measure mean-squared displacement, and compare against the exact analytical solution of the diffusion equation.</p>
+  </div>
+  <div class="glass-panel" style="margin-bottom:22px;padding:18px 24px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-right:4px;">DIMENSION</span>
+      <div id="walk-mode-btns" style="display:flex;gap:8px;">
+        <button class="btn btn-primary walk-mode-btn active" data-mode="1d">1D Walk</button>
+        <button class="btn btn-secondary walk-mode-btn" data-mode="2d">2D Brownian</button>
+        <button class="btn btn-secondary walk-mode-btn" data-mode="3d">3D Diffusion</button>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-primary" id="walk-play-btn">⏸ Pause</button>
+        <button class="btn btn-danger" id="walk-reset-btn">&#8634; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:22px;align-items:start;">
+    <div>
+      <div class="glass-panel" style="padding:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="section-label" style="margin-bottom:0;">Simulation</div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);" id="walk-step-label">Step: 0</div>
+        </div>
+        <div class="canvas-wrapper" style="height:360px;"><canvas id="walk-canvas"></canvas></div>
+      </div>
+      <div id="walk-3d-hint" class="callout info" style="margin-top:14px;display:none;"><span class="callout-icon">🔭</span><div class="callout-body"><strong>3D view:</strong> XY projection drawn; dot brightness encodes Z-depth.</div></div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Parameters</div>
+        <h3 style="margin-bottom:16px;">Controls</h3>
+        <div class="param-row"><span class="param-label" data-tip="Number of simultaneous walkers">Particles</span><input type="range" class="param-slider" id="walk-n" min="1" max="60" value="12" step="1"><span class="param-value" id="walk-n-val">12</span></div>
+        <div class="param-row"><span class="param-label" data-tip="Gaussian step-size standard deviation">Step size σ</span><input type="range" class="param-slider" id="walk-step" min="0.5" max="8" value="3" step="0.5"><span class="param-value" id="walk-step-val">3.0</span></div>
+        <div class="param-row"><span class="param-label" data-tip="Steps per animation frame">Speed (steps/frame)</span><input type="range" class="param-slider" id="walk-speed" min="1" max="30" value="4" step="1"><span class="param-value" id="walk-speed-val">4</span></div>
+        <div class="param-row"><span class="param-label" data-tip="Past positions shown per walker">Trail length</span><input type="range" class="param-slider" id="walk-trail" min="10" max="300" value="80" step="10"><span class="param-value" id="walk-trail-val">80</span></div>
+        <hr class="divider" style="margin:14px 0;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-secondary);"><input type="checkbox" id="walk-show-pdf" style="accent-color:var(--accent-cyan);" checked> Show theoretical PDF envelope</label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--text-secondary);margin-top:8px;"><input type="checkbox" id="walk-show-ensemble" style="accent-color:var(--accent-violet);" checked> Show ensemble-average position</label>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Statistics</div>
+        <h3 style="margin-bottom:14px;">Live Measurements</h3>
+        <div class="grid-2" style="gap:10px;">
+          <div class="stat-box"><div class="stat-value" id="walk-stat-t">0</div><div class="stat-label">Time Step</div></div>
+          <div class="stat-box"><div class="stat-value" id="walk-stat-msd">0.00</div><div class="stat-label">⟨r²⟩ MSD</div></div>
+          <div class="stat-box"><div class="stat-value" id="walk-stat-theory">0.00</div><div class="stat-label">Theory 2dDt</div></div>
+          <div class="stat-box"><div class="stat-value" id="walk-stat-err">—</div><div class="stat-label">Relative Error</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:22px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Mean-Squared Displacement</div>
+      <h3 style="margin-bottom:12px;">⟨r²⟩ vs Time</h3>
+      <div id="walk-plotly-msd" style="height:240px;"></div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;">Cyan = measured &nbsp;|&nbsp; Green dash = 2dDt (theory)</div>
+    </div>
+    <div class="glass-panel">
+      <div class="section-label">Probability Density</div>
+      <h3 style="margin-bottom:12px;">Displacement Histogram (1D projection)</h3>
+      <div class="canvas-wrapper" style="height:240px;"><canvas id="walk-pdf-canvas"></canvas></div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;">Blue bars = sampled &nbsp;|&nbsp; Green = Gaussian N(0, σ²t)</div>
+    </div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Diffusion &amp; Brownian Motion</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Mean-Squared Displacement</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">For a <em>d</em>-dimensional random walker with step variance σ² per unit time, the MSD grows linearly:</p>
+        <div class="eq-box" id="eq-msd">$$\langle r^2(t) \rangle = 2d\,D\,t, \qquad D = \frac{\sigma^2}{2}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">Linear MSD growth is the hallmark of <em>normal diffusion</em>. Anomalous diffusion scales as t<sup>α</sup>, α ≠ 1.</p>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;margin-top:20px;">Diffusion Equation</h4>
+        <div class="eq-box" id="eq-diff2">$$\frac{\partial P}{\partial t} = D\,\nabla^2 P$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">The probability density P(x,t) satisfies this PDE. Starting from P(x,0)=δ(x), the solution is a spreading Gaussian.</p>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Green's Function Solution</h4>
+        <div class="eq-box" id="eq-green">$$P(x,t) = \frac{1}{\sqrt{4\pi D t}}\exp\!\left(-\frac{x^2}{4Dt}\right)$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;margin-bottom:16px;">Width σ(t)=√(2Dt) grows as √t. This Gaussian is drawn as the green envelope on the simulation.</p>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Einstein–Smoluchowski Relation</h4>
+        <div class="eq-box" id="eq-einstein">$$D = \frac{k_B T}{6\pi \eta r}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">For a sphere of radius r in viscosity η, D is set by temperature — connecting microscopic randomness to macroscopic transport.</p>
+        <div class="callout success" style="margin-top:16px;"><span class="callout-icon">📖</span><div class="callout-body"><strong>1905:</strong> Einstein derived this relation the same year as special relativity, providing the first quantitative evidence for atoms.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 3 — DECAY
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-decay" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 03</div>
+    <h2>&#9762; Radioactive Decay Simulator</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">Watch individual nuclei decay stochastically. Each nucleus has a fixed probability of decaying per time step — from this pure randomness, the exponential decay law and Poisson statistics emerge at the ensemble level.</p>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Controls</div>
+      <h3 style="margin-bottom:18px;">Parameters</h3>
+      <div class="param-row"><span class="param-label" data-tip="Initial number of radioactive nuclei">Initial nuclei N₀</span><input type="range" class="param-slider" id="dc-n0" min="50" max="600" value="200" step="10"><span class="param-value" id="dc-n0-val">200</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Decay constant — probability of decay per time step">Decay constant λ</span><input type="range" class="param-slider" id="dc-lambda" min="0.005" max="0.12" value="0.025" step="0.005"><span class="param-value" id="dc-lambda-val">0.025</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Simulation steps per animation frame">Speed</span><input type="range" class="param-slider" id="dc-speed" min="1" max="10" value="2" step="1"><span class="param-value" id="dc-speed-val">2</span></div>
+      <hr class="divider" style="margin:16px 0;">
+      <div class="btn-group">
+        <button class="btn btn-primary" id="dc-play-btn">&#9654; Play</button>
+        <button class="btn btn-danger" id="dc-reset-btn">&#8634; Reset</button>
+      </div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Live Statistics</div>
+        <div class="grid-2" style="gap:12px;margin-top:10px;">
+          <div class="stat-box"><div class="stat-value" id="dc-stat-n">200</div><div class="stat-label">Surviving N(t)</div></div>
+          <div class="stat-box"><div class="stat-value" id="dc-stat-t">0</div><div class="stat-label">Time Step</div></div>
+          <div class="stat-box"><div class="stat-value" id="dc-stat-t12">—</div><div class="stat-label">t½ Measured</div></div>
+          <div class="stat-box"><div class="stat-value" id="dc-stat-t12th">—</div><div class="stat-label">t½ Theory</div></div>
+          <div class="stat-box"><div class="stat-value" id="dc-stat-tau">—</div><div class="stat-label">τ = 1/λ</div></div>
+          <div class="stat-box"><div class="stat-value" id="dc-stat-rate">0</div><div class="stat-label">Decays/Step</div></div>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Progress</div>
+        <h4 style="margin-bottom:10px;color:var(--text-secondary);">Fraction remaining</h4>
+        <div class="progress-track"><div class="progress-fill" id="dc-progress" style="width:100%;background:linear-gradient(90deg,var(--accent-green),var(--accent-cyan));"></div></div>
+        <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-top:8px;" id="dc-pct">100%</div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel" style="padding:16px;">
+      <div class="section-label" style="margin-bottom:6px;">Nuclei Visualisation</div>
+      <div class="canvas-wrapper" style="height:340px;"><canvas id="dc-canvas"></canvas></div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;">🟢 Alive &nbsp;|&nbsp; ⚫ Decayed &nbsp;|&nbsp; ✦ Decay flash</div>
+    </div>
+    <div class="glass-panel">
+      <div class="section-label">Decay Curve</div>
+      <h3 style="margin-bottom:12px;">N(t) vs Time</h3>
+      <div id="dc-plotly-nt" style="height:200px;"></div>
+      <h3 style="margin-bottom:12px;margin-top:18px;">Activity Rate A(t)</h3>
+      <div id="dc-plotly-activity" style="height:150px;"></div>
+    </div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Radioactive Decay &amp; Poisson Statistics</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Exponential Decay Law</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">If each nucleus independently decays with probability λ per unit time, the expected number surviving is:</p>
+        <div class="eq-box" id="dc-eq1">$$N(t) = N_0\,e^{-\lambda t}$$</div>
+        <div class="eq-box" id="dc-eq2" style="margin-top:10px;">$$t_{1/2} = \frac{\ln 2}{\lambda}, \qquad \tau = \frac{1}{\lambda}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">The half-life t½ is the time for half the sample to decay. The mean lifetime τ = 1/λ.</p>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Activity &amp; Poisson Fluctuations</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">The instantaneous activity (decays per second) is:</p>
+        <div class="eq-box" id="dc-eq3">$$A(t) = \lambda\,N(t) = A_0\,e^{-\lambda t}$$</div>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin:10px 0;">The number of decays in a short interval follows a Poisson distribution. The statistical uncertainty in a count of k events is simply √k:</p>
+        <div class="eq-box" id="dc-eq4">$$\sigma_k = \sqrt{k}$$</div>
+        <div class="callout warn" style="margin-top:12px;"><span class="callout-icon">&#9762;</span><div class="callout-body"><strong>Geiger counters</strong> exploit this: counting pulses from decays to infer activity and identify isotopes from decay rates.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 4 — INTEGRATION
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-integration" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 04</div>
+    <h2>&#8747; Monte Carlo Integration Lab</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">Estimate integrals by random sampling. Watch the estimate converge as points accumulate, and see why MC integration uniquely shines in higher dimensions.</p>
+  </div>
+  <div class="glass-panel" style="margin-bottom:22px;padding:18px 24px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">MODE</span>
+      <div id="int-mode-btns" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary int-mode-btn active" data-mode="pi">π Estimation</button>
+        <button class="btn btn-secondary int-mode-btn" data-mode="sin">∫₀π sin(x)dx</button>
+        <button class="btn btn-secondary int-mode-btn" data-mode="gauss">∫ e^(-x²)dx</button>
+        <button class="btn btn-secondary int-mode-btn" data-mode="sphere">3D Sphere Vol</button>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-primary" id="int-play-btn">⏸ Pause</button>
+        <button class="btn btn-danger" id="int-reset-btn">&#8634; Reset</button>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div>
+      <div class="glass-panel" style="padding:16px;margin-bottom:18px;">
+        <div class="section-label" style="margin-bottom:6px;">Sampling Canvas</div>
+        <div class="canvas-wrapper" style="height:340px;"><canvas id="int-canvas"></canvas></div>
+        <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;"><span style="color:var(--accent-cyan);">●</span> Inside &nbsp;<span style="color:var(--accent-red);">●</span> Outside &nbsp;<span style="color:var(--accent-green);">—</span> True boundary</div>
+      </div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Controls</div>
+        <div class="param-row"><span class="param-label" data-tip="Points added per frame">Points / frame</span><input type="range" class="param-slider" id="int-rate" min="5" max="300" value="60" step="5"><span class="param-value" id="int-rate-val">60</span></div>
+        <div class="callout info" style="margin-top:14px;"><span class="callout-icon">💡</span><div class="callout-body" id="int-callout-text"><strong>π Estimation:</strong> Sample (x,y) ∈ [−1,1]². Points inside the unit circle (x²+y²≤1) give π ≈ 4·(inside/total).</div></div>
+      </div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Live Results</div>
+        <div class="grid-2" style="gap:12px;margin-top:10px;">
+          <div class="stat-box"><div class="stat-value" id="int-stat-n">0</div><div class="stat-label">Total Samples</div></div>
+          <div class="stat-box"><div class="stat-value" id="int-stat-est">—</div><div class="stat-label">Estimate</div></div>
+          <div class="stat-box"><div class="stat-value" id="int-stat-true">—</div><div class="stat-label">True Value</div></div>
+          <div class="stat-box"><div class="stat-value" id="int-stat-err">—</div><div class="stat-label">Rel. Error</div></div>
+          <div class="stat-box"><div class="stat-value" id="int-stat-sem">—</div><div class="stat-label">Std. Error</div></div>
+          <div class="stat-box"><div class="stat-value" id="int-stat-in">0</div><div class="stat-label">Inside</div></div>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Convergence</div>
+        <div id="int-plotly-conv" style="height:200px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Monte Carlo Integration</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Basic Estimator</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">For an integral I = ∫ f(x)dx over domain Ω of volume V, sample N random points xᵢ uniformly in Ω:</p>
+        <div class="eq-box" id="int-eq1">$$I \approx \frac{V}{N}\sum_{i=1}^N f(\mathbf{x}_i)$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">The statistical error shrinks as σ/√N regardless of the dimensionality d — MC's killer advantage over grid-based quadrature (which scales as N<sup>-k/d</sup>).</p>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">π via Hit-or-Miss</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">The unit circle inscribed in a 2×2 square has area π. The ratio of inside points gives:</p>
+        <div class="eq-box" id="int-eq2">$$\pi \approx 4\,\frac{N_\text{inside}}{N_\text{total}}$$</div>
+        <div class="eq-box" id="int-eq3" style="margin-top:10px;">$$\sigma_\pi \approx \frac{4}{N}\sqrt{N_\text{in}\!\left(1 - \frac{N_\text{in}}{N}\right)}$$</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 5 — ISING MODEL
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-ising" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 05</div>
+    <h2>🧲 Ising Model Simulator</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">Simulate a 2D ferromagnet using the Metropolis algorithm. Witness the spontaneous phase transition from magnetic order to chaos as temperature crosses the critical point T<sub>c</sub> ≈ 2.269 J/k<sub>B</sub>.</p>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Controls</div>
+      <h3 style="margin-bottom:18px;">Parameters</h3>
+      <div class="param-row"><span class="param-label" data-tip="Temperature in units of J/kB. Critical point is 2.269">Temperature T (J/k_B)</span><input type="range" class="param-slider" id="ising-T" min="0.5" max="5.0" value="1.5" step="0.05"><span class="param-value" id="ising-T-val">1.50</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Exchange coupling constant">Coupling J</span><input type="range" class="param-slider" id="ising-J" min="0.5" max="2.0" value="1.0" step="0.1"><span class="param-value" id="ising-J-val">1.00</span></div>
+      <div class="param-row"><span class="param-label" data-tip="External magnetic field strength">External field h</span><input type="range" class="param-slider" id="ising-h" min="-2" max="2" value="0" step="0.1"><span class="param-value" id="ising-h-val">0.00</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Metropolis sweeps per frame">Sweeps/frame</span><input type="range" class="param-slider" id="ising-speed" min="1" max="20" value="5" step="1"><span class="param-value" id="ising-speed-val">5</span></div>
+      <hr class="divider" style="margin:16px 0;">
+      <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-bottom:14px;">T<sub>c</sub> = 2.269 J/k<sub>B</sub> &nbsp;|&nbsp; Current: <span id="ising-phase" style="color:var(--accent-green);">ORDERED</span></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="ising-play-btn">⏸ Pause</button>
+        <button class="btn btn-danger" id="ising-reset-btn">&#8634; Reset</button>
+        <button class="btn btn-secondary" id="ising-rand-btn">Randomise</button>
+      </div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Live Observables</div>
+        <div class="grid-2" style="gap:12px;margin-top:10px;">
+          <div class="stat-box"><div class="stat-value" id="ising-stat-m">—</div><div class="stat-label">|Magnetisation| M</div></div>
+          <div class="stat-box"><div class="stat-value" id="ising-stat-e">—</div><div class="stat-label">Energy/spin E</div></div>
+          <div class="stat-box"><div class="stat-value" id="ising-stat-t">—</div><div class="stat-label">Temperature T</div></div>
+          <div class="stat-box"><div class="stat-value" id="ising-stat-sweeps">0</div><div class="stat-label">Total Sweeps</div></div>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Time Series</div>
+        <div id="ising-plotly-m" style="height:160px;margin-bottom:10px;"></div>
+        <div id="ising-plotly-e" style="height:140px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel" style="padding:16px;">
+      <div class="section-label" style="margin-bottom:6px;">Spin Lattice (60 × 60)</div>
+      <div class="canvas-wrapper" style="height:360px;"><canvas id="ising-canvas"></canvas></div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;"><span style="color:#ff5a5a;">■</span> Spin +1 &nbsp;|&nbsp;<span style="color:#5a9fff;">■</span> Spin −1</div>
+    </div>
+    <div class="glass-panel">
+      <div class="section-label">Phase Diagram</div>
+      <h3 style="margin-bottom:12px;">M vs Temperature sweep</h3>
+      <div id="ising-plotly-phase" style="height:200px;"></div>
+      <button class="btn btn-secondary" id="ising-sweep-btn" style="margin-top:14px;">&#9654; Run T-sweep (slow)</button>
+      <div id="ising-sweep-status" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+    </div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">The Ising Model &amp; Metropolis Algorithm</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Hamiltonian</h4>
+        <div class="eq-box" id="ising-eq1">$$\mathcal{H} = -J\sum_{\langle i,j\rangle} s_i s_j - h\sum_i s_i, \qquad s_i \in \{-1,+1\}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">J &gt; 0 favours alignment (ferromagnet). The sum ⟨i,j⟩ runs over nearest-neighbour pairs.</p>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;margin-top:20px;">Onsager Exact Solution (2D)</h4>
+        <div class="eq-box" id="ising-eq2">$$k_B T_c = \frac{2J}{\ln(1+\sqrt{2})} \approx 2.269\,J$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">Lars Onsager derived this exact result in 1944 — a landmark in statistical mechanics.</p>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Metropolis Algorithm</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">Pick a random spin sᵢ. Compute the energy change ΔE if it were flipped. Accept the flip with probability:</p>
+        <div class="eq-box" id="ising-eq3">$$P(\text{accept}) = \min\!\left(1,\, e^{-\Delta E / k_B T}\right)$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">This guarantees the system relaxes to the Boltzmann distribution. One "sweep" = N² attempted flips.</p>
+        <div class="callout success" style="margin-top:14px;"><span class="callout-icon">🌡️</span><div class="callout-body"><strong>Order parameter:</strong> M = |Σsᵢ|/N → 0 above T<sub>c</sub> (disordered phase) and M &gt; 0 below (spontaneous magnetisation).</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 6 — TRANSPORT
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-transport" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 06</div>
+    <h2>&#9728; Particle Transport Simulator</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">Simulate photon/neutron transport through a shielding material. Particles travel random distances between interactions, where they are either absorbed or scattered — giving rise to Beer–Lambert exponential attenuation.</p>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Controls</div>
+      <h3 style="margin-bottom:18px;">Material &amp; Beam</h3>
+      <div style="margin-bottom:16px;">
+        <div class="param-label" style="margin-bottom:8px;">Material preset</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="tr-mat-btns">
+          <button class="btn btn-primary tr-mat-btn active" data-mu="0.10" data-pa="0.20">Air</button>
+          <button class="btn btn-secondary tr-mat-btn" data-mu="0.40" data-pa="0.45">Water</button>
+          <button class="btn btn-secondary tr-mat-btn" data-mu="1.20" data-pa="0.60">Aluminium</button>
+          <button class="btn btn-secondary tr-mat-btn" data-mu="3.50" data-pa="0.80">Lead</button>
+        </div>
+      </div>
+      <div class="param-row"><span class="param-label" data-tip="Linear attenuation coefficient (1/cm)">Att. coeff μ (1/cm)</span><input type="range" class="param-slider" id="tr-mu" min="0.05" max="5.0" value="0.10" step="0.05"><span class="param-value" id="tr-mu-val">0.10</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Probability of absorption vs scatter at each interaction">P(absorb)</span><input type="range" class="param-slider" id="tr-pa" min="0.0" max="1.0" value="0.20" step="0.05"><span class="param-value" id="tr-pa-val">0.20</span></div>
+      <div class="param-row"><span class="param-label" data-tip="New particles injected per frame">Beam rate</span><input type="range" class="param-slider" id="tr-rate" min="1" max="20" value="5" step="1"><span class="param-value" id="tr-rate-val">5</span></div>
+      <div class="param-row"><span class="param-label" data-tip="Slab thickness in cm">Slab thickness (cm)</span><input type="range" class="param-slider" id="tr-thick" min="5" max="50" value="20" step="1"><span class="param-value" id="tr-thick-val">20</span></div>
+      <hr class="divider" style="margin:16px 0;">
+      <div class="btn-group">
+        <button class="btn btn-primary" id="tr-play-btn">⏸ Pause</button>
+        <button class="btn btn-danger" id="tr-reset-btn">&#8634; Reset</button>
+      </div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Statistics</div>
+        <div class="grid-2" style="gap:12px;margin-top:10px;">
+          <div class="stat-box"><div class="stat-value" id="tr-stat-total">0</div><div class="stat-label">Total Particles</div></div>
+          <div class="stat-box"><div class="stat-value" id="tr-stat-trans">—</div><div class="stat-label">Transmitted</div></div>
+          <div class="stat-box"><div class="stat-value" id="tr-stat-abs">—</div><div class="stat-label">Absorbed</div></div>
+          <div class="stat-box"><div class="stat-value" id="tr-stat-mfp">—</div><div class="stat-label">Mean Free Path</div></div>
+          <div class="stat-box"><div class="stat-value" id="tr-stat-frac">—</div><div class="stat-label">Trans. Fraction</div></div>
+          <div class="stat-box"><div class="stat-value" id="tr-stat-theory">—</div><div class="stat-label">e^{-μx} Theory</div></div>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Depth Profile</div>
+        <h3 style="margin-bottom:12px;">Intensity I(x)</h3>
+        <div id="tr-plotly-depth" style="height:230px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="glass-panel" style="padding:16px;margin-bottom:24px;">
+    <div class="section-label" style="margin-bottom:6px;">Particle Transport Canvas</div>
+    <div class="canvas-wrapper" style="height:280px;"><canvas id="tr-canvas"></canvas></div>
+    <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;"><span style="color:var(--accent-cyan);">→</span> In-flight &nbsp;|&nbsp;<span style="color:var(--accent-amber);">✦</span> Scattering &nbsp;|&nbsp;<span style="color:var(--accent-red);">✦</span> Absorbed &nbsp;|&nbsp;<span style="color:var(--accent-green);">→</span> Transmitted</div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Radiation Transport &amp; Beer–Lambert Law</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Beer–Lambert Attenuation</h4>
+        <div class="eq-box" id="tr-eq1">$$I(x) = I_0\,e^{-\mu x}$$</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-top:8px;margin-bottom:14px;">μ (cm⁻¹) is the linear attenuation coefficient. The half-value layer is HVL = ln2/μ.</p>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Mean Free Path</h4>
+        <div class="eq-box" id="tr-eq2">$$\lambda_\text{mfp} = \frac{1}{\mu}$$</div>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Sampling Path Lengths</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">The path length to the next interaction is sampled from an exponential distribution:</p>
+        <div class="eq-box" id="tr-eq3">$$\ell = -\frac{\ln U}{\mu}, \qquad U \sim \text{Uniform}(0,1)$$</div>
+        <div class="callout info" style="margin-top:14px;"><span class="callout-icon">&#9883;</span><div class="callout-body"><strong>GEANT4, MCNP,</strong> and other production codes use exactly this method to simulate particle transport in complex geometries for nuclear reactor design and medical physics.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PANEL 7 — GAS
+═══════════════════════════════════════════════════════════ -->
+<section id="panel-gas" class="tab-panel">
+  <div style="margin-bottom:28px;">
+    <div class="section-label">Module 07</div>
+    <h2>💨 Monte Carlo Ideal Gas</h2>
+    <p style="color:var(--text-secondary);margin-top:8px;max-width:720px;">An ensemble of particles with elastic wall and particle–particle collisions. Watch the Maxwell–Boltzmann speed distribution emerge spontaneously, and verify the ideal gas law PV = Nk<sub>B</sub>T from first principles.</p>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div>
+      <div class="glass-panel" style="padding:16px;margin-bottom:18px;">
+        <div class="section-label" style="margin-bottom:6px;">Particle Box</div>
+        <div class="canvas-wrapper" style="height:360px;"><canvas id="gas-canvas"></canvas></div>
+      </div>
+    </div>
+    <div>
+      <div class="glass-panel" style="margin-bottom:18px;">
+        <div class="section-label">Controls</div>
+        <div class="param-row"><span class="param-label" data-tip="Number of gas particles">Particles N</span><input type="range" class="param-slider" id="gas-n" min="10" max="120" value="60" step="5"><span class="param-value" id="gas-n-val">60</span></div>
+        <div class="param-row"><span class="param-label" data-tip="Temperature (arbitrary units, sets mean speed)">Temperature T</span><input type="range" class="param-slider" id="gas-T" min="0.5" max="5.0" value="1.5" step="0.1"><span class="param-value" id="gas-T-val">1.50</span></div>
+        <div class="param-row"><span class="param-label" data-tip="Particle radius (affects collision frequency)">Particle radius</span><input type="range" class="param-slider" id="gas-r" min="3" max="12" value="6" step="1"><span class="param-value" id="gas-r-val">6</span></div>
+        <hr class="divider" style="margin:14px 0;">
+        <div class="btn-group">
+          <button class="btn btn-primary" id="gas-play-btn">⏸ Pause</button>
+          <button class="btn btn-danger" id="gas-reset-btn">&#8634; Reset</button>
+          <button class="btn btn-secondary" id="gas-heat-btn">🔥 Heat +1</button>
+          <button class="btn btn-secondary" id="gas-cool-btn">❄ Cool −1</button>
+        </div>
+      </div>
+      <div class="glass-panel">
+        <div class="section-label">Thermodynamic Observables</div>
+        <div class="grid-2" style="gap:10px;margin-top:10px;">
+          <div class="stat-box"><div class="stat-value" id="gas-stat-t">—</div><div class="stat-label">Kin. Temp T</div></div>
+          <div class="stat-box"><div class="stat-value" id="gas-stat-p">—</div><div class="stat-label">Pressure P</div></div>
+          <div class="stat-box"><div class="stat-value" id="gas-stat-vmean">—</div><div class="stat-label">⟨v⟩</div></div>
+          <div class="stat-box"><div class="stat-value" id="gas-stat-vrms">—</div><div class="stat-label">v_rms</div></div>
+          <div class="stat-box"><div class="stat-value" id="gas-stat-ke">—</div><div class="stat-label">Mean KE</div></div>
+          <div class="stat-box"><div class="stat-value" id="gas-stat-coll">0</div><div class="stat-label">Wall Collisions</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:24px;align-items:start;">
+    <div class="glass-panel">
+      <div class="section-label">Speed Distribution</div>
+      <h3 style="margin-bottom:12px;">Maxwell–Boltzmann Histogram</h3>
+      <div class="canvas-wrapper" style="height:220px;"><canvas id="gas-mb-canvas"></canvas></div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:8px;">Blue bars = measured &nbsp;|&nbsp; Green = MB theory f(v) ∝ v·e^{−v²/2T}</div>
+    </div>
+    <div class="glass-panel">
+      <div class="section-label">Ideal Gas Law</div>
+      <h3 style="margin-bottom:12px;">Pressure vs Temperature</h3>
+      <div id="gas-plotly-pt" style="height:220px;"></div>
+      <div class="callout success" style="margin-top:14px;"><span class="callout-icon">📐</span><div class="callout-body">Slope should equal Nk<sub>B</sub>/V. Verify PV = Nk<sub>B</sub>T from the simulation!</div></div>
+    </div>
+  </div>
+  <div class="glass-panel">
+    <div class="section-label">Theory</div>
+    <h3 style="margin-bottom:16px;">Kinetic Theory &amp; Maxwell–Boltzmann Statistics</h3>
+    <div class="grid-2" style="gap:32px;">
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Maxwell–Boltzmann Distribution</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">In 2D, the speed distribution of molecules at temperature T (m=1, k_B=1) is:</p>
+        <div class="eq-box" id="gas-eq1">$$f(v) = \frac{v}{T}\,\exp\!\left(-\frac{v^2}{2T}\right)$$</div>
+        <div class="eq-box" id="gas-eq2" style="margin-top:10px;">$$\langle v \rangle = \sqrt{\frac{\pi T}{2}}, \quad v_\text{rms} = \sqrt{2T}$$</div>
+      </div>
+      <div>
+        <h4 style="color:var(--accent-cyan);margin-bottom:10px;">Ideal Gas Law</h4>
+        <p style="color:var(--text-secondary);font-size:13.5px;margin-bottom:10px;">Pressure arises from momentum transfer to the walls. Each wall collision transfers Δp = 2mv⊥. Summing over all collisions:</p>
+        <div class="eq-box" id="gas-eq3">$$PV = Nk_BT, \quad \text{so } P \propto T \text{ at fixed } N,V$$</div>
+        <div class="callout info" style="margin-top:14px;"><span class="callout-icon">💨</span><div class="callout-body"><strong>Equipartition theorem:</strong> each degree of freedom contributes ½k<sub>B</sub>T to mean KE. In 2D: ⟨KE⟩ = k<sub>B</sub>T per particle (2 DOF).</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+'use strict';
+
+/* ── §10.1  TAB NAVIGATION ──────────────────────────────── */
+const TAB_MAP = {
+  intro:'panel-intro', rng:'panel-rng', walk:'panel-walk',
+  decay:'panel-decay', integration:'panel-integration',
+  ising:'panel-ising', transport:'panel-transport', gas:'panel-gas'
+};
+let activeTab = 'intro';
+
+function switchTab(name) {
+  if (name === activeTab) return;
+  document.getElementById(TAB_MAP[activeTab])?.classList.remove('active');
+  document.querySelector(`.nav-tab[data-tab="${activeTab}"]`)?.classList.remove('active');
+  activeTab = name;
+  document.getElementById(TAB_MAP[name])?.classList.add('active');
+  document.querySelector(`.nav-tab[data-tab="${name}"]`)?.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.dispatchEvent(new CustomEvent('tabchange', { detail: name }));
+}
+
+/* ── §10.2  STARFIELD ───────────────────────────────────── */
+(function buildStarfield() {
+  const container = document.getElementById('starfield');
+  for (let i = 0; i < 180; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const r = Math.random();
+    const sz = r < 0.6 ? 1 : r < 0.9 ? 1.5 : 2.5;
+    Object.assign(s.style, {
+      left: Math.random() * 100 + '%', top: Math.random() * 100 + '%',
+      width: sz + 'px', height: sz + 'px',
+      '--dur': (3 + Math.random() * 5) + 's',
+      '--delay': -(Math.random() * 6) + 's',
+      '--min-op': (0.05 + Math.random() * 0.15).toFixed(2),
+      '--max-op': (0.5 + Math.random() * 0.5).toFixed(2),
+    });
+    container.appendChild(s);
+  }
+})();
+
+/* ── §10.3  FPS MONITOR ─────────────────────────────────── */
+(function fpsMonitor() {
+  let last = performance.now(), frames = 0;
+  const el = document.getElementById('fps-display');
+  function tick(now) {
+    frames++;
+    if (now - last >= 1000) { el.textContent = frames + ' FPS'; frames = 0; last = now; }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+/* ── §10.4  HERO CANVAS ─────────────────────────────────── */
+(function heroCanvas() {
+  const canvas = document.getElementById('hero-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; }
+  class HP {
+    constructor() { this.reset(true); }
+    reset(init = false) {
+      this.x = Math.random() * W;
+      this.y = init ? Math.random() * H : H + 10;
+      this.vx = (Math.random() - 0.5) * 0.4;
+      this.vy = -(0.15 + Math.random() * 0.35);
+      this.r = 1 + Math.random() * 2.5;
+      this.alpha = 0.3 + Math.random() * 0.5;
+      this.color = Math.random() < 0.5 ? '0,229,255' : Math.random() < 0.5 ? '41,121,255' : '124,77,255';
+      this.life = 0; this.maxLife = 300 + Math.random() * 400;
+    }
+    update() { this.x += this.vx; this.y += this.vy; this.life++; if (this.life > this.maxLife || this.y < -10) this.reset(); }
+    draw(c) {
+      const fade = Math.min(this.life / 40, 1) * Math.min((this.maxLife - this.life) / 60, 1);
+      c.beginPath(); c.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      c.fillStyle = `rgba(${this.color},${this.alpha * fade})`;
+      c.shadowColor = `rgba(${this.color},0.8)`; c.shadowBlur = 8; c.fill(); c.shadowBlur = 0;
+    }
+  }
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => { p.update(); p.draw(ctx); });
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 90) {
+          ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(0,229,255,${0.07 * (1 - d / 90)})`; ctx.lineWidth = 0.5; ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  particles = Array.from({ length: 100 }, () => new HP());
+  frame();
+})();
+
+/* ── §10.5  MINI DEMO — 2D Random Walk ─────────────────── */
+(function miniWalk() {
+  const canvas = document.getElementById('demo-walk');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const walkers = [];
+  const COLORS = ['#00e5ff', '#2979ff', '#7c4dff', '#00e676', '#ffab40'];
+  class Walker {
+    constructor(i) { this.color = COLORS[i % COLORS.length]; this.path = []; this.reset(); }
+    reset() { this.x = W / 2; this.y = H / 2; this.path = [{ x: this.x, y: this.y }]; }
+    step() {
+      const angle = Math.random() * Math.PI * 2, step = 4;
+      this.x += Math.cos(angle) * step; this.y += Math.sin(angle) * step;
+      this.x = ((this.x % W) + W) % W; this.y = ((this.y % H) + H) % H;
+      this.path.push({ x: this.x, y: this.y });
+      if (this.path.length > 120) this.path.shift();
+    }
+    draw(c) {
+      if (this.path.length < 2) return;
+      for (let i = 1; i < this.path.length; i++) {
+        const dx = this.path[i].x - this.path[i - 1].x;
+        if (Math.abs(dx) > W / 2 || Math.abs(this.path[i].y - this.path[i - 1].y) > H / 2) continue;
+        c.beginPath(); c.moveTo(this.path[i - 1].x, this.path[i - 1].y); c.lineTo(this.path[i].x, this.path[i].y);
+        c.strokeStyle = this.color; c.globalAlpha = (i / this.path.length) * 0.8; c.lineWidth = 1.5; c.stroke();
+      }
+      c.globalAlpha = 1;
+      c.beginPath(); c.arc(this.x, this.y, 3.5, 0, Math.PI * 2);
+      c.fillStyle = this.color; c.shadowColor = this.color; c.shadowBlur = 10; c.fill(); c.shadowBlur = 0;
+    }
+  }
+  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = 220; walkers.forEach(w => w.reset()); }
+  function frame() {
+    ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(0, 0, W, H);
+    walkers.forEach(w => { w.step(); w.draw(ctx); });
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', resize); resize();
+  for (let i = 0; i < 5; i++) walkers.push(new Walker(i));
+  frame();
+})();
+
+/* ── §10.6  MINI DEMO — Particle Diffusion ──────────────── */
+(function miniDiffusion() {
+  const canvas = document.getElementById('demo-diffusion');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const particles = [];
+  class DP {
+    constructor() { this.reset(); }
+    reset() { this.x = W / 2 + (Math.random() - 0.5) * 4; this.y = H / 2 + (Math.random() - 0.5) * 4; this.r = 2 + Math.random() * 2; this.hue = Math.random() * 60 + 180; }
+    step() { const D = 2.5; this.x += (Math.random() - 0.5) * D * 2; this.y += (Math.random() - 0.5) * D * 2; }
+    draw(c) {
+      const d = Math.sqrt((this.x - W / 2) ** 2 + (this.y - H / 2) ** 2);
+      const intensity = 1 - Math.min(d / Math.sqrt(W * W + H * H) * 2, 1);
+      c.beginPath(); c.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      c.fillStyle = `hsla(${this.hue},90%,65%,${0.4 + intensity * 0.5})`;
+      c.shadowColor = `hsl(${this.hue},90%,65%)`; c.shadowBlur = 6; c.fill(); c.shadowBlur = 0;
+    }
+  }
+  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = 220; particles.length = 0; for (let i = 0; i < 200; i++) particles.push(new DP()); }
+  function frame() {
+    ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, 0, W, H);
+    particles.forEach(p => { p.step(); if (p.x < 0 || p.x > W || p.y < 0 || p.y > H) p.reset(); p.draw(ctx); });
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', resize); resize(); frame();
+})();
+
+/* ── §10.7  MINI DEMO — Gaussian Sampling ───────────────── */
+(function miniGaussian() {
+  const canvas = document.getElementById('demo-gaussian');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const BINS = 30, bins = new Array(BINS).fill(0);
+  let total = 0;
+  function randn() { const u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = 220; }
+  function frame() {
+    for (let i = 0; i < 8; i++) { const z = randn(), b = Math.floor((z + 4) / 8 * BINS); if (b >= 0 && b < BINS) { bins[b]++; total++; } }
+    ctx.clearRect(0, 0, W, H);
+    const maxBin = Math.max(...bins), pad = { l: 10, r: 10, t: 10, b: 24 }, bw = (W - pad.l - pad.r) / BINS, availH = H - pad.t - pad.b;
+    for (let i = 0; i < BINS; i++) {
+      const bh = maxBin > 0 ? (bins[i] / maxBin) * availH : 0, x = pad.l + i * bw, y = H - pad.b - bh, hue = 200 + (i / BINS) * 60;
+      const grad = ctx.createLinearGradient(x, y, x, H - pad.b);
+      grad.addColorStop(0, `hsla(${hue},90%,65%,0.9)`); grad.addColorStop(1, `hsla(${hue},90%,35%,0.4)`);
+      ctx.fillStyle = grad; ctx.fillRect(x + 1, y, bw - 2, bh);
+    }
+    if (total > 50) {
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(0,230,118,0.9)'; ctx.lineWidth = 2;
+      ctx.shadowColor = '#00e676'; ctx.shadowBlur = 8;
+      for (let i = 0; i < BINS; i++) {
+        const xc = (i + 0.5) / BINS, z = (xc - 0.5) * 8;
+        const gauss = Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+        const y = H - pad.b - (gauss * (total / BINS * 8) / maxBin) * availH * 0.95;
+        const x = pad.l + (i + 0.5) * bw;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    ctx.fillStyle = 'rgba(140,184,216,0.6)'; ctx.font = '11px JetBrains Mono,monospace';
+    ctx.fillText(`N = ${total}`, pad.l + 4, H - pad.b + 16);
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize', resize); resize(); frame();
+})();
+
+/* ── §10.8  MATHJAX TRIGGER ─────────────────────────────── */
+window.addEventListener('load', () => { if (window.MathJax) MathJax.typesetPromise().catch(console.warn); });
+window.addEventListener('tabchange', () => { if (window.MathJax) MathJax.typesetPromise().catch(() => {}); });
+
+/* ══════════════════════════════════════════════════════════
+   §11  RNG LAB
+══════════════════════════════════════════════════════════ */
+(function RNGLab() {
+  const S = { dist:'uniform', bins:40, rate:40, sigma:1.0, lambda:1.0, mu:4.0, running:false, animId:null, samples:[], binCounts:[], convN:[], convMean:[], convSEM:[], plotReady:false, frameCount:0 };
+
+  function uniform(a=0,b=1){ return a+Math.random()*(b-a); }
+  function gaussian(mu=0,sigma=1){ const u=1-Math.random(),v=Math.random(); return mu+sigma*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  function exponential(lambda=1){ return -Math.log(1-Math.random())/lambda; }
+  function poisson(mu=4){ const L=Math.exp(-mu); let k=0,p=1; do{k++;p*=Math.random();}while(p>L); return k-1; }
+
+  function sample(){ switch(S.dist){ case'uniform':return uniform(0,1); case'gaussian':return gaussian(0,S.sigma); case'exponential':return exponential(S.lambda); case'poisson':return poisson(S.mu); } }
+
+  function getDomain(){ switch(S.dist){ case'uniform':return[0,1]; case'gaussian':return[-4*S.sigma,4*S.sigma]; case'exponential':return[0,6/S.lambda]; case'poisson':return[0,Math.max(20,S.mu*3)]; } }
+
+  function theoryPDF(x){ switch(S.dist){ case'uniform':return(x>=0&&x<=1)?1:0; case'gaussian':{ const s=S.sigma; return Math.exp(-x*x/(2*s*s))/(s*Math.sqrt(2*Math.PI)); } case'exponential':return x>=0?S.lambda*Math.exp(-S.lambda*x):0; case'poisson':{ const k=Math.round(x); if(k<0)return 0; let l=-S.mu+k*Math.log(S.mu); for(let i=1;i<=k;i++)l-=Math.log(i); return Math.exp(l); } } }
+
+  function theoreticalMoments(){ switch(S.dist){ case'uniform':return{mean:0.5,variance:1/12,std:Math.sqrt(1/12)}; case'gaussian':return{mean:0,variance:S.sigma**2,std:S.sigma}; case'exponential':return{mean:1/S.lambda,variance:1/S.lambda**2,std:1/S.lambda}; case'poisson':return{mean:S.mu,variance:S.mu,std:Math.sqrt(S.mu)}; } }
+
+  function rebuildBins(){ S.binCounts=new Array(S.bins).fill(0); const[lo,hi]=getDomain(); for(const v of S.samples){ const b=Math.floor((v-lo)/(hi-lo)*S.bins); if(b>=0&&b<S.bins)S.binCounts[b]++; } }
+
+  function addSamples(n){ const[lo,hi]=getDomain(); for(let i=0;i<n;i++){ const v=sample(); S.samples.push(v); const b=Math.floor((v-lo)/(hi-lo)*S.bins); if(b>=0&&b<S.bins)S.binCounts[b]++; } if(S.samples.length%200===0||S.samples.length<200){ const N=S.samples.length; if(N>0){ const m=S.samples.reduce((a,b)=>a+b,0)/N; const v2=S.samples.reduce((a,b)=>a+(b-m)**2,0)/N; S.convN.push(N); S.convMean.push(m); S.convSEM.push(Math.sqrt(v2/N)); } } }
+
+  function updateStats(){ const N=S.samples.length; if(N===0){ document.getElementById('rng-stat-n').textContent='0'; ['mean','var','std','min','max'].forEach(k=>document.getElementById('rng-stat-'+k).textContent='—'); return; } let sum=0,sum2=0,mn=Infinity,mx=-Infinity; for(const v of S.samples){ sum+=v;sum2+=v*v; if(v<mn)mn=v; if(v>mx)mx=v; } const mean=sum/N,vari=sum2/N-mean*mean,std=Math.sqrt(Math.max(0,vari)); document.getElementById('rng-stat-n').textContent=N.toLocaleString(); document.getElementById('rng-stat-mean').textContent=mean.toFixed(4); document.getElementById('rng-stat-var').textContent=vari.toFixed(4); document.getElementById('rng-stat-std').textContent=std.toFixed(4); document.getElementById('rng-stat-min').textContent=mn.toFixed(3); document.getElementById('rng-stat-max').textContent=mx.toFixed(3); document.getElementById('rng-convergence').textContent='SEM = '+(std/Math.sqrt(N)).toExponential(2); }
+
+  function updateTheoryBox(){ const labels={uniform:'μ_theory = 0.5<br>σ²_theory = 1/12 ≈ '+(1/12).toFixed(4)+'<br>σ_theory = '+Math.sqrt(1/12).toFixed(4),gaussian:'μ_theory = 0<br>σ²_theory = '+(S.sigma**2).toFixed(4)+'<br>σ_theory = '+S.sigma.toFixed(4),exponential:'μ_theory = 1/λ = '+(1/S.lambda).toFixed(4)+'<br>σ²_theory = 1/λ² = '+(1/S.lambda**2).toFixed(4)+'<br>σ_theory = '+(1/S.lambda).toFixed(4),poisson:'μ_theory = μ = '+S.mu.toFixed(1)+'<br>σ²_theory = μ = '+S.mu.toFixed(1)+'<br>σ_theory = √μ = '+Math.sqrt(S.mu).toFixed(4)}; document.getElementById('rng-theory-box').innerHTML=labels[S.dist]; }
+
+  const canvas=document.getElementById('rng-canvas'), ctx=canvas.getContext('2d'); let cW,cH;
+  function resizeCanvas(){ cW=canvas.width=canvas.offsetWidth; cH=canvas.height=canvas.offsetHeight; }
+
+  function drawHistogram(){ if(!cW||!cH)return; ctx.clearRect(0,0,cW,cH); const pad={l:52,r:20,t:16,b:44},pw=cW-pad.l-pad.r,ph=cH-pad.t-pad.b,N=S.samples.length,[lo,hi]=getDomain(),maxCount=Math.max(1,...S.binCounts),gridLines=5,bw=pw/S.bins; ctx.strokeStyle='rgba(0,229,255,0.07)';ctx.lineWidth=1; for(let g=0;g<=gridLines;g++){ const y=pad.t+ph-(g/gridLines)*ph; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke(); ctx.fillStyle='rgba(140,184,216,0.5)';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='right'; const label=S.dist==='poisson'?Math.round((g/gridLines)*maxCount):((g/gridLines)*maxCount/N/((hi-lo)/S.bins)).toFixed(2); ctx.fillText(label,pad.l-6,y+4); } ctx.strokeStyle='rgba(0,229,255,0.25)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+ph);ctx.lineTo(pad.l+pw,pad.t+ph);ctx.stroke(); for(let i=0;i<S.bins;i++){ const bh=(S.binCounts[i]/maxCount)*ph,x=pad.l+i*bw,y=pad.t+ph-bh,hue=195+(i/S.bins)*50; const grad=ctx.createLinearGradient(x,y,x,pad.t+ph); grad.addColorStop(0,`hsla(${hue},90%,65%,0.85)`);grad.addColorStop(1,`hsla(${hue},80%,30%,0.30)`); ctx.fillStyle=grad;ctx.shadowColor=`hsla(${hue},90%,65%,0.4)`;ctx.shadowBlur=4;ctx.fillRect(x+1,y,bw-2,bh); } ctx.shadowBlur=0; if(N>30){ ctx.beginPath();ctx.strokeStyle='rgba(0,230,118,0.92)';ctx.lineWidth=2.5;ctx.shadowColor='#00e676';ctx.shadowBlur=10; for(let s=0;s<=300;s++){ const xv=lo+(hi-lo)*s/300,pdf=theoryPDF(xv),binW=(hi-lo)/S.bins; const expected=S.dist==='poisson'?pdf*N/maxCount*ph:pdf*binW*N/maxCount*ph; const cx=pad.l+(xv-lo)/(hi-lo)*pw,cy=pad.t+ph-Math.min(expected,ph); s===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy); } ctx.stroke();ctx.shadowBlur=0; } ctx.fillStyle='rgba(140,184,216,0.5)';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='center'; for(let t=0;t<=6;t++){ const xv=lo+(hi-lo)*t/6; ctx.fillText(xv.toFixed(S.dist==='poisson'?0:2),pad.l+(xv-lo)/(hi-lo)*pw,pad.t+ph+16); } ctx.fillStyle='rgba(140,184,216,0.7)';ctx.font='11px Source Sans 3,sans-serif';ctx.textAlign='center'; ctx.fillText(S.dist==='poisson'?'k':'x',pad.l+pw/2,cH-4); ctx.save();ctx.translate(13,pad.t+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(S.dist==='poisson'?'Count':'Density',0,0);ctx.restore(); }
+
+  const plotMeanEl=document.getElementById('rng-plotly-mean'),plotErrEl=document.getElementById('rng-plotly-error');
+  const PLOT_LAYOUT={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:48,r:12,t:8,b:40},font:{color:'#8fb8d8',family:'JetBrains Mono',size:11},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'N samples'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a'},showlegend:false};
+
+  function initPlots(){ const t=theoreticalMoments(); Plotly.newPlot(plotMeanEl,[{x:[],y:[],mode:'lines',line:{color:'#00e5ff',width:2}},{x:[1,1],y:[t.mean,t.mean],mode:'lines',line:{color:'#00e676',width:1.5,dash:'dot'}}],{...PLOT_LAYOUT,yaxis:{...PLOT_LAYOUT.yaxis,title:'Mean'}},{responsive:true,displayModeBar:false}); Plotly.newPlot(plotErrEl,[{x:[],y:[],mode:'lines',line:{color:'#ffab40',width:2}},{x:[],y:[],mode:'lines',line:{color:'#7c4dff',width:1.5,dash:'dot'}}],{...PLOT_LAYOUT,yaxis:{...PLOT_LAYOUT.yaxis,title:'SEM',type:'log'}},{responsive:true,displayModeBar:false}); S.plotReady=true; }
+
+  function updatePlots(){ if(!S.plotReady||S.convN.length<2)return; const t=theoreticalMoments(),th=S.convN.map(n=>t.std/Math.sqrt(n)); Plotly.update(plotMeanEl,{x:[S.convN,S.convN],y:[S.convMean,S.convN.map(()=>t.mean)]}); Plotly.update(plotErrEl,{x:[S.convN,S.convN],y:[S.convSEM,th]}); }
+
+  function runChiSquare(){ const N=S.samples.length; if(N<100){showChi('<span style="color:var(--accent-amber)">&#9888; Need at least 100 samples.</span>');return;} const[lo,hi]=getDomain(),binW=(hi-lo)/S.bins; let chi2=0,dof=0; for(let i=0;i<S.bins;i++){ const xMid=lo+(i+0.5)*binW,Ei=S.dist==='poisson'?theoryPDF(xMid)*N:theoryPDF(xMid)*binW*N; if(Ei>5){chi2+=(S.binCounts[i]-Ei)**2/Ei;dof++;} } dof=Math.max(dof-1,1); const red=chi2/dof,q=red<1.5?'&#10003; Good fit':red<3?'&#9888; Marginal':'&#10007; Poor fit',col=red<1.5?'var(--accent-green)':red<3?'var(--accent-amber)':'var(--accent-red)'; showChi(`<span style="color:${col}">${q}</span><br><span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">χ² = ${chi2.toFixed(2)} | dof = ${dof} | χ²/dof = ${red.toFixed(3)}</span>`); }
+
+  function showChi(html){ const el=document.getElementById('rng-chi-result'); el.style.display='block';el.className='callout info'; el.innerHTML=`<span class="callout-icon">📊</span><div class="callout-body">${html}</div>`; }
+
+  function bindUI(){
+    document.querySelectorAll('.rng-dist-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('.rng-dist-btn').forEach(b=>{b.classList.remove('active');b.className=b.className.replace('btn-primary','btn-secondary');}); btn.classList.add('active');btn.className=btn.className.replace('btn-secondary','btn-primary'); S.dist=btn.dataset.dist;resetLab();updateParamVisibility();updateTheoryBox(); if(S.plotReady){Plotly.purge(plotMeanEl);Plotly.purge(plotErrEl);}initPlots(); }); });
+    function bindSlider(id,vid,key,digits){ const sl=document.getElementById(id); sl.addEventListener('input',()=>{ S[key]=parseFloat(sl.value); document.getElementById(vid).textContent=S[key].toFixed(digits); if(key==='bins')rebuildBins(); if(key==='sigma'||key==='lambda'||key==='mu'){resetLab();updateTheoryBox();if(S.plotReady){Plotly.purge(plotMeanEl);Plotly.purge(plotErrEl);}initPlots();}updateTheoryBox(); }); }
+    bindSlider('rng-rate','rng-rate-val','rate',0); bindSlider('rng-bins','rng-bins-val','bins',0); bindSlider('rng-sigma','rng-sigma-val','sigma',2); bindSlider('rng-lambda','rng-lambda-val','lambda',1); bindSlider('rng-mu','rng-mu-val','mu',1);
+    document.getElementById('rng-play-btn').addEventListener('click',()=>{ S.running=!S.running; document.getElementById('rng-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play'; });
+    document.getElementById('rng-reset-btn').addEventListener('click',resetLab);
+    document.getElementById('rng-chi-btn').addEventListener('click',runChiSquare);
+  }
+
+  function updateParamVisibility(){ document.getElementById('rng-sigma-row').style.display=S.dist==='gaussian'?'':'none'; document.getElementById('rng-lambda-row').style.display=S.dist==='exponential'?'':'none'; document.getElementById('rng-mu-row').style.display=S.dist==='poisson'?'':'none'; document.getElementById('rng-chi-result').style.display='none'; }
+
+  function resetLab(){ S.samples=[];S.binCounts=new Array(S.bins).fill(0);S.convN=[];S.convMean=[];S.convSEM=[];updateStats(); }
+
+  let frameCount=0;
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; addSamples(S.rate);resizeCanvas();drawHistogram();updateStats();frameCount++; if(frameCount%20===0)updatePlots(); }
+
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='rng'){
+        S.running=false;
+        document.getElementById('rng-play-btn').textContent='▶ Play';
+        resizeCanvas();
+        if(!S.plotReady)initPlots();
+    }else S.running=false;
+});
+  window.addEventListener('resize',()=>{ if(activeTab==='rng')resizeCanvas(); });
+
+  bindUI();updateParamVisibility();updateTheoryBox();resetLab();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §12  RANDOM WALK
+══════════════════════════════════════════════════════════ */
+(function WalkLab() {
+  const W = { mode:'1d', nPart:12, sigma:3, speed:4, trail:80, showPDF:true, showEns:true, running:false, animId:null, t:0, walkers:[], msdT:[], msdVal:[], plotReady:false, frameCount:0 };
+  const HUES=[195,215,265,170,45,340,25,150,310,80,230,0];
+  function randn(){ const u=1-Math.random(),v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  class Walker{ constructor(idx){ this.idx=idx;this.hue=HUES[idx%HUES.length];this.trail=[];this.reset(); } reset(){ this.x=0;this.y=0;this.z=0;this.trail=[{x:0,y:0,z:0}]; } step(){ const s=W.sigma; if(W.mode==='1d')this.x+=randn()*s; else if(W.mode==='2d'){this.x+=randn()*s;this.y+=randn()*s;}else{this.x+=randn()*s;this.y+=randn()*s;this.z+=randn()*s;} this.trail.push({x:this.x,y:this.y,z:this.z}); if(this.trail.length>W.trail)this.trail.shift(); } r2(){ return this.x*this.x+this.y*this.y+this.z*this.z; } }
+  function initWalkers(){ W.walkers=[];for(let i=0;i<W.nPart;i++)W.walkers.push(new Walker(i));W.t=0;W.msdT=[];W.msdVal=[]; }
+  const cvs=document.getElementById('walk-canvas'),ctx=cvs.getContext('2d'); let cW,cH;
+  function resizeCvs(){ cW=cvs.width=cvs.offsetWidth;cH=cvs.height=cvs.offsetHeight; }
+  function toSX(x){ return cW/2+x; } function toSY(y){ return cH/2-y; }
+  function draw1D(){ ctx.clearRect(0,0,cW,cH); ctx.strokeStyle='rgba(0,229,255,0.25)';ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,cH/2);ctx.lineTo(cW,cH/2);ctx.stroke();ctx.setLineDash([]); if(W.showPDF&&W.t>0){ const D=W.sigma*W.sigma/2,sigma=Math.sqrt(2*D*W.t),peak=(cH/2)*0.88; ctx.beginPath();ctx.strokeStyle='rgba(0,230,118,0.6)';ctx.lineWidth=2;ctx.shadowColor='#00e676';ctx.shadowBlur=8; for(let sx=0;sx<=cW;sx+=2){ const xw=sx-cW/2,pdf=Math.exp(-xw*xw/(2*sigma*sigma)),sy=cH/2-pdf*peak; sx===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy); } ctx.stroke();ctx.shadowBlur=0; } const laneH=Math.max(12,Math.min(28,(cH-40)/W.nPart)); W.walkers.forEach((w,i)=>{ const baseY=cH/2+(i-(W.nPart-1)/2)*laneH; if(w.trail.length>1){ ctx.beginPath(); for(let k=0;k<w.trail.length;k++){ ctx.moveTo(k>0?toSX(w.trail[k-1].x):toSX(w.trail[k].x),baseY); ctx.lineTo(toSX(w.trail[k].x),baseY); } ctx.strokeStyle=`hsla(${w.hue},85%,60%,0.45)`;ctx.lineWidth=1.5;ctx.stroke(); } const sx=toSX(w.x);ctx.beginPath();ctx.arc(sx,baseY,4,0,Math.PI*2);ctx.fillStyle=`hsl(${w.hue},90%,65%)`;ctx.shadowColor=`hsl(${w.hue},90%,65%)`;ctx.shadowBlur=10;ctx.fill();ctx.shadowBlur=0; }); if(W.showEns){ const meanX=W.walkers.reduce((s,w)=>s+w.x,0)/W.nPart,sx=toSX(meanX);ctx.beginPath();ctx.moveTo(sx,16);ctx.lineTo(sx,cH-16);ctx.strokeStyle='rgba(124,77,255,0.7)';ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]); } }
+  function draw2D(){ ctx.fillStyle='rgba(0,0,0,0.10)';ctx.fillRect(0,0,cW,cH); if(W.showPDF&&W.t>0){ const D=W.sigma*W.sigma/2,sig=Math.sqrt(2*D*W.t); ctx.beginPath();ctx.arc(cW/2,cH/2,sig,0,Math.PI*2);ctx.strokeStyle='rgba(0,230,118,0.35)';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]); ctx.beginPath();ctx.arc(cW/2,cH/2,2*sig,0,Math.PI*2);ctx.strokeStyle='rgba(0,230,118,0.18)';ctx.stroke(); } W.walkers.forEach(w=>{ if(w.trail.length>1){ for(let k=1;k<w.trail.length;k++){ ctx.beginPath();ctx.moveTo(toSX(w.trail[k-1].x),toSY(w.trail[k-1].y));ctx.lineTo(toSX(w.trail[k].x),toSY(w.trail[k].y));ctx.strokeStyle=`hsla(${w.hue},80%,60%,${(k/w.trail.length)*0.6})`;ctx.lineWidth=1.2;ctx.stroke(); } } ctx.beginPath();ctx.arc(toSX(w.x),toSY(w.y),3.5,0,Math.PI*2);ctx.fillStyle=`hsl(${w.hue},90%,70%)`;ctx.shadowColor=`hsl(${w.hue},90%,70%)`;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0; }); if(W.showEns){ const mx=W.walkers.reduce((s,w)=>s+w.x,0)/W.nPart,my=W.walkers.reduce((s,w)=>s+w.y,0)/W.nPart; ctx.beginPath();ctx.arc(toSX(mx),toSY(my),6,0,Math.PI*2);ctx.strokeStyle='rgba(124,77,255,0.9)';ctx.lineWidth=2;ctx.stroke(); } }
+  function draw3D(){ ctx.fillStyle='rgba(0,0,0,0.12)';ctx.fillRect(0,0,cW,cH); if(W.showPDF&&W.t>0){ const D=W.sigma*W.sigma/2,sig=Math.sqrt(2*D*W.t); ctx.beginPath();ctx.ellipse(cW/2,cH/2,sig,sig*0.6,0,0,Math.PI*2);ctx.strokeStyle='rgba(0,230,118,0.28)';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]); } [...W.walkers].sort((a,b)=>a.z-b.z).forEach(w=>{ const zN=Math.max(0,Math.min(1,(w.z+300)/600)),lum=40+zN*40; if(w.trail.length>1){ for(let k=1;k<w.trail.length;k++){ ctx.beginPath();ctx.moveTo(toSX(w.trail[k-1].x),toSY(w.trail[k-1].y));ctx.lineTo(toSX(w.trail[k].x),toSY(w.trail[k].y));ctx.strokeStyle=`hsla(${w.hue},75%,${lum}%,${(k/w.trail.length)*0.5})`;ctx.lineWidth=1;ctx.stroke(); } } const r=2+zN*3;ctx.beginPath();ctx.arc(toSX(w.x),toSY(w.y),r,0,Math.PI*2);ctx.fillStyle=`hsla(${w.hue},90%,${lum+20}%,0.9)`;ctx.shadowColor=`hsl(${w.hue},90%,65%)`;ctx.shadowBlur=8+zN*8;ctx.fill();ctx.shadowBlur=0; }); }
+  const pdfCvs=document.getElementById('walk-pdf-canvas'),pdfCtx=pdfCvs.getContext('2d'); let pW,pH;
+  function resizePDF(){ pW=pdfCvs.width=pdfCvs.offsetWidth;pH=pdfCvs.height=pdfCvs.offsetHeight; }
+  function drawPDF(){ pdfCtx.clearRect(0,0,pW,pH); if(W.walkers.length===0||W.t===0)return; const BINS=32,vals=W.walkers.map(w=>w.x),D=W.sigma*W.sigma/2,sigma=Math.sqrt(2*D*W.t),lo=-4*sigma,hi=4*sigma; if(hi-lo<0.01)return; const counts=new Array(BINS).fill(0),bw=(hi-lo)/BINS; vals.forEach(v=>{ const b=Math.floor((v-lo)/bw); if(b>=0&&b<BINS)counts[b]++; }); const maxC=Math.max(1,...counts),pad={l:14,r:8,t:8,b:24},aw=pW-pad.l-pad.r,ah=pH-pad.t-pad.b; counts.forEach((c,i)=>{ const bh=(c/maxC)*ah,x=pad.l+i*(aw/BINS),y=pad.t+ah-bh,hue=200+(i/BINS)*50; pdfCtx.fillStyle=`hsla(${hue},80%,60%,0.75)`;pdfCtx.fillRect(x+1,y,aw/BINS-2,bh); }); pdfCtx.beginPath();pdfCtx.strokeStyle='rgba(0,230,118,0.9)';pdfCtx.lineWidth=2;pdfCtx.shadowColor='#00e676';pdfCtx.shadowBlur=8; const N=W.walkers.length; for(let s=0;s<=200;s++){ const xv=lo+(hi-lo)*s/200,pdf=Math.exp(-xv*xv/(2*sigma*sigma))/(sigma*Math.sqrt(2*Math.PI)),expected=pdf*bw*N; const cy=pad.t+ah-(expected/maxC)*ah,cx=pad.l+(xv-lo)/(hi-lo)*aw; s===0?pdfCtx.moveTo(cx,cy):pdfCtx.lineTo(cx,cy); } pdfCtx.stroke();pdfCtx.shadowBlur=0; pdfCtx.fillStyle='rgba(140,184,216,0.5)';pdfCtx.font='10px JetBrains Mono,monospace';pdfCtx.textAlign='center'; for(let t=0;t<=4;t++){ const xv=lo+(hi-lo)*t/4; pdfCtx.fillText(xv.toFixed(0),pad.l+(t/4)*aw,pH-4); } }
+  const msdEl=document.getElementById('walk-plotly-msd');
+  const PLOT_LAYOUT={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:52,r:12,t:8,b:44},font:{color:'#8fb8d8',family:'JetBrains Mono',size:11},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'Time step'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'⟨r²⟩'},showlegend:false};
+  function initPlot(){ Plotly.newPlot(msdEl,[{x:[],y:[],mode:'lines',line:{color:'#00e5ff',width:2.5}},{x:[],y:[],mode:'lines',line:{color:'#00e676',width:2,dash:'dot'}}],PLOT_LAYOUT,{responsive:true,displayModeBar:false}); W.plotReady=true; }
+  function updatePlot(){ if(!W.plotReady||W.msdT.length<2)return; const d=W.mode==='1d'?1:W.mode==='2d'?2:3,D=W.sigma*W.sigma/2,th=W.msdT.map(t=>2*d*D*t); Plotly.update(msdEl,{x:[W.msdT,W.msdT],y:[W.msdVal,th]}); }
+  function updateStats(){ const d=W.mode==='1d'?1:W.mode==='2d'?2:3,D=W.sigma*W.sigma/2,theory=2*d*D*W.t,msd=W.walkers.reduce((s,w)=>s+w.r2(),0)/W.nPart,err=theory>0?Math.abs(msd-theory)/theory:0; document.getElementById('walk-stat-t').textContent=W.t;document.getElementById('walk-stat-msd').textContent=msd.toFixed(1);document.getElementById('walk-stat-theory').textContent=theory.toFixed(1);document.getElementById('walk-stat-err').textContent=(err*100).toFixed(1)+'%';document.getElementById('walk-step-label').textContent='Step: '+W.t; if(W.t%10===0&&W.msdT.length<800){W.msdT.push(W.t);W.msdVal.push(msd);} }
+  function drawFrame(){ resizeCvs(); if(W.mode==='1d')draw1D();else if(W.mode==='2d')draw2D();else draw3D(); resizePDF();drawPDF(); }
+  function loop(){ W.animId=requestAnimationFrame(loop); if(!W.running)return; for(let s=0;s<W.speed;s++){W.walkers.forEach(w=>w.step());W.t++;} drawFrame();updateStats();W.frameCount++;if(W.frameCount%15===0)updatePlot(); }
+  function bindUI(){
+    document.querySelectorAll('.walk-mode-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('.walk-mode-btn').forEach(b=>{b.classList.remove('active');b.className=b.className.replace('btn-primary','btn-secondary');}); btn.classList.add('active');btn.className=btn.className.replace('btn-secondary','btn-primary'); W.mode=btn.dataset.mode;document.getElementById('walk-3d-hint').style.display=W.mode==='3d'?'':'none';resetWalk(); }); });
+    document.getElementById('walk-play-btn').addEventListener('click',()=>{W.running=!W.running;document.getElementById('walk-play-btn').textContent=W.running?'⏸ Pause':'&#9654; Play';});
+    document.getElementById('walk-reset-btn').addEventListener('click',resetWalk);
+    function sl(id,vid,key,digits){ document.getElementById(id).addEventListener('input',e=>{W[key]=parseFloat(e.target.value);document.getElementById(vid).textContent=W[key].toFixed(digits);if(key==='nPart')resetWalk();}); }
+    sl('walk-n','walk-n-val','nPart',0);sl('walk-step','walk-step-val','sigma',1);sl('walk-speed','walk-speed-val','speed',0);sl('walk-trail','walk-trail-val','trail',0);
+    document.getElementById('walk-show-pdf').addEventListener('change',e=>{W.showPDF=e.target.checked;});
+    document.getElementById('walk-show-ensemble').addEventListener('change',e=>{W.showEns=e.target.checked;});
+  }
+  function resetWalk(){ initWalkers();if(W.plotReady)Plotly.update(msdEl,{x:[[],[]],y:[[],[]]});resizeCvs();ctx.clearRect(0,0,cW,cH);resizePDF();pdfCtx.clearRect(0,0,pW,pH);updateStats(); }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='walk'){
+        W.running=false;
+        document.getElementById('walk-play-btn').textContent='▶ Play';
+        resizeCvs();
+        resizePDF();
+        if(!W.plotReady)initPlot();
+    }else W.running=false;
+});
+  window.addEventListener('resize',()=>{if(activeTab==='walk'){resizeCvs();resizePDF();drawFrame();}});
+  bindUI();initWalkers();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §13  RADIOACTIVE DECAY
+══════════════════════════════════════════════════════════ */
+(function DecayLab() {
+  const S={N0:200,lambda:0.025,speed:2,nuclei:[],t:0,running:false,animId:null,tHist:[],NHist:[],actHist:[],recentDecays:0,halfLifeMeasured:null,plotReady:false,frameCount:0};
+  const canvas=document.getElementById('dc-canvas'),ctx=canvas.getContext('2d'); let cW,cH,flashes=[];
+  function resize(){ cW=canvas.width=canvas.offsetWidth;cH=canvas.height=canvas.offsetHeight; }
+  function initNuclei(){ S.nuclei=[];S.t=0;S.tHist=[];S.NHist=[];S.actHist=[];S.halfLifeMeasured=null;flashes=[];S.recentDecays=0; const cols=Math.ceil(Math.sqrt(S.N0*(cW||400)/(cH||340))),rows=Math.ceil(S.N0/cols),gx=(cW||400)/(cols+1),gy=(cH||340)/(rows+1); for(let i=0;i<S.N0;i++){ const col=i%cols,row=Math.floor(i/cols); S.nuclei.push({x:gx*(col+1)+(Math.random()-0.5)*gx*0.4,y:gy*(row+1)+(Math.random()-0.5)*gy*0.4,alive:true,decayT:null}); } updateStats(); }
+  function stepDecay(){ let dc=0; S.nuclei.forEach(n=>{if(n.alive&&Math.random()<S.lambda){n.alive=false;n.decayT=S.t;dc++;flashes.push({x:n.x,y:n.y,age:0,maxAge:18});}}); S.t++;const Nalive=S.nuclei.filter(n=>n.alive).length; S.tHist.push(S.t);S.NHist.push(Nalive);S.actHist.push(dc);S.recentDecays=dc; if(!S.halfLifeMeasured&&Nalive<=S.N0/2)S.halfLifeMeasured=S.t; }
+  function draw(){ ctx.clearRect(0,0,cW,cH); flashes=flashes.filter(f=>f.age<f.maxAge);flashes.forEach(f=>f.age++); S.nuclei.forEach(n=>{ctx.beginPath();ctx.arc(n.x,n.y,5,0,Math.PI*2);if(n.alive){ctx.fillStyle='#00e676';ctx.shadowColor='#00e676';ctx.shadowBlur=8;}else{ctx.fillStyle='rgba(80,80,90,0.5)';ctx.shadowBlur=0;}ctx.fill();}); ctx.shadowBlur=0; flashes.forEach(f=>{const prog=f.age/f.maxAge,r=5+prog*22,a=1-prog;ctx.beginPath();ctx.arc(f.x,f.y,r,0,Math.PI*2);ctx.strokeStyle=`rgba(255,171,64,${a})`;ctx.lineWidth=2.5;ctx.stroke();}); }
+  function updateStats(){ const Nalive=S.nuclei.filter(n=>n.alive).length,pct=(Nalive/S.N0*100).toFixed(1),t12th=(Math.log(2)/S.lambda).toFixed(1); document.getElementById('dc-stat-n').textContent=Nalive;document.getElementById('dc-stat-t').textContent=S.t;document.getElementById('dc-stat-t12').textContent=S.halfLifeMeasured?S.halfLifeMeasured:'—';document.getElementById('dc-stat-t12th').textContent=t12th;document.getElementById('dc-stat-tau').textContent=(1/S.lambda).toFixed(1);document.getElementById('dc-stat-rate').textContent=S.recentDecays;document.getElementById('dc-pct').textContent=pct+'%';document.getElementById('dc-progress').style.width=pct+'%'; }
+  const LAYOUT_BASE={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:46,r:10,t:6,b:36},font:{color:'#8fb8d8',family:'JetBrains Mono',size:10},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a'},showlegend:false};
+  const PLOT_CFG={responsive:true,displayModeBar:false};
+  function initPlots(){ Plotly.newPlot('dc-plotly-nt',[{x:[],y:[],mode:'lines',line:{color:'#00e5ff',width:2}},{x:[],y:[],mode:'lines',line:{color:'#00e676',width:1.5,dash:'dot'}}],{...LAYOUT_BASE,yaxis:{...LAYOUT_BASE.yaxis,title:'N(t)'},xaxis:{...LAYOUT_BASE.xaxis,title:'t'}},PLOT_CFG); Plotly.newPlot('dc-plotly-activity',[{x:[],y:[],type:'bar',marker:{color:'rgba(255,171,64,0.7)'},name:'Activity'}],{...LAYOUT_BASE,yaxis:{...LAYOUT_BASE.yaxis,title:'A(t)'},xaxis:{...LAYOUT_BASE.xaxis,title:'t'}},PLOT_CFG); S.plotReady=true; }
+  function updatePlots(){ if(!S.plotReady||S.tHist.length<2)return; const theory=S.tHist.map(t=>S.N0*Math.exp(-S.lambda*t)); Plotly.update('dc-plotly-nt',{x:[S.tHist,S.tHist],y:[S.NHist,theory]}); const al=Math.min(S.tHist.length,100); Plotly.update('dc-plotly-activity',{x:[S.tHist.slice(-al)],y:[S.actHist.slice(-al)]}); }
+  function bindUI(){ function sl(id,vid,key,digits){document.getElementById(id).addEventListener('input',e=>{S[key]=parseFloat(e.target.value);document.getElementById(vid).textContent=S[key].toFixed(digits);if(key!=='speed')reset();});} sl('dc-n0','dc-n0-val','N0',0);sl('dc-lambda','dc-lambda-val','lambda',3);sl('dc-speed','dc-speed-val','speed',0); document.getElementById('dc-play-btn').addEventListener('click',()=>{S.running=!S.running;document.getElementById('dc-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play';}); document.getElementById('dc-reset-btn').addEventListener('click',reset); }
+  function reset(){ resize();initNuclei();if(S.plotReady){Plotly.update('dc-plotly-nt',{x:[[],[]],y:[[],[]]});Plotly.update('dc-plotly-activity',{x:[[]],y:[[]]});} }
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; for(let i=0;i<S.speed;i++)stepDecay();resize();draw();updateStats();S.frameCount++;if(S.frameCount%12===0)updatePlots(); }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='decay'){
+        S.running=false;
+        document.getElementById('dc-play-btn').textContent='▶ Play';
+        resize();
+        if(!S.plotReady)initPlots();
+        reset();
+    }else S.running=false;
+});
+  bindUI();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §14  MC INTEGRATION
+══════════════════════════════════════════════════════════ */
+(function IntegrationLab() {
+  const S={mode:'pi',rate:60,running:true,total:0,inside:0,animId:null,frameCount:0,convN:[],convEst:[],plotReady:false,points:[]};
+  const MODES={pi:{trueVal:Math.PI,label:'π',desc:'<strong>π Estimation:</strong> Sample (x,y)∈[−1,1]². Count inside unit circle. π ≈ 4·(N_in/N).'},sin:{trueVal:2.0,label:'∫₀π sin(x)dx',desc:'<strong>∫₀π sin(x)dx = 2:</strong> Sample (x,y)∈[0,π]×[0,1]. Count where y≤sin(x).'},gauss:{trueVal:Math.sqrt(Math.PI),label:'∫ e⁻ˣ² dx',desc:'<strong>∫_{−3}^{3} e^{−x²}dx ≈ √π:</strong> Sample rectangle, count under curve.'},sphere:{trueVal:4/3*Math.PI,label:'3D Sphere (4π/3)',desc:'<strong>Volume of unit sphere (4π/3):</strong> Sample (x,y,z)∈[−1,1]³, count inside x²+y²+z²≤1.'}};
+  const canvas=document.getElementById('int-canvas'),ctx=canvas.getContext('2d'); let cW,cH;
+  function resize(){ cW=canvas.width=canvas.offsetWidth;cH=canvas.height=canvas.offsetHeight; }
+  function samplePoint(){ switch(S.mode){ case'pi':{const x=Math.random()*2-1,y=Math.random()*2-1;return{x,y,inside:x*x+y*y<=1,sx:(x+1)/2,sy:(1-y)/2};} case'sin':{const x=Math.random()*Math.PI,y=Math.random();return{x,y,inside:y<=Math.sin(x),sx:x/Math.PI,sy:1-y};} case'gauss':{const x=Math.random()*6-3,y=Math.random();return{x,y,inside:y<=Math.exp(-x*x),sx:(x+3)/6,sy:1-y};} case'sphere':{const x=Math.random()*2-1,y=Math.random()*2-1,z=Math.random()*2-1,ins=x*x+y*y+z*z<=1,px=(x-y)*Math.cos(Math.PI/6)+0.5,py=(x+y)*Math.sin(Math.PI/6)*0.5-z*0.5+0.5;return{inside:ins,sx:Math.max(0,Math.min(1,px)),sy:Math.max(0,Math.min(1,py))};} } }
+  function getEstimate(){ if(S.total===0)return 0; const vol={pi:4,sin:Math.PI,gauss:6,sphere:8}[S.mode]; return vol*S.inside/S.total; }
+  function getStdErr(){ if(S.total<2)return 0; const p=S.inside/S.total,vol={pi:4,sin:Math.PI,gauss:6,sphere:8}[S.mode]; return vol*Math.sqrt(p*(1-p)/S.total); }
+  function addPoints(n){ for(let i=0;i<n;i++){const pt=samplePoint();S.total++;if(pt.inside)S.inside++;S.points.push(pt);} if(S.points.length>700)S.points.splice(0,S.points.length-700); if(S.total%200===0){S.convN.push(S.total);S.convEst.push(getEstimate());} }
+  function draw(){ if(!cW||!cH)return; ctx.clearRect(0,0,cW,cH);const pad=20,pw=cW-pad*2,ph=cH-pad*2; if(pw<=0||ph<=0)return; ctx.strokeStyle='rgba(0,230,118,0.7)';ctx.lineWidth=2;ctx.shadowColor='#00e676';ctx.shadowBlur=6;ctx.beginPath(); if(S.mode==='pi'){ctx.arc(pad+pw/2,pad+ph/2,Math.min(pw,ph)/2,0,Math.PI*2);}else if(S.mode==='sin'){for(let i=0;i<=200;i++){const t=i/200,cx=pad+t*pw,cy=pad+(1-Math.sin(t*Math.PI))*ph;i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);}}else if(S.mode==='gauss'){for(let i=0;i<=200;i++){const t=i/200,xv=t*6-3,cx=pad+t*pw,cy=pad+(1-Math.exp(-xv*xv))*ph;i===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);}}else{ctx.arc(pad+pw/2,pad+ph/2,Math.min(pw,ph)*0.4,0,Math.PI*2);} ctx.stroke();ctx.shadowBlur=0; S.points.forEach(p=>{ctx.beginPath();ctx.arc(pad+p.sx*pw,pad+p.sy*ph,2,0,Math.PI*2);ctx.fillStyle=p.inside?'rgba(0,229,255,0.7)':'rgba(255,82,82,0.55)';ctx.fill();}); ctx.fillStyle='rgba(140,184,216,0.5)';ctx.font='11px JetBrains Mono,monospace';ctx.textAlign='left';ctx.fillText(`N = ${S.total.toLocaleString()}`,pad+4,pad+14); }
+  function updateStats(){ const m=MODES[S.mode],est=getEstimate(),err=m.trueVal>0?Math.abs(est-m.trueVal)/m.trueVal*100:0; document.getElementById('int-stat-n').textContent=S.total.toLocaleString();document.getElementById('int-stat-est').textContent=est.toFixed(5);document.getElementById('int-stat-true').textContent=m.trueVal.toFixed(5);document.getElementById('int-stat-err').textContent=err.toFixed(2)+'%';document.getElementById('int-stat-sem').textContent=getStdErr().toExponential(2);document.getElementById('int-stat-in').textContent=S.inside.toLocaleString(); }
+  const LAYOUT={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:46,r:10,t:6,b:36},font:{color:'#8fb8d8',family:'JetBrains Mono',size:10},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'N samples',type:'log'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'Estimate'},showlegend:false};
+  const CFG={responsive:true,displayModeBar:false};
+  function initPlot(){ const m=MODES[S.mode]; Plotly.newPlot('int-plotly-conv',[{x:[],y:[],mode:'lines',line:{color:'#00e5ff',width:2}},{x:[1,1],y:[m.trueVal,m.trueVal],mode:'lines',line:{color:'#00e676',width:1.5,dash:'dot'}}],LAYOUT,CFG); S.plotReady=true; }
+  function updatePlot(){ if(!S.plotReady||S.convN.length<2)return; const m=MODES[S.mode]; Plotly.update('int-plotly-conv',{x:[S.convN,S.convN],y:[S.convEst,S.convN.map(()=>m.trueVal)]}); }
+  function bindUI(){ document.querySelectorAll('.int-mode-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.int-mode-btn').forEach(b=>{b.classList.remove('active');b.className=b.className.replace('btn-primary','btn-secondary');});btn.classList.add('active');btn.className=btn.className.replace('btn-secondary','btn-primary');S.mode=btn.dataset.mode;S.total=0;S.inside=0;S.points=[];S.convN=[];S.convEst=[];document.getElementById('int-callout-text').innerHTML=MODES[S.mode].desc;if(S.plotReady){Plotly.purge('int-plotly-conv');initPlot();}});}); document.getElementById('int-rate').addEventListener('input',e=>{S.rate=parseInt(e.target.value);document.getElementById('int-rate-val').textContent=S.rate;}); document.getElementById('int-play-btn').addEventListener('click',()=>{S.running=!S.running;document.getElementById('int-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play';}); document.getElementById('int-reset-btn').addEventListener('click',()=>{S.total=0;S.inside=0;S.points=[];S.convN=[];S.convEst=[];if(S.plotReady)Plotly.update('int-plotly-conv',{x:[[],[]],y:[[],[]]});}); }
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; addPoints(S.rate);resize();draw();updateStats();S.frameCount++;if(S.frameCount%15===0)updatePlot(); }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='integration'){
+        S.running=false;
+        document.getElementById('int-play-btn').textContent='▶ Play';
+        resize();
+        if(!S.plotReady)initPlot();
+    }else S.running=false;
+});
+  bindUI();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §15  ISING MODEL
+══════════════════════════════════════════════════════════ */
+(function IsingLab() {
+  const GRID=60, TC=2.0/Math.log(1+Math.sqrt(2));
+  const S={T:1.5,J:1.0,h:0.0,speed:5,spins:new Int8Array(GRID*GRID),running:false,animId:null,sweeps:0,mHist:[],eHist:[],tHist:[],plotReady:false,frameCount:0,sweeping:false};
+  const canvas=document.getElementById('ising-canvas'),ctx=canvas.getContext('2d'); let cW,cH,pixW,pixH,imageData=null;
+  function resize(){ cW=canvas.width=canvas.offsetWidth;cH=canvas.height=canvas.offsetHeight;pixW=Math.floor(cW/GRID);pixH=Math.floor(cH/GRID);imageData=ctx.createImageData(cW,cH); }
+  function initSpins(random=false){ S.sweeps=0;S.mHist=[];S.eHist=[];S.tHist=[]; for(let i=0;i<GRID*GRID;i++)S.spins[i]=random?(Math.random()<0.5?1:-1):1; }
+  function metropolisFlip(){ const i=Math.floor(Math.random()*GRID),j=Math.floor(Math.random()*GRID),idx=i*GRID+j,si=S.spins[idx]; const sum=S.spins[((i-1+GRID)%GRID)*GRID+j]+S.spins[((i+1)%GRID)*GRID+j]+S.spins[i*GRID+(j-1+GRID)%GRID]+S.spins[i*GRID+(j+1)%GRID]; const dE=2*S.J*si*sum+2*S.h*si; if(dE<0||Math.random()<Math.exp(-dE/S.T))S.spins[idx]=-si; }
+  function sweep(){ const N2=GRID*GRID; for(let k=0;k<N2;k++)metropolisFlip();S.sweeps++; }
+  function computeM(){ let sum=0; for(let i=0;i<GRID*GRID;i++)sum+=S.spins[i]; return Math.abs(sum)/(GRID*GRID); }
+  function computeE(){ let E=0; for(let i=0;i<GRID;i++)for(let j=0;j<GRID;j++){ const s=S.spins[i*GRID+j]; E-=S.J*s*S.spins[((i+1)%GRID)*GRID+j];E-=S.J*s*S.spins[i*GRID+(j+1)%GRID];E-=S.h*s; } return E/(GRID*GRID); }
+  function drawLattice(){ if(!imageData)return; const data=imageData.data; for(let i=0;i<GRID;i++)for(let j=0;j<GRID;j++){ const s=S.spins[i*GRID+j],r=s>0?255:60,g=s>0?60:100,b=s>0?60:255; for(let dy=0;dy<pixH;dy++)for(let dx=0;dx<pixW;dx++){ const px=j*pixW+dx,py=i*pixH+dy,off=(py*cW+px)*4; data[off]=r;data[off+1]=g;data[off+2]=b;data[off+3]=255; } } ctx.putImageData(imageData,0,0); }
+  function updateStats(M,E){ document.getElementById('ising-stat-m').textContent=M.toFixed(4);document.getElementById('ising-stat-e').textContent=E.toFixed(4);document.getElementById('ising-stat-t').textContent=S.T.toFixed(2);document.getElementById('ising-stat-sweeps').textContent=S.sweeps; const phase=S.T<TC*S.J?'ORDERED':'DISORDERED',col=S.T<TC*S.J?'var(--accent-green)':'var(--accent-red)'; document.getElementById('ising-phase').textContent=phase;document.getElementById('ising-phase').style.color=col; }
+  const LAYOUT_BASE={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:42,r:8,t:4,b:30},font:{color:'#8fb8d8',family:'JetBrains Mono',size:10},xaxis:{gridcolor:'rgba(0,229,255,0.05)',color:'#4a6a8a'},yaxis:{gridcolor:'rgba(0,229,255,0.05)',color:'#4a6a8a'},showlegend:false};
+  const CFG={responsive:true,displayModeBar:false};
+  function initPlots(){ Plotly.newPlot('ising-plotly-m',[{x:[],y:[],mode:'lines',line:{color:'#00e5ff',width:1.5}}],{...LAYOUT_BASE,yaxis:{...LAYOUT_BASE.yaxis,title:'|M|',range:[0,1]}},CFG); Plotly.newPlot('ising-plotly-e',[{x:[],y:[],mode:'lines',line:{color:'#ff5252',width:1.5}}],{...LAYOUT_BASE,yaxis:{...LAYOUT_BASE.yaxis,title:'E/spin'}},CFG); Plotly.newPlot('ising-plotly-phase',[{x:[],y:[],mode:'markers+lines',marker:{color:'#00e5ff',size:4},line:{color:'rgba(0,229,255,0.4)',width:1}},{x:[TC*S.J,TC*S.J],y:[0,1],mode:'lines',line:{color:'rgba(255,171,64,0.7)',width:1.5,dash:'dash'}}],{...LAYOUT_BASE,xaxis:{...LAYOUT_BASE.xaxis,title:'T (J/k_B)',range:[0.5,5]},yaxis:{...LAYOUT_BASE.yaxis,title:'|M|',range:[0,1]}},CFG); S.plotReady=true; }
+  function updatePlots(M,E){ if(!S.plotReady)return; const MAX=300; if(S.mHist.length>MAX){S.mHist.shift();S.eHist.shift();S.tHist.shift();} S.tHist.push(S.sweeps);S.mHist.push(M);S.eHist.push(E); if(S.frameCount%8===0){Plotly.update('ising-plotly-m',{x:[S.tHist],y:[S.mHist]});Plotly.update('ising-plotly-e',{x:[S.tHist],y:[S.eHist]});} }
+  async function runTSweep(){ const btn=document.getElementById('ising-sweep-btn'),status=document.getElementById('ising-sweep-status'); if(S.sweeping)return; S.sweeping=true;btn.textContent='⏳ Sweeping…'; const Ts=[],Ms=[],origT=S.T,origRun=S.running; S.running=false; for(let t=0.5;t<=4.5;t+=0.15){ S.T=parseFloat(t.toFixed(2));initSpins(true);for(let w=0;w<40;w++)sweep();let mAcc=0;for(let w=0;w<20;w++){sweep();mAcc+=computeM();}Ts.push(S.T);Ms.push(mAcc/20);status.textContent='T = '+S.T.toFixed(2);await new Promise(r=>setTimeout(r,0)); } if(S.plotReady)Plotly.update('ising-plotly-phase',{x:[Ts],y:[Ms]},[],[ 0]); S.T=origT;S.running=origRun;document.getElementById('ising-T').value=origT;document.getElementById('ising-T-val').textContent=origT.toFixed(2);btn.textContent='Done — Run again?';status.textContent='';S.sweeping=false;initSpins(false); }
+  function bindUI(){ function sl(id,vid,key,digits){document.getElementById(id).addEventListener('input',e=>{S[key]=parseFloat(e.target.value);document.getElementById(vid).textContent=S[key].toFixed(digits);});} sl('ising-T','ising-T-val','T',2);sl('ising-J','ising-J-val','J',2);sl('ising-h','ising-h-val','h',2);sl('ising-speed','ising-speed-val','speed',0); document.getElementById('ising-play-btn').addEventListener('click',()=>{S.running=!S.running;document.getElementById('ising-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play';}); document.getElementById('ising-reset-btn').addEventListener('click',()=>{initSpins(false);resize();drawLattice();}); document.getElementById('ising-rand-btn').addEventListener('click',()=>{initSpins(true);resize();drawLattice();}); document.getElementById('ising-sweep-btn').addEventListener('click',runTSweep); }
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; for(let i=0;i<S.speed;i++)sweep();resize();drawLattice();const M=computeM(),E=computeE();updateStats(M,E);S.frameCount++;updatePlots(M,E); }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='ising'){
+        S.running=false;
+        document.getElementById('ising-play-btn').textContent='▶ Play';
+        resize();
+        if(!S.plotReady)initPlots();
+        initSpins(false);
+        drawLattice();
+    }else S.running=false;
+});
+  bindUI();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §16  PARTICLE TRANSPORT
+══════════════════════════════════════════════════════════ */
+(function TransportLab() {
+  const S={mu:0.10,pa:0.20,rate:5,thickness:20,running:false,animId:null,frameCount:0,particles:[],totalFired:0,transmitted:0,absorbed:0,depthBins:new Array(40).fill(0),plotReady:false};
+  const canvas=document.getElementById('tr-canvas'),ctx=canvas.getContext('2d'); let cW,cH,flashes=[];
+  function resize(){ cW=canvas.width=canvas.offsetWidth;cH=canvas.height=canvas.offsetHeight; }
+  function physToCanvasX(x){ return 60+(x/S.thickness)*(cW-80); }
+  class Photon{ constructor(){ S.totalFired++;this.physX=0;this.physY=Math.random()*(cH-20)+10;this.angle=0;this.alive=true;this.path=[{x:this.physX,y:this.physY}];this.colour='rgba(0,229,255,0.8)';this.flash=null;this.sampleNext(); } sampleNext(){ const cosA=Math.cos(this.angle),lPhys=-Math.log(Math.random())/S.mu; this.nextX=this.physX+lPhys*cosA;this.nextY=this.physY+lPhys*Math.sin(this.angle)*(cH/S.thickness); } step(){ if(!this.alive)return; const dx=this.nextX-this.physX,dy=this.nextY-this.physY,dist=Math.sqrt(dx*dx+dy*dy),speed=4,frac=Math.min(speed/Math.max(dist,0.1),1); this.physX+=dx*frac;this.physY+=dy*frac;this.path.push({x:this.physX,y:this.physY});if(this.path.length>120)this.path.shift(); if(frac>=1){ const binI=Math.floor(this.physX/S.thickness*40);if(binI>=0&&binI<40)S.depthBins[binI]++; const cx=physToCanvasX(this.physX),cy=this.physY; if(Math.random()<S.pa){S.absorbed++;this.alive=false;this.colour='rgba(255,82,82,0.8)';this.flash={x:cx,y:cy,age:0,maxAge:20,type:'abs'};}else{this.angle+=(Math.random()-0.5)*1.2;this.colour='rgba(255,171,64,0.7)';this.flash={x:cx,y:cy,age:0,maxAge:12,type:'scat'};this.sampleNext();} } if(this.physX>=S.thickness){S.transmitted++;this.alive=false;} if(this.physX<0||this.physY<0||this.physY>cH)this.alive=false; } draw(c){ if(this.path.length>1){ c.beginPath();this.path.forEach((p,k)=>{ const sx=physToCanvasX(p.x),sy=p.y;k===0?c.moveTo(sx,sy):c.lineTo(sx,sy); });c.strokeStyle=this.alive?'rgba(0,229,255,0.5)':'rgba(100,100,120,0.2)';c.lineWidth=1;c.stroke(); } if(this.alive){ c.beginPath();c.arc(physToCanvasX(this.physX),this.physY,3,0,Math.PI*2);c.fillStyle=this.colour;c.shadowColor=this.colour;c.shadowBlur=8;c.fill();c.shadowBlur=0; } } }
+  function draw(){ ctx.clearRect(0,0,cW,cH); const slabX0=physToCanvasX(0),slabX1=physToCanvasX(S.thickness); const grad=ctx.createLinearGradient(slabX0,0,slabX1,0);grad.addColorStop(0,'rgba(0,100,180,0.15)');grad.addColorStop(1,'rgba(0,20,60,0.35)'); ctx.fillStyle=grad;ctx.fillRect(slabX0,0,slabX1-slabX0,cH); ctx.strokeStyle='rgba(0,229,255,0.3)';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(slabX0,0);ctx.lineTo(slabX0,cH);ctx.stroke();ctx.beginPath();ctx.moveTo(slabX1,0);ctx.lineTo(slabX1,cH);ctx.stroke();ctx.setLineDash([]); ctx.fillStyle='rgba(140,184,216,0.5)';ctx.font='11px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText('x=0',slabX0,14);ctx.fillText(`x=${S.thickness}cm`,slabX1,14);ctx.textAlign='left';ctx.fillText('BEAM →',4,cH/2); ctx.strokeStyle='rgba(0,229,255,0.3)';ctx.lineWidth=1;for(let yy=30;yy<cH-20;yy+=18){ctx.beginPath();ctx.moveTo(8,yy);ctx.lineTo(slabX0-4,yy);ctx.stroke();} S.particles.forEach(p=>p.draw(ctx)); flashes=flashes.filter(f=>f.age<f.maxAge);flashes.forEach(f=>{const prog=f.age/f.maxAge,r=4+prog*16,a=1-prog;ctx.beginPath();ctx.arc(f.x,f.y,r,0,Math.PI*2);ctx.strokeStyle=f.type==='abs'?`rgba(255,82,82,${a})`:`rgba(255,171,64,${a})`;ctx.lineWidth=2;ctx.stroke();f.age++;}); const mfp=1/S.mu;ctx.fillStyle='rgba(0,230,118,0.5)';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='left';ctx.fillText(`λ_mfp = ${mfp.toFixed(1)} cm`,slabX0+6,cH-8); }
+  function updateStats(){ const mfp=(1/S.mu).toFixed(2),frac=S.totalFired>0?S.transmitted/S.totalFired:0,theory=Math.exp(-S.mu*S.thickness).toFixed(4); document.getElementById('tr-stat-total').textContent=S.totalFired;document.getElementById('tr-stat-trans').textContent=S.transmitted;document.getElementById('tr-stat-abs').textContent=S.absorbed;document.getElementById('tr-stat-mfp').textContent=mfp;document.getElementById('tr-stat-frac').textContent=frac.toFixed(4);document.getElementById('tr-stat-theory').textContent=theory; }
+  const LAYOUT={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:46,r:10,t:6,b:36},font:{color:'#8fb8d8',family:'JetBrains Mono',size:10},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'Depth x (cm)'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'Interactions'},showlegend:false};
+  const CFG={responsive:true,displayModeBar:false};
+  function initPlot(){ const xs=Array.from({length:40},(_,i)=>((i+0.5)/40*S.thickness).toFixed(1)); Plotly.newPlot('tr-plotly-depth',[{x:xs,y:new Array(40).fill(0),type:'bar',marker:{color:'rgba(41,121,255,0.7)'},name:'Measured'},{x:xs,y:xs.map(x=>0),mode:'lines',line:{color:'#00e676',width:2,dash:'dot'},name:'Theory'}],LAYOUT,CFG); S.plotReady=true; }
+  function updatePlot(){ if(!S.plotReady)return; const xs=Array.from({length:40},(_,i)=>((i+0.5)/40*S.thickness).toFixed(2)),maxBin=Math.max(1,...S.depthBins),theory=xs.map(x=>maxBin*Math.exp(-S.mu*x)); Plotly.update('tr-plotly-depth',{x:[xs,xs],y:[S.depthBins,theory]}); }
+  function bindUI(){ function sl(id,vid,key,digits){document.getElementById(id).addEventListener('input',e=>{S[key]=parseFloat(e.target.value);document.getElementById(vid).textContent=S[key].toFixed(digits);});} sl('tr-mu','tr-mu-val','mu',2);sl('tr-pa','tr-pa-val','pa',2);sl('tr-rate','tr-rate-val','rate',0);sl('tr-thick','tr-thick-val','thickness',0); document.querySelectorAll('.tr-mat-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.tr-mat-btn').forEach(b=>{b.classList.remove('active');b.className=b.className.replace('btn-primary','btn-secondary');});btn.classList.add('active');btn.className=btn.className.replace('btn-secondary','btn-primary');S.mu=parseFloat(btn.dataset.mu);S.pa=parseFloat(btn.dataset.pa);document.getElementById('tr-mu').value=S.mu;document.getElementById('tr-mu-val').textContent=S.mu.toFixed(2);document.getElementById('tr-pa').value=S.pa;document.getElementById('tr-pa-val').textContent=S.pa.toFixed(2);});}); document.getElementById('tr-play-btn').addEventListener('click',()=>{S.running=!S.running;document.getElementById('tr-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play';}); document.getElementById('tr-reset-btn').addEventListener('click',()=>{S.particles=[];S.totalFired=0;S.transmitted=0;S.absorbed=0;S.depthBins.fill(0);flashes=[];}); }
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; for(let i=0;i<S.rate;i++)S.particles.push(new Photon()); S.particles.forEach(p=>p.step()); S.particles.forEach(p=>{if(p.flash&&p.flash.age===0)flashes.push(p.flash);}); S.particles = S.particles.filter(p => p.alive); if(S.particles.length>200)S.particles.splice(0,S.particles.length-200); resize();draw();updateStats();S.frameCount++;if(S.frameCount%20===0)updatePlot(); }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='transport'){
+        S.running=false;
+        document.getElementById('tr-play-btn').textContent='▶ Play';
+        resize();
+        if(!S.plotReady)initPlot();
+    }else S.running=false;
+});
+  bindUI();loop();
+})();
+
+/* ══════════════════════════════════════════════════════════
+   §17  MONTE CARLO GAS
+══════════════════════════════════════════════════════════ */
+(function GasLab() {
+  const S={N:60,T:1.5,radius:6,particles:[],running:false,animId:null,frameCount:0,wallImpulse:0,wallCollisions:0,ptT:[],ptP:[],plotReady:false};
+  const canvas=document.getElementById('gas-canvas'),mbCanvas=document.getElementById('gas-mb-canvas');
+  const ctx=canvas.getContext('2d'),mbCtx=mbCanvas.getContext('2d'); let cW,cH,mW,mH;
+  function resize(){ cW=canvas.width=canvas.offsetWidth;cH=canvas.height=canvas.offsetHeight;mW=mbCanvas.width=mbCanvas.offsetWidth;mH=mbCanvas.height=mbCanvas.offsetHeight; }
+  function randn(){ const u=1-Math.random(),v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  class Particle{ constructor(){ const r=S.radius; this.x=r+Math.random()*(cW-2*r);this.y=r+Math.random()*(cH-2*r);this.setSpeed(S.T);this.hue=Math.random()*360; } setSpeed(T){ const sig=Math.sqrt(T); this.vx=randn()*sig;this.vy=randn()*sig; } v2(){ return this.vx*this.vx+this.vy*this.vy; } speed(){ return Math.sqrt(this.v2()); } }
+  function initParticles(){ S.particles=[];resize();for(let i=0;i<S.N;i++)S.particles.push(new Particle());S.wallImpulse=0;S.wallCollisions=0;S.ptT=[];S.ptP=[]; }
+  function wallBounce(p){ const r=S.radius; if(p.x<r){p.x=r;p.vx=Math.abs(p.vx);S.wallImpulse+=2*Math.abs(p.vx);S.wallCollisions++;} if(p.x>cW-r){p.x=cW-r;p.vx=-Math.abs(p.vx);S.wallImpulse+=2*Math.abs(p.vx);S.wallCollisions++;} if(p.y<r){p.y=r;p.vy=Math.abs(p.vy);S.wallImpulse+=2*Math.abs(p.vy);S.wallCollisions++;} if(p.y>cH-r){p.y=cH-r;p.vy=-Math.abs(p.vy);S.wallImpulse+=2*Math.abs(p.vy);S.wallCollisions++;} }
+  function resolveCollision(a,b){ const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy),minD=2*S.radius; if(d>minD||d<1e-9)return; const nx=dx/d,ny=dy/d,dvn=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny; if(dvn<0)return; a.vx-=dvn*nx;a.vy-=dvn*ny;b.vx+=dvn*nx;b.vy+=dvn*ny; const ov=(minD-d)/2;a.x-=ov*nx;a.y-=ov*ny;b.x+=ov*nx;b.y+=ov*ny; }
+  function physicsStep(){ S.wallImpulse=0;const dt=0.5; S.particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;wallBounce(p);}); for(let i=0;i<S.particles.length;i++)for(let j=i+1;j<S.particles.length;j++)resolveCollision(S.particles[i],S.particles[j]); }
+  function drawParticles(){ ctx.clearRect(0,0,cW,cH); ctx.strokeStyle='rgba(0,229,255,0.3)';ctx.lineWidth=2;ctx.strokeRect(1,1,cW-2,cH-2); S.particles.forEach(p=>{ const speed=p.speed(),maxSpd=Math.sqrt(S.T)*3,t=Math.min(speed/maxSpd,1),r=Math.round(t*255),b=Math.round((1-t)*255); ctx.beginPath();ctx.arc(p.x,p.y,S.radius,0,Math.PI*2);ctx.fillStyle=`rgba(${r},100,${b},0.85)`;ctx.shadowColor=`rgba(${r},100,${b},0.5)`;ctx.shadowBlur=6;ctx.fill();}); ctx.shadowBlur=0; ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1; S.particles.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+p.vx*4,p.y+p.vy*4);ctx.stroke();}); }
+  function computeT(){ if(S.particles.length===0)return 0; return S.particles.reduce((s,p)=>s+p.v2(),0)/(2*S.particles.length); }
+  function computeP(){ return S.wallImpulse/(2*(cW+cH)); }
+  function drawMBHistogram(){ mbCtx.clearRect(0,0,mW,mH); const BINS=24,maxSpd=Math.sqrt(S.T)*5,counts=new Array(BINS).fill(0); S.particles.forEach(p=>{const b=Math.floor(p.speed()/maxSpd*BINS);if(b>=0&&b<BINS)counts[b]++;}); const maxC=Math.max(1,...counts),pad={l:14,r:8,t:8,b:22},aw=mW-pad.l-pad.r,ah=mH-pad.t-pad.b,bw=aw/BINS; counts.forEach((c,i)=>{const bh=(c/maxC)*ah,x=pad.l+i*bw,y=pad.t+ah-bh,hue=240-i/BINS*200; mbCtx.fillStyle=`hsla(${hue},80%,60%,0.75)`;mbCtx.fillRect(x+1,y,bw-2,bh);}); if(S.T>0){ mbCtx.beginPath();mbCtx.strokeStyle='rgba(0,230,118,0.9)';mbCtx.lineWidth=2;mbCtx.shadowColor='#00e676';mbCtx.shadowBlur=6; const N_norm=S.particles.length; for(let i=0;i<=200;i++){const v=(i/200)*maxSpd,fv=(v/S.T)*Math.exp(-v*v/(2*S.T)),expected=fv*(maxSpd/BINS)*N_norm; const cx=pad.l+(v/maxSpd)*aw,cy=pad.t+ah-(expected/maxC)*ah; i===0?mbCtx.moveTo(cx,cy):mbCtx.lineTo(cx,cy);} mbCtx.stroke();mbCtx.shadowBlur=0; } mbCtx.fillStyle='rgba(140,184,216,0.5)';mbCtx.font='10px JetBrains Mono,monospace';mbCtx.textAlign='center'; [0,1,2,3,4].forEach(k=>{const v=k/4*maxSpd;mbCtx.fillText(v.toFixed(1),pad.l+(k/4)*aw,mH-4);}); }
+  function updateStats(T,P){ const vmean=S.particles.reduce((s,p)=>s+p.speed(),0)/S.particles.length,vrms=Math.sqrt(S.particles.reduce((s,p)=>s+p.v2(),0)/S.particles.length),ke=S.particles.reduce((s,p)=>s+p.v2()/2,0)/S.particles.length; document.getElementById('gas-stat-t').textContent=T.toFixed(3);document.getElementById('gas-stat-p').textContent=P.toFixed(4);document.getElementById('gas-stat-vmean').textContent=vmean.toFixed(3);document.getElementById('gas-stat-vrms').textContent=vrms.toFixed(3);document.getElementById('gas-stat-ke').textContent=ke.toFixed(4);document.getElementById('gas-stat-coll').textContent=S.wallCollisions; }
+  const LAYOUT={paper_bgcolor:'transparent',plot_bgcolor:'transparent',margin:{l:46,r:10,t:6,b:36},font:{color:'#8fb8d8',family:'JetBrains Mono',size:10},xaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'T (kin.)'},yaxis:{gridcolor:'rgba(0,229,255,0.07)',color:'#4a6a8a',title:'Pressure P'},showlegend:false};
+  const CFG={responsive:true,displayModeBar:false};
+  function initPlot(){ Plotly.newPlot('gas-plotly-pt',[{x:[],y:[],mode:'markers',marker:{color:'#00e5ff',size:4,opacity:0.7}}],LAYOUT,CFG); S.plotReady=true; }
+  function updatePlot(T,P){ if(!S.plotReady)return; S.ptT.push(T);S.ptP.push(P);if(S.ptT.length>400){S.ptT.shift();S.ptP.shift();} if(S.frameCount%20===0)Plotly.update('gas-plotly-pt',{x:[S.ptT],y:[S.ptP]}); }
+  function bindUI(){ function sl(id,vid,key,digits){document.getElementById(id).addEventListener('input',e=>{S[key]=parseFloat(e.target.value);document.getElementById(vid).textContent=S[key].toFixed(digits);if(key==='N')initParticles();});} sl('gas-n','gas-n-val','N',0);sl('gas-T','gas-T-val','T',2);sl('gas-r','gas-r-val','radius',0); document.getElementById('gas-play-btn').addEventListener('click',()=>{S.running=!S.running;document.getElementById('gas-play-btn').textContent=S.running?'⏸ Pause':'&#9654; Play';}); document.getElementById('gas-reset-btn').addEventListener('click',initParticles); document.getElementById('gas-heat-btn').addEventListener('click',()=>{ S.T=Math.min(S.T+1,5);document.getElementById('gas-T').value=S.T;document.getElementById('gas-T-val').textContent=S.T.toFixed(2);const scale=Math.sqrt(S.T/(computeT()||S.T));S.particles.forEach(p=>{p.vx*=scale;p.vy*=scale;}); }); document.getElementById('gas-cool-btn').addEventListener('click',()=>{ S.T=Math.max(S.T-1,0.5);document.getElementById('gas-T').value=S.T;document.getElementById('gas-T-val').textContent=S.T.toFixed(2);const scale=Math.sqrt(S.T/(computeT()||S.T));S.particles.forEach(p=>{p.vx*=scale;p.vy*=scale;}); }); }
+  function loop(){ S.animId=requestAnimationFrame(loop); if(!S.running)return; physicsStep();resize();drawParticles();drawMBHistogram();const T=computeT(),P=computeP();updateStats(T,P);updatePlot(T,P);S.frameCount++; }
+window.addEventListener('tabchange',e=>{
+    if(e.detail==='gas'){
+        S.running=false;
+        document.getElementById('gas-play-btn').textContent='▶ Play';
+        resize();
+        if(!S.plotReady)initPlot();
+        initParticles();
+    }else S.running=false;
+});
+  window.addEventListener('resize',()=>{if(activeTab==='gas')resize();});
+  bindUI();loop();
+})();
+</script>
+</body>
+</html> 

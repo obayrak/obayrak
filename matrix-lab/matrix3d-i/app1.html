@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>3D Matrix Transform Simulator</title>
+<script>
+try{var _t=localStorage.getItem('mat3d-theme');if(_t==='day'||_t==='night')document.documentElement.setAttribute('data-theme',_t);}catch(_){}
+</script>
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
+  svg:{fontCache:'global'},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']},
+  startup:{pageReady:()=>MathJax.startup.defaultPageReady().then(()=>{window.__mjReady=true;flushTypeset();})}
+};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --mono:'JetBrains Mono','Consolas','Menlo',monospace;
+  --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+  --bg:#0a0f15;--surf:#121a24;--panel:#0f1620;--border:#2a3a4c;--border2:#3c5068;
+  --ax:#ff6676;--ay:#4ae890;--az:#6bb0ff;
+  --cyan:#35d6ff;--ora:#ff7d4d;--mag:#d98aff;--yel:#ffd23f;--grn:#86ff75;
+  --muted:#93a9ba;--text:#dfe9f1;--dim:#7f97a9;--code:#0a1019;--hover:rgba(255,255,255,.06);--sel:rgba(53,214,255,.35);
+  --glow:0 0 14px rgba(53,214,255,.35);
+}
+:root[data-theme="day"]{
+  color-scheme:light;
+  --bg:#e9eef5;--surf:#ffffff;--panel:#f5f8fb;--border:#cdd7e3;--border2:#a9b8ca;
+  --ax:#d62839;--ay:#16874a;--az:#1f6fd1;
+  --cyan:#0a62b0;--ora:#d4480d;--mag:#8a2bc9;--yel:#a56e00;--grn:#168c3e;
+  --muted:#506378;--text:#17222e;--dim:#5a6c80;--code:#e8eef6;--hover:rgba(10,98,176,.08);--sel:rgba(10,98,176,.25);
+  --glow:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+::selection{background:var(--sel);color:var(--text)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+body{font-family:var(--ui);font-size:15px;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .2s,color .2s}
+header{padding:12px 26px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;background:var(--surf);flex-shrink:0;flex-wrap:wrap}
+.logo{font-family:'Orbitron',var(--ui);font-size:1.35rem;font-weight:900;color:var(--cyan);letter-spacing:3px}
+.logo span{color:var(--ora)}
+.sub{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:1.2px;margin-top:3px}
+.themebtns{margin-left:auto;display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}
+.thbtn{padding:8px 15px;background:var(--panel);border:none;color:var(--text);cursor:pointer;font-family:var(--ui);font-size:14px;font-weight:600;transition:all .15s}
+.thbtn+.thbtn{border-left:1px solid var(--border2)}
+.thbtn:hover{background:var(--hover)}
+.thbtn.active{background:var(--cyan);color:var(--surf)}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 26px;background:var(--surf);flex-shrink:0}
+.tab{padding:13px 24px;font-size:13.5px;letter-spacing:1px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;text-transform:uppercase}
+.tab:hover{color:var(--text);background:var(--hover)}.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.tc{display:none;flex:1;min-height:0;overflow:auto}.tc.active{display:block}
+.sim{display:grid;grid-template-columns:310px minmax(0,1fr) 370px;height:100%}
+.lpanel,.rpanel{background:var(--panel);overflow-y:auto;padding:18px}
+.lpanel{border-right:1px solid var(--border)}
+.rpanel{border-left:1px solid var(--border)}
+.center{display:flex;flex-direction:column;align-items:center;background:var(--bg);padding:14px;gap:10px;overflow-y:auto}
+.sec{font-size:12.5px;font-weight:700;letter-spacing:1.8px;color:var(--cyan);text-transform:uppercase;margin-bottom:11px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:18px}
+.sec:first-child{margin-top:0}
+.cgrp{margin-bottom:14px}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.srow label{font-size:14px;width:26px;text-align:center;font-weight:600}
+.srow label.rx{color:var(--ax)}.srow label.ry{color:var(--ay)}.srow label.rz{color:var(--az)}
+.srow label.tx{color:var(--ora)}.srow label.ty{color:var(--yel)}.srow label.tz{color:var(--mag)}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:5px;background:var(--border2);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid var(--surf)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;cursor:pointer;border:2px solid var(--surf)}
+.srow.rx-row input::-webkit-slider-thumb{background:var(--ax)}
+.srow.ry-row input::-webkit-slider-thumb{background:var(--ay)}
+.srow.rz-row input::-webkit-slider-thumb{background:var(--az)}
+.srow.tx-row input::-webkit-slider-thumb{background:var(--ora)}
+.srow.ty-row input::-webkit-slider-thumb{background:var(--yel)}
+.srow.tz-row input::-webkit-slider-thumb{background:var(--mag)}
+.srow.sc-row input::-webkit-slider-thumb{background:var(--cyan)}
+.vd{font-size:13.5px;width:58px;text-align:right;font-family:var(--mono);font-weight:500}
+.shbts{display:flex;gap:6px;flex-wrap:wrap}
+.shbt{padding:7px 11px;font-size:13.5px;font-weight:500;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s}
+.shbt:hover{background:var(--hover)}
+.shbt.active{border-color:var(--ora);color:var(--ora);font-weight:700}
+.brow{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+.btn{flex:1;padding:9px 10px;font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:.6px;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;text-transform:uppercase;transition:all .2s;white-space:nowrap}
+.btn:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glow)}
+.btn.c{border-color:var(--cyan);color:var(--cyan)}.btn.o{border-color:var(--ora);color:var(--ora)}
+.btn.g{border-color:var(--grn);color:var(--grn)}.btn:active{transform:scale(.97)}
+.ord-bts{display:flex;gap:6px}
+.ord-bt{flex:1;padding:8px 6px;font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s;text-align:center}
+.ord-bt:hover{background:var(--hover)}
+.ord-bt.active{border-color:var(--cyan);color:var(--cyan);font-weight:700}
+canvas#c3d{border:1px solid var(--border2);cursor:grab;border-radius:6px;max-width:100%;height:auto}
+canvas#c3d:active{cursor:grabbing}
+.timeline{display:flex;align-items:center;width:100%}
+.tnode{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+.tdot{width:12px;height:12px;border-radius:50%;background:var(--border2);border:2px solid var(--border2);transition:all .3s}
+.tdot.done{background:var(--grn);border-color:var(--grn)}
+.tdot.active{background:var(--cyan);border-color:var(--cyan);transform:scale(1.35)}
+.tlbl{font-size:12.5px;font-weight:600;letter-spacing:.8px;color:var(--muted);text-align:center}
+.tlbl.active{color:var(--cyan)}.tlbl.done{color:var(--grn)}
+.tline{height:2px;flex:1;background:var(--border2);max-width:40px;transition:background .3s}
+.tline.done{background:var(--grn)}
+.pbar{width:100%;height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
+.pfill{height:100%;background:var(--cyan);border-radius:2px;transition:width .05s}
+.astatus{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:1.2px;text-align:center}
+.amat-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.amat-title{font-size:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;text-align:center}
+.mat-eq{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
+.m44{position:relative;display:inline-flex;flex-direction:column;gap:4px;padding:10px 8px}
+.m44::before,.m44::after{content:'';position:absolute;top:0;bottom:0;width:5px;border:2px solid currentColor}
+.m44::before{left:0;border-right:none;border-radius:3px 0 0 3px}
+.m44::after{right:0;border-left:none;border-radius:0 3px 3px 0}
+.m44.cyan{color:var(--cyan)}.m44.ora{color:var(--ora)}.m44.grn{color:var(--grn)}
+.m44.mag{color:var(--mag)}.m44.ax{color:var(--ax)}.m44.ay{color:var(--ay)}.m44.az{color:var(--az)}.m44.dim{color:var(--muted)}
+.mrow{display:flex;gap:8px}
+.mc{width:52px;text-align:right;font-family:var(--mono);font-size:13.5px;font-weight:500;color:var(--text)}
+.mc.hx{color:var(--ax)}.mc.hy{color:var(--ay)}.mc.hz{color:var(--az)}
+.opsym{font-size:1.4rem;color:var(--muted);align-self:center}
+.mlabel{font-size:14px;font-weight:600;text-align:center;margin-bottom:3px;color:var(--text)}
+.mtabs{display:flex;margin-bottom:12px;border:1px solid var(--border2);border-radius:5px;overflow:hidden}
+.mtab{flex:1;padding:9px 4px;font-size:14px;font-weight:600;text-align:center;cursor:pointer;background:var(--surf);color:var(--muted);border-right:1px solid var(--border2);transition:all .2s}
+.mtab:hover{background:var(--hover)}
+.mtab:last-child{border-right:none}
+.mtab.active{background:var(--panel);color:var(--cyan);box-shadow:inset 0 -3px 0 currentColor}
+.mtab.rx.active{color:var(--ax)}.mtab.ry.active{color:var(--ay)}.mtab.rz.active{color:var(--az)}
+.mtab.tt.active{color:var(--ora)}.mtab.mm.active{color:var(--cyan)}
+.vread{background:var(--surf);border:1px solid var(--border);border-radius:5px;padding:10px 12px;margin-bottom:9px}
+.vread .vl{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:1.2px;margin-bottom:5px}
+.vread .vc{color:var(--cyan);margin:2px 0;font-size:13.5px;font-family:var(--mono);font-weight:500}
+.vread.ax .vc{color:var(--ax)}.vread.ay .vc{color:var(--ay)}.vread.az .vc{color:var(--az)}
+.vread.ora .vc{color:var(--ora)}.vread.grn .vc{color:var(--grn)}
+.proprow{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin:5px 0;padding:5px 11px;background:var(--surf);border:1px solid var(--border);border-radius:5px}
+.proprow .pk{color:var(--muted)}.proprow .pv{color:var(--grn);font-family:var(--mono);font-weight:700}
+.hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+.doc{max-width:900px;margin:0 auto;padding:36px 30px 60px;line-height:1.8}
+.dh{font-size:1.1rem;font-weight:700;color:var(--cyan);letter-spacing:1.5px;margin:34px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border2);text-transform:uppercase}
+.dh:first-child{margin-top:0}
+.dp{font-size:16px;color:var(--text);margin-bottom:14px}
+.dp strong{font-weight:700}
+.dcode{background:var(--code);border:1px solid var(--border);border-left:4px solid var(--cyan);padding:12px 18px;margin:14px 0;font-size:15.5px;color:var(--text);line-height:1.8;border-radius:0 6px 6px 0;overflow-x:auto}
+.dcode.mono{font-family:var(--mono);font-size:14.5px;white-space:pre;color:var(--grn)}
+.dcode .cm{color:var(--muted);font-family:var(--ui);font-size:14.5px}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.dcard{background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:16px}
+.dcard h3{font-size:13.5px;font-weight:700;letter-spacing:1.5px;color:var(--ora);margin-bottom:8px;text-transform:uppercase}
+.dcard p{font-size:15px;color:var(--text);line-height:1.7}
+.step-m{display:flex;gap:16px;margin:14px 0;align-items:flex-start}
+.snum{width:34px;height:34px;border-radius:50%;border:2px solid var(--cyan);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
+.stxt{font-size:15.5px;padding-top:4px;line-height:1.7}.stxt strong{color:var(--ora)}
+.ktag{display:inline-block;background:var(--surf);border:1px solid var(--border2);padding:1px 8px;border-radius:4px;font-size:13.5px;color:var(--cyan);font-family:var(--mono)}
+.ax-legend{display:flex;gap:22px;margin:12px 0;font-size:15px;flex-wrap:wrap}
+.ax-legend span{display:flex;align-items:center;gap:8px}
+.ax-legend .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+mjx-container{color:inherit}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;margin:.5em 0 !important}
+.dcode mjx-container[display="true"]{margin:.3em 0 !important}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="logo">MAT<span>3D</span> · SIM</div>
+    <div class="sub">3D HOMOGENEOUS TRANSFORMS · \(R_x\) · \(R_y\) · \(R_z\) · \(T\) · 4×4 MATRICES</div>
+  </div>
+  <div class="themebtns" role="group" aria-label="Theme">
+    <button class="thbtn" id="btn-night" onclick="setTheme('night')">☾ Night</button>
+    <button class="thbtn" id="btn-day" onclick="setTheme('day')">★ Day</button>
+  </div>
+</header>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('sim')">⬡ Simulator</div>
+  <div class="tab" onclick="switchTab('phys')">∇ Physics</div>
+  <div class="tab" onclick="switchTab('man')">≡ Manual</div>
+</div>
+
+<!-- SIMULATOR -->
+<div id="tab-sim" class="tc active">
+<div class="sim">
+<div class="lpanel">
+  <div class="sec">Rotation Angles</div>
+  <div class="cgrp">
+    <div class="srow rx-row"><label class="rx">\(\theta_x\)</label>
+      <input type="range" id="s-rx" min="-180" max="180" value="30" oninput="uc()">
+      <span class="vd" id="v-rx">30°</span></div>
+    <div class="srow ry-row"><label class="ry">\(\theta_y\)</label>
+      <input type="range" id="s-ry" min="-180" max="180" value="45" oninput="uc()">
+      <span class="vd" id="v-ry">45°</span></div>
+    <div class="srow rz-row"><label class="rz">\(\theta_z\)</label>
+      <input type="range" id="s-rz" min="-180" max="180" value="20" oninput="uc()">
+      <span class="vd" id="v-rz">20°</span></div>
+  </div>
+  <div class="sec">Translation Vector</div>
+  <div class="cgrp">
+    <div class="srow tx-row"><label class="tx">\(t_x\)</label>
+      <input type="range" id="s-tx" min="-2" max="2" step="0.05" value="1" oninput="uc()">
+      <span class="vd" id="v-tx">1.00</span></div>
+    <div class="srow ty-row"><label class="ty">\(t_y\)</label>
+      <input type="range" id="s-ty" min="-2" max="2" step="0.05" value="0.5" oninput="uc()">
+      <span class="vd" id="v-ty">0.50</span></div>
+    <div class="srow tz-row"><label class="tz">\(t_z\)</label>
+      <input type="range" id="s-tz" min="-2" max="2" step="0.05" value="0.3" oninput="uc()">
+      <span class="vd" id="v-tz">0.30</span></div>
+  </div>
+  <div class="sec">Scale</div>
+  <div class="cgrp">
+    <div class="srow sc-row"><label style="color:var(--cyan)">\(s\)</label>
+      <input type="range" id="s-sc" min="0.2" max="2" step="0.05" value="1" oninput="uc()">
+      <span class="vd" id="v-sc">1.00×</span></div>
+  </div>
+  <div class="sec">Shape</div>
+  <div class="cgrp">
+    <div class="shbts">
+      <div class="shbt active" onclick="setShape('cube')">⬛ Cube</div>
+      <div class="shbt" onclick="setShape('tetra')">△ Tetra</div>
+      <div class="shbt" onclick="setShape('octa')">◇ Octa</div>
+      <div class="shbt" onclick="setShape('prism')">▱ Prism</div>
+    </div>
+  </div>
+  <div class="sec">Rotation Order</div>
+  <div class="cgrp">
+    <div class="ord-bts">
+      <div class="ord-bt active" id="ord-xyz" onclick="setOrd('xyz')">X→Y→Z</div>
+      <div class="ord-bt" id="ord-zyx" onclick="setOrd('zyx')">Z→Y→X</div>
+      <div class="ord-bt" id="ord-yxz" onclick="setOrd('yxz')">Y→X→Z</div>
+    </div>
+  </div>
+  <div class="sec">Animation</div>
+  <div class="cgrp">
+    <div class="brow">
+      <button class="btn c" onclick="runAnim()">▶ Animate</button>
+      <button class="btn o" onclick="resetAnim()">↺ Reset</button>
+      <button class="btn g" onclick="stepAnim()">⊳ Step</button>
+    </div>
+    <div class="srow sc-row" style="margin-top:10px">
+      <label style="color:var(--muted);font-size:13px;width:40px">Spd</label>
+      <input type="range" id="s-spd" min="0.3" max="3" step="0.1" value="1" oninput="document.getElementById('v-spd').textContent=parseFloat(this.value).toFixed(1)+'×'">
+      <span class="vd" id="v-spd">1.0×</span></div>
+  </div>
+  <div class="sec">View</div>
+  <div class="cgrp">
+    <div class="brow">
+      <button class="btn" onclick="resetView()">↻ Reset View</button>
+      <button class="btn" id="btn-wire" onclick="toggleWire()">⬡ Wireframe</button>
+    </div>
+    <div class="hint">Drag canvas to orbit · Scroll to zoom</div>
+  </div>
+</div>
+
+<div class="center">
+  <canvas id="c3d" width="560" height="370"></canvas>
+  <div class="timeline">
+    <div class="tnode"><div class="tdot active" id="td0"></div><div class="tlbl active" id="tl0">ORIGIN</div></div>
+    <div class="tline" id="tln0"></div>
+    <div class="tnode"><div class="tdot" id="td1"></div><div class="tlbl" id="tl1">\(R_x\)</div></div>
+    <div class="tline" id="tln1"></div>
+    <div class="tnode"><div class="tdot" id="td2"></div><div class="tlbl" id="tl2">\(R_y\)</div></div>
+    <div class="tline" id="tln2"></div>
+    <div class="tnode"><div class="tdot" id="td3"></div><div class="tlbl" id="tl3">\(R_z\)</div></div>
+    <div class="tline" id="tln3"></div>
+    <div class="tnode"><div class="tdot" id="td4"></div><div class="tlbl" id="tl4">\(T\)</div></div>
+  </div>
+  <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
+  <div class="astatus" id="astatus">IDLE — Drag canvas to orbit · Press ANIMATE</div>
+  <div class="amat-wrap" id="amat-wrap"></div>
+</div>
+
+<div class="rpanel">
+  <div class="sec">Matrix Inspector</div>
+  <div class="mtabs">
+    <div class="mtab rx active" id="mt-rx" onclick="setMTab('rx')">\(R_x\)</div>
+    <div class="mtab ry" id="mt-ry" onclick="setMTab('ry')">\(R_y\)</div>
+    <div class="mtab rz" id="mt-rz" onclick="setMTab('rz')">\(R_z\)</div>
+    <div class="mtab tt" id="mt-t" onclick="setMTab('t')">\(T\)</div>
+    <div class="mtab mm" id="mt-m" onclick="setMTab('m')">\(M\)</div>
+  </div>
+  <div id="mat-inspector"></div>
+  <div class="sec" style="margin-top:16px">Vertex Readout (\(V_0\))</div>
+  <div id="vread-wrap"></div>
+  <div class="sec">Properties</div>
+  <div id="prop-wrap"></div>
+</div>
+</div>
+</div>
+
+<!-- PHYSICS -->
+<div id="tab-phys" class="tc">
+<div class="doc">
+  <div class="dh">3D Rotation Matrices — \(R_x, R_y, R_z\)</div>
+  <p class="dp">Every rotation in 3D around a principal axis is encoded as a 4×4 homogeneous matrix. Points are represented as column vectors \([x,y,z,1]^{\mathsf T}\) and transformed by left-multiplication: <strong style="color:var(--cyan)">\(P'=M\,P\)</strong>.</p>
+  <div class="dcode">
+<span class="cm">Rotation around X-axis by angle θ</span>
+\[R_x(\theta)=\begin{bmatrix}1&amp;0&amp;0&amp;0\\0&amp;\cos\theta&amp;-\sin\theta&amp;0\\0&amp;\sin\theta&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+<span class="cm">Rotation around Y-axis by angle θ</span>
+\[R_y(\theta)=\begin{bmatrix}\cos\theta&amp;0&amp;\sin\theta&amp;0\\0&amp;1&amp;0&amp;0\\-\sin\theta&amp;0&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+<span class="cm">Rotation around Z-axis by angle θ</span>
+\[R_z(\theta)=\begin{bmatrix}\cos\theta&amp;-\sin\theta&amp;0&amp;0\\\sin\theta&amp;\cos\theta&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+  </div>
+  <p class="dp"><strong style="color:var(--ora)">Key property:</strong> All rotation matrices satisfy \(\det R=1\) and \(R^{-1}=R^{\mathsf T}\) (orthogonal matrices). They are length-preserving isometries — no stretching or shearing occurs.</p>
+
+  <div class="dh">3D Translation — Homogeneous 4×4</div>
+  <p class="dp">Translation is an affine operation — it cannot be represented as a 3×3 linear transform. By lifting to 4D homogeneous coordinates (adding \(w=1\)), translation becomes purely linear:</p>
+  <div class="dcode">
+\[T(t_x,t_y,t_z)=\begin{bmatrix}1&amp;0&amp;0&amp;t_x\\0&amp;1&amp;0&amp;t_y\\0&amp;0&amp;1&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+\[T\,[x,y,z,1]^{\mathsf T}=[x+t_x,\;y+t_y,\;z+t_z,\;1]^{\mathsf T}\quad\checkmark\]
+\[\det T=1\ \ \Rightarrow\ \text{volume-preserving rigid body motion}\]
+  </div>
+
+  <div class="dh">Combined Transform — Order Matters!</div>
+  <div class="dcode">
+<span class="cm">Full pipeline: Scale → Rx → Ry → Rz → Translate</span>
+\[M=T\,R_z\,R_y\,R_x\,S\]
+<span class="cm">Applied sequentially to a point P:</span>
+\[\begin{aligned}P_1&amp;=R_x\,P&amp;&amp;\text{(rotate around world X)}\\P_2&amp;=R_y\,P_1&amp;&amp;\text{(rotate around world Y)}\\P_3&amp;=R_z\,P_2&amp;&amp;\text{(rotate around world Z)}\\P_4&amp;=T\,P_3&amp;&amp;\text{(translate to final position)}\end{aligned}\]
+<span class="cm">Single combined matrix — same result:</span>
+\[P_4=M\,P\]
+<span class="cm">WARNING: order is critical!</span>
+\[T\,R\neq R\,T\]
+  </div>
+
+  <div class="dh">Gimbal Lock — The Euler Angle Problem</div>
+  <p class="dp">When \(\theta_y=\pm90^\circ\), the \(R_y\) matrix aligns the X and Z rotation axes — they become parallel, and the system loses one degree of freedom. This is <strong style="color:var(--ora)">gimbal lock</strong>, a fundamental limitation of Euler angle representation.</p>
+  <div class="dcode">
+\[R_y(90^\circ)=\begin{bmatrix}0&amp;0&amp;1&amp;0\\0&amp;1&amp;0&amp;0\\-1&amp;0&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+\[R_x(a)\,R_y(90^\circ)\,R_z(b)=R_x(a-b)\,R_y(90^\circ)\quad\text{for any } b\]
+<span class="cm">→ Rx and Rz are equivalent: one DOF lost!</span>
+<br><span class="cm">Solution: use unit quaternions</span> \(q=[w,x,y,z],\ |q|=1\)
+<span class="cm">or Rodrigues axis-angle representation (no singularities)</span>
+  </div>
+
+  <div class="dh">Rodrigues Rotation Formula</div>
+  <p class="dp">To rotate by angle \(\theta\) around an arbitrary unit axis \(\mathbf k=[k_x,k_y,k_z]\):</p>
+  <div class="dcode">
+\[R=I\cos\theta+(1-\cos\theta)\,(\mathbf k\otimes\mathbf k)+\sin\theta\,[\mathbf k]_\times\]
+\[[\mathbf k]_\times=\begin{bmatrix}0&amp;-k_z&amp;k_y\\k_z&amp;0&amp;-k_x\\-k_y&amp;k_x&amp;0\end{bmatrix}\quad\text{(skew-symmetric cross-product matrix)}\]
+\[\mathbf v'=\mathbf v\cos\theta+(\mathbf k\times\mathbf v)\sin\theta+\mathbf k\,(\mathbf k\cdot\mathbf v)(1-\cos\theta)\]
+  </div>
+
+  <div class="dh">SO(3) — The 3D Rotation Group</div>
+  <div class="dgrid">
+    <div class="dcard"><h3>Orthogonality</h3><p>\(R\,R^{\mathsf T}=I\) always. This means \(R^{-1}=R^{\mathsf T}\) — inverting a rotation is trivially free (just transpose). Columns and rows form orthonormal bases.</p></div>
+    <div class="dcard"><h3>det(R) = +1</h3><p>Positive determinant = orientation-preserving. Reflections have \(\det=-1\) (belong to O(3)). The sign of det encodes chirality (handedness).</p></div>
+    <div class="dcard"><h3>Eigenvalues</h3><p>\(R\) has eigenvalues \(\{1,\,e^{i\theta},\,e^{-i\theta}\}\). The real unit eigenvalue gives the rotation axis. Complex eigenvalues lie on the unit circle — confirming zero stretching.</p></div>
+    <div class="dcard"><h3>Applications</h3><p>Robotics: DH-parameter kinematic chains. Graphics: Model/View/Projection pipeline. Physics: Angular momentum operators in quantum mechanics (\(\mathfrak{su}(2)\) Lie algebra).</p></div>
+  </div>
+
+  <div class="dh">Why 4×4? Homogeneous Coordinates</div>
+  <div class="dcode">
+<span class="cm">Full 3D affine transform matrix structure:</span>
+\[M=\begin{bmatrix}r_{00}&amp;r_{01}&amp;r_{02}&amp;t_x\\r_{10}&amp;r_{11}&amp;r_{12}&amp;t_y\\r_{20}&amp;r_{21}&amp;r_{22}&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+<span class="cm">upper 3×3 block = rotation/scale · 4th column = translation · bottom row = homogeneous row (affine case)</span>
+<br><span class="cm">Perspective camera replaces the bottom row with</span> \([0\ \ 0\ \ 1/d\ \ 0]\) <span class="cm">→ \(w\neq1\) after transform → divide by \(w\).</span>
+<br><span class="cm">This unifies rotation, translation, scale, shear, projection into a SINGLE matrix multiply — the GPU's fundamental op.</span>
+  </div>
+</div>
+</div>
+
+<!-- MANUAL -->
+<div id="tab-man" class="tc">
+<div class="doc">
+  <div class="dh">Quick Start</div>
+  <div class="step-m"><div class="snum">1</div><div class="stxt"><strong>Set rotation angles</strong> — \(\theta_x\) tilts the shape forward/backward (red axis), \(\theta_y\) spins left/right (green axis), \(\theta_z\) rolls (blue axis). Range: −180° to +180°.</div></div>
+  <div class="step-m"><div class="snum">2</div><div class="stxt"><strong>Set translation</strong> — \(t_x,t_y,t_z\) move the final shape along each world axis. Applied after rotation (by default). Range: −2 to +2 scene units.</div></div>
+  <div class="step-m"><div class="snum">3</div><div class="stxt"><strong>Choose rotation order</strong> — <span class="ktag">X→Y→Z</span>, <span class="ktag">Z→Y→X</span>, or <span class="ktag">Y→X→Z</span>. Because matrix multiplication is non-commutative, different orders produce different final orientations. This is the Euler angle convention.</div></div>
+  <div class="step-m"><div class="snum">4</div><div class="stxt"><strong>Orbit the 3D view</strong> — <strong>Click and drag</strong> on the canvas to rotate the camera. <strong>Scroll wheel</strong> to zoom in/out. <span class="ktag">↻ Reset View</span> returns to default perspective (az=−30°, el=20°).</div></div>
+  <div class="step-m"><div class="snum">5</div><div class="stxt"><strong>Animate step by step</strong> — Click <span class="ktag">▶ Animate</span> to watch the 4-stage transform: Original (grey) → \(R_x\) (orange) → \(R_y\) (yellow) → \(R_z\) (magenta) → \(T\) (green). Each stage interpolates smoothly.</div></div>
+  <div class="step-m"><div class="snum">6</div><div class="stxt"><strong>Inspect matrices</strong> — The right panel's tabs show the live 4×4 matrix for each operation. The <span class="ktag">M</span> tab shows the fully combined matrix \(T R_z R_y R_x S\) with all values computed from current sliders.</div></div>
+  <div class="step-m"><div class="snum">7</div><div class="stxt"><strong>Read the equation panel</strong> — Below the canvas, the active step's matrix equation is shown: [4×4 Matrix] × [input 4×1 vector] = [output 4×1 vector], computed from the first vertex of the shape.</div></div>
+
+  <div class="dh">Canvas Legend</div>
+  <div class="ax-legend">
+    <span><div class="dot" style="background:var(--ax)"></div> X-axis (red)</span>
+    <span><div class="dot" style="background:var(--ay)"></div> Y-axis (green)</span>
+    <span><div class="dot" style="background:var(--az)"></div> Z-axis (blue)</span>
+    <span><div class="dot" style="background:var(--muted);opacity:.6"></div> Original (dim)</span>
+    <span><div class="dot" style="background:var(--ora)"></div> After \(R_x\)</span>
+    <span><div class="dot" style="background:var(--yel)"></div> After \(R_y\)</span>
+    <span><div class="dot" style="background:var(--mag)"></div> After \(R_z\)</span>
+    <span><div class="dot" style="background:var(--grn)"></div> Final (\(T\) applied)</span>
+  </div>
+
+  <div class="dh">Keyboard Shortcuts</div>
+  <div class="dcode mono">Space              — Toggle animate / pause
+R                  — Reset animation
+S                  — Step one stage forward
+X  /  Shift+X      — θx  +5° / −5°
+Y  /  Shift+Y      — θy  +5° / −5°
+Z  /  Shift+Z      — θz  +5° / −5°
++  /  −            — Zoom in / out</div>
+
+  <div class="dh">Matrix Equation Format</div>
+  <div class="dcode">
+\[\begin{aligned}
+\text{Step 1 }(R_x):&amp;\quad R_x(\theta_x)\,P_0=P_1 &amp;&amp;\text{rotate around world X}\\
+\text{Step 2 }(R_y):&amp;\quad R_y(\theta_y)\,P_1=P_2 &amp;&amp;\text{rotate around world Y}\\
+\text{Step 3 }(R_z):&amp;\quad R_z(\theta_z)\,P_2=P_3 &amp;&amp;\text{rotate around world Z}\\
+\text{Step 4 }(T):&amp;\quad T(\mathbf t)\,P_3=P_4 &amp;&amp;\text{translate to final pos.}
+\end{aligned}\]
+\[\text{Combined:}\quad M=T\,R_z\,R_y\,R_x\,S,\qquad P_4=M\,P_0\ \text{(identical result, one multiply)}\]
+<span class="cm">Note:</span> \(\det R_x=\det R_y=\det R_z=\det T=1\) always. \(\ \det M=s^3\) (volume scaling factor).
+  </div>
+</div>
+</div>
+
+<script>
+// === MATHJAX HELPERS ===
+const pendingTypeset=new Set();let typesetScheduled=false,mjQueue=Promise.resolve();
+function flushTypeset(){
+  typesetScheduled=false;
+  if(!window.__mjReady||!window.MathJax||!MathJax.typesetPromise)return;
+  const els=Array.from(pendingTypeset);pendingTypeset.clear();
+  if(!els.length)return;
+  mjQueue=mjQueue.then(()=>MathJax.typesetPromise(els)).catch(()=>{});
+}
+const HTML_CACHE={};
+function setHTML(id,html){
+  if(HTML_CACHE[id]===html)return;
+  HTML_CACHE[id]=html;
+  const el=document.getElementById(id);if(!el)return;
+  try{if(window.MathJax&&MathJax.typesetClear)MathJax.typesetClear([el]);}catch(_){}
+  el.innerHTML=html;
+  pendingTypeset.add(el);
+  if(!typesetScheduled){typesetScheduled=true;requestAnimationFrame(flushTypeset);}
+}
+
+// === 4x4 MATRIX MATH (ROW-MAJOR, COLUMN VECTORS) ===
+const I4=()=>[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+function mMul(A,B){const R=new Array(16).fill(0);for(let r=0;r<4;r++)for(let c=0;c<4;c++)for(let k=0;k<4;k++)R[r*4+c]+=A[r*4+k]*B[k*4+c];return R;}
+function mVec(M,v){return[M[0]*v[0]+M[1]*v[1]+M[2]*v[2]+M[3]*v[3],M[4]*v[0]+M[5]*v[1]+M[6]*v[2]+M[7]*v[3],M[8]*v[0]+M[9]*v[1]+M[10]*v[2]+M[11]*v[3],M[12]*v[0]+M[13]*v[1]+M[14]*v[2]+M[15]*v[3]];}
+function mRx(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[1,0,0,0,0,c,-s,0,0,s,c,0,0,0,0,1];}
+function mRy(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[c,0,s,0,0,1,0,0,-s,0,c,0,0,0,0,1];}
+function mRz(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[c,-s,0,0,s,c,0,0,0,0,1,0,0,0,0,1];}
+function mT(x,y,z){return[1,0,0,x,0,1,0,y,0,0,1,z,0,0,0,1];}
+function mS(s){return[s,0,0,0,0,s,0,0,0,0,s,0,0,0,0,1];}
+function det3(M){return M[0]*(M[5]*M[10]-M[6]*M[9])-M[1]*(M[4]*M[10]-M[6]*M[8])+M[2]*(M[4]*M[9]-M[5]*M[8]);}
+function f3(v){return v.toFixed(3);}
+
+// === SHAPES ===
+const SHP={
+  cube:{v:[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],
+       e:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]],
+       f:[[0,1,2,3],[7,6,5,4],[0,1,5,4],[2,3,7,6],[0,3,7,4],[1,2,6,5]]},
+  tetra:{v:[[0,1.3,0],[-1,-0.65,-0.75],[1,-0.65,-0.75],[0,-0.65,1.1]],
+        e:[[0,1],[0,2],[0,3],[1,2],[2,3],[3,1]],
+        f:[[0,2,1],[0,1,3],[0,3,2],[1,2,3]]},
+  octa:{v:[[0,1.2,0],[0,-1.2,0],[1.1,0,0],[-1.1,0,0],[0,0,1.1],[0,0,-1.1]],
+       e:[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]],
+       f:[[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,3,4],[1,5,3],[1,2,5]]},
+  prism:{v:[[-0.9,-1,-0.5],[0.9,-1,-0.5],[0,-1,1.0],[-0.9,1,-0.5],[0.9,1,-0.5],[0,1,1.0]],
+        e:[[0,1],[1,2],[2,0],[3,4],[4,5],[5,3],[0,3],[1,4],[2,5]],
+        f:[[0,2,1],[3,4,5],[0,1,4,3],[1,2,5,4],[2,0,3,5]]}
+};
+
+// === THEME (canvas palette) ===
+const THEMES={
+  night:{bg:'#0a0f15',floor:'rgba(70,100,125,0.55)',orig:'190,208,222',s1:'255,125,77',s2:'255,210,63',s3:'217,138,255',s4:'134,255,117',
+         X:'255,102,118',Y:'74,232,144',Z:'107,176,255',origin:'rgba(53,214,255,0.95)',fillMul:1,dimEdge:0.2,dimFill:0.3,lbl:'#dfe9f1'},
+  day:  {bg:'#f7f9fc',floor:'rgba(110,130,155,0.45)',orig:'70,90,112',s1:'212,72,13',s2:'165,110,0',s3:'138,43,201',s4:'22,140,62',
+         X:'214,40,57',Y:'22,135,74',Z:'31,111,209',origin:'rgba(10,98,176,0.95)',fillMul:1.5,dimEdge:0.4,dimFill:0.45,lbl:'#17222e'}
+};
+let theme=document.documentElement.getAttribute('data-theme')==='day'?'day':'night';
+let TH=THEMES[theme];
+function setTheme(t){
+  theme=t==='day'?'day':'night';TH=THEMES[theme];
+  document.documentElement.setAttribute('data-theme',theme);
+  try{localStorage.setItem('mat3d-theme',theme);}catch(_){}
+  document.getElementById('btn-night').classList.toggle('active',theme==='night');
+  document.getElementById('btn-day').classList.toggle('active',theme==='day');
+  renderScene();
+}
+
+// === STATE ===
+let rx=30,ry=45,rz=20,tx=1,ty=0.5,tz=0.3,sc=1;
+let rotOrd='xyz',shape='cube',wireframe=false;
+let viewAz=-30,viewEl=20,viewZoom=1;
+let animState='idle',animStep=0,stepT=0,animRAF=null,lastTs=null;
+const STEP_DUR=1.1;
+let isDragging=false,dragX=0,dragY=0;
+let matTabSel='rx';
+
+const CAN=document.getElementById('c3d');
+const CTX=CAN.getContext('2d');
+const CW=CAN.width,CH=CAN.height,CX=CW/2,CY=CH/2;
+const FOCAL=370,CAMD=7;
+
+function viewMat(){return mMul(mRx(-viewEl),mRy(-viewAz));}
+
+function project(x,y,z){
+  const V=viewMat(),vp=mVec(V,[x,y,z,1]);
+  const dz=(CAMD-vp[2])*viewZoom;
+  if(dz<0.01)return null;
+  return{sx:CX+(vp[0]*FOCAL)/dz,sy:CY-(vp[1]*FOCAL)/dz,depth:dz,vz:vp[2]};
+}
+
+function xfVerts(verts,M){return verts.map(v=>{const r=mVec(M,[v[0],v[1],v[2],1]);return[r[0],r[1],r[2]];});}
+
+function getMs(){
+  const S=mS(sc);
+  let M1,M2,M3;
+  if(rotOrd==='xyz'){M1=mMul(mRx(rx),S);M2=mMul(mRy(ry),M1);M3=mMul(mRz(rz),M2);}
+  else if(rotOrd==='zyx'){M1=mMul(mRz(rz),S);M2=mMul(mRy(ry),M1);M3=mMul(mRx(rx),M2);}
+  else{M1=mMul(mRy(ry),S);M2=mMul(mRx(rx),M1);M3=mMul(mRz(rz),M2);}
+  const M4=mMul(mT(tx,ty,tz),M3);
+  return{M0:S,M1,M2,M3,M4};
+}
+
+function lerp3(A,B,t){return A.map(([ax,ay,az],i)=>[ax+(B[i][0]-ax)*t,ay+(B[i][1]-ay)*t,az+(B[i][2]-az)*t]);}
+
+function faceNorm(verts,face){
+  const A=verts[face[0]],B=verts[face[1]],C=verts[face[2]];
+  const u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],v=[C[0]-A[0],C[1]-A[1],C[2]-A[2]];
+  const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+  const l=Math.hypot(...n)||1;return n.map(x=>x/l);
+}
+
+function faceDepth(proj,face){return face.reduce((s,i)=>s+(proj[i]?proj[i].depth:0),0)/face.length;}
+
+const LIGHT=[0.5,0.8,0.5];const LL=Math.hypot(...LIGHT);const LN=LIGHT.map(v=>v/LL);
+
+function drawMesh(verts,colRgb,alpha,shp,dim){
+  const s=SHP[shp];if(!s)return;
+  const proj=verts.map(([x,y,z])=>project(x,y,z));
+  if(!wireframe){
+    const fs=[...s.f].sort((a,b)=>faceDepth(proj,b)-faceDepth(proj,a));
+    for(const face of fs){
+      const pts=face.map(i=>proj[i]).filter(Boolean);if(pts.length<3)continue;
+      const n=faceNorm(verts,face);
+      const V=viewMat();const lv=mVec(V,[LN[0],LN[1],LN[2],0]);
+      const d=Math.max(0.05,n[0]*lv[0]+n[1]*lv[1]+n[2]*lv[2]);
+      const br=(0.12+0.5*d)*(dim?0.5:1);
+      const fa=Math.min(0.85,alpha*br*(dim?TH.dimFill:0.4)*TH.fillMul);
+      CTX.fillStyle=`rgba(${colRgb},${fa})`;
+      CTX.beginPath();CTX.moveTo(pts[0].sx,pts[0].sy);
+      for(let i=1;i<pts.length;i++)CTX.lineTo(pts[i].sx,pts[i].sy);
+      CTX.closePath();CTX.fill();
+    }
+  }
+  for(const[a,b]of s.e){
+    const pa=proj[a],pb=proj[b];if(!pa||!pb)continue;
+    CTX.strokeStyle=`rgba(${colRgb},${dim?alpha*TH.dimEdge:alpha*0.95})`;
+    CTX.lineWidth=dim?0.9:2;
+    CTX.beginPath();CTX.moveTo(pa.sx,pa.sy);CTX.lineTo(pb.sx,pb.sy);CTX.stroke();
+  }
+  if(!dim)for(const[x,y,z]of verts){
+    const p=project(x,y,z);if(!p)continue;
+    CTX.beginPath();CTX.arc(p.sx,p.sy,2.6,0,Math.PI*2);
+    CTX.fillStyle=`rgba(${colRgb},${alpha*0.95})`;CTX.fill();
+  }
+}
+
+function drawAxes(){
+  const axes=[[1.8,0,0,TH.X,'X'],[0,1.8,0,TH.Y,'Y'],[0,0,1.8,TH.Z,'Z']];
+  for(const[ax,ay,az,col,lbl]of axes){
+    const p0=project(0,0,0),p1=project(ax,ay,az);if(!p0||!p1)continue;
+    CTX.strokeStyle=`rgb(${col})`;CTX.lineWidth=2.4;
+    CTX.beginPath();CTX.moveTo(p0.sx,p0.sy);CTX.lineTo(p1.sx,p1.sy);CTX.stroke();
+    const dx=p1.sx-p0.sx,dy=p1.sy-p0.sy,dl=Math.hypot(dx,dy)||1;
+    const ux=dx/dl,uy=dy/dl;
+    CTX.fillStyle=`rgb(${col})`;CTX.beginPath();
+    CTX.moveTo(p1.sx,p1.sy);CTX.lineTo(p1.sx-ux*9+uy*4.5,p1.sy-uy*9-ux*4.5);CTX.lineTo(p1.sx-ux*9-uy*4.5,p1.sy-uy*9+ux*4.5);
+    CTX.closePath();CTX.fill();
+    CTX.font='bold 15px JetBrains Mono, monospace';CTX.fillStyle=`rgb(${col})`;CTX.fillText(lbl,p1.sx+6,p1.sy-6);
+  }
+}
+
+function drawFloor(){
+  CTX.strokeStyle=TH.floor;CTX.lineWidth=0.9;
+  for(let i=-3;i<=3;i++){
+    const pa=project(i,-1.6,-3),pb=project(i,-1.6,3),pc=project(-3,-1.6,i),pd=project(3,-1.6,i);
+    if(pa&&pb){CTX.beginPath();CTX.moveTo(pa.sx,pa.sy);CTX.lineTo(pb.sx,pb.sy);CTX.stroke();}
+    if(pc&&pd){CTX.beginPath();CTX.moveTo(pc.sx,pc.sy);CTX.lineTo(pd.sx,pd.sy);CTX.stroke();}
+  }
+}
+
+function renderScene(){
+  const COL=TH;
+  CTX.clearRect(0,0,CW,CH);CTX.fillStyle=TH.bg;CTX.fillRect(0,0,CW,CH);
+  drawFloor();drawAxes();
+  const{M0,M1,M2,M3,M4}=getMs();const s=SHP[shape];
+  const v0=xfVerts(s.v,M0),v1=xfVerts(s.v,M1),v2=xfVerts(s.v,M2),v3=xfVerts(s.v,M3),v4=xfVerts(s.v,M4);
+  drawMesh(v0,COL.orig,1,shape,true);
+  if(animStep===0){drawMesh(v0,COL.orig,1,shape,false);}
+  else if(animStep===1){drawMesh(lerp3(v0,v1,stepT),COL.s1,1,shape,false);}
+  else if(animStep===2){drawMesh(v1,COL.s1,1,shape,true);drawMesh(lerp3(v1,v2,stepT),COL.s2,1,shape,false);}
+  else if(animStep===3){drawMesh(v2,COL.s2,1,shape,true);drawMesh(lerp3(v2,v3,stepT),COL.s3,1,shape,false);}
+  else if(animStep===4){drawMesh(v3,COL.s3,1,shape,true);drawMesh(lerp3(v3,v4,stepT),COL.s4,1,shape,false);}
+  else{drawMesh(v4,COL.s4,1,shape,false);}
+  const op=project(0,0,0);if(op){CTX.beginPath();CTX.arc(op.sx,op.sy,4.5,0,Math.PI*2);CTX.fillStyle=TH.origin;CTX.fill();}
+}
+
+// === ANIMATION ===
+function animLoop(ts){
+  if(!lastTs)lastTs=ts;
+  const dt=(ts-lastTs)/1000;lastTs=ts;
+  const spd=parseFloat(document.getElementById('s-spd').value);
+  stepT+=dt*spd/STEP_DUR;
+  if(stepT>=1){stepT=0;animStep++;if(animStep>4){animStep=5;stepT=1;animState='done';
+    document.getElementById('astatus').textContent='COMPLETE';document.getElementById('pfill').style.width='100%';
+    updateTL(5);renderScene();updateAmat();updateReadouts();return;}}
+  const prog=((animStep-1+stepT)/4)*100;
+  document.getElementById('pfill').style.width=Math.min(100,Math.max(0,prog))+'%';
+  const labs=['ORIGINAL','APPLYING Rx…','APPLYING Ry…','APPLYING Rz…','APPLYING T…','COMPLETE'];
+  document.getElementById('astatus').textContent=labs[Math.min(animStep,5)];
+  updateTL(animStep);renderScene();updateAmat();updateReadouts();
+  animRAF=requestAnimationFrame(animLoop);
+}
+function runAnim(){if(animState==='running')return;if(animState==='done'){resetAnim();return;}
+  animState='running';animStep=1;stepT=0;lastTs=null;animRAF=requestAnimationFrame(animLoop);}
+function resetAnim(){if(animRAF)cancelAnimationFrame(animRAF);animRAF=null;
+  animState='idle';animStep=0;stepT=0;lastTs=null;
+  document.getElementById('pfill').style.width='0%';
+  document.getElementById('astatus').textContent='IDLE — Drag canvas to orbit · Press ANIMATE';
+  updateTL(0);renderScene();updateAmat();updateReadouts();}
+function stepAnim(){if(animRAF){cancelAnimationFrame(animRAF);animRAF=null;}
+  animState='paused';if(animStep<5){animStep++;stepT=1;}
+  const labs=['ORIGINAL','Rx APPLIED','Ry APPLIED','Rz APPLIED','T APPLIED','COMPLETE'];
+  document.getElementById('astatus').textContent=labs[Math.min(animStep,5)];
+  document.getElementById('pfill').style.width=(Math.min(animStep,4)/4*100)+'%';
+  updateTL(animStep);renderScene();updateAmat();updateReadouts();}
+function updateTL(step){
+  for(let i=0;i<=4;i++){
+    const d=document.getElementById('td'+i),l=document.getElementById('tl'+i);
+    if(i<step){d.className='tdot done';l.className='tlbl done';}
+    else if(i===step){d.className='tdot active';l.className='tlbl active';}
+    else{d.className='tdot';l.className='tlbl';}
+    if(i<4)document.getElementById('tln'+i).className=i<step?'tline done':'tline';
+  }
+}
+
+// === MATRIX DISPLAY ===
+function m44html(M,cls){
+  const axMap={0:'hx',1:'hy',2:'hz'};
+  let h=`<div class="m44 ${cls}">`;
+  for(let r=0;r<4;r++){h+='<div class="mrow">';
+    for(let c=0;c<4;c++){const v=M[r*4+c];const ax=r<3&&c<3?axMap[r]:'';h+=`<span class="mc ${ax}">${f3(v)}</span>`;}
+    h+='</div>';}
+  return h+'</div>';
+}
+function v4html(v,cls){
+  let h=`<div class="m44 ${cls}">`;
+  for(let i=0;i<4;i++)h+=`<div class="mrow"><span class="mc">${f3(v[i])}</span></div>`;
+  return h+'</div>';
+}
+
+function updateAmat(){
+  const s=SHP[shape];if(!s||!s.v.length)return;
+  const p0=s.v[0];
+  const{M1,M2,M3,M4}=getMs();
+  const v0=mVec(mS(sc),[p0[0],p0[1],p0[2],1]);
+  const v2=mVec(M2,[p0[0],p0[1],p0[2],1]);
+  const v3=mVec(M3,[p0[0],p0[1],p0[2],1]);
+  const v4=mVec(M4,[p0[0],p0[1],p0[2],1]);
+  let M_,pin,pout,cls,lbl,op;
+  if(animStep===1){M_=mRx(rx);pin=v0;pout=mVec(mRx(rx),v0);cls='ax';lbl='R_x(\\theta_x)';op='Step 1 — Rotate X';}
+  else if(animStep===2){M_=mRy(ry);pin=mVec(mRx(rx),v0);pout=v2;cls='ay';lbl='R_y(\\theta_y)';op='Step 2 — Rotate Y';}
+  else if(animStep===3){M_=mRz(rz);pin=v2;pout=v3;cls='az';lbl='R_z(\\theta_z)';op='Step 3 — Rotate Z';}
+  else if(animStep===4||animStep===5){M_=mT(tx,ty,tz);pin=v3;pout=v4;cls='ora';lbl='T(t_x,t_y,t_z)';op='Step 4 — Translate';}
+  else{const Mc=mMul(mT(tx,ty,tz),mMul(mRz(rz),mMul(mRy(ry),M1)));M_=Mc;pin=[p0[0],p0[1],p0[2],1];pout=v4;cls='cyan';lbl='M=T\\,R_z R_y R_x S';op='Combined Matrix';}
+  const cc=cls==='ax'?'var(--ax)':cls==='ay'?'var(--ay)':cls==='az'?'var(--az)':cls==='ora'?'var(--ora)':'var(--cyan)';
+  setHTML('amat-wrap',`
+    <div class="amat-title" style="color:${cc}">${op}</div>
+    <div class="mat-eq">
+      <div><div class="mlabel">\\(${lbl}\\)</div>${m44html(M_,cls)}</div>
+      <div class="opsym">×</div>
+      <div><div class="mlabel">\\(P_{\\mathrm{in}}\\)</div>${v4html(pin,'dim')}</div>
+      <div class="opsym">=</div>
+      <div><div class="mlabel">\\(P_{\\mathrm{out}}\\)</div>${v4html(pout,'grn')}</div>
+    </div>`);
+}
+
+// === RIGHT PANEL ===
+function setMTab(t){
+  matTabSel=t;
+  ['rx','ry','rz','t','m'].forEach(id=>document.getElementById('mt-'+id).classList.toggle('active',id===t));
+  buildInspector();
+}
+function buildInspector(){
+  const t=matTabSel;let M,cls,lbl;
+  if(t==='rx'){M=mRx(rx);cls='ax';lbl='R_x('+rx.toFixed(1)+'^\\circ)';}
+  else if(t==='ry'){M=mRy(ry);cls='ay';lbl='R_y('+ry.toFixed(1)+'^\\circ)';}
+  else if(t==='rz'){M=mRz(rz);cls='az';lbl='R_z('+rz.toFixed(1)+'^\\circ)';}
+  else if(t==='t'){M=mT(tx,ty,tz);cls='ora';lbl='T('+tx.toFixed(2)+',\\,'+ty.toFixed(2)+',\\,'+tz.toFixed(2)+')';}
+  else{const{M4}=getMs();M=M4;cls='cyan';lbl='M=T\\,R_z R_y R_x S';}
+  setHTML('mat-inspector',`<div class="mlabel" style="margin-bottom:8px">\\(${lbl}\\)</div>${m44html(M,cls)}`);
+}
+function updateReadouts(){
+  const s=SHP[shape];if(!s||!s.v.length)return;
+  const p0=s.v[0];const{M1,M2,M3,M4}=getMs();
+  const v0=[p0[0]*sc,p0[1]*sc,p0[2]*sc,1];
+  const v1=mVec(M1,[p0[0],p0[1],p0[2],1]);
+  const v2=mVec(M2,[p0[0],p0[1],p0[2],1]);
+  const v3=mVec(M3,[p0[0],p0[1],p0[2],1]);
+  const v4=mVec(M4,[p0[0],p0[1],p0[2],1]);
+  const fv=v=>`x=${v[0].toFixed(2)} y=${v[1].toFixed(2)} z=${v[2].toFixed(2)}`;
+  setHTML('vread-wrap',`
+    <div class="vread"><div class="vl">\\(P_0\\) · ORIGINAL</div><div class="vc">${fv(v0)}</div></div>
+    <div class="vread ax"><div class="vl">\\(P_1\\) · AFTER \\(R_x\\)</div><div class="vc">${fv(v1)}</div></div>
+    <div class="vread ay"><div class="vl">\\(P_2\\) · AFTER \\(R_y\\)</div><div class="vc">${fv(v2)}</div></div>
+    <div class="vread az"><div class="vl">\\(P_3\\) · AFTER \\(R_z\\)</div><div class="vc">${fv(v3)}</div></div>
+    <div class="vread grn"><div class="vl">\\(P_4\\) · FINAL (after \\(T\\))</div><div class="vc">${fv(v4)}</div></div>`);
+  const Rx_=mRx(rx),Ry_=mRy(ry),Rz_=mRz(rz);
+  const row=(k,v)=>`<div class="proprow"><span class="pk">\\(${k}\\)</span><span class="pv">${v}</span></div>`;
+  setHTML('prop-wrap',
+    row('\\det R_x',det3(Rx_).toFixed(4))+row('\\det R_y',det3(Ry_).toFixed(4))+row('\\det R_z',det3(Rz_).toFixed(4))+
+    row('\\det T','1.0000')+row('\\det M',det3(M4).toFixed(4))+
+    row('|P_0|',Math.hypot(v0[0],v0[1],v0[2]).toFixed(3))+row('|P_4|',Math.hypot(v4[0],v4[1],v4[2]).toFixed(3))+
+    row('\\theta_x\\ \\mathrm{(rad)}',(rx*Math.PI/180).toFixed(4))+row('\\theta_y\\ \\mathrm{(rad)}',(ry*Math.PI/180).toFixed(4))+
+    row('\\theta_z\\ \\mathrm{(rad)}',(rz*Math.PI/180).toFixed(4))+row('s^3',(sc*sc*sc).toFixed(4)));
+  buildInspector();
+}
+
+// === CONTROLS ===
+function uc(){
+  rx=parseFloat(document.getElementById('s-rx').value);
+  ry=parseFloat(document.getElementById('s-ry').value);
+  rz=parseFloat(document.getElementById('s-rz').value);
+  tx=parseFloat(document.getElementById('s-tx').value);
+  ty=parseFloat(document.getElementById('s-ty').value);
+  tz=parseFloat(document.getElementById('s-tz').value);
+  sc=parseFloat(document.getElementById('s-sc').value);
+  document.getElementById('v-rx').textContent=rx.toFixed(0)+'°';
+  document.getElementById('v-ry').textContent=ry.toFixed(0)+'°';
+  document.getElementById('v-rz').textContent=rz.toFixed(0)+'°';
+  document.getElementById('v-tx').textContent=tx.toFixed(2);
+  document.getElementById('v-ty').textContent=ty.toFixed(2);
+  document.getElementById('v-tz').textContent=tz.toFixed(2);
+  document.getElementById('v-sc').textContent=sc.toFixed(2)+'×';
+  renderScene();updateAmat();updateReadouts();
+}
+function setShape(s){shape=s;document.querySelectorAll('.shbt').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(s)));resetAnim();}
+function setOrd(o){rotOrd=o;['xyz','zyx','yxz'].forEach(id=>document.getElementById('ord-'+id).classList.toggle('active',id===o));resetAnim();}
+function resetView(){viewAz=-30;viewEl=20;viewZoom=1;renderScene();}
+function toggleWire(){wireframe=!wireframe;document.getElementById('btn-wire').classList.toggle('c',wireframe);renderScene();}
+
+// === ORBIT ===
+CAN.addEventListener('mousedown',e=>{isDragging=true;dragX=e.clientX;dragY=e.clientY;});
+window.addEventListener('mousemove',e=>{if(!isDragging)return;viewAz+=(e.clientX-dragX)*0.4;viewEl=Math.max(-80,Math.min(80,viewEl+(e.clientY-dragY)*0.4));dragX=e.clientX;dragY=e.clientY;renderScene();});
+window.addEventListener('mouseup',()=>isDragging=false);
+CAN.addEventListener('wheel',e=>{e.preventDefault();viewZoom=Math.max(0.3,Math.min(3,viewZoom*(e.deltaY>0?1.08:0.93)));renderScene();},{passive:false});
+let tPrev=null;
+CAN.addEventListener('touchstart',e=>{tPrev=e.touches[0];},{passive:true});
+CAN.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];if(tPrev){viewAz+=(t.clientX-tPrev.clientX)*0.4;viewEl=Math.max(-80,Math.min(80,viewEl+(t.clientY-tPrev.clientY)*0.4));renderScene();}tPrev=t;},{passive:false});
+CAN.addEventListener('touchend',()=>tPrev=null);
+
+// === KEYBOARD ===
+document.addEventListener('keydown',e=>{
+  if(document.activeElement.tagName==='INPUT')return;
+  const d=e.shiftKey?-5:5;
+  if(e.code==='Space'){e.preventDefault();animState==='running'?resetAnim():runAnim();}
+  if(e.code==='KeyR')resetAnim();
+  if(e.code==='KeyS')stepAnim();
+  if(e.code==='KeyX'){const s=document.getElementById('s-rx');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
+  if(e.code==='KeyY'){const s=document.getElementById('s-ry');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
+  if(e.code==='KeyZ'){const s=document.getElementById('s-rz');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
+  if(e.code==='Equal'||e.code==='NumpadAdd'){viewZoom=Math.min(3,viewZoom*1.1);renderScene();}
+  if(e.code==='Minus'||e.code==='NumpadSubtract'){viewZoom=Math.max(0.3,viewZoom*0.9);renderScene();}
+});
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{const ids=['sim','phys','man'];t.classList.toggle('active',ids[i]===id);});
+  document.querySelectorAll('.tc').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+}
+document.getElementById('btn-night').classList.toggle('active',theme==='night');
+document.getElementById('btn-day').classList.toggle('active',theme==='day');
+uc();
+</script>
+</body>
+</html>

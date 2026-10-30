@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MathScope — Mathematical Analysis Suite</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.3/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Playfair+Display:wght@700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#070b12; --surface:#0c1220; --surface2:#111826; --surface3:#172033;
+  --border:#1a2640; --border2:#203050;
+  --amber:#f59e0b; --amber-dim:#92650a; --amber-glow:rgba(245,158,11,0.12);
+  --cyan:#22d3ee; --cyan-dim:#0891b2; --cyan-glow:rgba(34,211,238,0.10);
+  --green:#4ade80; --red:#f87171; --purple:#a78bfa;
+  --text:#dde4f0; --text-muted:#5d7291; --text-dim:#8ba0bc;
+  --mono:'Space Mono',monospace; --display:'Playfair Display',serif; --body:'Outfit',sans-serif;
+}
+html.light {
+  --bg:#eef1f8; --surface:#ffffff; --surface2:#eef2f9; --surface3:#e4e9f4;
+  --border:#d6ddec; --border2:#c2cbe0;
+  --amber-glow:rgba(245,158,11,0.14); --cyan-glow:rgba(8,145,178,0.10);
+  --text:#1a2236; --text-muted:#6b7690; --text-dim:#3d495e;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--body);transition:background .2s,color .2s}
+
+/* Header */
+.header{height:52px;display:flex;align-items:center;padding:0 20px;background:var(--surface);
+  border-bottom:1px solid var(--border);gap:16px;flex-shrink:0;z-index:10}
+.logo{font-family:var(--display);font-size:19px;color:var(--amber);white-space:nowrap;flex-shrink:0}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-left:8px;letter-spacing:1px}
+.tabs{display:flex;gap:2px}
+.tab{padding:5px 15px;border:1px solid transparent;border-radius:4px;background:none;
+  color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+.tab:hover{color:var(--text);background:var(--surface2)}
+.tab.active{color:var(--amber);border-color:var(--amber-dim);background:var(--amber-glow)}
+.theme-btn{margin-left:auto;width:34px;height:30px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text-dim);
+  cursor:pointer;font-size:15px;transition:all .15s;flex-shrink:0}
+.theme-btn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+
+/* Layout */
+.layout{display:flex;height:calc(100vh - 52px);overflow:hidden}
+.controls{width:300px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.ctrl-panel{display:none}.ctrl-panel.active{display:block}
+
+/* Sections */
+.section{padding:11px 13px;border-bottom:1px solid var(--border)}
+.sec-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;
+  color:var(--text-muted);font-family:var(--mono);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Inputs */
+.field{margin-bottom:7px}
+.field-label{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-bottom:3px}
+.finput{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--mono);font-size:12px;padding:7px 9px;border-radius:3px;outline:none;transition:border-color .15s,box-shadow .15s}
+.finput:focus{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber-glow)}
+.finput.err{border-color:var(--red)}
+.ninput{flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:5px 6px;border-radius:3px;outline:none;min-width:0;transition:border-color .15s}
+.ninput:focus{border-color:var(--amber)}
+.row{display:flex;gap:5px;align-items:center}
+.row-label{font-size:10px;color:var(--text-muted);font-family:var(--mono);white-space:nowrap}
+
+/* Preset dropdown */
+.preset-wrap{margin-bottom:8px}
+.psel{width:100%;background:var(--surface3);border:1px solid var(--border2);color:var(--text-dim);
+  font-family:var(--mono);font-size:10px;padding:5px 24px 5px 8px;border-radius:3px;outline:none;cursor:pointer;
+  appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235d7291'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center}
+.psel:focus{border-color:var(--amber)}
+.psel optgroup{color:var(--text-muted);background:var(--surface2);font-style:normal}
+.psel option{color:var(--text);background:var(--surface2)}
+
+/* Sliders */
+.sl-wrap{margin-bottom:8px}
+.sl-hdr{display:flex;justify-content:space-between;margin-bottom:3px}
+.sl-name{font-size:10px;color:var(--text-muted);font-family:var(--mono)}
+.sl-val{font-size:10px;color:var(--amber);font-family:var(--mono);min-width:40px;text-align:right}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--amber);border:2px solid var(--surface);box-shadow:0 0 4px rgba(245,158,11,.4)}
+
+/* Buttons */
+.btns{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px}
+.btn{padding:5px 9px;border:1px solid var(--border2);border-radius:3px;background:var(--surface2);
+  color:var(--text-dim);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--amber-dim);color:var(--amber);background:var(--amber-glow)}
+.btn.on{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+.btn.con{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-glow)}
+.brun{width:100%;padding:8px;background:var(--amber);color:#000;font-family:var(--mono);
+  font-size:11px;font-weight:700;border:none;border-radius:3px;cursor:pointer;letter-spacing:1px;
+  transition:background .15s;margin-top:2px}
+.brun:hover{background:#fbbf24}
+
+/* Toggles */
+.toggles{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
+.tgl{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.tgl input[type=checkbox]{accent-color:var(--amber);width:13px;height:13px;cursor:pointer}
+.tgl span{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+
+/* Results */
+.results{background:var(--surface2);border:1px solid var(--border);border-radius:3px;
+  padding:6px 8px;font-family:var(--mono);font-size:11px;min-height:32px;max-height:210px;overflow-y:auto;line-height:1.5}
+.rline{display:flex;justify-content:space-between;padding:1px 0;border-bottom:1px solid var(--border);line-height:1.75;gap:8px}
+.rline:last-child{border-bottom:none}
+.rkey{color:var(--text-muted);flex-shrink:0}
+.rval{color:var(--amber);font-weight:700;text-align:right;word-break:break-all}
+.rval.c{color:var(--cyan)}.rval.g{color:var(--green)}.rval.r{color:var(--red)}.rval.p{color:var(--purple)}
+.status{font-size:10px;font-family:var(--mono);padding:2px 0;min-height:16px}
+.status.ok{color:var(--green)}.status.err{color:var(--red)}.status.info{color:var(--cyan)}.status.warn{color:var(--amber)}
+
+/* Viz */
+.viz-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.plot-panel{display:none;height:100%;flex-direction:column}
+.plot-panel.active{display:flex}
+.plot-box{flex:1;min-height:0;position:relative}
+
+/* Modebar */
+.modebar{display:flex;gap:4px;padding:5px 11px;background:var(--surface);
+  border-bottom:1px solid var(--border);flex-shrink:0;align-items:center;flex-wrap:wrap}
+.modebar-label{font-size:9px;color:var(--text-muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase}
+.mbtn{padding:3px 8px;border:1px solid var(--border2);border-radius:3px;background:none;
+  color:var(--text-muted);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .12s}
+.mbtn:hover{color:var(--text)}
+.mbtn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-glow)}
+.mbtn.amber.active{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+.msep{width:1px;height:14px;background:var(--border);flex-shrink:0}
+.mpill{font-size:9px;font-family:var(--mono);color:var(--text-muted);background:var(--surface2);
+  border:1px solid var(--border);border-radius:2px;padding:1px 7px;margin-left:auto}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">MathScope<span class="logo-sub">// analysis suite</span></div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="1d">1D · f(x)</button>
+    <button class="tab" data-tab="2d">2D · f(x,y)</button>
+    <button class="tab" data-tab="3d">3D · f(x,y,z)</button>
+    <button class="tab" data-tab="cx">ℂ · Complex</button>
+  </nav>
+  <button class="theme-btn" id="theme-toggle" title="Toggle day / night theme">🌙</button>
+</header>
+
+<div class="layout">
+<div class="controls">
+
+<!-- ══════ 1D PANEL ══════ -->
+<div id="ctrl-1d" class="ctrl-panel active">
+  <div class="section">
+    <div class="sec-label">Presets</div>
+    <div class="preset-wrap">
+      <select id="pre1d" class="psel">
+        <option value="">— choose preset —</option>
+        <optgroup label="Trigonometric">
+          <option value="sin(x)|-8|8">sin(x)</option>
+          <option value="cos(x)|-8|8">cos(x)</option>
+          <option value="tan(x)|-4.5|4.5">tan(x)</option>
+          <option value="sin(x)/x|-12|12">sinc — sin(x)/x</option>
+          <option value="sin(3*x)*cos(2*x)|-6|6">sin(3x)·cos(2x)</option>
+          <option value="sin(x^2)|-5|5">sin(x²)</option>
+          <option value="cos(x^2)|-5|5">cos(x²) — Fresnel</option>
+        </optgroup>
+        <optgroup label="Exponential / Log">
+          <option value="exp(-x^2)|-4|4">Gaussian e^(−x²)</option>
+          <option value="exp(-x^2/2)/sqrt(2*pi)|-4|4">Normal PDF φ(x)</option>
+          <option value="sin(x)*exp(-x^2/4)|-7|7">sin(x)·e^(−x²/4)</option>
+          <option value="log(abs(x)+0.001)|-5|5">log|x|</option>
+          <option value="exp(-abs(x))|-5|5">e^(−|x|)</option>
+          <option value="x*exp(-x)|-2|8">x·e^(−x)</option>
+          <option value="exp(sin(x))|-7|7">e^sin(x)</option>
+        </optgroup>
+        <optgroup label="Polynomial">
+          <option value="x^3 - 3*x|-3|3">x³ − 3x</option>
+          <option value="x^4 - 5*x^2 + 4|-3|3">x⁴ − 5x² + 4</option>
+          <option value="(x-1)*(x+2)*(x-3)|-4|4">(x−1)(x+2)(x−3)</option>
+          <option value="x^5 - 5*x^3 + 4*x|-3|3">x⁵ − 5x³ + 4x</option>
+          <option value="x^6 - 7*x^4 + 14*x^2 - 8|-3|3">Degree 6 polynomial</option>
+        </optgroup>
+        <optgroup label="Special Functions">
+          <option value="abs(sin(x))|-8|8">|sin(x)|</option>
+          <option value="1/(1+exp(-x))|-6|6">Sigmoid σ(x)</option>
+          <option value="tanh(x)|-5|5">tanh(x)</option>
+          <option value="sin(1/x)|-1.2|1.2">sin(1/x)</option>
+          <option value="x*sin(pi/x)|-3|3">x·sin(π/x)</option>
+          <option value="sqrt(abs(x))|-5|5">√|x|</option>
+          <option value="1/(x^2+0.01)|-3|3">Lorentzian 1/(x²+ε)</option>
+          <option value="x/(x^2+1)|-5|5">x/(x²+1)</option>
+        </optgroup>
+        <optgroup label="Physics / Engineering">
+          <option value="exp(-0.3*abs(x))*cos(2*x)|-10|10">Damped oscillator</option>
+          <option value="sin(5*x)*exp(-x^2/6)|-6|6">Wavelet packet</option>
+          <option value="exp(-x^2/2)*cos(6*x)|-5|5">Gabor function</option>
+          <option value="sin(x)/x + cos(x/2)*exp(-x^2/20)|-12|12">Damped sinc+</option>
+          <option value="(1 - x^2)*exp(-x^2/2)|-5|5">Ricker wavelet</option>
+          <option value="atan(10*sin(x))|-5|5">Arctan limiter</option>
+        </optgroup>
+        <optgroup label="Pathological / Interesting">
+          <option value="floor(sin(x)*3)/3|-8|8">Staircase</option>
+          <option value="ceil(x)-floor(x)-1|-5|5">Sawtooth</option>
+          <option value="abs(x - round(x))|-4|4">Triangle wave</option>
+          <option value="sin(x)*sign(cos(x))|-8|8">Square-wave-ish</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Function</div>
+    <div class="field">
+      <div class="field-label">f(x) =</div>
+      <input type="text" id="fn1d" class="finput" value="sin(x) * exp(-x^2 / 4)" spellcheck="false">
+    </div>
+    <div class="status" id="st1d"></div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Domain</div>
+    <div class="field">
+      <div class="field-label">x range</div>
+      <div class="row">
+        <input type="number" id="x1min" class="ninput" value="-7" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="x1max" class="ninput" value="7" step="0.5">
+      </div>
+    </div>
+    <div class="sl-wrap">
+      <div class="sl-hdr"><span class="sl-name">Resolution</span><span class="sl-val" id="sv-res1">800</span></div>
+      <input type="range" id="sl-res1" min="50" max="2000" value="800" step="50">
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Display</div>
+    <div class="toggles">
+      <label class="tgl"><input type="checkbox" id="chk-fx"    checked><span>f(x)</span></label>
+      <label class="tgl"><input type="checkbox" id="chk-dfx"         ><span>f′(x) first derivative</span></label>
+      <label class="tgl"><input type="checkbox" id="chk-d2fx"        ><span>f″(x) second derivative</span></label>
+      <label class="tgl"><input type="checkbox" id="chk-roots" checked><span>highlight roots</span></label>
+      <label class="tgl"><input type="checkbox" id="chk-area"        ><span>integral shading</span></label>
+    </div>
+    <button class="brun" id="btn-plot1d">▶  PLOT</button>
+  </div>
+  <div class="section">
+    <div class="sec-label">Differentiation</div>
+    <button class="btn" id="btn-diff1d" style="width:100%;margin-bottom:7px">Compute f′(x) symbolic</button>
+    <div class="results" id="res-diff1d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Integration</div>
+    <div class="field">
+      <div class="field-label">Bounds [a, b]</div>
+      <div class="row">
+        <input type="number" id="int1a" class="ninput" value="-3" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="int1b" class="ninput" value="3" step="0.5">
+      </div>
+    </div>
+    <button class="btn" id="btn-int1d" style="width:100%;margin-bottom:7px">Compute ∫f dx (Simpson)</button>
+    <div class="results" id="res-int1d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Root Finding — bisection scan</div>
+    <button class="btn" id="btn-roots1d" style="width:100%;margin-bottom:7px">Find All Roots f(x) = 0</button>
+    <div class="results" id="res-roots1d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Local Extrema — f′(x) = 0</div>
+    <button class="btn" id="btn-extrema1d" style="width:100%;margin-bottom:7px">Find Local Max / Min</button>
+    <div class="results" id="res-extrema1d">—</div>
+  </div>
+</div><!-- /ctrl-1d -->
+
+<!-- ══════ 2D PANEL ══════ -->
+<div id="ctrl-2d" class="ctrl-panel">
+  <div class="section">
+    <div class="sec-label">Presets</div>
+    <div class="preset-wrap">
+      <select id="pre2d" class="psel">
+        <option value="">— choose preset —</option>
+        <optgroup label="Waves & Oscillations">
+          <option value="sin(x)*cos(y)|-4|4|-4|4">sin(x)·cos(y)</option>
+          <option value="sin(sqrt(x^2+y^2))|-6|6|-6|6">Circular ripple sin(r)</option>
+          <option value="cos(x)*cos(y)|-5|5|-5|5">cos(x)·cos(y)</option>
+          <option value="sin(x+y)*cos(x-y)|-4|4|-4|4">Interference pattern</option>
+          <option value="sin(pi*x)*sin(pi*y)|-2|2|-2|2">Drumhead mode</option>
+          <option value="cos(x^2+y^2)|-4|4|-4|4">cos(r²) Fresnel</option>
+        </optgroup>
+        <optgroup label="Gaussians & Exponentials">
+          <option value="exp(-(x^2+y^2))|-3|3|-3|3">Gaussian bell e^(−r²)</option>
+          <option value="exp(-(x^2+y^2))*cos(4*sqrt(x^2+y^2))|-4|4|-4|4">Mexican hat</option>
+          <option value="(1-x^2-y^2)*exp(-(x^2+y^2))|-3|3|-3|3">Ricker 2D wavelet</option>
+          <option value="exp(-abs(x)-abs(y))|-4|4|-4|4">Double exponential</option>
+          <option value="exp(-(2*x^2+y^2/2))|-3|3|-3|3">Anisotropic Gaussian</option>
+        </optgroup>
+        <optgroup label="Algebraic Surfaces">
+          <option value="x^2 - y^2|-3|3|-3|3">Saddle x²−y²</option>
+          <option value="x^2 + y^2|-3|3|-3|3">Paraboloid x²+y²</option>
+          <option value="x*y|-3|3|-3|3">Hyperbolic x·y</option>
+          <option value="x^3 - 3*x*y^2|-2.5|2.5|-2.5|2.5">Monkey saddle</option>
+          <option value="x^2*y - y^3/3|-2|2|-2|2">Cubic surface</option>
+          <option value="(x^2+y^2-1)^3 - x^2*y^3|-2|2|-1.5|1.5">Heart curve (f=0)</option>
+          <option value="(x^2+y^2)^2 - 2*(x^2-y^2)|-2.5|2.5|-2.5|2.5">Lemniscate</option>
+        </optgroup>
+        <optgroup label="Special / Named">
+          <option value="sin(x^2+y^2)|-4|4|-4|4">sin(r²)</option>
+          <option value="tanh(x)*tanh(y)|-4|4|-4|4">Product tanh</option>
+          <option value="x/(x^2+y^2+0.1)|-3|3|-3|3">Dipole Re(1/z)</option>
+          <option value="log(x^2+y^2+0.01)|-3|3|-3|3">log(r²)</option>
+          <option value="floor(x)+floor(y)|-4|4|-4|4">Chessboard floor</option>
+          <option value="atan2(y,x)|-3|3|-3|3">Phase atan2(y,x)</option>
+          <option value="sin(x)*exp(-y^2/2)|-5|5|-3|3">Wave packet</option>
+          <option value="x*y*(x^2-y^2)/(x^2+y^2+0.001)|-3|3|-3|3">Schwarz-Schur</option>
+        </optgroup>
+        <optgroup label="Physics / Potentials">
+          <option value="exp(-(x^2+y^2))*sin(5*atan2(y,x))|-3|3|-3|3">Angular mode</option>
+          <option value="1/sqrt(x^2+y^2+0.01)|-3|3|-3|3">Coulomb 1/r</option>
+          <option value="x/((x^2+y^2)^(3/2)+0.01)|-2|2|-2|2">Electric field Eₓ</option>
+          <option value="log(sqrt((x-1)^2+y^2)) - log(sqrt((x+1)^2+y^2))|-4|4|-3|3">Two-source potential</option>
+          <option value="sin(x)*cosh(y)|-4|4|-3|3">Re sin(z) harmonic</option>
+          <option value="cos(x)*sinh(y)|-4|4|-3|3">Im sin(z) harmonic</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Function</div>
+    <div class="field">
+      <div class="field-label">f(x, y) =</div>
+      <input type="text" id="fn2d" class="finput" value="sin(x)*cos(y)" spellcheck="false">
+    </div>
+    <div class="status" id="st2d"></div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Domain</div>
+    <div class="field">
+      <div class="field-label">x range</div>
+      <div class="row">
+        <input type="number" id="x2min" class="ninput" value="-4" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="x2max" class="ninput" value="4" step="0.5">
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">y range</div>
+      <div class="row">
+        <input type="number" id="y2min" class="ninput" value="-4" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="y2max" class="ninput" value="4" step="0.5">
+      </div>
+    </div>
+    <div class="sl-wrap">
+      <div class="sl-hdr"><span class="sl-name">Resolution N×N</span><span class="sl-val" id="sv-res2">65</span></div>
+      <input type="range" id="sl-res2" min="15" max="150" value="65" step="5">
+    </div>
+    <button class="brun" id="btn-plot2d">▶  PLOT</button>
+  </div>
+  <div class="section">
+    <div class="sec-label">Partial Derivatives</div>
+    <div class="field">
+      <div class="field-label">Evaluate at (x, y)</div>
+      <div class="row" style="gap:4px">
+        <span class="row-label">x=</span><input type="number" id="px2x" class="ninput" value="0" step="0.1">
+        <span class="row-label">y=</span><input type="number" id="px2y" class="ninput" value="0" step="0.1">
+      </div>
+    </div>
+    <button class="btn" id="btn-partials" style="width:100%;margin-bottom:7px">Compute ∂f/∂x, ∂f/∂y</button>
+    <div class="results" id="res-partials">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Double Integral ∬f dA</div>
+    <div class="field">
+      <div class="row" style="gap:3px;margin-bottom:4px">
+        <span class="row-label" style="width:12px">x</span>
+        <input type="number" id="ix2a" class="ninput" value="-2" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="ix2b" class="ninput" value="2" step="0.5">
+      </div>
+      <div class="row" style="gap:3px">
+        <span class="row-label" style="width:12px">y</span>
+        <input type="number" id="iy2a" class="ninput" value="-2" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="iy2b" class="ninput" value="2" step="0.5">
+      </div>
+    </div>
+    <button class="btn" id="btn-int2d" style="width:100%;margin-bottom:7px">Compute ∬f dA</button>
+    <div class="results" id="res-int2d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Zero Contour f(x,y)=0 — numerical</div>
+    <div class="field">
+      <div class="row" style="gap:5px">
+        <input type="number" id="roots2n" class="ninput" value="120" min="30" max="400" step="10">
+        <span class="row-label">pts/axis</span>
+      </div>
+    </div>
+    <button class="btn" id="btn-roots2d" style="width:100%;margin-bottom:7px">Find &amp; Visualize f = 0</button>
+    <div class="results" id="res-roots2d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Local Extrema — ∇f = 0</div>
+    <button class="btn" id="btn-extrema2d" style="width:100%;margin-bottom:7px">Find Local Max / Min / Saddle</button>
+    <div class="results" id="res-extrema2d">—</div>
+  </div>
+</div><!-- /ctrl-2d -->
+
+<!-- ══════ 3D PANEL ══════ -->
+<div id="ctrl-3d" class="ctrl-panel">
+  <div class="section">
+    <div class="sec-label">Presets</div>
+    <div class="preset-wrap">
+      <select id="pre3d" class="psel">
+        <option value="">— choose preset —</option>
+        <optgroup label="Waves">
+          <option value="sin(x+y)*cos(z)|-3|3|-3|3">sin(x+y)·cos(z)</option>
+          <option value="cos(x)*sin(y)*cos(z)|-4|4|-4|4">cos(x)·sin(y)·cos(z)</option>
+          <option value="sin(sqrt(x^2+y^2+z^2)+0.001)|-4|4|-4|4">Spherical ripple sin(r)</option>
+          <option value="sin(x)*sin(y)*sin(z)|-4|4|-4|4">Triple sine mode</option>
+          <option value="sin(pi*x)*sin(pi*y)*sin(pi*z)|-2|2|-2|2">Box eigenmode</option>
+        </optgroup>
+        <optgroup label="Gaussian / Potential">
+          <option value="exp(-(x^2+y^2+z^2))|-3|3|-3|3">3-D Gaussian e^(−r²)</option>
+          <option value="1/(x^2+y^2+z^2+0.01)|-3|3|-3|3">Coulomb 1/r²</option>
+          <option value="exp(-sqrt(x^2+y^2+z^2))|-3|3|-3|3">Yukawa e^(−r)</option>
+          <option value="(x^2+y^2+z^2)*exp(-(x^2+y^2+z^2))|-3|3|-3|3">r²·e^(−r²)</option>
+          <option value="exp(-(x^2+y^2))*cos(z)|-3|3|-3|3">Cylindrical wave</option>
+        </optgroup>
+        <optgroup label="Algebraic">
+          <option value="x^2+y^2-z^2|-3|3|-3|3">Hyperboloid x²+y²−z²</option>
+          <option value="x^2-y^2+z|-3|3|-3|3">Saddle+linear</option>
+          <option value="x*y*z|-2|2|-2|2">Triple product xyz</option>
+          <option value="x^3+y^3+z^3-3*x*y*z|-2|2|-2|2">Cayley nodal cubic</option>
+          <option value="x^2+y^2+4*z^2|-3|3|-3|3">Ellipsoid potential</option>
+        </optgroup>
+        <optgroup label="Physics / Chemistry">
+          <option value="sin(x+z)*exp(-y^2/2)|-4|4|-3|3">Gaussian×wave</option>
+          <option value="cos(x^2+y^2+z^2)|-3|3|-3|3">cos(r²) 3D Fresnel</option>
+          <option value="x*exp(-(x^2+y^2+z^2))|-3|3|-3|3">x·Gaussian (p-orbital)</option>
+          <option value="(2*z^2-x^2-y^2)*exp(-(x^2+y^2+z^2))|-3|3|-3|3">d-orbital</option>
+          <option value="sin(x)*cosh(y)*cos(z)|-3|3|-3|3">Laplace solution</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Function</div>
+    <div class="field">
+      <div class="field-label">f(x, y, z) =</div>
+      <input type="text" id="fn3d" class="finput" value="sin(x+y)*cos(z)" spellcheck="false">
+    </div>
+    <div class="status" id="st3d"></div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Domain &amp; z-Slice</div>
+    <div class="field">
+      <div class="field-label">x range</div>
+      <div class="row">
+        <input type="number" id="x3min" class="ninput" value="-3" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="x3max" class="ninput" value="3" step="0.5">
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">y range</div>
+      <div class="row">
+        <input type="number" id="y3min" class="ninput" value="-3" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="y3max" class="ninput" value="3" step="0.5">
+      </div>
+    </div>
+    <div class="sl-wrap">
+      <div class="sl-hdr"><span class="sl-name">z₀ (slice fixed value)</span><span class="sl-val" id="sv-z0">0.00</span></div>
+      <input type="range" id="sl-z0" min="-4" max="4" value="0" step="0.05">
+    </div>
+    <div class="sl-wrap">
+      <div class="sl-hdr"><span class="sl-name">Resolution N×N</span><span class="sl-val" id="sv-res3">50</span></div>
+      <input type="range" id="sl-res3" min="15" max="120" value="50" step="5">
+    </div>
+    <button class="brun" id="btn-plot3d">▶  PLOT SLICE</button>
+  </div>
+  <div class="section">
+    <div class="sec-label">Gradient ∇f at point</div>
+    <div class="row" style="gap:3px;margin-bottom:7px;flex-wrap:wrap">
+      <span class="row-label">x=</span><input type="number" id="gx3" class="ninput" value="0" step="0.1" style="max-width:58px">
+      <span class="row-label">y=</span><input type="number" id="gy3" class="ninput" value="0" step="0.1" style="max-width:58px">
+      <span class="row-label">z=</span><input type="number" id="gz3" class="ninput" value="0" step="0.1" style="max-width:58px">
+    </div>
+    <button class="btn" id="btn-grad3d" style="width:100%;margin-bottom:7px">Compute ∇f</button>
+    <div class="results" id="res-grad3d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Volume Integral ∭f dV</div>
+    <div class="field">
+      <div class="row" style="gap:3px;margin-bottom:4px">
+        <span class="row-label" style="width:12px">x</span>
+        <input type="number" id="ix3a" class="ninput" value="-1" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="ix3b" class="ninput" value="1" step="0.5">
+      </div>
+      <div class="row" style="gap:3px;margin-bottom:4px">
+        <span class="row-label" style="width:12px">y</span>
+        <input type="number" id="iy3a" class="ninput" value="-1" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="iy3b" class="ninput" value="1" step="0.5">
+      </div>
+      <div class="row" style="gap:3px">
+        <span class="row-label" style="width:12px">z</span>
+        <input type="number" id="iz3a" class="ninput" value="-1" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="iz3b" class="ninput" value="1" step="0.5">
+      </div>
+    </div>
+    <button class="btn" id="btn-int3d" style="width:100%;margin-top:6px;margin-bottom:7px">Compute ∭f dV</button>
+    <div class="results" id="res-int3d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Zero Contour on z-Slice — numerical</div>
+    <div class="field">
+      <div class="row" style="gap:5px">
+        <input type="number" id="roots3n" class="ninput" value="80" min="20" max="300" step="10">
+        <span class="row-label">pts/axis</span>
+      </div>
+    </div>
+    <button class="btn" id="btn-roots3d" style="width:100%;margin-bottom:7px">Find &amp; Visualize f = 0 on Slice</button>
+    <div class="results" id="res-roots3d">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Local Extrema on z-Slice</div>
+    <button class="btn" id="btn-extrema3d" style="width:100%;margin-bottom:7px">Find Local Max / Min / Saddle</button>
+    <div class="results" id="res-extrema3d">—</div>
+  </div>
+</div><!-- /ctrl-3d -->
+
+<!-- ══════ COMPLEX PANEL ══════ -->
+<div id="ctrl-cx" class="ctrl-panel">
+  <div class="section">
+    <div class="sec-label">Presets</div>
+    <div class="preset-wrap">
+      <select id="precx" class="psel">
+        <option value="">— choose preset —</option>
+        <optgroup label="Polynomial / Algebraic">
+          <option value="z^2|-3|3|-3|3">z²</option>
+          <option value="z^3|-2|2|-2|2">z³</option>
+          <option value="z^3 - 1|-2|2|-2|2">z³ − 1 (cube roots of unity)</option>
+          <option value="z^4 - 1|-2|2|-2|2">z⁴ − 1 (4 roots)</option>
+          <option value="z^5 - 1|-2|2|-2|2">z⁵ − 1 (5 roots)</option>
+          <option value="z^2 + 1|-2|2|-2|2">z² + 1 (±i roots)</option>
+          <option value="z^3 - z|-2.5|2.5|-2.5|2.5">z³ − z (roots 0,±1)</option>
+          <option value="(z^2-1)*(z^2+1)|-2|2|-2|2">(z²−1)(z²+1)</option>
+          <option value="z^6 - 1|-2|2|-2|2">z⁶ − 1 (6th roots)</option>
+        </optgroup>
+        <optgroup label="Exponential / Trigonometric">
+          <option value="exp(z)|-3|3|-3|3">e^z</option>
+          <option value="exp(i*z)|-5|5|-3|3">e^(iz)</option>
+          <option value="sin(z)|-4|4|-3|3">sin(z)</option>
+          <option value="cos(z)|-4|4|-3|3">cos(z)</option>
+          <option value="sinh(z)|-3|3|-3|3">sinh(z)</option>
+          <option value="cosh(z)|-3|3|-3|3">cosh(z)</option>
+          <option value="exp(z^2)|-2|2|-2|2">e^(z²)</option>
+          <option value="sin(z^2)|-2.5|2.5|-2.5|2.5">sin(z²)</option>
+          <option value="exp(i*z^2)|-3|3|-3|3">e^(iz²) — Fresnel</option>
+        </optgroup>
+        <optgroup label="Rational (Poles & Zeros)">
+          <option value="1/z|-3|3|-3|3">1/z — simple pole at 0</option>
+          <option value="1/(z^2+1)|-3|3|-3|3">1/(z²+1)</option>
+          <option value="(z^2-1)/(z^2+1)|-3|3|-3|3">(z²−1)/(z²+1)</option>
+          <option value="z/(z^2-1)|-3|3|-3|3">z/(z²−1)</option>
+          <option value="1/(z^3-1)|-2.5|2.5|-2.5|2.5">1/(z³−1)</option>
+          <option value="(z-1)/(z+1)|-3|3|-3|3">Möbius (z−1)/(z+1)</option>
+          <option value="z^2/(z^3+1)|-2.5|2.5|-2.5|2.5">z²/(z³+1)</option>
+          <option value="(z^2+z+1)/(z^3-1)|-2.5|2.5|-2.5|2.5">Rational with multiple poles</option>
+        </optgroup>
+        <optgroup label="Logarithm / Power / Branch">
+          <option value="log(z)|-3|3|-3|3">log(z) — branch cut</option>
+          <option value="sqrt(z)|-3|3|-3|3">√z — branch cut</option>
+          <option value="z*log(z)|-3|3|-3|3">z·log(z)</option>
+          <option value="log(z^2-1)|-3|3|-3|3">log(z²−1)</option>
+          <option value="log((z+1)/(z-1))|-3|3|-3|3">log Möbius</option>
+        </optgroup>
+        <optgroup label="Essential Singularities / Special">
+          <option value="exp(1/z)|-2|2|-2|2">e^(1/z) — essential sing.</option>
+          <option value="sin(1/z)|-1.5|1.5|-1.5|1.5">sin(1/z)</option>
+          <option value="z*sin(1/z)|-2|2|-2|2">z·sin(1/z)</option>
+          <option value="exp(z)-z|-3|3|-3|3">e^z − z</option>
+          <option value="tan(z)|-4|4|-3|3">tan(z)</option>
+          <option value="tanh(z)|-4|4|-3|3">tanh(z)</option>
+          <option value="z-sin(z)|-4|4|-4|4">z − sin(z)</option>
+          <option value="exp(z)-1-z|-3|3|-3|3">e^z − 1 − z</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Function</div>
+    <div class="field">
+      <div class="field-label">f(z) = (use z, or x+i*y)</div>
+      <input type="text" id="fncx" class="finput" value="exp(z)" spellcheck="false">
+    </div>
+    <div class="status" id="stcx"></div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Domain  z = x + iy</div>
+    <div class="field">
+      <div class="field-label">Re(z) range</div>
+      <div class="row">
+        <input type="number" id="xcmin" class="ninput" value="-3" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="xcmax" class="ninput" value="3" step="0.5">
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Im(z) range</div>
+      <div class="row">
+        <input type="number" id="ycmin" class="ninput" value="-3" step="0.5">
+        <span class="row-label">to</span>
+        <input type="number" id="ycmax" class="ninput" value="3" step="0.5">
+      </div>
+    </div>
+    <div class="sl-wrap">
+      <div class="sl-hdr"><span class="sl-name">Resolution</span><span class="sl-val" id="sv-resc">200</span></div>
+      <input type="range" id="sl-resc" min="50" max="500" value="200" step="10">
+    </div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Visualization Mode</div>
+    <div class="btns">
+      <button class="btn con" data-cmode="magnitude">|f| mag</button>
+      <button class="btn"     data-cmode="phase">arg phase</button>
+      <button class="btn"     data-cmode="real">Re(f)</button>
+      <button class="btn"     data-cmode="imag">Im(f)</button>
+    </div>
+    <button class="brun" id="btn-plotcx">▶  PLOT</button>
+  </div>
+  <div class="section">
+    <div class="sec-label">Symbolic Derivative</div>
+    <button class="btn" id="btn-diffcx" style="width:100%;margin-bottom:7px">Compute f′(z)</button>
+    <div class="results" id="res-diffcx">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Complex Roots — Newton's Method</div>
+    <div class="field">
+      <div class="field-label">Starting grid N×N</div>
+      <div class="row" style="gap:5px">
+        <input type="number" id="cx-ngrid" class="ninput" value="25" min="5" max="80" step="5">
+        <span class="row-label">pts/axis</span>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Convergence tolerance</div>
+      <div class="row" style="gap:5px">
+        <input type="text" id="cx-tol" class="ninput" value="1e-8">
+        <span class="row-label">|f|&lt;</span>
+      </div>
+    </div>
+    <button class="btn" id="btn-rootscx" style="width:100%;margin-bottom:7px">Find &amp; Visualize Roots</button>
+    <div class="results" id="res-rootscx">—</div>
+  </div>
+  <div class="section">
+    <div class="sec-label">Local Extrema of |f(z)|</div>
+    <button class="btn" id="btn-extremacx" style="width:100%;margin-bottom:7px">Find Local Max / Min / Saddle</button>
+    <div class="results" id="res-extremacx">—</div>
+  </div>
+</div><!-- /ctrl-cx -->
+
+</div><!-- /controls -->
+
+<!-- ══════ VIZ AREA ══════ -->
+<div class="viz-area">
+  <div id="plot-1d" class="plot-panel active">
+    <div class="plot-box" id="chart-1d"></div>
+  </div>
+  <div id="plot-2d" class="plot-panel">
+    <div class="modebar">
+      <span class="modebar-label">view</span>
+      <button class="mbtn amber active" data-2dmode="surface">Surface</button>
+      <button class="mbtn amber" data-2dmode="contour">Contour</button>
+      <button class="mbtn amber" data-2dmode="both">Both</button>
+      <div class="msep"></div>
+      <span class="modebar-label">overlay</span>
+      <button class="mbtn" id="mb-grad">∇f field</button>
+      <button class="mbtn" id="mb-zero">f = 0</button>
+    </div>
+    <div class="plot-box" id="chart-2d"></div>
+  </div>
+  <div id="plot-3d" class="plot-panel">
+    <div class="modebar">
+      <span class="modebar-label">display</span>
+      <button class="mbtn amber active" data-3dmode="surface">Surface</button>
+      <button class="mbtn amber" data-3dmode="heatmap">Heatmap</button>
+      <button class="mbtn amber" data-3dmode="contour">Contour</button>
+      <div class="msep"></div>
+      <span class="mpill" id="z0-info">z₀ = 0.00</span>
+    </div>
+    <div class="plot-box" id="chart-3d"></div>
+  </div>
+  <div id="plot-cx" class="plot-panel">
+    <div class="modebar">
+      <span class="modebar-label">domain coloring</span>
+      <button class="mbtn active" id="mb-cmag">|f(z)| mag</button>
+      <button class="mbtn" id="mb-carg">arg phase</button>
+      <button class="mbtn" id="mb-cre">Re(f)</button>
+      <button class="mbtn" id="mb-cim">Im(f)</button>
+    </div>
+    <div class="plot-box" id="chart-cx"></div>
+  </div>
+</div>
+</div><!-- /layout -->
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════
+   PLOTLY THEME
+══════════════════════════════════════════════════ */
+let PLT_BG='#070b12', PLT_PAP='#0c1220', PLT_GRID='#152030', PLT_ZERO='#253a55';
+const C_AMBER='#f59e0b', C_CYAN='#22d3ee', C_GREEN='#4ade80', C_RED='#f87171', C_PURPLE='#a78bfa';
+let C_TEXT='#dde4f0';
+const FONT_M='Space Mono, monospace';
+let CURRENT_THEME='dark';
+
+const THEME_PALETTES={
+  dark:{bg:'#070b12',pap:'#0c1220',grid:'#152030',zero:'#253a55',text:'#dde4f0'},
+  light:{bg:'#ffffff',pap:'#f4f6fb',grid:'#dbe1ee',zero:'#aeb9cf',text:'#1a2236'}
+};
+
+function applyPlotTheme(theme){
+  const p=THEME_PALETTES[theme];
+  PLT_BG=p.bg;PLT_PAP=p.pap;PLT_GRID=p.grid;PLT_ZERO=p.zero;C_TEXT=p.text;
+  CURRENT_THEME=theme;
+}
+
+function baseLayout(title=''){
+  return {
+    title:title?{text:title,font:{family:FONT_M,size:11,color:'#5d7291'}}:undefined,
+    paper_bgcolor:PLT_PAP, plot_bgcolor:PLT_BG,
+    font:{color:C_TEXT,family:FONT_M,size:10},
+    margin:{l:54,r:18,t:title?38:18,b:48},
+    xaxis:{gridcolor:PLT_GRID,zerolinecolor:PLT_ZERO,zerolinewidth:1.5,linecolor:PLT_ZERO,tickfont:{size:10}},
+    yaxis:{gridcolor:PLT_GRID,zerolinecolor:PLT_ZERO,zerolinewidth:1.5,linecolor:PLT_ZERO,tickfont:{size:10}},
+    legend:{bgcolor:'rgba(12,18,32,.85)',bordercolor:'#1a2640',borderwidth:1,font:{size:10}}
+  };
+}
+const PLT_CFG={responsive:true,displayModeBar:true,displaylogo:false,
+  modeBarButtonsToRemove:['sendDataToCloud'],
+  toImageButtonOptions:{format:'png',width:1400,height:900}};
+
+/* ══════════════════════════════════════════════════
+   MATH UTILITIES
+══════════════════════════════════════════════════ */
+function linspace(a,b,n){
+  const h=(b-a)/(n-1),arr=new Array(n);
+  for(let i=0;i<n;i++) arr[i]=a+i*h;
+  return arr;
+}
+function fmt(v,sig=6){
+  if(v===undefined||v===null) return '—';
+  if(isNaN(v)||!isFinite(v)) return 'undefined';
+  if(Math.abs(v)<1e-11) return '0';
+  if(Math.abs(v)<1e-3||Math.abs(v)>1e6) return v.toExponential(4);
+  return parseFloat(v.toPrecision(sig)).toString();
+}
+function fmtCx(z){
+  if(!z) return 'undefined';
+  const re=typeof z==='number'?z:(z.re??NaN);
+  const im=typeof z==='number'?0:(z.im??0);
+  if(!isFinite(re)) return 'undefined';
+  return `${fmt(re,5)} ${im<0?'−':'+' } ${fmt(Math.abs(im),5)}i`;
+}
+
+/* ── Evaluator builders ── */
+function make1D(expr){
+  try{
+    const c=math.compile(expr);
+    return x=>{
+      try{
+        const r=c.evaluate({x,e:Math.E,pi:Math.PI});
+        const v=typeof r==='number'?r:(r&&r.re!==undefined?r.re:NaN);
+        return isFinite(v)?v:NaN;
+      }catch{return NaN;}
+    };
+  }catch{return null;}
+}
+function make2D(expr){
+  try{
+    const c=math.compile(expr);
+    return (x,y)=>{
+      try{
+        const r=c.evaluate({x,y,e:Math.E,pi:Math.PI});
+        const v=typeof r==='number'?r:(r&&r.re!==undefined?r.re:NaN);
+        return isFinite(v)?v:NaN;
+      }catch{return NaN;}
+    };
+  }catch{return null;}
+}
+function make3D(expr){
+  try{
+    const c=math.compile(expr);
+    return (x,y,z)=>{
+      try{
+        const r=c.evaluate({x,y,z,e:Math.E,pi:Math.PI});
+        const v=typeof r==='number'?r:(r&&r.re!==undefined?r.re:NaN);
+        return isFinite(v)?v:NaN;
+      }catch{return NaN;}
+    };
+  }catch{return null;}
+}
+function makeCx(expr){
+  try{
+    const c=math.compile(expr);
+    return z=>{
+      try{
+        return c.evaluate({z,x:z.re??(typeof z==='number'?z:0),y:z.im??0,
+          i:math.complex(0,1),e:Math.E,pi:Math.PI});
+      }catch{return null;}
+    };
+  }catch{return null;}
+}
+
+/* ── Symbolic diff ── */
+function symDiff(expr,v){
+  try{const d=math.derivative(math.parse(expr),v);return{ok:true,str:d.toString()};}
+  catch(e){return{ok:false,err:e.message};}
+}
+
+/* ── Numerical derivatives ── */
+function numD(f,x){const h=Math.max(1e-7,Math.abs(x)*1e-6);return(f(x+h)-f(x-h))/(2*h);}
+function partials2(f,x,y){
+  const h=1e-6;
+  return{gx:(f(x+h,y)-f(x-h,y))/(2*h),gy:(f(x,y+h)-f(x,y-h))/(2*h)};
+}
+function partials3(f,x,y,z){
+  const h=1e-6;
+  return{
+    gx:(f(x+h,y,z)-f(x-h,y,z))/(2*h),
+    gy:(f(x,y+h,z)-f(x,y-h,z))/(2*h),
+    gz:(f(x,y,z+h)-f(x,y,z-h))/(2*h)
+  };
+}
+
+/* ══════════════════════════════════════════════════
+   NUMERICAL INTEGRATION
+══════════════════════════════════════════════════ */
+function simp1D(f,a,b,n=1000){
+  if(n%2!==0)n++;
+  const h=(b-a)/n;let s=0;
+  const fa=f(a),fb=f(b);
+  if(isFinite(fa))s+=fa; if(isFinite(fb))s+=fb;
+  for(let i=1;i<n;i++){const v=f(a+i*h);if(isFinite(v))s+=(i%2===0?2:4)*v;}
+  return(h/3)*s;
+}
+function simp2D(f,xa,xb,ya,yb,nx=60,ny=60){
+  if(nx%2!==0)nx++;if(ny%2!==0)ny++;
+  const hx=(xb-xa)/nx,hy=(yb-ya)/ny;let tot=0;
+  for(let i=0;i<=nx;i++){
+    const wx=(i===0||i===nx)?1:(i%2===0?2:4),x=xa+i*hx;let row=0;
+    for(let j=0;j<=ny;j++){const wy=(j===0||j===ny)?1:(j%2===0?2:4);const v=f(x,ya+j*hy);if(isFinite(v))row+=wy*v;}
+    tot+=wx*row;
+  }
+  return(hx*hy/9)*tot;
+}
+function simp3D(f,xa,xb,ya,yb,za,zb,n=18){
+  if(n%2!==0)n++;
+  const hx=(xb-xa)/n,hy=(yb-ya)/n,hz=(zb-za)/n;let tot=0;
+  for(let i=0;i<=n;i++){const wx=(i===0||i===n)?1:(i%2===0?2:4);
+    for(let j=0;j<=n;j++){const wy=(j===0||j===n)?1:(j%2===0?2:4);
+      for(let k=0;k<=n;k++){const wz=(k===0||k===n)?1:(k%2===0?2:4);
+        const v=f(xa+i*hx,ya+j*hy,za+k*hz);if(isFinite(v))tot+=wx*wy*wz*v;
+      }}}
+  return(hx*hy*hz/27)*tot;
+}
+
+/* ══════════════════════════════════════════════════
+   ROOT FINDING
+══════════════════════════════════════════════════ */
+/* ── 1D bisection scan ── */
+function bisect(f,a,b,tol=1e-11,maxIt=80){
+  let fa=f(a);
+  for(let i=0;i<maxIt;i++){
+    const m=(a+b)/2,fm=f(m);
+    if(Math.abs(fm)<tol||(b-a)<tol)return m;
+    fa*fm<0?(b=m):(a=m,fa=fm);
+  }
+  return(a+b)/2;
+}
+function findRoots1D(f,a,b,nScan=2000){
+  const h=(b-a)/nScan,roots=[];let px=a,pf=f(a);
+  for(let i=1;i<=nScan;i++){
+    const x=a+i*h,fx=f(x);
+    if(isFinite(pf)&&isFinite(fx)){
+      if(Math.abs(fx)<1e-11)roots.push(x);
+      else if(pf*fx<0){try{roots.push(bisect(f,px,x));}catch{}}
+    }
+    px=x;pf=fx;
+  }
+  const uniq=[];
+  for(const r of roots)if(isFinite(r)&&!uniq.some(u=>Math.abs(u-r)<1e-6))uniq.push(r);
+  return uniq.sort((a,b)=>a-b);
+}
+
+/* ── Local extrema: locate f'(x)=0 crossings, classify via f''(x) sign ── */
+function findExtrema1D(f,dfn,d2fn,a,b,nScan=2000){
+  const critPts=findRoots1D(dfn,a,b,nScan);
+  const out=[];
+  for(const x of critPts){
+    const y=f(x);
+    if(!isFinite(y))continue;
+    let d2=d2fn(x),type=null;
+    if(isFinite(d2)&&Math.abs(d2)>1e-7){
+      type=d2<0?'max':'min';
+    } else {
+      const h=Math.max(1e-4,Math.abs(x)*1e-4+1e-5);
+      const left=dfn(x-h),right=dfn(x+h);
+      if(isFinite(left)&&isFinite(right)){
+        if(left>0&&right<0)type='max';
+        else if(left<0&&right>0)type='min';
+      }
+    }
+    if(type)out.push({x,y,type});
+  }
+  return out;
+}
+
+/* ── Generic 2D critical points: solve ∇g=0 via Newton, classify via Hessian.
+   g(x,y) is any scalar function of two reals — reused for f(x,y), a fixed-z
+   slice of f(x,y,z), and |f(z)| in the complex module. ── */
+function hessianGeneric(g,x,y,h=1e-4){
+  const gxx=(g(x+h,y)-2*g(x,y)+g(x-h,y))/(h*h);
+  const gyy=(g(x,y+h)-2*g(x,y)+g(x,y-h))/(h*h);
+  const gxy=(g(x+h,y+h)-g(x+h,y-h)-g(x-h,y+h)+g(x-h,y-h))/(4*h*h);
+  return{gxx,gyy,gxy};
+}
+function newton2D(g,x0,y0,tol=1e-8,maxIt=60){
+  let x=x0,y=y0;
+  for(let i=0;i<maxIt;i++){
+    const{gx,gy}=partials2(g,x,y);
+    if(!isFinite(gx)||!isFinite(gy))return null;
+    if(Math.hypot(gx,gy)<tol)return{x,y};
+    const{gxx,gyy,gxy}=hessianGeneric(g,x,y);
+    const det=gxx*gyy-gxy*gxy;
+    if(!isFinite(det)||Math.abs(det)<1e-12)return null;
+    const dx=-(gyy*gx-gxy*gy)/det, dy=-(-gxy*gx+gxx*gy)/det;
+    if(!isFinite(dx)||!isFinite(dy))return null;
+    x+=dx;y+=dy;
+    if(Math.hypot(dx,dy)<tol)return{x,y};
+  }
+  const{gx,gy}=partials2(g,x,y);
+  return Math.hypot(gx,gy)<1e-4?{x,y}:null;
+}
+function findExtrema2D(g,xmin,xmax,ymin,ymax,gridN=12){
+  const results=[],dx=(xmax-xmin)/gridN,dy=(ymax-ymin)/gridN;
+  const dedupTol=Math.max((xmax-xmin),(ymax-ymin))*1e-4;
+  for(let i=0;i<=gridN;i++){
+    for(let j=0;j<=gridN;j++){
+      const r=newton2D(g,xmin+i*dx,ymin+j*dy);
+      if(!r)continue;
+      const{x,y}=r;
+      if(x<xmin-1e-6||x>xmax+1e-6||y<ymin-1e-6||y>ymax+1e-6)continue;
+      const fv=g(x,y);
+      if(!isFinite(fv))continue;
+      const{gx,gy}=partials2(g,x,y);
+      if(!isFinite(gx)||!isFinite(gy)||Math.hypot(gx,gy)>1e-3)continue;
+      if(results.some(u=>Math.hypot(u.x-x,u.y-y)<dedupTol))continue;
+      const{gxx,gyy,gxy}=hessianGeneric(g,x,y);
+      const det=gxx*gyy-gxy*gxy;
+      let type;
+      if(det>1e-9)type=gxx<0?'max':'min';
+      else if(det<-1e-9)type='saddle';
+      else continue;
+      results.push({x,y,f:fv,type});
+    }
+  }
+  return results;
+}
+
+/* ── 2D/3D: marching-squares sign-change contour f=0
+   Scans every cell edge for sign change and linear-interpolates the crossing.
+   Returns scatter points on the zero level set. ── */
+function zeroContour2D(f,xmin,xmax,ymin,ymax,N=120){
+  const xs=linspace(xmin,xmax,N), ys=linspace(ymin,ymax,N);
+  // Build value grid
+  const V=[];
+  for(let j=0;j<N;j++){V.push(new Float64Array(N));for(let i=0;i<N;i++)V[j][i]=f(xs[i],ys[j]);}
+  const px=[],py=[];
+  for(let j=0;j<N-1;j++){
+    for(let i=0;i<N-1;i++){
+      const v00=V[j][i],v10=V[j][i+1],v01=V[j+1][i],v11=V[j+1][i+1];
+      // Bottom edge
+      if(isFinite(v00)&&isFinite(v10)&&v00*v10<0){
+        const t=v00/(v00-v10);px.push(xs[i]+t*(xs[i+1]-xs[i]));py.push(ys[j]);}
+      // Left edge
+      if(isFinite(v00)&&isFinite(v01)&&v00*v01<0){
+        const t=v00/(v00-v01);px.push(xs[i]);py.push(ys[j]+t*(ys[j+1]-ys[j]));}
+      // Diagonal (extra coverage for thin curves)
+      if(isFinite(v10)&&isFinite(v01)&&v10*v01<0){
+        const t=v10/(v10-v01);px.push(xs[i+1]+t*(xs[i]-xs[i+1]));py.push(ys[j]+t*(ys[j+1]-ys[j]));}
+    }
+  }
+  return{px,py};
+}
+
+/* ── 3D: fix z=z0, trace f(x,y,z0)=0 in 2D ── */
+function zeroContour3D(f,xmin,xmax,ymin,ymax,z0,N=80){
+  return zeroContour2D((x,y)=>f(x,y,z0),xmin,xmax,ymin,ymax,N);
+}
+
+/* ── Complex Newton ── */
+function newtonCx(f,z0,tol=1e-10,maxIt=100){
+  let z=z0;const h=1e-7;
+  for(let i=0;i<maxIt;i++){
+    let fz,fzh;
+    try{fz=f(z);}catch{return null;}if(!fz)return null;
+    try{fzh=f(math.add(z,math.complex(h,0)));}catch{return null;}if(!fzh)return null;
+    const dfz=math.divide(math.subtract(fzh,fz),h);
+    if(math.abs(dfz)<1e-14)return z;
+    const step=math.divide(fz,dfz);
+    z=math.subtract(z,step);
+    if(math.abs(step)<tol)return z;
+  }
+  return z;
+}
+function findCxRoots(f,xmin,xmax,ymin,ymax,N=25,tol=1e-8){
+  const roots=[],dx=(xmax-xmin)/N,dy=(ymax-ymin)/N;
+  for(let i=0;i<N;i++){for(let j=0;j<N;j++){
+    const z0=math.complex(xmin+(i+.5)*dx,ymin+(j+.5)*dy);
+    try{
+      const r=newtonCx(f,z0,tol);
+      if(!r||!isFinite(r.re)||!isFinite(r.im))continue;
+      // Out of domain? skip
+      if(r.re<xmin-0.5||r.re>xmax+0.5||r.im<ymin-0.5||r.im>ymax+0.5)continue;
+      // Verify convergence
+      let fv;try{fv=f(r);}catch{continue;}
+      if(!fv||math.abs(fv)>tol*1e4)continue;
+      // Dedup
+      const dup=roots.some(u=>{const dr=r.re-u.re,di=r.im-u.im;return Math.sqrt(dr*dr+di*di)<1e-5;});
+      if(!dup)roots.push(r);
+    }catch{}
+  }}
+  return roots;
+}
+
+/* ══════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════ */
+let fn1D=null,fn2D=null,fn3D=null,fnCx=null;
+let mode2D='surface',mode3D='surface',modeCx='magnitude';
+let showGrad2D=false,showZero2D=false;
+
+/* ══════════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+function setStatus(id,msg,type=''){const e=$(id);if(e){e.textContent=msg;e.className='status '+type;}}
+function setResult(id,html){const e=$(id);if(e)e.innerHTML=html||'—';}
+function rline(k,v,cls=''){return`<div class="rline"><span class="rkey">${k}</span><span class="rval ${cls}">${v}</span></div>`;}
+function busy(id){setResult(id,'<span style="color:var(--cyan)">Computing…</span>');}
+
+/* ══════════════════════════════════════════════════
+   PRESETS
+══════════════════════════════════════════════════ */
+function applyPreset1D(val){
+  if(!val)return;const[expr,xmin,xmax]=val.split('|');
+  $('fn1d').value=expr;if(xmin)$('x1min').value=xmin;if(xmax)$('x1max').value=xmax;plot1D();
+}
+function applyPreset2D(val){
+  if(!val)return;const[expr,xmin,xmax,ymin,ymax]=val.split('|');
+  $('fn2d').value=expr;$('x2min').value=xmin;$('x2max').value=xmax;
+  $('y2min').value=ymin;$('y2max').value=ymax;plot2D();
+}
+function applyPreset3D(val){
+  if(!val)return;const[expr,xmin,xmax,ymin,ymax]=val.split('|');
+  $('fn3d').value=expr;$('x3min').value=xmin;$('x3max').value=xmax;
+  $('y3min').value=ymin;$('y3max').value=ymax;plot3D();
+}
+function applyPresetCx(val){
+  if(!val)return;const[expr,xmin,xmax,ymin,ymax]=val.split('|');
+  $('fncx').value=expr;$('xcmin').value=xmin;$('xcmax').value=xmax;
+  $('ycmin').value=ymin;$('ycmax').value=ymax;plotCx();
+}
+
+/* ══════════════════════════════════════════════════
+   1D MODULE
+══════════════════════════════════════════════════ */
+function compile1D(){
+  fn1D=make1D($('fn1d').value.trim());
+  $('fn1d').classList.toggle('err',!fn1D);
+  setStatus('st1d',fn1D?'✓ valid':'✗ parse error',fn1D?'ok':'err');
+  return!!fn1D;
+}
+function plot1D(){
+  if(!compile1D())return;
+  const xmin=+$('x1min').value,xmax=+$('x1max').value,res=+$('sl-res1').value;
+  if(xmin>=xmax){setStatus('st1d','x-min must be < x-max','err');return;}
+  const expr=$('fn1d').value.trim();
+  const xs=linspace(xmin,xmax,res),ys=xs.map(fn1D);
+  const traces=[];
+  if($('chk-fx').checked)
+    traces.push({x:xs,y:ys,type:'scatter',mode:'lines',name:'f(x)',
+      line:{color:C_AMBER,width:2.2},connectgaps:false});
+  if($('chk-dfx').checked){
+    const sym=symDiff(expr,'x'),dfn=sym.ok?make1D(sym.str):null;
+    traces.push({x:xs,y:xs.map(x=>dfn?dfn(x):numD(fn1D,x)),type:'scatter',mode:'lines',name:"f′(x)",
+      line:{color:C_CYAN,width:1.6,dash:'dot'},connectgaps:false});
+  }
+  if($('chk-d2fx').checked){
+    const s1=symDiff(expr,'x'),s2=s1.ok?symDiff(s1.str,'x'):{ok:false};
+    const d2fn=s2.ok?make1D(s2.str):null;
+    traces.push({x:xs,y:xs.map(x=>d2fn?d2fn(x):numD(t=>numD(fn1D,t),x)),type:'scatter',mode:'lines',name:"f″(x)",
+      line:{color:C_PURPLE,width:1.4,dash:'dashdot'},connectgaps:false});
+  }
+  if($('chk-area').checked){
+    const a=+$('int1a').value,b=+$('int1b').value;
+    if(a<b){
+      const ixs=linspace(Math.max(a,xmin),Math.min(b,xmax),Math.min(res,600));
+      traces.push({x:ixs,y:ixs.map(fn1D),type:'scatter',mode:'lines',name:'∫ area',
+        fill:'tozeroy',fillcolor:'rgba(245,158,11,0.13)',line:{color:'rgba(245,158,11,0.4)',width:1},connectgaps:false});
+    }
+  }
+  if($('chk-roots').checked){
+    const roots=findRoots1D(fn1D,xmin,xmax,1200);
+    if(roots.length>0)
+      traces.push({x:roots,y:roots.map(()=>0),type:'scatter',mode:'markers',
+        name:`roots(${roots.length})`,marker:{color:C_RED,size:9,symbol:'circle',line:{color:'#fff',width:1.5}}});
+  }
+  Plotly.react('chart-1d',traces,{...baseLayout('f(x)'),
+    xaxis:{...baseLayout().xaxis,title:'x'},yaxis:{...baseLayout().yaxis,title:'f(x)'}},PLT_CFG);
+}
+function diff1D(){
+  const expr=$('fn1d').value.trim();
+  const s1=symDiff(expr,'x');
+  if(s1.ok){
+    const s2=symDiff(s1.str,'x'),s3=s2.ok?symDiff(s2.str,'x'):{ok:false};
+    setResult('res-diff1d',rline('f′(x) =',s1.str)+(s2.ok?rline('f″(x) =',s2.str):'')+(s3.ok?rline('f‴(x) =',s3.str):''));
+  } else {
+    if(!compile1D())return;
+    let h='<div class="rline"><span class="rkey">Numerical f′(x) at sample x</span></div>';
+    [-3,-2,-1,0,1,2,3].forEach(x=>h+=rline(`x=${x}`,fmt(numD(fn1D,x))));
+    setResult('res-diff1d',h);
+  }
+}
+function integrate1D(){
+  if(!compile1D())return;
+  const a=+$('int1a').value,b=+$('int1b').value;
+  if(!isFinite(a)||!isFinite(b)){setResult('res-int1d','<span style="color:var(--red)">Invalid bounds</span>');return;}
+  if(a>=b){setResult('res-int1d','<span style="color:var(--red)">a must be &lt; b</span>');return;}
+  const v1=simp1D(fn1D,a,b,1000),v2=simp1D(fn1D,a,b,2000),err=Math.abs(v2-v1);
+  setResult('res-int1d',rline(`∫[${fmt(a,3)},${fmt(b,3)}] f dx`,fmt(v2),'g')+
+    rline('Est. error (Richardson)',err<1e-12?'< 1e-12':err.toExponential(2),'c'));
+}
+function roots1D(){
+  if(!compile1D())return;
+  const roots=findRoots1D(fn1D,+$('x1min').value,+$('x1max').value);
+  if(!roots.length){setResult('res-roots1d','<span style="color:var(--text-muted)">No roots found in domain</span>');return;}
+  let h=rline(`Found ${roots.length} root(s)`,'');
+  roots.forEach(r=>h+=rline('x =',fmt(r),'g'));
+  setResult('res-roots1d',h);
+}
+function extrema1D(){
+  if(!compile1D())return;
+  const a=+$('x1min').value,b=+$('x1max').value;
+  if(a>=b){setResult('res-extrema1d','<span style="color:var(--red)">Invalid x-range</span>');return;}
+  const expr=$('fn1d').value.trim();
+  const s1=symDiff(expr,'x');
+  const dfn=s1.ok?make1D(s1.str):(x=>numD(fn1D,x));
+  const s2=s1.ok?symDiff(s1.str,'x'):{ok:false};
+  const d2fn=s2.ok?make1D(s2.str):(x=>numD(t=>numD(fn1D,t),x));
+  const pts=findExtrema1D(fn1D,dfn,d2fn,a,b,2000);
+
+  // Redraw base curve, then overlay markers
+  plot1D();
+  const maxima=pts.filter(p=>p.type==='max'), minima=pts.filter(p=>p.type==='min');
+  const overlay=[];
+  if(maxima.length)
+    overlay.push({x:maxima.map(p=>p.x),y:maxima.map(p=>p.y),type:'scatter',mode:'markers',
+      name:`maxima (${maxima.length})`,marker:{color:C_GREEN,size:11,symbol:'triangle-up',line:{color:'#fff',width:1.2}}});
+  if(minima.length)
+    overlay.push({x:minima.map(p=>p.x),y:minima.map(p=>p.y),type:'scatter',mode:'markers',
+      name:`minima (${minima.length})`,marker:{color:C_PURPLE,size:11,symbol:'triangle-down',line:{color:'#fff',width:1.2}}});
+  if(overlay.length)Plotly.addTraces('chart-1d',overlay);
+
+  if(!pts.length){setResult('res-extrema1d','<span style="color:var(--text-muted)">No local extrema found in domain</span>');return;}
+  let h=rline(`Found ${maxima.length} max, ${minima.length} min`,'');
+  pts.sort((p,q)=>p.x-q.x).forEach(p=>{
+    h+=rline(p.type==='max'?'▲ local max x =':'▼ local min x =',`${p.x.toFixed(3)}  (f=${p.y.toFixed(3)})`,p.type==='max'?'g':'p');
+  });
+  setResult('res-extrema1d',h);
+}
+
+/* ══════════════════════════════════════════════════
+   2D MODULE
+══════════════════════════════════════════════════ */
+function compile2D(){
+  fn2D=make2D($('fn2d').value.trim());
+  $('fn2d').classList.toggle('err',!fn2D);
+  setStatus('st2d',fn2D?'✓ valid':'✗ parse error',fn2D?'ok':'err');
+  return!!fn2D;
+}
+function buildZ2D(xs,ys){return ys.map(y=>xs.map(x=>fn2D(x,y)));}
+function plot2D(){
+  if(!compile2D())return;
+  const xmin=+$('x2min').value,xmax=+$('x2max').value;
+  const ymin=+$('y2min').value,ymax=+$('y2max').value;
+  const res=+$('sl-res2').value;
+  if(xmin>=xmax||ymin>=ymax){setStatus('st2d','Invalid range','err');return;}
+  const xs=linspace(xmin,xmax,res),ys=linspace(ymin,ymax,res),Z=buildZ2D(xs,ys);
+  const traces=[];
+  const is3D=mode2D==='surface'||mode2D==='both';
+  if(is3D)
+    traces.push({type:'surface',x:xs,y:ys,z:Z,colorscale:'Plasma',showscale:true,name:'f(x,y)',
+      contours:mode2D==='both'?{z:{show:true,usecolormap:false,color:C_CYAN,width:1,project:{z:true}}}:{}});
+  if(mode2D==='contour')
+    traces.push({type:'contour',x:xs,y:ys,z:Z,colorscale:'Plasma',showscale:true,
+      contours:{coloring:'heatmap'},line:{smoothing:.85},name:'f(x,y)'});
+  if(showZero2D)
+    traces.push({type:'contour',x:xs,y:ys,z:Z,colorscale:[[0,C_CYAN],[1,C_CYAN]],showscale:false,
+      contours:{start:0,end:0,size:1},line:{color:C_CYAN,width:2.8},name:'f=0'});
+  if(showGrad2D&&!is3D){
+    const gN=14,sc=Math.min(xmax-xmin,ymax-ymin)/(gN*1.8);
+    const gXs=linspace(xmin,xmax,gN),gYs=linspace(ymin,ymax,gN),ax=[],ay=[];
+    gXs.forEach(x=>gYs.forEach(y=>{
+      const{gx,gy}=partials2(fn2D,x,y),mag=Math.sqrt(gx*gx+gy*gy);
+      if(!isFinite(mag)||mag<1e-10)return;
+      ax.push(x,x+gx/mag*sc,null);ay.push(y,y+gy/mag*sc,null);
+    }));
+    traces.push({type:'scatter',x:ax,y:ay,mode:'lines',line:{color:'rgba(245,158,11,.6)',width:1.2},name:'∇f',hoverinfo:'skip'});
+  }
+  const layout=is3D
+    ?{...baseLayout('f(x,y)'),scene:{bgcolor:PLT_BG,xaxis:{gridcolor:PLT_GRID,title:'x'},
+        yaxis:{gridcolor:PLT_GRID,title:'y'},zaxis:{gridcolor:PLT_GRID,title:'f'}},margin:{l:0,r:0,t:36,b:0}}
+    :{...baseLayout('f(x,y)'),xaxis:{...baseLayout().xaxis,title:'x'},yaxis:{...baseLayout().yaxis,title:'y',scaleanchor:'x'}};
+  Plotly.react('chart-2d',traces,layout,PLT_CFG);
+}
+function partials2D_ui(){
+  if(!compile2D())return;
+  const x=+$('px2x').value,y=+$('px2y').value;
+  const expr=$('fn2d').value.trim();
+  const sdx=symDiff(expr,'x'),sdy=symDiff(expr,'y');
+  const{gx,gy}=partials2(fn2D,x,y);
+  const mag=Math.sqrt(gx*gx+gy*gy);
+  setResult('res-partials',
+    rline('∂f/∂x =',sdx.ok?sdx.str:`≈ ${fmt(gx)}`,sdx.ok?'':'c')+
+    rline('∂f/∂y =',sdy.ok?sdy.str:`≈ ${fmt(gy)}`,sdy.ok?'':'c')+
+    rline(`f(${fmt(x,3)},${fmt(y,3)})`,fmt(fn2D(x,y)))+
+    rline('∂f/∂x at pt',fmt(gx))+rline('∂f/∂y at pt',fmt(gy))+
+    rline('|∇f| at pt',fmt(mag),'c'));
+}
+function integrate2D_ui(){
+  if(!compile2D())return;
+  const xa=+$('ix2a').value,xb=+$('ix2b').value,ya=+$('iy2a').value,yb=+$('iy2b').value;
+  busy('res-int2d');
+  setTimeout(()=>{
+    const val=simp2D(fn2D,xa,xb,ya,yb,80,80);
+    setResult('res-int2d',rline('∬f dA',fmt(val),'g')+
+      rline('x',[`[${fmt(xa)},${fmt(xb)}]`])+rline('y',[`[${fmt(ya)},${fmt(yb)}]`]));
+  },10);
+}
+function roots2D_ui(){
+  if(!compile2D())return;
+  const xmin=+$('x2min').value,xmax=+$('x2max').value;
+  const ymin=+$('y2min').value,ymax=+$('y2max').value;
+  const N=Math.max(30,Math.min(400,+$('roots2n').value||120));
+  busy('res-roots2d');
+  setTimeout(()=>{
+    const{px,py}=zeroContour2D(fn2D,xmin,xmax,ymin,ymax,N);
+    if(!px.length){setResult('res-roots2d','<span style="color:var(--text-muted)">No zero contour found</span>');return;}
+    // Rebuild plot with zero curve overlay
+    const xs=linspace(xmin,xmax,+$('sl-res2').value),ys=linspace(ymin,ymax,+$('sl-res2').value),Z=buildZ2D(xs,ys);
+    const is3D=mode2D==='surface'||mode2D==='both';
+    const traces=is3D
+      ?[{type:'surface',x:xs,y:ys,z:Z,colorscale:'Plasma',showscale:true,opacity:.85},
+        {type:'scatter3d',x:px,y:py,z:px.map(()=>0),mode:'markers',marker:{color:C_GREEN,size:2},name:'f=0'}]
+      :[{type:'contour',x:xs,y:ys,z:Z,colorscale:'Plasma',showscale:true,contours:{coloring:'heatmap'},line:{smoothing:.85}},
+        {type:'scatter',x:px,y:py,mode:'markers',marker:{color:C_GREEN,size:3,opacity:.85},name:`f=0 (${px.length}pts)`}];
+    const layout=is3D
+      ?{...baseLayout('f(x,y) — zero contour'),scene:{bgcolor:PLT_BG,xaxis:{gridcolor:PLT_GRID,title:'x'},
+          yaxis:{gridcolor:PLT_GRID,title:'y'},zaxis:{gridcolor:PLT_GRID,title:'f'}},margin:{l:0,r:0,t:36,b:0}}
+      :{...baseLayout('f(x,y) — zero contour'),xaxis:{...baseLayout().xaxis,title:'x'},
+          yaxis:{...baseLayout().yaxis,title:'y',scaleanchor:'x'}};
+    Plotly.react('chart-2d',traces,layout,PLT_CFG);
+    setResult('res-roots2d',rline('Zero-curve pts',px.length,'g')+rline('Scan grid',`${N}×${N}`,'c')+
+      rline('x',[`[${fmt(xmin)},${fmt(xmax)}]`])+rline('y',[`[${fmt(ymin)},${fmt(ymax)}]`]));
+  },15);
+}
+function extrema2D_ui(){
+  if(!compile2D())return;
+  const xmin=+$('x2min').value,xmax=+$('x2max').value;
+  const ymin=+$('y2min').value,ymax=+$('y2max').value;
+  if(xmin>=xmax||ymin>=ymax){setResult('res-extrema2d','<span style="color:var(--red)">Invalid domain</span>');return;}
+  busy('res-extrema2d');
+  setTimeout(()=>{
+    const pts=findExtrema2D(fn2D,xmin,xmax,ymin,ymax,12);
+    plot2D();
+    const maxima=pts.filter(p=>p.type==='max'),minima=pts.filter(p=>p.type==='min'),saddles=pts.filter(p=>p.type==='saddle');
+    const is3D=mode2D==='surface'||mode2D==='both';
+    const overlay=[];
+    const mk=(list,color,sym3,sym2,name)=>{
+      if(!list.length)return;
+      if(is3D)overlay.push({type:'scatter3d',x:list.map(p=>p.x),y:list.map(p=>p.y),z:list.map(p=>p.f),
+        mode:'markers',name,marker:{color,size:5,symbol:sym3}});
+      else overlay.push({type:'scatter',x:list.map(p=>p.x),y:list.map(p=>p.y),mode:'markers',name,
+        marker:{color,size:11,symbol:sym2,line:{color:'#fff',width:1.2}}});
+    };
+    mk(maxima,C_GREEN,'diamond','triangle-up',`maxima (${maxima.length})`);
+    mk(minima,C_PURPLE,'diamond','triangle-down',`minima (${minima.length})`);
+    mk(saddles,C_CYAN,'x','x',`saddle (${saddles.length})`);
+    if(overlay.length)Plotly.addTraces('chart-2d',overlay);
+    if(!pts.length){setResult('res-extrema2d','<span style="color:var(--text-muted)">No critical points found</span>');return;}
+    let h=rline(`Found ${maxima.length} max, ${minima.length} min, ${saddles.length} saddle`,'');
+    pts.sort((a,b)=>a.x-b.x).forEach(p=>{
+      const sym=p.type==='max'?'▲':(p.type==='min'?'▼':'✕');
+      const cls=p.type==='max'?'g':(p.type==='min'?'p':'c');
+      h+=rline(`${sym} ${p.type} (x,y)`,`(${p.x.toFixed(3)}, ${p.y.toFixed(3)})  f=${p.f.toFixed(3)}`,cls);
+    });
+    setResult('res-extrema2d',h);
+  },15);
+}
+
+/* ══════════════════════════════════════════════════
+   3D MODULE
+══════════════════════════════════════════════════ */
+function compile3D(){
+  fn3D=make3D($('fn3d').value.trim());
+  $('fn3d').classList.toggle('err',!fn3D);
+  setStatus('st3d',fn3D?'✓ valid':'✗ parse error',fn3D?'ok':'err');
+  return!!fn3D;
+}
+function plot3D(){
+  if(!compile3D())return;
+  const xmin=+$('x3min').value,xmax=+$('x3max').value;
+  const ymin=+$('y3min').value,ymax=+$('y3max').value;
+  const z0=+$('sl-z0').value,res=+$('sl-res3').value;
+  if(xmin>=xmax||ymin>=ymax){setStatus('st3d','Invalid range','err');return;}
+  $('z0-info').textContent=`z₀ = ${z0.toFixed(2)}`;
+  const xs=linspace(xmin,xmax,res),ys=linspace(ymin,ymax,res);
+  const Z=ys.map(y=>xs.map(x=>fn3D(x,y,z0)));
+  const title=`f(x,y,z₀=${z0.toFixed(2)})`;
+  let traces,layout;
+  if(mode3D==='surface'){
+    traces=[{type:'surface',x:xs,y:ys,z:Z,colorscale:'Viridis',showscale:true,name:title}];
+    layout={...baseLayout(title),scene:{bgcolor:PLT_BG,xaxis:{gridcolor:PLT_GRID,title:'x'},
+      yaxis:{gridcolor:PLT_GRID,title:'y'},zaxis:{gridcolor:PLT_GRID,title:'f'}},margin:{l:0,r:0,t:36,b:0}};
+  } else if(mode3D==='heatmap'){
+    traces=[{type:'heatmap',x:xs,y:ys,z:Z,colorscale:'Viridis',showscale:true,zsmooth:'best'}];
+    layout={...baseLayout(title),xaxis:{...baseLayout().xaxis,title:'x'},yaxis:{...baseLayout().yaxis,title:'y',scaleanchor:'x'}};
+  } else {
+    traces=[{type:'contour',x:xs,y:ys,z:Z,colorscale:'Viridis',showscale:true,contours:{coloring:'heatmap'},line:{smoothing:.85}}];
+    layout={...baseLayout(title),xaxis:{...baseLayout().xaxis,title:'x'},yaxis:{...baseLayout().yaxis,title:'y',scaleanchor:'x'}};
+  }
+  Plotly.react('chart-3d',traces,layout,PLT_CFG);
+}
+function grad3D_ui(){
+  if(!compile3D())return;
+  const x=+$('gx3').value,y=+$('gy3').value,z=+$('gz3').value;
+  const{gx,gy,gz}=partials3(fn3D,x,y,z);
+  const mag=Math.sqrt(gx*gx+gy*gy+gz*gz);
+  setResult('res-grad3d',
+    rline(`f(${fmt(x,3)},${fmt(y,3)},${fmt(z,3)})`,fmt(fn3D(x,y,z)))+
+    rline('∂f/∂x',fmt(gx))+rline('∂f/∂y',fmt(gy))+rline('∂f/∂z',fmt(gz))+
+    rline('|∇f|',fmt(mag),'c')+
+    rline('∇̂f (unit)',`(${fmt(gx/mag,3)}, ${fmt(gy/mag,3)}, ${fmt(gz/mag,3)})`,'p'));
+}
+function integrate3D_ui(){
+  if(!compile3D())return;
+  const xa=+$('ix3a').value,xb=+$('ix3b').value;
+  const ya=+$('iy3a').value,yb=+$('iy3b').value;
+  const za=+$('iz3a').value,zb=+$('iz3b').value;
+  busy('res-int3d');
+  setTimeout(()=>{
+    const val=simp3D(fn3D,xa,xb,ya,yb,za,zb,20);
+    setResult('res-int3d',rline('∭f dV ≈',fmt(val),'g')+
+      rline('x',[`[${fmt(xa)},${fmt(xb)}]`])+rline('y',[`[${fmt(ya)},${fmt(yb)}]`])+
+      rline('z',[`[${fmt(za)},${fmt(zb)}]`]));
+  },10);
+}
+function roots3D_ui(){
+  if(!compile3D())return;
+  const xmin=+$('x3min').value,xmax=+$('x3max').value;
+  const ymin=+$('y3min').value,ymax=+$('y3max').value;
+  const z0=+$('sl-z0').value;
+  const N=Math.max(20,Math.min(300,+$('roots3n').value||80));
+  busy('res-roots3d');
+  setTimeout(()=>{
+    const{px,py}=zeroContour3D(fn3D,xmin,xmax,ymin,ymax,z0,N);
+    if(!px.length){setResult('res-roots3d','<span style="color:var(--text-muted)">No zero contour on this slice</span>');return;}
+    const xs=linspace(xmin,xmax,+$('sl-res3').value),ys=linspace(ymin,ymax,+$('sl-res3').value);
+    const Z=ys.map(y=>xs.map(x=>fn3D(x,y,z0)));
+    const title=`f(x,y,z₀=${z0.toFixed(2)}) — zero contour`;
+    let traces,layout;
+    if(mode3D==='surface'){
+      traces=[{type:'surface',x:xs,y:ys,z:Z,colorscale:'Viridis',showscale:true,opacity:.85},
+        {type:'scatter3d',x:px,y:py,z:px.map(()=>0),mode:'markers',marker:{color:C_GREEN,size:2.5},name:'f=0'}];
+      layout={...baseLayout(title),scene:{bgcolor:PLT_BG,xaxis:{gridcolor:PLT_GRID,title:'x'},
+        yaxis:{gridcolor:PLT_GRID,title:'y'},zaxis:{gridcolor:PLT_GRID,title:'f'}},margin:{l:0,r:0,t:36,b:0}};
+    } else {
+      traces=[{type:'heatmap',x:xs,y:ys,z:Z,colorscale:'Viridis',showscale:true,zsmooth:'best'},
+        {type:'scatter',x:px,y:py,mode:'markers',marker:{color:C_GREEN,size:3,opacity:.85},name:`f=0 (${px.length}pts)`}];
+      layout={...baseLayout(title),xaxis:{...baseLayout().xaxis,title:'x'},yaxis:{...baseLayout().yaxis,title:'y',scaleanchor:'x'}};
+    }
+    Plotly.react('chart-3d',traces,layout,PLT_CFG);
+    setResult('res-roots3d',rline('Zero-curve pts on slice',px.length,'g')+
+      rline('z₀',z0.toFixed(4),'c')+rline('Scan grid',`${N}×${N}`,'c'));
+  },15);
+}
+function extrema3D_ui(){
+  if(!compile3D())return;
+  const xmin=+$('x3min').value,xmax=+$('x3max').value;
+  const ymin=+$('y3min').value,ymax=+$('y3max').value;
+  const z0=+$('sl-z0').value;
+  if(xmin>=xmax||ymin>=ymax){setResult('res-extrema3d','<span style="color:var(--red)">Invalid domain</span>');return;}
+  busy('res-extrema3d');
+  setTimeout(()=>{
+    const g=(x,y)=>fn3D(x,y,z0);
+    const pts=findExtrema2D(g,xmin,xmax,ymin,ymax,12);
+    plot3D();
+    const maxima=pts.filter(p=>p.type==='max'),minima=pts.filter(p=>p.type==='min'),saddles=pts.filter(p=>p.type==='saddle');
+    const overlay=[];
+    const mk=(list,color,sym3,sym2,name)=>{
+      if(!list.length)return;
+      if(mode3D==='surface')overlay.push({type:'scatter3d',x:list.map(p=>p.x),y:list.map(p=>p.y),z:list.map(p=>p.f),
+        mode:'markers',name,marker:{color,size:5,symbol:sym3}});
+      else overlay.push({type:'scatter',x:list.map(p=>p.x),y:list.map(p=>p.y),mode:'markers',name,
+        marker:{color,size:11,symbol:sym2,line:{color:'#fff',width:1.2}}});
+    };
+    mk(maxima,C_GREEN,'diamond','triangle-up',`maxima (${maxima.length})`);
+    mk(minima,C_PURPLE,'diamond','triangle-down',`minima (${minima.length})`);
+    mk(saddles,C_CYAN,'x','x',`saddle (${saddles.length})`);
+    if(overlay.length)Plotly.addTraces('chart-3d',overlay);
+    if(!pts.length){setResult('res-extrema3d','<span style="color:var(--text-muted)">No critical points found on this slice</span>');return;}
+    let h=rline(`z₀=${z0.toFixed(3)}: ${maxima.length} max, ${minima.length} min, ${saddles.length} saddle`,'');
+    pts.sort((a,b)=>a.x-b.x).forEach(p=>{
+      const sym=p.type==='max'?'▲':(p.type==='min'?'▼':'✕');
+      const cls=p.type==='max'?'g':(p.type==='min'?'p':'c');
+      h+=rline(`${sym} ${p.type} (x,y)`,`(${p.x.toFixed(3)}, ${p.y.toFixed(3)})  f=${p.f.toFixed(3)}`,cls);
+    });
+    setResult('res-extrema3d',h);
+  },15);
+}
+
+/* ══════════════════════════════════════════════════
+   COMPLEX MODULE
+══════════════════════════════════════════════════ */
+function compileCx(){
+  fnCx=makeCx($('fncx').value.trim());
+  $('fncx').classList.toggle('err',!fnCx);
+  setStatus('stcx',fnCx?'✓ valid':'✗ parse error',fnCx?'ok':'err');
+  return!!fnCx;
+}
+function cxColorscale(m){
+  if(m==='phase')return[[0,'#ff0000'],[0.167,'#ffff00'],[0.333,'#00ff55'],[0.5,'#00ffff'],[0.667,'#0055ff'],[0.833,'#ff00ff'],[1,'#ff0000']];
+  if(m==='magnitude')return'Hot';
+  if(m==='real')return'RdBu';
+  return'RdYlBu';
+}
+function plotCx(){
+  if(!compileCx())return;
+  const xmin=+$('xcmin').value,xmax=+$('xcmax').value;
+  const ymin=+$('ycmin').value,ymax=+$('ycmax').value;
+  const res=+$('sl-resc').value;
+  if(xmin>=xmax||ymin>=ymax){setStatus('stcx','Invalid range','err');return;}
+  const xs=linspace(xmin,xmax,res),ys=linspace(ymin,ymax,res);
+  const Z=ys.map(y=>xs.map(x=>{
+    const z=math.complex(x,y);let w;try{w=fnCx(z);}catch{return NaN;}
+    if(!w)return NaN;
+    if(modeCx==='magnitude'){let m;try{m=math.abs(w);}catch{return NaN;}return isFinite(m)?Math.log1p(Math.min(m,1e8)):NaN;}
+    if(modeCx==='phase'){let a;try{a=math.arg(w);}catch{return NaN;}return isNaN(a)?NaN:(a+Math.PI)/(2*Math.PI);}
+    if(modeCx==='real'){const v=typeof w==='number'?w:(w.re??NaN);return isFinite(v)?v:NaN;}
+    const v=typeof w==='number'?0:(w.im??NaN);return isFinite(v)?v:NaN;
+  }));
+  const labels={magnitude:'log|f(z)|',phase:'arg f / 2π',real:'Re f(z)',imag:'Im f(z)'};
+  Plotly.react('chart-cx',[{type:'heatmap',x:xs,y:ys,z:Z,colorscale:cxColorscale(modeCx),
+    showscale:true,zsmooth:'best',name:labels[modeCx],
+    colorbar:{title:{text:labels[modeCx],font:{size:9}},tickfont:{size:9},thickness:13}}],
+    {...baseLayout(`f(z) — ${labels[modeCx]}`),
+      xaxis:{...baseLayout().xaxis,title:'Re(z)',scaleanchor:'y'},
+      yaxis:{...baseLayout().yaxis,title:'Im(z)'}},PLT_CFG);
+}
+function diffCx_ui(){
+  const expr=$('fncx').value.trim();
+  const s=symDiff(expr,'z');
+  if(s.ok){const s2=symDiff(s.str,'z');setResult('res-diffcx',rline("f′(z) =",s.str)+(s2.ok?rline("f″(z) =",s2.str):''));}
+  else setResult('res-diffcx','<div class="rline"><span class="rkey">Symbolic diff unavailable</span></div>'+
+    rline('Numerical','f′(z) ≈ [f(z+h)−f(z)]/h','c'));
+}
+function rootsCx_ui(){
+  if(!compileCx())return;
+  const xmin=+$('xcmin').value,xmax=+$('xcmax').value;
+  const ymin=+$('ycmin').value,ymax=+$('ycmax').value;
+  const N=+$('cx-ngrid').value||25;
+  const tol=parseFloat($('cx-tol').value)||1e-8;
+  busy('res-rootscx');
+  setTimeout(()=>{
+    const roots=findCxRoots(fnCx,xmin,xmax,ymin,ymax,N,tol);
+    // Always redraw the base heatmap with roots overlay
+    const res=+$('sl-resc').value;
+    const xs=linspace(xmin,xmax,res),ys=linspace(ymin,ymax,res);
+    const Z=ys.map(y=>xs.map(x=>{
+      const z=math.complex(x,y);let w;try{w=fnCx(z);}catch{return NaN;}
+      if(!w)return NaN;let m;try{m=math.abs(w);}catch{return NaN;}
+      return isFinite(m)?Math.log1p(Math.min(m,1e8)):NaN;
+    }));
+    const traces=[{type:'heatmap',x:xs,y:ys,z:Z,colorscale:'Hot',showscale:true,zsmooth:'best',opacity:.85}];
+    if(roots.length>0)
+      traces.push({type:'scatter',x:roots.map(r=>r.re),y:roots.map(r=>r.im),mode:'markers',
+        name:`roots (${roots.length})`,
+        marker:{color:C_GREEN,size:12,symbol:'circle',line:{color:'#fff',width:2}},
+        text:roots.map(r=>fmtCx(r)),hovertemplate:'z = %{text}<extra></extra>'});
+    Plotly.react('chart-cx',traces,{...baseLayout(`f(z) — roots highlighted`),
+      xaxis:{...baseLayout().xaxis,title:'Re(z)',scaleanchor:'y'},
+      yaxis:{...baseLayout().yaxis,title:'Im(z)'}},PLT_CFG);
+    if(!roots.length){setResult('res-rootscx','<span style="color:var(--text-muted)">No roots found in domain</span>');return;}
+    let h=rline(`Found ${roots.length} root(s)`,'');
+    roots.forEach((r,i)=>{
+      let fv;try{fv=fnCx(r);}catch{fv=null;}
+      h+=rline(`z${i+1}`,fmtCx(r),'c')+rline(`  |f(z${i+1})|`,fv?fmt(math.abs(fv),3):'—','g');
+    });
+    setResult('res-rootscx',h);
+  },15);
+}
+function extremaCx_ui(){
+  if(!compileCx())return;
+  const xmin=+$('xcmin').value,xmax=+$('xcmax').value;
+  const ymin=+$('ycmin').value,ymax=+$('ycmax').value;
+  if(xmin>=xmax||ymin>=ymax){setResult('res-extremacx','<span style="color:var(--red)">Invalid domain</span>');return;}
+  busy('res-extremacx');
+  setTimeout(()=>{
+    const g=(x,y)=>{
+      let w;try{w=fnCx(math.complex(x,y));}catch{return NaN;}
+      if(!w)return NaN;
+      let m;try{m=math.abs(w);}catch{return NaN;}
+      return isFinite(m)?m:NaN;
+    };
+    let pts=findExtrema2D(g,xmin,xmax,ymin,ymax,12).filter(p=>isFinite(p.f)&&p.f<1e6);
+    plotCx();
+    const maxima=pts.filter(p=>p.type==='max'),minima=pts.filter(p=>p.type==='min'),saddles=pts.filter(p=>p.type==='saddle');
+    const overlay=[];
+    const mk=(list,color,sym,name)=>{
+      if(!list.length)return;
+      overlay.push({type:'scatter',x:list.map(p=>p.x),y:list.map(p=>p.y),mode:'markers',name,
+        marker:{color,size:11,symbol:sym,line:{color:'#fff',width:1.2}}});
+    };
+    mk(maxima,C_GREEN,'triangle-up',`|f| maxima (${maxima.length})`);
+    mk(minima,C_PURPLE,'triangle-down',`|f| minima (${minima.length})`);
+    mk(saddles,C_CYAN,'x',`saddle (${saddles.length})`);
+    if(overlay.length)Plotly.addTraces('chart-cx',overlay);
+    if(!pts.length){setResult('res-extremacx','<span style="color:var(--text-muted)">No local extrema of |f(z)| found (analytic f rarely has interior maxima of |f| — max-modulus principle)</span>');return;}
+    let h=rline(`Found ${maxima.length} max, ${minima.length} min, ${saddles.length} saddle of |f(z)|`,'');
+    pts.sort((a,b)=>a.x-b.x).forEach(p=>{
+      const sym=p.type==='max'?'▲':(p.type==='min'?'▼':'✕');
+      const cls=p.type==='max'?'g':(p.type==='min'?'p':'c');
+      const imStr=`${p.x.toFixed(3)} ${p.y<0?'−':'+'} ${Math.abs(p.y).toFixed(3)}i`;
+      h+=rline(`${sym} ${p.type} z`,`${imStr}  |f|=${p.f.toFixed(3)}`,cls);
+    });
+    setResult('res-extremacx',h);
+  },15);
+}
+
+/* ══════════════════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════════════════ */
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+  document.querySelectorAll('.ctrl-panel').forEach(p=>p.classList.remove('active'));
+  $(`ctrl-${name}`).classList.add('active');
+  document.querySelectorAll('.plot-panel').forEach(p=>p.classList.remove('active'));
+  $(`plot-${name}`).classList.add('active');
+  setTimeout(()=>document.querySelectorAll('.js-plotly-plot').forEach(el=>{try{Plotly.Plots.resize(el);}catch{}}),60);
+}
+
+/* ══════════════════════════════════════════════════
+   DAY / NIGHT THEME TOGGLE
+══════════════════════════════════════════════════ */
+function activeTabName(){
+  const t=document.querySelector('.tab.active');
+  return t?t.getAttribute('data-tab'):'1d';
+}
+function refreshActivePlot(){
+  const tab=activeTabName();
+  if(tab==='1d'&&fn1D)plot1D();
+  else if(tab==='2d'&&fn2D)plot2D();
+  else if(tab==='3d'&&fn3D)plot3D();
+  else if(tab==='cx'&&fnCx)plotCx();
+}
+function setTheme(theme){
+  document.documentElement.classList.toggle('light',theme==='light');
+  $('theme-toggle').textContent=theme==='light'?'☀':'🌙';
+  applyPlotTheme(theme);
+  refreshActivePlot();
+}
+function toggleTheme(){
+  setTheme(CURRENT_THEME==='dark'?'light':'dark');
+}
+
+/* ══════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════ */
+function init(){
+  // Tabs
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.getAttribute('data-tab'))));
+
+  // Theme toggle
+  $('theme-toggle').addEventListener('click',toggleTheme);
+
+  // Presets
+  $('pre1d').addEventListener('change',function(){applyPreset1D(this.value);this.value='';});
+  $('pre2d').addEventListener('change',function(){applyPreset2D(this.value);this.value='';});
+  $('pre3d').addEventListener('change',function(){applyPreset3D(this.value);this.value='';});
+  $('precx').addEventListener('change',function(){applyPresetCx(this.value);this.value='';});
+
+  // Sliders display values
+  [['sl-res1','sv-res1'],['sl-res2','sv-res2'],['sl-res3','sv-res3'],['sl-resc','sv-resc']].forEach(([sl,sv])=>{
+    $(sl).addEventListener('input',function(){$(sv).textContent=this.value;});
+  });
+
+  // 1D controls
+  $('btn-plot1d').addEventListener('click',plot1D);
+  $('btn-diff1d').addEventListener('click',diff1D);
+  $('btn-int1d').addEventListener('click',integrate1D);
+  $('btn-roots1d').addEventListener('click',roots1D);
+  $('btn-extrema1d').addEventListener('click',extrema1D);
+  ['chk-fx','chk-dfx','chk-d2fx','chk-roots','chk-area'].forEach(id=>$(id).addEventListener('change',()=>{if(fn1D)plot1D();}));
+  $('fn1d').addEventListener('keydown',e=>{if(e.key==='Enter')plot1D();});
+
+  // 2D controls
+  $('btn-plot2d').addEventListener('click',plot2D);
+  $('btn-partials').addEventListener('click',partials2D_ui);
+  $('btn-int2d').addEventListener('click',integrate2D_ui);
+  $('btn-roots2d').addEventListener('click',roots2D_ui);
+  $('btn-extrema2d').addEventListener('click',extrema2D_ui);
+  $('fn2d').addEventListener('keydown',e=>{if(e.key==='Enter')plot2D();});
+  document.querySelectorAll('[data-2dmode]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-2dmode]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');mode2D=b.getAttribute('data-2dmode');
+  }));
+  $('mb-grad').addEventListener('click',function(){showGrad2D=!showGrad2D;this.classList.toggle('active',showGrad2D);if(fn2D)plot2D();});
+  $('mb-zero').addEventListener('click',function(){showZero2D=!showZero2D;this.classList.toggle('active',showZero2D);if(fn2D)plot2D();});
+
+  // 3D controls
+  $('btn-plot3d').addEventListener('click',plot3D);
+  $('btn-grad3d').addEventListener('click',grad3D_ui);
+  $('btn-int3d').addEventListener('click',integrate3D_ui);
+  $('btn-roots3d').addEventListener('click',roots3D_ui);
+  $('btn-extrema3d').addEventListener('click',extrema3D_ui);
+  $('fn3d').addEventListener('keydown',e=>{if(e.key==='Enter')plot3D();});
+  $('sl-z0').addEventListener('input',function(){
+    const v=parseFloat(this.value).toFixed(2);
+    $('sv-z0').textContent=v;$('z0-info').textContent=`z₀ = ${v}`;
+    if(fn3D)plot3D();
+  });
+  document.querySelectorAll('[data-3dmode]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-3dmode]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');mode3D=b.getAttribute('data-3dmode');if(fn3D)plot3D();
+  }));
+
+  // Complex controls
+  $('btn-plotcx').addEventListener('click',plotCx);
+  $('btn-diffcx').addEventListener('click',diffCx_ui);
+  $('btn-rootscx').addEventListener('click',rootsCx_ui);
+  $('btn-extremacx').addEventListener('click',extremaCx_ui);
+  $('fncx').addEventListener('keydown',e=>{if(e.key==='Enter')plotCx();});
+  document.querySelectorAll('[data-cmode]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-cmode]').forEach(x=>x.classList.remove('con'));
+    b.classList.add('con');modeCx=b.getAttribute('data-cmode');
+  }));
+  const cxMap={'mb-cmag':'magnitude','mb-carg':'phase','mb-cre':'real','mb-cim':'imag'};
+  Object.entries(cxMap).forEach(([id,mode])=>{
+    $(id).addEventListener('click',()=>{
+      Object.keys(cxMap).forEach(k=>$(k).classList.remove('active'));$(id).classList.add('active');
+      modeCx=mode;
+      document.querySelectorAll('[data-cmode]').forEach(b=>b.classList.toggle('con',b.getAttribute('data-cmode')===mode));
+    });
+  });
+
+  // Resize
+  window.addEventListener('resize',()=>document.querySelectorAll('.js-plotly-plot').forEach(el=>{try{Plotly.Plots.resize(el);}catch{}}));
+
+  // Initial
+  setTimeout(plot1D,350);
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>

@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix Transform Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@400;600;900&display=swap');
+
+  :root {
+    --bg:       #080c10;
+    --surface:  #0d1318;
+    --panel:    #111820;
+    --border:   #1e2d3d;
+    --accent:   #00d4ff;
+    --accent2:  #ff6b35;
+    --accent3:  #7fff6e;
+    --muted:    #4a6375;
+    --text:     #c8dde8;
+    --text-dim: #5a7a8a;
+    --glow:     0 0 18px rgba(0,212,255,0.35);
+    --glow2:    0 0 18px rgba(255,107,53,0.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- scanline overlay ---- */
+  body::before {
+    content:'';
+    position:fixed; inset:0; pointer-events:none; z-index:999;
+    background: repeating-linear-gradient(0deg,
+      transparent, transparent 2px,
+      rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+  }
+
+  /* ---- header ---- */
+  header {
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 20px;
+    background: linear-gradient(90deg, var(--surface) 0%, transparent 100%);
+  }
+  .logo {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.25rem; font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    letter-spacing: 3px;
+  }
+  .logo span { color: var(--accent2); }
+  .subtitle { font-size: 0.65rem; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+
+  /* ---- tabs ---- */
+  .tabs {
+    display: flex; gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    background: var(--surface);
+  }
+  .tab {
+    padding: 12px 24px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem; letter-spacing: 2px; font-weight: 600;
+    color: var(--muted); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s; position: relative; top: 1px;
+    text-transform: uppercase;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ---- main layout ---- */
+  .sim-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr 300px;
+    gap: 0;
+    height: calc(100vh - 105px);
+  }
+
+  /* ---- panels ---- */
+  .panel {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+  }
+  .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+
+  .section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem; letter-spacing: 3px; color: var(--accent);
+    text-transform: uppercase; margin-bottom: 14px;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+
+  /* ---- canvas area ---- */
+  .canvas-wrap {
+    position: relative;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; padding: 16px;
+    overflow: hidden;
+  }
+  canvas#grid {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 0 40px rgba(0,212,255,0.08);
+  }
+
+  /* ---- matrix display ---- */
+  .matrix-eq {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; justify-content: center;
+  }
+  .matrix-box {
+    display: inline-flex; flex-direction: column; gap: 4px;
+    padding: 10px 6px;
+    position: relative;
+    font-size: 0.75rem;
+  }
+  .matrix-box::before, .matrix-box::after {
+    content:''; position:absolute; top:0; bottom:0; width: 3px;
+    border: 1.5px solid var(--accent);
+  }
+  .matrix-box::before { left:0; border-right:none; border-radius: 2px 0 0 2px; }
+  .matrix-box::after  { right:0; border-left:none;  border-radius: 0 2px 2px 0; }
+  .matrix-box.orange::before, .matrix-box.orange::after { border-color: var(--accent2); }
+  .matrix-box.green::before,  .matrix-box.green::after  { border-color: var(--accent3); }
+
+  .matrix-row { display: flex; gap: 14px; }
+  .cell {
+    width: 56px; text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; color: var(--text);
+    transition: color 0.3s, text-shadow 0.3s;
+  }
+  .cell.hi { color: var(--accent); text-shadow: var(--glow); }
+  .cell.hi-o { color: var(--accent2); text-shadow: var(--glow2); }
+
+  .mat-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem; letter-spacing: 2px; color: var(--muted);
+    text-align: center; margin-bottom: 2px;
+  }
+  .op-sym {
+    font-size: 1.2rem; color: var(--muted); padding: 0 4px;
+    align-self: center;
+  }
+  .result-label {
+    font-size: 0.6rem; letter-spacing: 2px; color: var(--accent3);
+    font-family: 'Orbitron', sans-serif; text-align:center; margin-top: 4px;
+  }
+
+  /* ---- controls ---- */
+  .ctrl-group { margin-bottom: 18px; }
+  .ctrl-label {
+    font-size: 0.6rem; letter-spacing: 2px; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 8px; display: block;
+  }
+  .slider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .slider-row label { font-size: 0.65rem; color: var(--text-dim); width: 18px; }
+  input[type=range] {
+    flex: 1; -webkit-appearance: none; height: 3px;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--accent);
+    box-shadow: var(--glow); cursor: pointer;
+  }
+  .val-display {
+    font-size: 0.65rem; color: var(--accent); width: 52px; text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .btn {
+    flex: 1; padding: 8px 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem; letter-spacing: 2px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); cursor: pointer; border-radius: 3px;
+    text-transform: uppercase; transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--glow); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .btn.orange { border-color: var(--accent2); color: var(--accent2); }
+  .btn.green  { border-color: var(--accent3); color: var(--accent3); }
+  .btn:active { transform: scale(0.97); }
+
+  /* shape selector */
+  .shape-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .shape-btn {
+    padding: 6px 10px; font-size: 0.6rem; letter-spacing: 1px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); cursor: pointer; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace; transition: all 0.2s;
+  }
+  .shape-btn.active { border-color: var(--accent2); color: var(--accent2); }
+
+  /* vector inputs */
+  .vec-inputs { display: flex; gap: 8px; }
+  .vec-inputs input {
+    flex:1; background: var(--surface); border: 1px solid var(--border);
+    color: var(--accent); padding: 6px 8px; font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace; border-radius: 3px; outline: none;
+    text-align: center; transition: border-color 0.2s;
+  }
+  .vec-inputs input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+
+  /* step indicator */
+  .step-bar {
+    display: flex; gap: 6px; align-items: center;
+    padding: 10px 0; justify-content: center;
+  }
+  .step-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); transition: all 0.3s;
+  }
+  .step-dot.done { background: var(--accent3); }
+  .step-dot.active { background: var(--accent); box-shadow: var(--glow); transform: scale(1.4); }
+
+  .anim-status {
+    font-size: 0.6rem; color: var(--muted); letter-spacing: 2px;
+    text-align: center; margin-top: 4px;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  /* right panel items */
+  .vec-readout {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 12px; margin-bottom: 12px;
+    font-size: 0.7rem;
+  }
+  .vec-readout .lbl { color: var(--muted); font-size: 0.58rem; letter-spacing: 2px; margin-bottom: 6px; }
+  .vec-readout .coord { color: var(--accent); margin: 2px 0; }
+  .vec-readout .coord span { color: var(--text-dim); }
+  .vec-readout.orange .coord { color: var(--accent2); }
+  .vec-readout.green .coord  { color: var(--accent3); }
+
+  .det-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 12px; margin-bottom: 12px;
+  }
+  .det-row { display: flex; justify-content: space-between; font-size: 0.68rem; margin: 4px 0; }
+  .det-row .k { color: var(--muted); }
+  .det-row .v { color: var(--accent3); }
+
+  /* ---- physics tab ---- */
+  .physics-content, .manual-content {
+    max-width: 900px; margin: 0 auto;
+    padding: 40px 32px;
+    line-height: 1.8;
+  }
+  h2.phys-h {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem; color: var(--accent);
+    letter-spacing: 3px; margin: 32px 0 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  h2.phys-h:first-child { margin-top: 0; }
+  p.phys-p { font-size: 0.78rem; color: var(--text); margin-bottom: 14px; }
+  .math-block {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px; margin: 14px 0;
+    font-size: 0.75rem; color: var(--accent3);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 2;
+    border-radius: 0 4px 4px 0;
+  }
+  .math-block .comment { color: var(--muted); }
+  .info-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin: 16px 0;
+  }
+  .info-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 4px; padding: 16px;
+  }
+  .info-card h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem; letter-spacing: 2px; color: var(--accent2);
+    margin-bottom: 10px;
+  }
+  .info-card p { font-size: 0.72rem; color: var(--text); }
+
+  /* manual */
+  .step-manual { display: flex; gap: 16px; margin: 12px 0; align-items: flex-start; }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: transparent; border: 1.5px solid var(--accent);
+    color: var(--accent); display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-text { font-size: 0.74rem; color: var(--text); padding-top: 6px; }
+  .step-text strong { color: var(--accent2); }
+  .key-tag {
+    display: inline-block; background: var(--surface);
+    border: 1px solid var(--border); padding: 2px 8px;
+    border-radius: 3px; font-size: 0.65rem; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* matrix anim panel */
+  #mat-panel {
+    width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+
+  .progress-bar {
+    width: 100%; height: 2px; background: var(--border); border-radius: 1px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--accent); border-radius: 1px;
+    transition: width 0.05s linear;
+    box-shadow: var(--glow);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">MAT<span>RIX</span> · SIM</div>
+    <div class="subtitle">2D Linear Transform · Homogeneous Coordinates · Animated</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('sim')">⬡ Simulator</div>
+  <div class="tab" onclick="switchTab('physics')">∇ Physics</div>
+  <div class="tab" onclick="switchTab('manual')">≡ Manual</div>
+</div>
+
+<!-- ============================================================ SIMULATOR TAB -->
+<div id="tab-sim" class="tab-content active">
+<div class="sim-layout">
+
+  <!-- LEFT: Controls -->
+  <div class="panel">
+    <div class="section-title">Transform Controls</div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Rotation Angle</span>
+      <div class="slider-row">
+        <label>θ</label>
+        <input type="range" id="sld-rot" min="-180" max="180" value="45" oninput="updateCtrl()">
+        <span class="val-display" id="val-rot">45°</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Translation Vector</span>
+      <div class="slider-row">
+        <label>tx</label>
+        <input type="range" id="sld-tx" min="-200" max="200" value="80" oninput="updateCtrl()">
+        <span class="val-display" id="val-tx">80</span>
+      </div>
+      <div class="slider-row">
+        <label>ty</label>
+        <input type="range" id="sld-ty" min="-200" max="200" value="60" oninput="updateCtrl()">
+        <span class="val-display" id="val-ty">60</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Scale</span>
+      <div class="slider-row">
+        <label>s</label>
+        <input type="range" id="sld-scale" min="0.2" max="3" step="0.05" value="1" oninput="updateCtrl()">
+        <span class="val-display" id="val-scale">1.00×</span>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Shape</span>
+      <div class="shape-btns">
+        <div class="shape-btn active" onclick="setShape('triangle')">△ Triangle</div>
+        <div class="shape-btn" onclick="setShape('square')">□ Square</div>
+        <div class="shape-btn" onclick="setShape('arrow')">→ Arrow</div>
+        <div class="shape-btn" onclick="setShape('L')">⌐ L-shape</div>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Point Vector Input [x, y]</span>
+      <div class="vec-inputs">
+        <input type="number" id="pt-x" value="80" placeholder="x">
+        <input type="number" id="pt-y" value="60" placeholder="y">
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn" onclick="addPoint()">+ Add Point</button>
+        <button class="btn" onclick="clearPoints()">✕ Clear</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Transform Order</span>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-rot-first" onclick="setOrder('rot')">R then T</button>
+        <button class="btn" id="btn-trans-first" onclick="setOrder('trans')">T then R</button>
+      </div>
+    </div>
+
+    <div class="ctrl-group">
+      <span class="ctrl-label">Animation</span>
+      <div class="btn-row">
+        <button class="btn primary" onclick="runAnim()">▶ Animate</button>
+        <button class="btn orange" onclick="resetAnim()">↺ Reset</button>
+        <button class="btn green" onclick="stepAnim()">⊳ Step</button>
+      </div>
+      <div class="slider-row" style="margin-top:8px">
+        <label style="width:40px;font-size:0.6rem;color:var(--muted)">Speed</label>
+        <input type="range" id="sld-speed" min="0.2" max="3" step="0.1" value="1">
+        <span class="val-display" id="val-speed">1.0×</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: Canvas + matrix display -->
+  <div class="canvas-wrap">
+    <canvas id="grid" width="560" height="420"></canvas>
+
+    <div class="step-bar" id="step-bar">
+      <div class="step-dot active" id="sd0"></div>
+      <div class="step-dot" id="sd1"></div>
+      <div class="step-dot" id="sd2"></div>
+      <div class="step-dot" id="sd3"></div>
+    </div>
+    <div class="anim-status" id="anim-status">IDLE — Press ANIMATE</div>
+    <div class="progress-bar"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+
+    <div id="mat-panel">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- RIGHT: Readouts -->
+  <div class="panel">
+    <div class="section-title">Vector Readout</div>
+
+    <div class="vec-readout">
+      <div class="lbl">ORIGINAL · P₀</div>
+      <div class="coord" id="rd-orig">—</div>
+    </div>
+    <div class="vec-readout orange">
+      <div class="lbl">AFTER ROTATION · P₁</div>
+      <div class="coord" id="rd-rot">—</div>
+    </div>
+    <div class="vec-readout green">
+      <div class="lbl">AFTER TRANSLATION · P₂</div>
+      <div class="coord" id="rd-trans">—</div>
+    </div>
+
+    <div class="section-title" style="margin-top:18px">Matrix Properties</div>
+    <div class="det-box">
+      <div class="det-row"><span class="k">det(R)</span><span class="v" id="det-r">—</span></div>
+      <div class="det-row"><span class="k">det(T)</span><span class="v" id="det-t">—</span></div>
+      <div class="det-row"><span class="k">det(M)</span><span class="v" id="det-m">—</span></div>
+      <div class="det-row"><span class="k">θ (rad)</span><span class="v" id="rad-val">—</span></div>
+      <div class="det-row"><span class="k">|P₀|</span><span class="v" id="mag-p0">—</span></div>
+      <div class="det-row"><span class="k">|P₂|</span><span class="v" id="mag-p2">—</span></div>
+      <div class="det-row"><span class="k">Scale</span><span class="v" id="scale-val">—</span></div>
+    </div>
+
+    <div class="section-title">Homogeneous Matrix</div>
+    <div id="hom-matrix-display"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ============================================================ PHYSICS TAB -->
+<div id="tab-physics" class="tab-content">
+<div class="physics-content">
+
+  <h2 class="phys-h">What Are Transformation Matrices?</h2>
+  <p class="phys-p">In 2D computer graphics and robotics, geometric transformations — rotations, translations, reflections, scaling — are encoded as matrices. A point <strong style="color:var(--accent)">P = [x, y]ᵀ</strong> is transformed to a new position by left-multiplying with a transformation matrix <strong style="color:var(--accent)">M</strong>:</p>
+  <div class="math-block">
+P' = M · P
+  </div>
+  <p class="phys-p">The power of this formulation is that <strong>multiple transforms compose by matrix multiplication</strong>, making the order of operations precise and computationally efficient.</p>
+
+  <h2 class="phys-h">The 2D Rotation Matrix</h2>
+  <p class="phys-p">To rotate a vector <strong>[x, y]ᵀ</strong> by angle θ counter-clockwise about the origin, we apply:</p>
+  <div class="math-block">
+R(θ) = ⎡ cos θ  −sin θ ⎤
+       ⎣ sin θ   cos θ ⎦
+
+x' = x·cos θ − y·sin θ
+y' = x·sin θ + y·cos θ
+  </div>
+  <p class="phys-p"><strong style="color:var(--accent2)">Key property</strong>: det(R) = cos²θ + sin²θ = 1 always. This means rotation is <em>length-preserving</em> (isometric) — it never stretches or compresses vectors. It is also orthogonal: R⁻¹ = Rᵀ.</p>
+
+  <h2 class="phys-h">The 2D Translation in Homogeneous Coordinates</h2>
+  <p class="phys-p">Translation cannot be represented as a 2×2 matrix multiplication — it is an <em>affine</em>, not linear, transformation. The solution is to embed 2D space into a 3D <strong>projective space</strong> using <em>homogeneous coordinates</em>: a 2D point [x, y]ᵀ becomes [x, y, 1]ᵀ.</p>
+  <div class="math-block">
+T(tx, ty) = ⎡ 1  0  tx ⎤
+            ⎢ 0  1  ty ⎥
+            ⎣ 0  0   1 ⎦
+
+T · [x, y, 1]ᵀ = [x+tx, y+ty, 1]ᵀ  ✓
+  </div>
+  <p class="phys-p"><strong style="color:var(--accent2)">Key property</strong>: det(T) = 1 always. Translation preserves area, shape, and orientation — it is a rigid-body motion.</p>
+
+  <h2 class="phys-h">Combined Transform & Order Matters</h2>
+  <p class="phys-p">In homogeneous coordinates, rotation also becomes 3×3:</p>
+  <div class="math-block">
+R_h(θ) = ⎡ cos θ  −sin θ  0 ⎤
+         ⎢ sin θ   cos θ  0 ⎥
+         ⎣  0       0     1 ⎦
+
+<span class="comment"># Rotate-then-Translate:</span>
+M = T · R_h   →  P' = T · (R_h · P)
+
+<span class="comment"># Translate-then-Rotate:</span>
+M = R_h · T   →  P' = R_h · (T · P)
+  </div>
+  <p class="phys-p"><strong style="color:var(--accent)">⚠ Matrix multiplication is not commutative</strong>: T·R ≠ R·T in general. The two orderings produce geometrically distinct results — critical in robotics arm kinematics and 3D game engines.</p>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <h3>Robotics & Kinematics</h3>
+      <p>Robot arm joints are modeled as a chain of rotation matrices. Each joint's frame is expressed relative to the previous via Denavit-Hartenberg (DH) parameters — successive matrix multiplications from base to end-effector.</p>
+    </div>
+    <div class="info-card">
+      <h3>Computer Graphics (OpenGL)</h3>
+      <p>Every shader pipeline applies Model × View × Projection matrices to each vertex. The GPU executes millions of 4×4 homogeneous matrix multiplications per frame to project 3D worlds onto 2D screens.</p>
+    </div>
+    <div class="info-card">
+      <h3>Quantum Mechanics</h3>
+      <p>Rotation operators in quantum mechanics are represented by SU(2) matrices (spinors), generalizing SO(2) to include half-integer spins. Pauli matrices σₓ, σᵧ, σ_z are generators of this algebra.</p>
+    </div>
+    <div class="info-card">
+      <h3>Image Processing</h3>
+      <p>Affine transformations (warp, skew, rotate, scale) of images are implemented as 2×3 matrices applied per-pixel. Perspective transforms (homographies) require the full 3×3 homogeneous form.</p>
+    </div>
+  </div>
+
+  <h2 class="phys-h">Determinant & Geometric Meaning</h2>
+  <div class="math-block">
+det(M) = signed area scaling factor
+
+det = +1  →  area-preserving, orientation-preserving (proper rotation)
+det = −1  →  area-preserving, orientation-reversing (reflection)
+|det| > 1 →  expansion (volume grows)
+|det| < 1 →  contraction (volume shrinks)
+det = 0   →  singular: collapses to lower dimension
+  </div>
+
+  <h2 class="phys-h">Eigenvalues of Rotation Matrices</h2>
+  <p class="phys-p">The eigenvalues of R(θ) are e^(±iθ) — complex numbers on the unit circle. This confirms rotations have <em>no real fixed-axis</em> (for θ ≠ 0, π) in 2D, and their action is a pure rotation in the complex plane. The characteristic polynomial:</p>
+  <div class="math-block">
+det(R − λI) = λ² − 2cos(θ)λ + 1 = 0
+
+λ = cos(θ) ± i·sin(θ) = e^(±iθ)
+
+|λ| = 1  →  stable, no growth or decay
+  </div>
+</div>
+</div>
+
+<!-- ============================================================ MANUAL TAB -->
+<div id="tab-manual" class="tab-content">
+<div class="manual-content">
+
+  <h2 class="phys-h">Quick Start Guide</h2>
+
+  <div class="step-manual">
+    <div class="step-num">1</div>
+    <div class="step-text"><strong>Select a Shape</strong> — In the left panel under "Shape", choose Triangle, Square, Arrow, or L-shape. The shape appears on the canvas grid centered at the origin. Each vertex is a column vector in the input matrix.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">2</div>
+    <div class="step-text"><strong>Set Transform Parameters</strong> — Use the <span class="key-tag">θ slider</span> to choose rotation angle (−180° to +180°). Use <span class="key-tag">tx</span> and <span class="key-tag">ty</span> sliders for translation components. Use <span class="key-tag">s</span> for uniform scale factor.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">3</div>
+    <div class="step-text"><strong>Choose Transform Order</strong> — <span class="key-tag">R then T</span> applies rotation first, then translates the rotated shape. <span class="key-tag">T then R</span> translates first, then rotates around origin. These produce <em>different results</em> — observe carefully.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">4</div>
+    <div class="step-text"><strong>Run the Animation</strong> — Click <span class="key-tag">▶ Animate</span> to watch the shape morph through each transformation stage with interpolation. Use <span class="key-tag">⊳ Step</span> to advance one stage at a time. Use <span class="key-tag">↺ Reset</span> to return to the original.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">5</div>
+    <div class="step-text"><strong>Read the Matrix Display</strong> — Below the canvas, the full matrix equation is shown: <strong style="color:var(--accent)">R(θ)</strong> (cyan brackets) × input vectors (white) = <strong style="color:var(--accent3)">result</strong> (green). Then the <strong style="color:var(--accent2)">Translation</strong> matrix (orange) is applied.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">6</div>
+    <div class="step-text"><strong>Add Custom Points</strong> — Enter x and y values in the "Point Vector Input" fields and click <span class="key-tag">+ Add Point</span> to append custom vertices. Use <span class="key-tag">✕ Clear</span> to remove custom points and restore the default shape.</div>
+  </div>
+  <div class="step-manual">
+    <div class="step-num">7</div>
+    <div class="step-text"><strong>Right Panel Readouts</strong> — Shows original vector (P₀), vector after rotation (P₁), vector after translation (P₂). Below: det(R), det(T), det(M) properties confirm geometric meaning. det = 1 means area-preserving; det = scale² for scaled transforms.</div>
+  </div>
+
+  <h2 class="phys-h">Canvas Legend</h2>
+  <p class="phys-p">The simulation canvas shows:</p>
+  <div class="math-block">
+⬡  GRAY GRID     — Cartesian coordinate space (each cell = 40px ≈ 40 units)
+→  CYAN AXES     — X (→) and Y (↑) axes with unit markers
+△  WHITE SHAPE   — Original shape (input vectors)
+△  ORANGE SHAPE  — Shape after rotation only (intermediate)
+△  GREEN SHAPE   — Final shape after full transform (result)
+◯  CYAN DOT      — Origin (0, 0) anchor point
+  </div>
+
+  <h2 class="phys-h">Keyboard Shortcuts</h2>
+  <div class="math-block">
+Space        —  Toggle animate / pause
+R            —  Reset animation
+S            —  Step animation forward
+←/→ arrows   —  Adjust rotation angle ±5°
+↑/↓ arrows   —  Adjust ty ±10 units
+  </div>
+
+  <h2 class="phys-h">Understanding the Matrix Equation Panel</h2>
+  <p class="phys-p">The panel below the canvas renders the live matrix multiplication. Three column vectors are shown (one per vertex of a triangle, or centroid for complex shapes). The homogeneous 3×3 matrix is displayed in the right panel. The equation reads left-to-right:</p>
+  <div class="math-block">
+[Transform Matrix] × [Input Vector] = [Output Vector]
+
+Rotation step:
+⎡ cosθ  -sinθ ⎤   ⎡ x ⎤   ⎡ x·cosθ - y·sinθ ⎤
+⎣ sinθ   cosθ ⎦ × ⎣ y ⎦ = ⎣ x·sinθ + y·cosθ ⎦
+
+Translation step (homogeneous):
+⎡ 1  0  tx ⎤   ⎡ x' ⎤   ⎡ x' + tx ⎤
+⎢ 0  1  ty ⎥ × ⎢ y' ⎥ = ⎢ y' + ty ⎥
+⎣ 0  0   1 ⎦   ⎣  1 ⎦   ⎣    1    ⎦
+  </div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const SCALE = 40; // px per unit
+
+let angle = 45, tx = 80, ty = 60, scl = 1;
+let order = 'rot'; // 'rot' = rotate first, 'trans' = translate first
+let currentShape = 'triangle';
+let extraPoints = [];
+
+const SHAPES = {
+  triangle: [[0,80],[70,-40],[-70,-40]],
+  square:   [[-50,50],[50,50],[50,-50],[-50,-50]],
+  arrow:    [[0,80],[40,0],[20,0],[20,-80],[-20,-80],[-20,0],[-40,0]],
+  L:        [[-60,80],[-60,-80],[20,-80],[20,-20],[60,-20],[60,80]]
+};
+
+let animState = 'idle'; // idle, running, paused, done
+let animT = 0; // 0..1 overall
+let animStep = 0; // 0=original, 1=rotation, 2=translation, 3=done
+let animRAF = null;
+let lastTime = null;
+
+// ============================================================
+// DOM refs
+// ============================================================
+const canvas = document.getElementById('grid');
+const ctx = canvas.getContext('2d');
+
+function fmt(v, d=2) { return v.toFixed(d); }
+function rad(deg) { return deg * Math.PI / 180; }
+
+function getShapeVerts() {
+  return [...SHAPES[currentShape], ...extraPoints];
+}
+
+// ============================================================
+// Matrix math
+// ============================================================
+function rotMat(th) {
+  const c = Math.cos(th), s = Math.sin(th);
+  return [[c,-s],[s,c]];
+}
+
+function applyRot(pts, th) {
+  const [R] = [rotMat(th)];
+  return pts.map(([x,y]) => [
+    R[0][0]*x + R[0][1]*y,
+    R[1][0]*x + R[1][1]*y
+  ]);
+}
+
+function applyTrans(pts, dtx, dty) {
+  return pts.map(([x,y]) => [x+dtx, y+dty]);
+}
+
+function applyScale(pts, s) {
+  return pts.map(([x,y]) => [x*s, y*s]);
+}
+
+function lerp(a, b, t) { return a + (b-a)*t; }
+function lerpPts(A, B, t) {
+  return A.map(([ax,ay],i) => [lerp(ax,B[i][0],t), lerp(ay,B[i][1],t)]);
+}
+
+// ============================================================
+// DRAW
+// ============================================================
+const CW = canvas.width, CH = canvas.height;
+const OX = CW/2, OY = CH/2; // canvas origin
+
+function toCanvas(x, y) { return [OX + x, OY - y]; }
+
+function drawGrid() {
+  ctx.clearRect(0,0,CW,CH);
+  // bg
+  ctx.fillStyle = '#080c10'; ctx.fillRect(0,0,CW,CH);
+
+  // grid lines
+  ctx.strokeStyle = '#1a2530'; ctx.lineWidth = 1;
+  for(let gx = 0; gx*SCALE < CW/2+SCALE; gx++) {
+    const px = OX+gx*SCALE, px2 = OX-gx*SCALE;
+    ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,CH); ctx.stroke();
+    if(gx>0){ctx.beginPath(); ctx.moveTo(px2,0); ctx.lineTo(px2,CH); ctx.stroke();}
+  }
+  for(let gy = 0; gy*SCALE < CH/2+SCALE; gy++) {
+    const py = OY+gy*SCALE, py2 = OY-gy*SCALE;
+    ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(CW,py); ctx.stroke();
+    if(gy>0){ctx.beginPath(); ctx.moveTo(0,py2); ctx.lineTo(CW,py2); ctx.stroke();}
+  }
+
+  // axes
+  ctx.strokeStyle = '#2a4a5a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0,OY); ctx.lineTo(CW,OY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(OX,0); ctx.lineTo(OX,CH); ctx.stroke();
+
+  // axis arrows
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '11px JetBrains Mono';
+  ctx.fillText('x', CW-12, OY-6);
+  ctx.fillText('y', OX+6, 14);
+  ctx.fillText('O', OX+4, OY+14);
+
+  // tick marks
+  ctx.fillStyle = '#2a4a5a'; ctx.font = '9px JetBrains Mono';
+  for(let i=1; i<=6; i++){
+    const px = OX+i*SCALE;
+    if(px < CW){ ctx.fillStyle='#3a5a6a'; ctx.fillText(i*1, px-4, OY+14); }
+    if(OX-i*SCALE>0){ ctx.fillText(-i*1, OX-i*SCALE-8, OY+14); }
+  }
+}
+
+function drawShape(pts, color, alpha=1, fill=true, lw=2) {
+  if(pts.length < 2) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  const [x0,y0] = toCanvas(pts[0][0], pts[0][1]);
+  ctx.moveTo(x0,y0);
+  for(let i=1; i<pts.length; i++){
+    const [xi,yi] = toCanvas(pts[i][0], pts[i][1]);
+    ctx.lineTo(xi,yi);
+  }
+  ctx.closePath();
+  if(fill){
+    ctx.fillStyle = color.replace(')',',0.08)').replace('rgb(','rgba(').replace('#','rgba(') + '11';
+    ctx.fillStyle = color + '18';
+    ctx.fill();
+  }
+  ctx.stroke();
+
+  // vertex dots
+  pts.forEach(([px,py]) => {
+    const [cx,cy] = toCanvas(px,py);
+    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawVec(x0,y0,x1,y1,color,lw=1.5) {
+  const [cx0,cy0]=toCanvas(x0,y0), [cx1,cy1]=toCanvas(x1,y1);
+  ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=lw;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(cx0,cy0); ctx.lineTo(cx1,cy1); ctx.stroke();
+  ctx.setLineDash([]);
+  // arrowhead
+  const dx=cx1-cx0, dy=cy1-cy0, len=Math.hypot(dx,dy);
+  if(len<4){ctx.restore();return;}
+  const ux=dx/len, uy=dy/len;
+  ctx.beginPath();
+  ctx.moveTo(cx1,cy1);
+  ctx.lineTo(cx1-ux*8+uy*4, cy1-uy*8-ux*4);
+  ctx.lineTo(cx1-ux*8-uy*4, cy1-uy*8+ux*4);
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+// ANIMATION
+// ============================================================
+function getTransforms() {
+  const th = rad(angle);
+  const orig = getShapeVerts();
+  const scaled = applyScale(orig, scl);
+  let rotated, translated;
+  if(order==='rot'){
+    rotated = applyRot(scaled, th);
+    translated = applyTrans(rotated, tx, ty);
+  } else {
+    translated = applyTrans(scaled, tx, ty);
+    rotated = applyRot(translated, th);
+  }
+  return { orig: scaled, intermediate: rotated, final: translated };
+}
+
+function renderFrame() {
+  const {orig, intermediate, final} = getTransforms();
+  drawGrid();
+
+  if(animStep === 0 && animState !== 'running') {
+    drawShape(orig, '#c8dde8');
+  } else if(animStep === 1 || (animStep===0 && animState==='running')) {
+    // Lerp from orig to intermediate
+    const t = animT;
+    const cur = lerpPts(orig, intermediate, t);
+    drawShape(orig, '#c8dde8', 0.25);
+    drawShape(cur, '#ff6b35');
+  } else if(animStep === 2) {
+    const t = animT;
+    const cur = lerpPts(intermediate, final, t);
+    drawShape(orig, '#c8dde8', 0.2);
+    drawShape(intermediate, '#ff6b35', 0.3);
+    drawShape(cur, '#7fff6e');
+  } else if(animStep === 3) {
+    drawShape(orig, '#c8dde8', 0.25);
+    drawShape(intermediate, '#ff6b35', 0.3);
+    drawShape(final, '#7fff6e');
+    // draw vector from orig centroid to final centroid
+    const oc = centroid(orig), fc = centroid(final);
+    drawVec(oc[0],oc[1], fc[0],fc[1], '#00d4ff', 1.5);
+  }
+
+  // always draw origin
+  const [ox,oy] = toCanvas(0,0);
+  ctx.beginPath(); ctx.arc(ox,oy,4,0,Math.PI*2);
+  ctx.fillStyle='#00d4ff'; ctx.fill();
+}
+
+function centroid(pts) {
+  const sx = pts.reduce((a,p)=>a+p[0],0)/pts.length;
+  const sy = pts.reduce((a,p)=>a+p[1],0)/pts.length;
+  return [sx,sy];
+}
+
+let stepProgress = 0;
+const STEP_DUR = 1.2; // seconds per step
+
+function animLoop(ts) {
+  if(!lastTime) lastTime = ts;
+  const dt = (ts - lastTime)/1000;
+  lastTime = ts;
+
+  const speed = parseFloat(document.getElementById('sld-speed').value);
+  document.getElementById('val-speed').textContent = speed.toFixed(1)+'×';
+
+  stepProgress += dt * speed / STEP_DUR;
+  if(stepProgress >= 1) {
+    stepProgress = 0;
+    animStep++;
+    if(animStep > 2) {
+      animStep = 3; animT = 1;
+      animState = 'done';
+      document.getElementById('anim-status').textContent = 'COMPLETE';
+      renderFrame(); updateDots(3); updateReadouts();
+      document.getElementById('prog').style.width = '100%';
+      return;
+    }
+  }
+  animT = stepProgress;
+
+  const totalProg = ((animStep-1 + animT) / 2) * 100;
+  document.getElementById('prog').style.width = Math.min(100,Math.max(0,totalProg))+'%';
+
+  const labels = ['ORIGINAL','ROTATING…','TRANSLATING…','COMPLETE'];
+  document.getElementById('anim-status').textContent = labels[Math.min(animStep,3)];
+  updateDots(animStep);
+  renderFrame();
+  updateReadouts();
+
+  animRAF = requestAnimationFrame(animLoop);
+}
+
+function runAnim() {
+  if(animState==='running') return;
+  if(animState==='done'){ resetAnim(); return; }
+  animState='running'; animStep=1; stepProgress=0; animT=0; lastTime=null;
+  document.getElementById('anim-status').textContent = 'ROTATING…';
+  animRAF = requestAnimationFrame(animLoop);
+}
+
+function resetAnim() {
+  if(animRAF) cancelAnimationFrame(animRAF);
+  animRAF=null; animState='idle'; animStep=0; animT=0; stepProgress=0; lastTime=null;
+  document.getElementById('prog').style.width='0%';
+  document.getElementById('anim-status').textContent = 'IDLE — Press ANIMATE';
+  updateDots(0); renderFrame(); updateReadouts();
+}
+
+function stepAnim() {
+  if(animRAF) cancelAnimationFrame(animRAF); animRAF=null;
+  animState='paused';
+  if(animStep===0){ animStep=1; animT=1; }
+  else if(animStep===1){ animStep=2; animT=1; }
+  else if(animStep===2){ animStep=3; animT=1; }
+  renderFrame(); updateDots(animStep); updateReadouts();
+  document.getElementById('prog').style.width = (animStep/3*100)+'%';
+  const labels = ['IDLE','ROTATED','TRANSLATED','COMPLETE'];
+  document.getElementById('anim-status').textContent = labels[Math.min(animStep,3)];
+}
+
+function updateDots(step) {
+  for(let i=0;i<=3;i++){
+    const d = document.getElementById('sd'+i);
+    if(i < step){ d.className='step-dot done'; }
+    else if(i===step){ d.className='step-dot active'; }
+    else { d.className='step-dot'; }
+  }
+}
+
+// ============================================================
+// READOUTS + MATRIX PANEL
+// ============================================================
+function updateReadouts() {
+  const th = rad(angle);
+  const orig = applyScale(getShapeVerts(), scl);
+  const {intermediate, final} = getTransforms();
+
+  // centroid vectors
+  const po = centroid(orig), pi = centroid(intermediate), pf = centroid(final);
+
+  document.getElementById('rd-orig').innerHTML =
+    `<span>[</span> x = ${fmt(po[0])}, y = ${fmt(po[1])} <span>]</span>`;
+  document.getElementById('rd-rot').innerHTML =
+    `<span>[</span> x = ${fmt(pi[0])}, y = ${fmt(pi[1])} <span>]</span>`;
+  document.getElementById('rd-trans').innerHTML =
+    `<span>[</span> x = ${fmt(pf[0])}, y = ${fmt(pf[1])} <span>]</span>`;
+
+  const c = Math.cos(th), s = Math.sin(th);
+  const detR = c*c+s*s; // always 1
+  document.getElementById('det-r').textContent = fmt(detR);
+  document.getElementById('det-t').textContent = '1.00';
+  document.getElementById('det-m').textContent = fmt(scl*scl);
+  document.getElementById('rad-val').textContent = fmt(th,4)+' rad';
+  document.getElementById('mag-p0').textContent = fmt(Math.hypot(po[0],po[1]));
+  document.getElementById('mag-p2').textContent = fmt(Math.hypot(pf[0],pf[1]));
+  document.getElementById('scale-val').textContent = fmt(scl,3)+'×';
+
+  // homogeneous matrix display
+  let m, label;
+  if(order==='rot'){
+    m = [[c,-s,0],[s,c,0],[0,0,1]]; // rotation in homogeneous
+    // combined: T·R
+    const combined = [
+      [c,-s,tx],
+      [s, c,ty],
+      [0, 0, 1]
+    ];
+    label = 'T·R Combined';
+    m = combined;
+  } else {
+    m = [[c,-s,c*tx-s*ty],[s,c,s*tx+c*ty],[0,0,1]];
+    label = 'R·T Combined';
+  }
+  let html = `<div class="mat-label">${label}</div><div class="matrix-box green" style="font-size:0.67rem">`;
+  m.forEach(row => {
+    html += '<div class="matrix-row">';
+    row.forEach(v => {
+      html += `<span class="cell">${fmt(v,3)}</span>`;
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  document.getElementById('hom-matrix-display').innerHTML = html;
+
+  // matrix equation panel (show first 3 verts or centroid)
+  buildMatPanel(th, orig, intermediate, final);
+}
+
+function buildMatPanel(th, orig, intermediate, final) {
+  const c = Math.cos(th), s = Math.sin(th);
+  // show rotation equation + one sample point
+  const sp = orig.length > 0 ? orig[0] : [0,0];
+  const sri = intermediate.length > 0 ? intermediate[0] : [0,0];
+  const sf = final.length > 0 ? final[0] : [0,0];
+
+  const fR = (v) => `<span class="cell hi">${fmt(v,3)}</span>`;
+  const fO = (v) => `<span class="cell hi-o">${fmt(v,3)}</span>`;
+  const fG = (v) => `<span class="cell" style="color:var(--accent3)">${fmt(v,3)}</span>`;
+  const fW = (v) => `<span class="cell">${fmt(v,3)}</span>`;
+
+  let stepLabel = '';
+  if(animStep<=1) stepLabel = '⟵ ROTATION STEP';
+  else stepLabel = '⟵ TRANSLATION STEP';
+
+  const html = `
+  <div class="matrix-eq">
+    <div>
+      <div class="mat-label">R(θ=${fmt(angle,1)}°)</div>
+      <div class="matrix-box">
+        <div class="matrix-row">${fR(c)}${fR(-s)}</div>
+        <div class="matrix-row">${fR(s)}${fR(c)}</div>
+      </div>
+    </div>
+    <div class="op-sym">×</div>
+    <div>
+      <div class="mat-label">P₀</div>
+      <div class="matrix-box">
+        <div class="matrix-row">${fW(sp[0])}</div>
+        <div class="matrix-row">${fW(sp[1])}</div>
+      </div>
+    </div>
+    <div class="op-sym">=</div>
+    <div>
+      <div class="mat-label">P₁</div>
+      <div class="matrix-box orange">
+        <div class="matrix-row">${fO(sri[0])}</div>
+        <div class="matrix-row">${fO(sri[1])}</div>
+      </div>
+    </div>
+    <div class="op-sym" style="color:var(--muted);font-size:0.75rem">then</div>
+    <div>
+      <div class="mat-label">T(${fmt(tx,0)},${fmt(ty,0)})</div>
+      <div class="matrix-box orange" style="font-size:0.65rem">
+        <div class="matrix-row"><span class="cell hi-o" style="width:44px">1</span><span class="cell hi-o" style="width:44px">0</span><span class="cell hi-o" style="width:44px">${fmt(tx,1)}</span></div>
+        <div class="matrix-row"><span class="cell hi-o" style="width:44px">0</span><span class="cell hi-o" style="width:44px">1</span><span class="cell hi-o" style="width:44px">${fmt(ty,1)}</span></div>
+        <div class="matrix-row"><span class="cell" style="width:44px">0</span><span class="cell" style="width:44px">0</span><span class="cell" style="width:44px">1</span></div>
+      </div>
+    </div>
+    <div class="op-sym">=</div>
+    <div>
+      <div class="mat-label">P₂ (final)</div>
+      <div class="matrix-box green">
+        <div class="matrix-row">${fG(sf[0])}</div>
+        <div class="matrix-row">${fG(sf[1])}</div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('mat-panel').innerHTML = html;
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+function updateCtrl() {
+  angle = parseFloat(document.getElementById('sld-rot').value);
+  tx    = parseFloat(document.getElementById('sld-tx').value);
+  ty    = parseFloat(document.getElementById('sld-ty').value);
+  scl   = parseFloat(document.getElementById('sld-scale').value);
+
+  document.getElementById('val-rot').textContent   = fmt(angle,0)+'°';
+  document.getElementById('val-tx').textContent    = fmt(tx,0);
+  document.getElementById('val-ty').textContent    = fmt(ty,0);
+  document.getElementById('val-scale').textContent = fmt(scl,2)+'×';
+
+  renderFrame(); updateReadouts();
+}
+
+function setShape(s) {
+  currentShape = s;
+  document.querySelectorAll('.shape-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(s));
+  });
+  resetAnim();
+}
+
+function addPoint() {
+  const x = parseFloat(document.getElementById('pt-x').value);
+  const y = parseFloat(document.getElementById('pt-y').value);
+  if(!isNaN(x)&&!isNaN(y)) { extraPoints.push([x,y]); renderFrame(); updateReadouts(); }
+}
+
+function clearPoints() {
+  extraPoints = []; renderFrame(); updateReadouts();
+}
+
+function setOrder(o) {
+  order = o;
+  document.getElementById('btn-rot-first').className   = 'btn' + (o==='rot'?' primary':'');
+  document.getElementById('btn-trans-first').className = 'btn' + (o==='trans'?' primary':'');
+  resetAnim();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const ids=['sim','physics','manual'];
+    t.classList.toggle('active', ids[i]===id);
+  });
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if(document.activeElement.tagName==='INPUT') return;
+  if(e.code==='Space'){e.preventDefault(); animState==='running'?resetAnim():runAnim();}
+  if(e.code==='KeyR') resetAnim();
+  if(e.code==='KeyS') stepAnim();
+  if(e.code==='ArrowLeft'){
+    const s=document.getElementById('sld-rot');
+    s.value=Math.max(-180,+s.value-5); updateCtrl();
+  }
+  if(e.code==='ArrowRight'){
+    const s=document.getElementById('sld-rot');
+    s.value=Math.min(180,+s.value+5); updateCtrl();
+  }
+  if(e.code==='ArrowUp'){
+    const s=document.getElementById('sld-ty');
+    s.value=Math.min(200,+s.value+10); updateCtrl();
+  }
+  if(e.code==='ArrowDown'){
+    const s=document.getElementById('sld-ty');
+    s.value=Math.max(-200,+s.value-10); updateCtrl();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+updateCtrl();
+renderFrame();
+updateReadouts();
+</script>
+</body>
+</html>

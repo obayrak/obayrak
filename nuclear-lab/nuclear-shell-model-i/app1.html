@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuclear Shell Model</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07090f;
+    --panel: #0d1120;
+    --border: #1e2d4a;
+    --proton: #ff9f43;
+    --proton-dim: #7a4a1a;
+    --neutron: #00d4ff;
+    --neutron-dim: #1a4a5a;
+    --magic: #a8ff78;
+    --gold: #ffd700;
+    --text: #c8d8f0;
+    --muted: #4a6080;
+    --accent: #7c6aff;
+    --red: #ff4757;
+    --scanline: rgba(0,212,255,0.03);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'EB Garamond', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      var(--scanline) 2px,
+      var(--scanline) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 28px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1528 0%, transparent 100%);
+  }
+
+  header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.1rem, 3vw, 1.7rem);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(0,212,255,0.5), 0 0 60px rgba(0,212,255,0.2);
+  }
+
+  header p {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin-top: 4px;
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .tab-btn {
+    padding: 12px 28px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .tab-btn.active {
+    color: var(--neutron);
+    border-bottom-color: var(--neutron);
+    background: rgba(0,212,255,0.05);
+  }
+
+  .tab-btn:hover:not(.active) {
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .tab-panel { display: none; position: relative; z-index: 5; }
+  .tab-panel.active { display: block; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    padding: 20px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 180px;
+    flex: 1;
+  }
+
+  .ctrl-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .ctrl-label span { 
+    font-size: 0.9rem; 
+    font-weight: bold;
+    margin-left: 6px;
+  }
+  .ctrl-label .pl { color: var(--proton); }
+  .ctrl-label .nl { color: var(--neutron); }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .slider-p { background: linear-gradient(to right, var(--proton-dim), var(--proton)); }
+  .slider-n { background: linear-gradient(to right, var(--neutron-dim), var(--neutron)); }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    cursor: pointer;
+  }
+
+  .slider-p::-webkit-slider-thumb { background: var(--proton); box-shadow: 0 0 8px var(--proton); }
+  .slider-n::-webkit-slider-thumb { background: var(--neutron); box-shadow: 0 0 8px var(--neutron); }
+
+  .num-input {
+    width: 58px;
+    padding: 5px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+
+  .nucleus-badge {
+    font-family: 'Share Tech Mono', monospace;
+    background: rgba(124,106,255,0.15);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 1.1rem;
+    color: #fff;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    align-self: center;
+  }
+
+  .nucleus-badge sup { font-size: 0.7em; }
+  .nucleus-badge sub { font-size: 0.7em; }
+
+  /* ── RESULT PANEL ── */
+  .result-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 24px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .result-card {
+    flex: 1;
+    min-width: 140px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    text-align: center;
+  }
+
+  .result-card .rc-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .result-card .rc-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(255,215,0,0.5);
+  }
+
+  .result-card .rc-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .result-card.magic-glow {
+    border-color: var(--magic);
+    box-shadow: 0 0 20px rgba(168,255,120,0.15);
+  }
+
+  .result-card.magic-glow .rc-value { color: var(--magic); text-shadow: 0 0 20px rgba(168,255,120,0.6); }
+
+  /* ── DIAGRAM AREA ── */
+  .diagram-area {
+    display: flex;
+    gap: 0;
+    padding: 0;
+    overflow-y: auto;
+    max-height: calc(100vh - 360px);
+    min-height: 400px;
+  }
+
+  .shell-column {
+    flex: 1;
+    padding: 16px 8px;
+    overflow: hidden;
+  }
+
+  .shell-column.proton-col { border-right: 1px solid var(--border); }
+
+  .col-header {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 6px 0 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+
+  .col-header.proton-h { color: var(--proton); }
+  .col-header.neutron-h { color: var(--neutron); }
+
+  /* Each shell level row */
+  .level-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 1px 0;
+    position: relative;
+  }
+
+  .level-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    min-width: 62px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: color 0.3s;
+  }
+
+  .proton-col .level-label { text-align: right; padding-right: 8px; }
+  .neutron-col .level-label { text-align: left; padding-left: 8px; order: 2; }
+
+  .level-line {
+    flex: 1;
+    position: relative;
+    height: 28px;
+    display: flex;
+    align-items: center;
+  }
+
+  .level-track {
+    position: absolute;
+    left: 4px; right: 4px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--border);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .level-row.filled-p .level-track { background: var(--proton-dim); }
+  .level-row.filled-n .level-track { background: var(--neutron-dim); }
+  .level-row.partial-p .level-track { background: linear-gradient(to right, var(--proton-dim) 0%, var(--border) 100%); }
+  .level-row.partial-n .level-track { background: linear-gradient(to right, var(--neutron-dim) 0%, var(--border) 100%); }
+  .level-row.last-p .level-track { background: var(--proton); box-shadow: 0 0 8px var(--proton); }
+  .level-row.last-n .level-track { background: var(--neutron); box-shadow: 0 0 8px var(--neutron); }
+
+  .nucleons-dots {
+    position: absolute;
+    left: 4px; right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.25s;
+  }
+
+  .dot.p-dot { background: var(--proton); box-shadow: 0 0 4px var(--proton); }
+  .dot.n-dot { background: var(--neutron); box-shadow: 0 0 4px var(--neutron); }
+  .dot.p-dot.valence { background: #fff; box-shadow: 0 0 10px var(--proton), 0 0 20px var(--proton); border: 2px solid var(--proton); width: 12px; height: 12px; }
+  .dot.n-dot.valence { background: #fff; box-shadow: 0 0 10px var(--neutron), 0 0 20px var(--neutron); border: 2px solid var(--neutron); width: 12px; height: 12px; }
+
+  .cumul-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    min-width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .proton-col .cumul-label { order: -1; }
+  .neutron-col .cumul-label { }
+
+  /* Magic number gap separators */
+  .magic-sep {
+    height: 14px;
+    margin: 2px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .magic-sep-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--magic), transparent);
+    opacity: 0.6;
+  }
+
+  .magic-sep-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--magic);
+    letter-spacing: 0.1em;
+    opacity: 0.7;
+    white-space: nowrap;
+  }
+
+  /* ── Spin parity tooltip ── */
+  .level-row[data-jp]:hover::after {
+    content: attr(data-jp);
+    position: absolute;
+    right: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1a2540;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* ── ENERGY AXIS ── */
+  .energy-axis {
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 50px 0 10px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .energy-axis::before {
+    content: '';
+    position: absolute;
+    top: 50px; bottom: 10px;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--muted), transparent);
+  }
+
+  .e-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) rotate(180deg);
+    white-space: nowrap;
+  }
+
+  /* ── PHYSICS TAB ── */
+  .physics-content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 28px 60px;
+  }
+
+  .phys-section {
+    margin-bottom: 40px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .phys-section:nth-child(1) { animation-delay: 0.0s; }
+  .phys-section:nth-child(2) { animation-delay: 0.08s; }
+  .phys-section:nth-child(3) { animation-delay: 0.16s; }
+  .phys-section:nth-child(4) { animation-delay: 0.24s; }
+  .phys-section:nth-child(5) { animation-delay: 0.32s; }
+  .phys-section:nth-child(6) { animation-delay: 0.40s; }
+
+  .phys-h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--neutron);
+    border-left: 3px solid var(--neutron);
+    padding-left: 12px;
+    margin-bottom: 14px;
+    text-shadow: 0 0 12px rgba(0,212,255,0.3);
+  }
+
+  .phys-section p {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #b0c4de;
+    margin-bottom: 10px;
+  }
+
+  .phys-section strong { color: var(--gold); font-weight: 600; }
+  .phys-section em { color: var(--proton); font-style: italic; }
+
+  .level-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    margin: 14px 0;
+  }
+
+  .level-table th {
+    padding: 8px 12px;
+    text-align: left;
+    color: var(--neutron);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .level-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(30,45,74,0.5);
+    color: var(--text);
+  }
+
+  .level-table tr:hover td { background: rgba(0,212,255,0.04); }
+  .level-table tr.magic-row td { color: var(--magic); }
+  .level-table td.pos { color: var(--proton); }
+  .level-table td.neg { color: #7c6aff; }
+
+  .formula-box {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem;
+    color: #d4e8ff;
+    line-height: 1.9;
+  }
+
+  .formula-box .eq-label {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .magic-pill {
+    display: inline-block;
+    background: rgba(168,255,120,0.1);
+    border: 1px solid var(--magic);
+    border-radius: 20px;
+    padding: 2px 10px;
+    color: var(--magic);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    margin: 2px;
+  }
+
+  .rule-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+  }
+
+  .rule-list li {
+    padding: 7px 0 7px 22px;
+    position: relative;
+    color: #b0c4de;
+    font-size: 1.0rem;
+    line-height: 1.7;
+    border-bottom: 1px solid rgba(30,45,74,0.4);
+  }
+
+  .rule-list li::before {
+    content: '▶';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 0.6rem;
+    top: 11px;
+  }
+
+  .jp-table { border-left: 3px solid var(--proton); }
+  .jp-table th { color: var(--proton); }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+
+  .info-tile {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .info-tile .it-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .info-tile .it-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    color: var(--gold);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 18px;
+    padding: 8px 24px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .legend-line {
+    width: 20px; height: 2px;
+    border-radius: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<header>
+  <h1>⚛ Nuclear Shell Model</h1>
+  <p>Single-particle energy levels · Magic numbers · Ground-state J<sup>π</sup></p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('sim')">◈ Simulation</button>
+  <button class="tab-btn" onclick="switchTab('phys')">∮ Physics</button>
+</div>
+
+<!-- ===== SIMULATION TAB ===== -->
+<div id="tab-sim" class="tab-panel active">
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-label">Proton Number Z <span class="pl" id="zlabel">8</span></div>
+      <div class="input-row">
+        <input type="range" class="slider slider-p" id="zslider" min="0" max="126" value="8" oninput="syncZ(this.value)">
+        <input type="number" class="num-input" id="zinput" min="0" max="126" value="8" oninput="syncZ(this.value)">
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Neutron Number N <span class="nl" id="nlabel">8</span></div>
+      <div class="input-row">
+        <input type="range" class="slider slider-n" id="nslider" min="0" max="126" value="8" oninput="syncN(this.value)">
+        <input type="number" class="num-input" id="ninput" min="0" max="126" value="8" oninput="syncN(this.value)">
+      </div>
+    </div>
+    <div class="nucleus-badge" id="nucleus-badge">
+      <sup>16</sup>O<sub>8</sub>
+    </div>
+  </div>
+
+  <div class="result-bar" id="result-bar">
+    <!-- filled by JS -->
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--proton)"></div> Proton (filled)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--neutron)"></div> Neutron (filled)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px solid var(--proton);box-sizing:border-box"></div> Valence proton</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fff;border:2px solid var(--neutron);box-sizing:border-box"></div> Valence neutron</div>
+    <div class="legend-item"><div class="legend-line" style="background:linear-gradient(to right,transparent,var(--magic),transparent)"></div> Magic gap</div>
+  </div>
+
+  <div class="diagram-area">
+    <div class="shell-column proton-col" id="proton-col">
+      <div class="col-header proton-h">◉ Protons</div>
+      <div id="proton-levels"></div>
+    </div>
+    <div class="energy-axis">
+      <span class="e-label">Energy (MeV) →</span>
+    </div>
+    <div class="shell-column neutron-col" id="neutron-col">
+      <div class="col-header neutron-h">◎ Neutrons</div>
+      <div id="neutron-levels"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHYSICS TAB ===== -->
+<div id="tab-phys" class="tab-panel">
+  <div class="physics-content">
+
+    <div class="phys-section">
+      <div class="phys-h1">1 · The Nuclear Shell Model</div>
+      <p>The <strong>nuclear shell model</strong> (independent-particle model) treats each nucleon as moving independently in an average potential generated by all other nucleons. Proposed by <em>Maria Goeppert Mayer</em> and <em>J. Hans D. Jensen</em> (Nobel Prize 1963), it explains the existence of <strong>magic numbers</strong> — nucleon numbers at which nuclei are exceptionally stable — by analogy with the closed electron shells of noble gases.</p>
+      <p>Unlike atomic orbitals, nuclear orbits arise from a combination of <strong>central potential</strong> (Woods-Saxon or harmonic oscillator) and a <strong>strong spin-orbit coupling</strong> term, which is essential for reproducing the observed magic numbers.</p>
+    </div>
+
+    <div class="phys-section">
+      <div class="phys-h1">2 · The Mean-Field Potential</div>
+      <p>The single-particle Hamiltonian is:</p>
+      <div class="formula-box">
+        <span class="eq-label">Single-particle Hamiltonian:</span>
+        Ĥ = T + V<sub>central</sub>(r) + V<sub>LS</sub>(r) · L̂·Ŝ<br><br>
+        <span class="eq-label">Woods-Saxon form (realistic):</span>
+        V(r) = −V₀ / [1 + exp((r − R)/a)]<br><br>
+        <span class="eq-label">where:</span>
+        R = r₀ · A<sup>1/3</sup>  (nuclear radius),  r₀ ≈ 1.27 fm,  a ≈ 0.67 fm
+      </div>
+      <p>The <strong>spin-orbit term</strong> V<sub>LS</sub> ∝ −κ · (dV/dr) · L̂·Ŝ splits each ℓ > 0 orbital into two levels with j = ℓ + ½ and j = ℓ − ½. The j = ℓ + ½ state is lowered in energy (more bound), breaking the harmonic-oscillator degeneracy and producing the correct magic numbers.</p>
+    </div>
+
+    <div class="phys-section">
+      <div class="phys-h1">3 · Quantum Numbers & Level Labels</div>
+      <p>Each single-particle state is labelled <strong>nℓⱼ</strong> where:</p>
+      <ul class="rule-list">
+        <li><strong>n</strong> = principal (radial) quantum number (1, 2, 3, … counts nodes + 1)</li>
+        <li><strong>ℓ</strong> = orbital angular momentum: s(0), p(1), d(2), f(3), g(4), h(5), i(6)</li>
+        <li><strong>j</strong> = total angular momentum = ℓ ± ½</li>
+        <li>Degeneracy of each level = <strong>2j + 1</strong> (magnetic substates)</li>
+        <li>Parity of level = <strong>(−1)<sup>ℓ</sup></strong></li>
+      </ul>
+      <p>Protons and neutrons occupy <em>separate</em> sets of levels (Pauli exclusion applies independently to each species).</p>
+    </div>
+
+    <div class="phys-section">
+      <div class="phys-h1">4 · Shell Model Level Ordering</div>
+      <table class="level-table">
+        <thead>
+          <tr>
+            <th>Level</th><th>ℓ</th><th>j</th><th>2j+1</th><th>Cumulative</th><th>Parity</th><th>Magic?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1s<sub>1/2</sub></td><td>0</td><td>1/2</td><td>2</td><td>2</td><td class="pos">+</td><td></td></tr>
+          <tr><td>1p<sub>3/2</sub></td><td>1</td><td>3/2</td><td>4</td><td>6</td><td class="neg">−</td><td></td></tr>
+          <tr><td>1p<sub>1/2</sub></td><td>1</td><td>1/2</td><td>2</td><td>8</td><td class="neg">−</td><td></td></tr>
+          <tr><td>1d<sub>5/2</sub></td><td>2</td><td>5/2</td><td>6</td><td>14</td><td class="pos">+</td><td></td></tr>
+          <tr><td>2s<sub>1/2</sub></td><td>0</td><td>1/2</td><td>2</td><td>16</td><td class="pos">+</td><td></td></tr>
+          <tr><td>1d<sub>3/2</sub></td><td>2</td><td>3/2</td><td>4</td><td>20</td><td class="pos">+</td><td class="magic-row">✦ Z,N = 20</td></tr>
+          <tr><td>1f<sub>7/2</sub></td><td>3</td><td>7/2</td><td>8</td><td>28</td><td class="neg">−</td><td class="magic-row">✦ Z,N = 28</td></tr>
+          <tr><td>2p<sub>3/2</sub></td><td>1</td><td>3/2</td><td>4</td><td>32</td><td class="neg">−</td><td></td></tr>
+          <tr><td>1f<sub>5/2</sub></td><td>3</td><td>5/2</td><td>6</td><td>38</td><td class="neg">−</td><td></td></tr>
+          <tr><td>2p<sub>1/2</sub></td><td>1</td><td>1/2</td><td>2</td><td>40</td><td class="neg">−</td><td></td></tr>
+          <tr><td>1g<sub>9/2</sub></td><td>4</td><td>9/2</td><td>10</td><td>50</td><td class="pos">+</td><td class="magic-row">✦ Z,N = 50</td></tr>
+          <tr><td>1g<sub>7/2</sub></td><td>4</td><td>7/2</td><td>8</td><td>58</td><td class="pos">+</td><td></td></tr>
+          <tr><td>2d<sub>5/2</sub></td><td>2</td><td>5/2</td><td>6</td><td>64</td><td class="pos">+</td><td></td></tr>
+          <tr><td>2d<sub>3/2</sub></td><td>2</td><td>3/2</td><td>4</td><td>68</td><td class="pos">+</td><td></td></tr>
+          <tr><td>3s<sub>1/2</sub></td><td>0</td><td>1/2</td><td>2</td><td>70</td><td class="pos">+</td><td></td></tr>
+          <tr><td>1h<sub>11/2</sub></td><td>5</td><td>11/2</td><td>12</td><td>82</td><td class="neg">−</td><td class="magic-row">✦ Z,N = 82</td></tr>
+          <tr><td>1h<sub>9/2</sub></td><td>5</td><td>9/2</td><td>10</td><td>92</td><td class="neg">−</td><td></td></tr>
+          <tr><td>2f<sub>7/2</sub></td><td>3</td><td>7/2</td><td>8</td><td>100</td><td class="neg">−</td><td></td></tr>
+          <tr><td>3p<sub>3/2</sub></td><td>1</td><td>3/2</td><td>4</td><td>104</td><td class="neg">−</td><td></td></tr>
+          <tr><td>2f<sub>5/2</sub></td><td>3</td><td>5/2</td><td>6</td><td>110</td><td class="neg">−</td><td></td></tr>
+          <tr><td>3p<sub>1/2</sub></td><td>1</td><td>1/2</td><td>2</td><td>112</td><td class="neg">−</td><td></td></tr>
+          <tr><td>1i<sub>13/2</sub></td><td>6</td><td>13/2</td><td>14</td><td>126</td><td class="pos">+</td><td class="magic-row">✦ Z,N = 126</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="phys-section">
+      <div class="phys-h1">5 · Magic Numbers</div>
+      <p>Magic numbers occur when a shell gap is particularly large, leading to exceptionally tightly bound, spherical nuclei. The observed magic numbers are:</p>
+      <p>
+        <span class="magic-pill">2</span>
+        <span class="magic-pill">8</span>
+        <span class="magic-pill">20</span>
+        <span class="magic-pill">28</span>
+        <span class="magic-pill">50</span>
+        <span class="magic-pill">82</span>
+        <span class="magic-pill">126</span>
+      </p>
+      <p>Simple harmonic oscillator gives degeneracy-magic numbers of 2, 8, 20, 40, 70 … The spin-orbit interaction <em>lowers</em> the highest-j orbital of each shell into the gap below, transforming 40→28, 70→50, 112→82, and producing the empirically correct sequence. The number <strong>2</strong> and <strong>8</strong> appear naturally in both the HO and SO pictures.</p>
+      <div class="info-grid">
+        <div class="info-tile"><div class="it-label">Doubly Magic Nuclei</div><div class="it-val" style="font-size:0.85rem;color:#b0c4de">⁴He, ¹⁶O, ⁴⁰Ca, ⁴⁸Ca, ⁹⁰Zr, ¹³²Sn, ²⁰⁸Pb</div></div>
+        <div class="info-tile"><div class="it-label">First Magic Number</div><div class="it-val">Z or N = 2</div></div>
+        <div class="info-tile"><div class="it-label">Heaviest Known</div><div class="it-val">N = 126</div></div>
+      </div>
+    </div>
+
+    <div class="phys-section">
+      <div class="phys-h1">6 · Ground-State Spin and Parity</div>
+      <p>The ground-state spin-parity J<sup>π</sup> is determined by the <strong>valence nucleons</strong> — those outside filled (sub)shells:</p>
+      <ul class="rule-list">
+        <li><strong>Even-Even nuclei</strong>: All nucleons pair up (j = 0 coupling). Always J<sup>π</sup> = 0<sup>+</sup></li>
+        <li><strong>Odd-A nuclei (odd proton, even N)</strong>: Spin = j of last unpaired proton; Parity = (−1)<sup>ℓ</sup></li>
+        <li><strong>Odd-A nuclei (odd neutron, even Z)</strong>: Spin = j of last unpaired neutron; Parity = (−1)<sup>ℓ</sup></li>
+        <li><strong>Odd-Odd nuclei</strong>: Spin from <em>Nordheim rules</em>: |j<sub>p</sub> − j<sub>n</sub>| ≤ J ≤ j<sub>p</sub> + j<sub>n</sub>, parity = π<sub>p</sub>·π<sub>n</sub>; the actual J is difficult to predict without detailed calculations</li>
+      </ul>
+      <div class="formula-box">
+        <span class="eq-label">Parity rule:</span>
+        π = (−1)<sup>ℓ</sup> &nbsp;→&nbsp; s,d,g,i orbitals: + parity · p,f,h orbitals: − parity<br><br>
+        <span class="eq-label">Nordheim strong rule (odd-odd):</span>
+        If (j<sub>p</sub> = ℓ<sub>p</sub>+½ and j<sub>n</sub> = ℓ<sub>n</sub>+½) or (j<sub>p</sub> = ℓ<sub>p</sub>−½ and j<sub>n</sub> = ℓ<sub>n</sub>−½):<br>
+        &nbsp;&nbsp;→ J = |j<sub>p</sub> − j<sub>n</sub>|<br>
+        Otherwise: J = j<sub>p</sub> + j<sub>n</sub>
+      </div>
+      <table class="level-table jp-table">
+        <thead>
+          <tr><th>Example Nucleus</th><th>Z</th><th>N</th><th>Valence Nucleon</th><th>Level</th><th>J<sup>π</sup></th></tr>
+        </thead>
+        <tbody>
+          <tr><td>¹⁶O</td><td>8</td><td>8</td><td>Even-even</td><td>—</td><td>0⁺</td></tr>
+          <tr><td>¹⁷O</td><td>8</td><td>9</td><td>1 neutron in 1d₅/₂</td><td>1d₅/₂</td><td>5/2⁺</td></tr>
+          <tr><td>¹³C</td><td>6</td><td>7</td><td>1 neutron in 1p₁/₂</td><td>1p₁/₂</td><td>1/2⁻</td></tr>
+          <tr><td>⁴¹Ca</td><td>20</td><td>21</td><td>1 neutron in 1f₇/₂</td><td>1f₇/₂</td><td>7/2⁻</td></tr>
+          <tr><td>²⁰⁷Pb</td><td>82</td><td>125</td><td>1 neutron hole 3p₁/₂</td><td>3p₁/₂</td><td>1/2⁻</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Shell model levels: [label, l, j_num (=2j), capacity, cumulative, magic_after]
+const LEVELS = [
+  { label:'1s₁/₂',  nl:'1s1/2',  l:0, jn:1,  cap:2,  cum:2,   magicAfter:false },
+  { label:'1p₃/₂',  nl:'1p3/2',  l:1, jn:3,  cap:4,  cum:6,   magicAfter:false },
+  { label:'1p₁/₂',  nl:'1p1/2',  l:1, jn:1,  cap:2,  cum:8,   magicAfter:true  },  // magic 8
+  { label:'1d₅/₂',  nl:'1d5/2',  l:2, jn:5,  cap:6,  cum:14,  magicAfter:false },
+  { label:'2s₁/₂',  nl:'2s1/2',  l:0, jn:1,  cap:2,  cum:16,  magicAfter:false },
+  { label:'1d₃/₂',  nl:'1d3/2',  l:2, jn:3,  cap:4,  cum:20,  magicAfter:true  },  // magic 20
+  { label:'1f₇/₂',  nl:'1f7/2',  l:3, jn:7,  cap:8,  cum:28,  magicAfter:true  },  // magic 28
+  { label:'2p₃/₂',  nl:'2p3/2',  l:1, jn:3,  cap:4,  cum:32,  magicAfter:false },
+  { label:'1f₅/₂',  nl:'1f5/2',  l:3, jn:5,  cap:6,  cum:38,  magicAfter:false },
+  { label:'2p₁/₂',  nl:'2p1/2',  l:1, jn:1,  cap:2,  cum:40,  magicAfter:false },
+  { label:'1g₉/₂',  nl:'1g9/2',  l:4, jn:9,  cap:10, cum:50,  magicAfter:true  },  // magic 50
+  { label:'1g₇/₂',  nl:'1g7/2',  l:4, jn:7,  cap:8,  cum:58,  magicAfter:false },
+  { label:'2d₅/₂',  nl:'2d5/2',  l:2, jn:5,  cap:6,  cum:64,  magicAfter:false },
+  { label:'2d₃/₂',  nl:'2d3/2',  l:2, jn:3,  cap:4,  cum:68,  magicAfter:false },
+  { label:'3s₁/₂',  nl:'3s1/2',  l:0, jn:1,  cap:2,  cum:70,  magicAfter:false },
+  { label:'1h₁₁/₂', nl:'1h11/2', l:5, jn:11, cap:12, cum:82,  magicAfter:true  },  // magic 82
+  { label:'1h₉/₂',  nl:'1h9/2',  l:5, jn:9,  cap:10, cum:92,  magicAfter:false },
+  { label:'2f₇/₂',  nl:'2f7/2',  l:3, jn:7,  cap:8,  cum:100, magicAfter:false },
+  { label:'3p₃/₂',  nl:'3p3/2',  l:1, jn:3,  cap:4,  cum:104, magicAfter:false },
+  { label:'2f₅/₂',  nl:'2f5/2',  l:3, jn:5,  cap:6,  cum:110, magicAfter:false },
+  { label:'3p₁/₂',  nl:'3p1/2',  l:1, jn:1,  cap:2,  cum:112, magicAfter:false },
+  { label:'1i₁₃/₂', nl:'1i13/2', l:6, jn:13, cap:14, cum:126, magicAfter:true  },  // magic 126
+];
+
+const MAGIC = [2,8,20,28,50,82,126];
+const MAGIC_LABELS = { 8:'N=8', 20:'N=20', 28:'N=28', 50:'N=50', 82:'N=82', 126:'N=126' };
+
+// Parity from l
+function parity(l) { return l % 2 === 0 ? '+' : '−'; }
+
+// j value as fraction string from jn (2j)
+function jStr(jn) {
+  if (jn % 2 === 1) return `${jn}/2`;
+  return `${jn/2}`;
+}
+
+// Determine J^pi
+function getGroundState(Z, N) {
+  const fillInfo = (count) => {
+    let remaining = count;
+    let lastLevel = null, lastCount = 0;
+    for (const lv of LEVELS) {
+      if (remaining <= 0) break;
+      const filled = Math.min(remaining, lv.cap);
+      if (filled > 0) { lastLevel = lv; lastCount = filled; }
+      remaining -= filled;
+    }
+    return { lastLevel, lastCount };
+  };
+
+  const { lastLevel: pLast, lastCount: pCount } = fillInfo(Z);
+  const { lastLevel: nLast, lastCount: nCount } = fillInfo(N);
+
+  const isMagicZ = MAGIC.includes(Z);
+  const isMagicN = MAGIC.includes(N);
+  const isEvenZ = Z % 2 === 0;
+  const isEvenN = N % 2 === 0;
+
+  if (isEvenZ && isEvenN) {
+    return { J: '0', pi: '+', label: '0⁺', type: 'even-even', reason: 'Even-even nucleus: all nucleons paired → J=0, π=+1' };
+  }
+
+  if (!isEvenZ && isEvenN) {
+    // odd proton
+    if (!pLast) return { J:'?', pi:'?', label:'?', type:'odd-p', reason:'No protons' };
+    const j = jStr(pLast.jn);
+    const pi = parity(pLast.l);
+    // check if this proton is the only one in the level
+    const isValence = pCount < pLast.cap;
+    if (!isValence) {
+      // fully filled shell, should not happen for odd Z, but handle gracefully
+    }
+    return {
+      J: j, pi, label: `${j}${pi === '+' ? '⁺' : '⁻'}`,
+      type: 'odd-p',
+      reason: `Odd proton in ${pLast.label}: j = ${j}, ℓ = ${pLast.l} → π = (−1)^${pLast.l} = ${pi}`
+    };
+  }
+
+  if (isEvenZ && !isEvenN) {
+    // odd neutron
+    if (!nLast) return { J:'?', pi:'?', label:'?', type:'odd-n', reason:'No neutrons' };
+    const j = jStr(nLast.jn);
+    const pi = parity(nLast.l);
+    return {
+      J: j, pi, label: `${j}${pi === '+' ? '⁺' : '⁻'}`,
+      type: 'odd-n',
+      reason: `Odd neutron in ${nLast.label}: j = ${j}, ℓ = ${nLast.l} → π = (−1)^${nLast.l} = ${pi}`
+    };
+  }
+
+  // odd-odd
+  if (!pLast || !nLast) return { J:'?', pi:'?', label:'?', type:'odd-odd', reason:'Odd-odd: insufficient data' };
+  const jp = pLast.jn / 2, jn = nLast.jn / 2;
+  const pip = pLast.l % 2, pin = nLast.l % 2;
+  const combinedParity = (pip + pin) % 2 === 0 ? '+' : '−';
+  // Nordheim strong rule
+  const jpIsUp = (pLast.jn === 2 * pLast.l + 1);  // j = l + 1/2
+  const jnIsUp = (nLast.jn === 2 * nLast.l + 1);
+  let Jval;
+  if (jpIsUp === jnIsUp) {
+    Jval = Math.abs(jp - jn);
+  } else {
+    Jval = jp + jn;
+  }
+  const Jstr = (Jval % 1 === 0) ? `${Jval}` : `${Jval * 2}/2`;
+  return {
+    J: Jstr, pi: combinedParity,
+    label: `${Jstr}${combinedParity === '+' ? '⁺' : '⁻'}`,
+    type: 'odd-odd',
+    reason: `Odd-odd: proton in ${pLast.label} (j=${jStr(pLast.jn)}), neutron in ${nLast.label} (j=${jStr(nLast.jn)}). Nordheim rule → J=${Jstr}, π=${combinedParity}`
+  };
+}
+
+// Render one side (proton or neutron)
+function renderSide(containerId, count, type) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const isP = type === 'p';
+  const dotClass = isP ? 'p-dot' : 'n-dot';
+  const filledClass = isP ? 'filled-p' : 'filled-n';
+  const partialClass = isP ? 'partial-p' : 'partial-n';
+  const lastClass = isP ? 'last-p' : 'last-n';
+
+  let remaining = count;
+  // Find the last active level index
+  let lastActiveIdx = -1;
+  let tmp = count;
+  for (let i = 0; i < LEVELS.length; i++) {
+    if (tmp <= 0) break;
+    lastActiveIdx = i;
+    tmp -= LEVELS[i].cap;
+  }
+
+  for (let i = 0; i < LEVELS.length; i++) {
+    const lv = LEVELS[i];
+    const inLevel = Math.min(Math.max(remaining, 0), lv.cap);
+    remaining -= lv.cap;
+    const isFull = inLevel === lv.cap;
+    const isLast = (i === lastActiveIdx && count > 0);
+    const isEmpty = inLevel === 0;
+
+    // Row
+    const row = document.createElement('div');
+    row.className = 'level-row';
+    if (isFull && !isLast) row.classList.add(filledClass);
+    else if (!isEmpty && !isFull) row.classList.add(partialClass);
+    if (isLast) row.classList.add(lastClass);
+
+    const jpStr = `j = ${jStr(lv.jn)}, π = ${parity(lv.l)}`;
+    row.setAttribute('data-jp', jpStr);
+
+    // Label
+    const lblEl = document.createElement('div');
+    lblEl.className = 'level-label';
+    lblEl.innerHTML = lv.label;
+
+    // Line container
+    const lineEl = document.createElement('div');
+    lineEl.className = 'level-line';
+
+    const track = document.createElement('div');
+    track.className = 'level-track';
+
+    // Dots
+    const dotsEl = document.createElement('div');
+    dotsEl.className = 'nucleons-dots';
+    for (let d = 0; d < inLevel; d++) {
+      const dot = document.createElement('div');
+      dot.className = `dot ${dotClass}`;
+      if (isLast && d === inLevel - 1 && count % 2 !== 0) {
+        dot.classList.add('valence');
+      }
+      dotsEl.appendChild(dot);
+    }
+
+    lineEl.appendChild(track);
+    lineEl.appendChild(dotsEl);
+
+    // Cumulative
+    const cumulEl = document.createElement('div');
+    cumulEl.className = 'cumul-label';
+    cumulEl.textContent = lv.cum;
+
+    if (isP) {
+      row.appendChild(lblEl);
+      row.appendChild(lineEl);
+      row.appendChild(cumulEl);
+    } else {
+      row.appendChild(cumulEl);
+      row.appendChild(lineEl);
+      row.appendChild(lblEl);
+    }
+
+    container.appendChild(row);
+
+    // Magic gap after this level
+    if (lv.magicAfter && i < LEVELS.length - 1) {
+      const sep = document.createElement('div');
+      sep.className = 'magic-sep';
+      const line1 = document.createElement('div'); line1.className = 'magic-sep-line';
+      const line2 = document.createElement('div'); line2.className = 'magic-sep-line';
+      const lbl = document.createElement('div');
+      lbl.className = 'magic-sep-label';
+      lbl.textContent = `✦ ${lv.cum}`;
+      sep.appendChild(line1); sep.appendChild(lbl); sep.appendChild(line2);
+      container.appendChild(sep);
+    }
+  }
+}
+
+function renderResults(Z, N) {
+  const gs = getGroundState(Z, N);
+  const isMagicZ = MAGIC.includes(Z);
+  const isMagicN = MAGIC.includes(N);
+  const isDoubly = isMagicZ && isMagicN;
+
+  const A = Z + N;
+  const el = elementSymbol(Z);
+
+  const bar = document.getElementById('result-bar');
+  bar.innerHTML = `
+    <div class="result-card ${isDoubly ? 'magic-glow' : ''}">
+      <div class="rc-label">Ground State J<sup>π</sup></div>
+      <div class="rc-value">${gs.label}</div>
+      <div class="rc-sub">${gs.type}</div>
+    </div>
+    <div class="result-card ${isMagicZ ? 'magic-glow' : ''}">
+      <div class="rc-label">Proton Number Z</div>
+      <div class="rc-value" style="color:var(--proton);text-shadow:0 0 20px rgba(255,159,67,0.5)">${Z}</div>
+      <div class="rc-sub">${isMagicZ ? '✦ Magic' : ''}&nbsp;</div>
+    </div>
+    <div class="result-card ${isMagicN ? 'magic-glow' : ''}">
+      <div class="rc-label">Neutron Number N</div>
+      <div class="rc-value" style="color:var(--neutron);text-shadow:0 0 20px rgba(0,212,255,0.5)">${N}</div>
+      <div class="rc-sub">${isMagicN ? '✦ Magic' : ''}&nbsp;</div>
+    </div>
+    <div class="result-card">
+      <div class="rc-label">Mass Number A</div>
+      <div class="rc-value" style="color:var(--accent)">${A}</div>
+      <div class="rc-sub">${el}</div>
+    </div>
+    <div class="result-card" style="flex:2;min-width:220px;text-align:left">
+      <div class="rc-label">Reasoning</div>
+      <div style="font-size:0.82rem;color:#8ab0d0;font-family:'Share Tech Mono',monospace;line-height:1.5;margin-top:4px">${gs.reason}</div>
+    </div>
+  `;
+}
+
+const ELEMENTS = ['n','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og'];
+
+function elementSymbol(Z) {
+  return (Z >= 0 && Z < ELEMENTS.length) ? ELEMENTS[Z] : '?';
+}
+
+function update() {
+  const Z = parseInt(document.getElementById('zinput').value) || 0;
+  const N = parseInt(document.getElementById('ninput').value) || 0;
+  const A = Z + N;
+  const sym = elementSymbol(Z);
+
+  document.getElementById('nucleus-badge').innerHTML = `<sup>${A}</sup>${sym}<sub>${Z}</sub>`;
+  renderSide('proton-levels', Z, 'p');
+  renderSide('neutron-levels', N, 'n');
+  renderResults(Z, N);
+}
+
+function syncZ(val) {
+  val = Math.max(0, Math.min(126, parseInt(val) || 0));
+  document.getElementById('zslider').value = val;
+  document.getElementById('zinput').value = val;
+  document.getElementById('zlabel').textContent = val;
+  update();
+}
+
+function syncN(val) {
+  val = Math.max(0, Math.min(126, parseInt(val) || 0));
+  document.getElementById('nslider').value = val;
+  document.getElementById('ninput').value = val;
+  document.getElementById('nlabel').textContent = val;
+  update();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Initial render
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maxwell FDTD — EM Wave Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Barlow:wght@300;400;600&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#020b14;--panel:#04111d;--card:#071828;--card2:#05141f;
+  --b1:rgba(0,180,255,.1);--b2:rgba(0,200,255,.28);--b3:rgba(0,200,255,.5);
+  --cyan:#00d4ff;--red:#ff2244;--blue:#2299ff;--grn:#00ff88;
+  --yel:#ffcc00;--mag:#ff44ee;--orn:#ff8800;--wht:#dff0ff;
+  --dim:#264a62;--dim2:#1a3245;
+  --gc:0 0 16px rgba(0,212,255,.55);
+  --gr:0 0 12px rgba(255,34,68,.5);
+  --gb:0 0 12px rgba(34,153,255,.5);
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--wht);
+  display:flex;flex-direction:column;font-size:13px}
+
+/* ── HEADER ───────────────────────────────────── */
+.hdr{background:linear-gradient(90deg,#010a12,#031622,#010a12);
+  border-bottom:2px solid var(--b2);padding:6px 18px;
+  display:flex;align-items:center;gap:16px;flex-shrink:0;position:relative;z-index:10}
+.htitle{font-family:'Orbitron',monospace;font-weight:900;font-size:14px;
+  color:var(--cyan);text-shadow:var(--gc);letter-spacing:3.5px}
+.hsub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);
+  letter-spacing:2px;margin-top:2px}
+.hright{margin-left:auto;display:flex;gap:10px;align-items:center}
+.hbtn{font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 12px;
+  border:1px solid var(--b2);border-radius:2px;cursor:pointer;color:var(--cyan);
+  background:rgba(0,212,255,.06);transition:all .18s;letter-spacing:1px}
+.hbtn:hover{background:rgba(0,212,255,.15);box-shadow:var(--gc)}
+.htimer{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim)}
+.htimer b{color:var(--cyan);font-weight:400}
+.hstep{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim)}
+.hstep b{color:var(--yel);font-weight:400}
+
+/* ── TABS ─────────────────────────────────────── */
+.tabbar{display:flex;background:var(--panel);border-bottom:1px solid var(--b1);
+  padding:0 8px;gap:0;flex-shrink:0}
+.tab{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;padding:7px 13px;cursor:pointer;
+  color:var(--dim);border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:#6bade8}
+.tab.on{color:var(--cyan);border-bottom-color:var(--cyan);text-shadow:var(--gc)}
+
+/* ── MAIN ─────────────────────────────────────── */
+.main{flex:1;position:relative;overflow:hidden}
+#sim{position:absolute;inset:0;display:flex}
+
+/* ── LEFT PANEL ────────────────────────────────── */
+.lpanel{width:208px;flex-shrink:0;background:var(--panel);
+  border-right:1px solid var(--b1);overflow-y:auto;padding:8px;
+  display:flex;flex-direction:column;gap:6px}
+.lpanel::-webkit-scrollbar{width:3px}
+.lpanel::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.sec{background:var(--card);border:1px solid var(--b1);border-radius:3px;padding:8px}
+.stitle{font-family:'Share Tech Mono',monospace;font-size:8.5px;letter-spacing:3px;
+  color:var(--cyan);margin-bottom:7px;text-transform:uppercase}
+.row{display:flex;flex-direction:column;gap:1.5px;margin-bottom:7px}
+.row:last-child{margin-bottom:0}
+.lbl{display:flex;justify-content:space-between;font-size:10px;color:#7aadcc}
+.lbl b{font-family:'Share Tech Mono',monospace;color:var(--cyan);font-weight:400;font-size:9.5px}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;
+  background:linear-gradient(90deg,var(--b2),var(--b2));
+  border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;
+  background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:var(--gc)}
+.pbtns{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px}
+.pbtn{font-size:8.5px;padding:3px 6px;border:1px solid var(--b1);border-radius:2px;
+  cursor:pointer;color:var(--dim);background:transparent;
+  font-family:'Share Tech Mono',monospace;transition:all .18s;letter-spacing:.3px}
+.pbtn:hover{color:var(--wht)}
+.pbtn.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.07)}
+.pbtn.on.red{border-color:var(--red);color:var(--red);background:rgba(255,34,68,.07)}
+.pbtn.on.grn{border-color:var(--grn);color:var(--grn);background:rgba(0,255,136,.07)}
+.toggle{display:flex;align-items:center;gap:7px;font-size:10px;color:#7aadcc;
+  cursor:pointer;padding:2px 0}
+.tck{width:28px;height:13px;border:1px solid var(--b2);border-radius:7px;
+  position:relative;background:rgba(0,212,255,.06);transition:all .2s;flex-shrink:0}
+.tck.on{background:rgba(0,212,255,.22)}
+.tck::after{content:'';position:absolute;top:1px;left:1px;width:9px;height:9px;
+  background:var(--dim);border-radius:50%;transition:all .2s}
+.tck.on::after{left:16px;background:var(--cyan);box-shadow:var(--gc)}
+
+/* ── CANVAS AREA ───────────────────────────────── */
+.cbox{flex:1;position:relative;overflow:hidden}
+canvas#cvs{width:100%;height:100%;display:block;cursor:grab}
+canvas#cvs:active{cursor:grabbing}
+/* overlay insets */
+.lgnd{position:absolute;bottom:10px;left:10px;background:rgba(2,11,20,.92);
+  border:1px solid var(--b1);border-radius:3px;padding:7px 10px;pointer-events:none}
+.li{display:flex;align-items:center;gap:7px;font-family:'Share Tech Mono',monospace;
+  font-size:8.5px;margin-bottom:2.5px;color:#7aadcc}
+.li:last-child{margin-bottom:0}
+.lbar{width:18px;height:2px;border-radius:1px;flex-shrink:0}
+#lissCanvas{position:absolute;bottom:10px;right:10px;
+  border:1px solid var(--b1);border-radius:3px;background:rgba(2,11,20,.92)}
+.liss-label{position:absolute;font-family:'Share Tech Mono',monospace;font-size:8px;
+  color:var(--dim);pointer-events:none}
+#probeLabel{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);
+  background:rgba(2,11,20,.85);border:1px solid var(--b1);border-radius:2px;
+  padding:3px 10px;pointer-events:none}
+
+/* ── RIGHT PANEL ───────────────────────────────── */
+.rpanel{width:188px;flex-shrink:0;background:var(--panel);
+  border-left:1px solid var(--b1);overflow-y:auto;padding:8px;
+  display:flex;flex-direction:column;gap:6px}
+.rpanel::-webkit-scrollbar{width:3px}
+.rpanel::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.rcard{background:var(--card);border:1px solid var(--b1);border-radius:3px;padding:8px}
+.rcTitle{font-family:'Share Tech Mono',monospace;font-size:8.5px;letter-spacing:3px;
+  color:var(--cyan);margin-bottom:7px;text-transform:uppercase}
+.rrow{display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:3.5px;gap:4px}
+.rn{color:var(--dim);font-size:9.5px;white-space:nowrap}
+.rv{font-family:'Share Tech Mono',monospace;font-size:9.5px;text-align:right}
+.rv.r{color:var(--red)}.rv.b{color:#55aaff}.rv.g{color:var(--grn)}
+.rv.y{color:var(--yel)}.rv.c{color:var(--cyan)}.rv.m{color:var(--mag)}
+.rv.w{color:var(--wht)}
+/* Stokes bar */
+.sbar-wrap{margin-bottom:3px}
+.sbar-lbl{display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px}
+.sbar-lbl span:first-child{color:var(--dim)}
+.sbar-lbl span:last-child{font-family:'Share Tech Mono',monospace;font-size:8.5px}
+.sbar-bg{height:4px;background:var(--b1);border-radius:2px;overflow:hidden}
+.sbar-fill{height:100%;border-radius:2px;transition:width .25s}
+
+/* ── CONTENT TABS ──────────────────────────────── */
+.ctab{position:absolute;inset:0;overflow-y:auto;padding:20px;gap:16px;
+  flex-wrap:wrap;align-content:flex-start;display:none;background:var(--bg)}
+.ctab.show{display:flex}
+.ctab::-webkit-scrollbar{width:5px}
+.ctab::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+.pcrd{background:var(--card);border:1px solid var(--b1);border-radius:5px;
+  padding:20px;flex:1;min-width:265px;max-width:455px}
+.pcrd h2{font-family:'Orbitron',monospace;font-size:12px;color:var(--cyan);
+  margin-bottom:12px;letter-spacing:2px}
+.pcrd h3{font-family:'Barlow Condensed',sans-serif;font-size:13.5px;font-weight:700;
+  color:var(--wht);margin:12px 0 5px;letter-spacing:.5px}
+.pcrd p{font-size:11.5px;line-height:1.75;color:#7aadcc;margin-bottom:8px}
+.pcrd p strong{color:var(--wht)}
+.eq{background:rgba(0,212,255,.04);border-left:3px solid var(--cyan);
+  padding:8px 12px;margin:7px 0;font-family:'Share Tech Mono',monospace;
+  font-size:11px;color:var(--wht);border-radius:0 3px 3px 0;line-height:1.6}
+.hbox{background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.18);
+  border-radius:3px;padding:7px 11px;font-family:'Share Tech Mono',monospace;
+  font-size:10.5px;color:var(--grn);margin:6px 0}
+.ybox{background:rgba(255,204,0,.04);border:1px solid rgba(255,204,0,.18);
+  border-radius:3px;padding:7px 11px;font-size:11px;color:var(--yel);margin:6px 0}
+.mbox{background:rgba(255,68,238,.04);border:1px solid rgba(255,68,238,.18);
+  border-radius:3px;padding:7px 11px;font-family:'Share Tech Mono',monospace;
+  font-size:10.5px;color:var(--mag);margin:6px 0}
+.fdtdbox{background:rgba(0,180,255,.04);border:1px solid rgba(0,180,255,.2);
+  border-radius:3px;padding:10px 12px;margin:8px 0}
+.fdtdbox code{font-family:'Share Tech Mono',monospace;font-size:10px;
+  color:#88ccff;display:block;line-height:1.7}
+
+/* ── STATUS BAR ────────────────────────────────── */
+.sbar{background:var(--panel);border-top:1px solid var(--b1);padding:2px 14px;
+  display:flex;gap:16px;font-family:'Share Tech Mono',monospace;font-size:8.5px;
+  color:var(--dim);flex-shrink:0;align-items:center}
+.si{display:flex;gap:4px}.si b{color:var(--cyan);font-weight:400}
+
+/* ═══ THEME: readability + day/night ═══ */
+:root,:root[data-theme="night"]{
+  --bg:#010812;--panel:#06182a;--card:#0a2036;--card2:#07192b;
+  --b1:rgba(80,190,255,.22);--b2:rgba(80,200,255,.42);--b3:rgba(80,200,255,.65);
+  --cyan:#35dcff;--red:#ff5a73;--blue:#5aaeff;--grn:#3dffa0;
+  --yel:#ffd84a;--mag:#ff6af0;--orn:#ff9a2e;--wht:#eef8ff;
+  --dim:#8fb4cc;--dim2:#6a90a8;--lbl:#b4d4e6;--code:#a8dcff;
+  --ovl:rgba(3,14,26,.93);
+  --hdr:linear-gradient(90deg,#010a12,#06233a,#010a12);
+  --gc:0 0 10px rgba(53,220,255,.45);
+}
+:root[data-theme="day"]{
+  --bg:#e9f0f6;--panel:#f7fafd;--card:#ffffff;--card2:#f1f6fa;
+  --b1:rgba(0,70,120,.16);--b2:rgba(0,70,120,.35);--b3:rgba(0,70,120,.55);
+  --cyan:#006f9e;--red:#c4122f;--blue:#1259b8;--grn:#087a45;
+  --yel:#8a6100;--mag:#a8149a;--orn:#b24a00;--wht:#0a1f30;
+  --dim:#4a6479;--dim2:#6b8396;--lbl:#27455a;--code:#1259b8;
+  --ovl:rgba(255,255,255,.94);
+  --hdr:linear-gradient(90deg,#d8e7f2,#f4f9fd,#d8e7f2);
+  --gc:0 0 0 transparent;
+}
+.hdr{background:var(--hdr)}
+.hsub{font-size:10.5px;color:var(--dim)}
+.htimer,.hstep,.hbtn{font-size:11.5px}
+.tab{font-size:12.5px}.tab:hover{color:var(--wht)}
+.lpanel{width:236px}.rpanel{width:218px}
+.lbl{font-size:11.5px;color:var(--lbl)}.lbl b{font-size:11.5px}
+.stitle,.rcTitle{font-size:10.5px;letter-spacing:2.5px}
+.pbtn{font-size:10.5px;padding:4px 7px;color:var(--lbl);border-color:var(--b2)}
+.pbtn:hover{color:var(--cyan)}.pbtn.on{font-weight:700}
+.toggle{font-size:11.5px;color:var(--lbl)}
+.tck{border-color:var(--b3);background:var(--b1)}.tck::after{background:var(--dim)}
+.lgnd{background:var(--ovl)}.li{font-size:10.5px;color:var(--lbl)}
+#lissCanvas{background:var(--ovl);border-color:var(--b2)}
+#probeLabel{font-size:10.5px;color:var(--lbl);background:var(--ovl)}
+.rn{font-size:11px;color:var(--lbl);white-space:normal}
+.rv{font-size:11.5px}.rv.b{color:var(--blue)}
+.sbar-lbl{font-size:10.5px}.sbar-lbl span:first-child{color:var(--lbl)}.sbar-lbl span:last-child{font-size:10.5px}
+.sbar{font-size:10.5px}
+.pcrd{max-width:520px}
+.pcrd p{font-size:13px;color:var(--lbl);line-height:1.7}
+.pcrd h3{font-size:15px}
+.eq{font-size:12.5px}.hbox,.mbox{font-size:12px}.ybox{font-size:12.5px}
+.fdtdbox code{font-size:12px;color:var(--code)}
+/* inline-style colours → theme vars */
+.toggle span[style*="ff5566"]{color:var(--red)!important}
+.toggle span[style*="4499ff"]{color:var(--blue)!important}
+.toggle span[style*="ff44ee"]{color:var(--mag)!important}
+.toggle span[style*="00ff88"]{color:var(--grn)!important}
+.sec[style*="Share Tech"]{font-size:10.5px!important}
+div[style*="446688"],div[style*="223344"]{color:var(--lbl)!important}
+/* theme button */
+.themebtn{display:flex;gap:2px;padding:3px}
+.tm{padding:3px 9px;border-radius:2px;opacity:.55;transition:all .2s}
+:root[data-theme="night"] .tm.n,:root[data-theme="day"] .tm.d{opacity:1;background:var(--cyan);color:var(--bg);font-weight:700}
+/* Physics / Applications: larger text */
+.ctab{padding:26px;gap:20px}
+.pcrd{max-width:640px;min-width:300px;padding:26px}
+.pcrd h2{font-size:16px;margin-bottom:16px}
+.pcrd h3{font-size:18.5px;margin:16px 0 7px}
+.pcrd p{font-size:15.5px;line-height:1.75;margin-bottom:10px}
+.eq{font-size:15px;padding:10px 14px}
+.hbox,.mbox{font-size:14.5px;padding:9px 13px}
+.ybox{font-size:15px;padding:9px 13px}
+.fdtdbox code{font-size:14.5px}
+/* MathJax */
+mjx-container{color:inherit}
+.eq mjx-container[display="true"]{margin:.35em 0!important;text-align:left!important}
+.eq,.hbox,.ybox,.pcrd p{overflow-x:auto}
+.eq mjx-container{font-size:112%!important}
+.pcrd p mjx-container,.hbox mjx-container,.ybox mjx-container{font-size:108%!important}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <div class="htitle">⚡ MAXWELL FDTD SOLVER</div>
+    <div class="hsub">FINITE-DIFFERENCE TIME-DOMAIN · YEE ALGORITHM · REAL-TIME EM FIELD SOLUTION</div>
+  </div>
+  <div class="hright">
+    <div class="htimer">t = <b id="tval">0.000</b> ps</div>
+    <div class="hstep">step <b id="stepval">0</b></div>
+    <button class="hbtn" id="playbtn" onclick="togglePlay()">⏸ PAUSE</button>
+    <button class="hbtn" onclick="resetSim()">↺ RESET</button>
+    <button class="hbtn themebtn" id="themeBtn" onclick="toggleTheme()" title="Toggle day / night"><span class="tm n">🌙 NIGHT</span><span class="tm d">☀ DAY</span></button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabbar">
+  <div class="tab on"  onclick="setTab('sim',this)">Simulation</div>
+  <div class="tab"     onclick="setTab('physics',this)">Physics</div>
+  <div class="tab"     onclick="setTab('applications',this)">Applications</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIM VIEW -->
+  <div id="sim">
+
+    <!-- LEFT: CONTROLS -->
+    <div class="lpanel">
+
+      <div class="sec">
+        <div class="stitle">SOURCE — POLARIZATION</div>
+        <div class="row">
+          <div class="lbl">Polarization preset</div>
+          <div class="pbtns" id="polPresets">
+            <div class="pbtn on" onclick="setPreset('lx',this)">Lin X</div>
+            <div class="pbtn"    onclick="setPreset('ly',this)">Lin Y</div>
+            <div class="pbtn"    onclick="setPreset('l45',this)">Lin 45°</div>
+            <div class="pbtn"    onclick="setPreset('rcp',this)">RHCP</div>
+            <div class="pbtn"    onclick="setPreset('lcp',this)">LHCP</div>
+            <div class="pbtn"    onclick="setPreset('ell',this)">Ellip.</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="lbl">Amplitude Eₓ <b id="lax">1.00</b></div>
+          <input type="range" id="slAx" min="0" max="1.5" step="0.05" value="1"
+            oninput="SRC.ax=+this.value;set('lax',SRC.ax.toFixed(2));onSrcChg()">
+        </div>
+        <div class="row">
+          <div class="lbl">Amplitude Eᵧ <b id="lay">0.00</b></div>
+          <input type="range" id="slAy" min="0" max="1.5" step="0.05" value="0"
+            oninput="SRC.ay=+this.value;set('lay',SRC.ay.toFixed(2));onSrcChg()">
+        </div>
+        <div class="row">
+          <div class="lbl">Phase Δφ = φᵧ − φₓ <b id="ldp">0°</b></div>
+          <input type="range" id="slDp" min="-180" max="180" step="5" value="0"
+            oninput="SRC.dphi=+this.value*Math.PI/180;set('ldp',this.value+'°');onSrcChg()">
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="stitle">WAVE PARAMETERS</div>
+        <div class="row">
+          <div class="lbl">Source frequency <b id="lfreq">0.025</b> f₀</div>
+          <input type="range" id="slFreq" min="0.012" max="0.065" step="0.001" value="0.025"
+            oninput="SRC.fc=+this.value;set('lfreq',SRC.fc.toFixed(3));onSrcChg()">
+        </div>
+        <div class="row">
+          <div class="lbl">Wave amplitude <b id="lamp">1.5</b></div>
+          <input type="range" id="slAmp" min="0.2" max="2.5" step="0.05" value="1.5"
+            oninput="VIS.scale=+this.value;set('lamp',VIS.scale.toFixed(1))">
+        </div>
+        <div class="row">
+          <div class="lbl">Steps / frame <b id="lspf">4</b></div>
+          <input type="range" id="slSpf" min="1" max="12" step="1" value="4"
+            oninput="VIS.spf=+this.value;set('lspf',VIS.spf)">
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="stitle">DISPLAY</div>
+        <div onclick="VIS.showEx=!VIS.showEx;upd3DShow()" class="toggle">
+          <div class="tck on" id="tEx"></div>
+          <span style="color:#ff5566">Eₓ field (red)</span>
+        </div>
+        <div onclick="VIS.showEy=!VIS.showEy;upd3DShow()" class="toggle">
+          <div class="tck on" id="tEy"></div>
+          <span style="color:#4499ff">Eᵧ field (blue)</span>
+        </div>
+        <div onclick="VIS.showHelix=!VIS.showHelix;upd3DShow()" class="toggle">
+          <div class="tck on" id="tHx"></div>
+          <span style="color:#ff44ee">E helix ribbon</span>
+        </div>
+        <div onclick="VIS.showH=!VIS.showH;upd3DShow()" class="toggle">
+          <div class="tck" id="tH"></div>
+          <span style="color:#00ff88">H/B field (green)</span>
+        </div>
+        <div onclick="VIS.showArrows=!VIS.showArrows;upd3DShow()" class="toggle">
+          <div class="tck on" id="tArr"></div>
+          <span>E-vector arrows</span>
+        </div>
+        <div onclick="VIS.showProbe=!VIS.showProbe;upd3DShow()" class="toggle">
+          <div class="tck on" id="tPrb"></div>
+          <span>Probe plane (z=0)</span>
+        </div>
+      </div>
+
+      <div class="sec" style="font-family:'Share Tech Mono',monospace;font-size:8px;
+        color:var(--dim);line-height:1.7">
+        <div class="stitle">FDTD EQUATIONS SOLVED</div>
+        <div style="color:#446688">\(\partial H_y/\partial t=-\partial E_x/\partial z\)</div>
+        <div style="color:#446688">\(\partial E_x/\partial t=-\partial H_y/\partial z\)</div>
+        <div style="color:#446688">\(\partial H_x/\partial t=+\partial E_y/\partial z\)</div>
+        <div style="color:#446688">\(\partial E_y/\partial t=+\partial H_x/\partial z\)</div>
+        <div style="color:#223344;margin-top:5px">Yee stagger: \(\Delta t=\Delta z,\ c=1\)</div>
+        <div style="color:#223344">PML both ends</div>
+        <div style="color:#223344">N = 400 cells, soft src</div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="cbox">
+      <canvas id="cvs"></canvas>
+      <div class="lgnd" id="lgnd">
+        <div class="li"><div class="lbar" style="background:#ff2244"></div>Eₓ(z,t) — electric (x-pol)</div>
+        <div class="li"><div class="lbar" style="background:#2299ff"></div>Eᵧ(z,t) — electric (y-pol)</div>
+        <div class="li"><div class="lbar" style="background:#ff44ee"></div>E⃗ = (Eₓ,Eᵧ) helix</div>
+        <div class="li"><div class="lbar" style="background:#00ff88;opacity:.7"></div>H-field (B/μ₀)</div>
+        <div class="li"><div class="lbar" style="background:#00d4ff;opacity:.4"></div>Probe plane (z=0)</div>
+      </div>
+      <div id="probeLabel">PROBE z = 0 &nbsp;|&nbsp; DRAG to rotate &nbsp;·&nbsp; SCROLL to zoom</div>
+      <canvas id="lissCanvas" width="130" height="130"></canvas>
+    </div>
+
+    <!-- RIGHT: RESULTS -->
+    <div class="rpanel">
+
+      <div class="rcard">
+        <div class="rcTitle">FDTD SOLVER</div>
+        <div class="rrow"><span class="rn">Algorithm</span><span class="rv c">Yee FDTD</span></div>
+        <div class="rrow"><span class="rn">Grid cells Nz</span><span class="rv w">400</span></div>
+        <div class="rrow"><span class="rn">Courant c·Δt/Δz</span><span class="rv g">1.000</span></div>
+        <div class="rrow"><span class="rn">FDTD step n</span><span class="rv y" id="rStep">0</span></div>
+        <div class="rrow"><span class="rn">PML width</span><span class="rv">25 cells</span></div>
+        <div class="rrow"><span class="rn">Src cell index</span><span class="rv c">60</span></div>
+        <div class="rrow"><span class="rn">Wave speed c</span><span class="rv g">1.00 (norm.)</span></div>
+      </div>
+
+      <div class="rcard">
+        <div class="rcTitle">WAVE AT PROBE z=0</div>
+        <div class="rrow"><span class="rn">Eₓ(t)</span><span class="rv r" id="rEx">0.0000</span></div>
+        <div class="rrow"><span class="rn">Eᵧ(t)</span><span class="rv b" id="rEy">0.0000</span></div>
+        <div class="rrow"><span class="rn">|E⃗|(t)</span><span class="rv w" id="rEmod">0.0000</span></div>
+        <div class="rrow"><span class="rn">Hₓ(t)</span><span class="rv g" id="rHx">0.0000</span></div>
+        <div class="rrow"><span class="rn">Hᵧ(t)</span><span class="rv g" id="rHy">0.0000</span></div>
+        <div class="rrow"><span class="rn">S = E×H (z)</span><span class="rv y" id="rSz">0.0000</span></div>
+      </div>
+
+      <div class="rcard">
+        <div class="rcTitle">SOURCE PARAMS</div>
+        <div class="rrow"><span class="rn">freq (norm)</span><span class="rv c" id="rfc">0.025</span></div>
+        <div class="rrow"><span class="rn">ω (rad/step)</span><span class="rv" id="romg">0.157</span></div>
+        <div class="rrow"><span class="rn">λ (cells)</span><span class="rv y" id="rlam">40.0</span></div>
+        <div class="rrow"><span class="rn">Amplitude Ax</span><span class="rv r" id="rax">1.00</span></div>
+        <div class="rrow"><span class="rn">Amplitude Ay</span><span class="rv b" id="ray">0.00</span></div>
+        <div class="rrow"><span class="rn">Phase Δφ</span><span class="rv m" id="rdp">0.0°</span></div>
+      </div>
+
+      <div class="rcard">
+        <div class="rcTitle">STOKES PARAMETERS</div>
+        <div class="rrow"><span class="rn">S₀ (intensity)</span><span class="rv w" id="rS0">1.000</span></div>
+        <div class="rrow"><span class="rn">S₁ (lin H/V)</span><span class="rv r" id="rS1">1.000</span></div>
+        <div class="rrow"><span class="rn">S₂ (lin ±45°)</span><span class="rv b" id="rS2">0.000</span></div>
+        <div class="rrow"><span class="rn">S₃ (circular)</span><span class="rv m" id="rS3">0.000</span></div>
+        <div style="margin-top:6px">
+          <div class="sbar-wrap">
+            <div class="sbar-lbl"><span>S₁/S₀</span><span id="bS1">100%</span></div>
+            <div class="sbar-bg"><div class="sbar-fill" id="fS1" style="background:var(--red);width:100%"></div></div>
+          </div>
+          <div class="sbar-wrap">
+            <div class="sbar-lbl"><span>S₂/S₀</span><span id="bS2">0%</span></div>
+            <div class="sbar-bg"><div class="sbar-fill" id="fS2" style="background:#55aaff;width:0%"></div></div>
+          </div>
+          <div class="sbar-wrap">
+            <div class="sbar-lbl"><span>S₃/S₀</span><span id="bS3">0%</span></div>
+            <div class="sbar-bg"><div class="sbar-fill" id="fS3" style="background:var(--mag);width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rcard">
+        <div class="rcTitle">POLARIZATION STATE</div>
+        <div class="rrow"><span class="rn">Type</span><span class="rv c" id="rPT">Linear X</span></div>
+        <div class="rrow"><span class="rn">DoP</span><span class="rv g" id="rDoP">1.000</span></div>
+        <div class="rrow"><span class="rn">Ellipse ψ (orient.)</span><span class="rv y" id="rPsi">0.0°</span></div>
+        <div class="rrow"><span class="rn">Ellipticity χ</span><span class="rv" id="rChi">0.0°</span></div>
+        <div class="rrow"><span class="rn">Axial ratio</span><span class="rv" id="rAR">∞</span></div>
+        <div class="rrow"><span class="rn">Handedness</span><span class="rv m" id="rHand">—</span></div>
+      </div>
+
+    </div>
+  </div><!-- /#sim -->
+
+  <!-- PHYSICS TAB -->
+  <div class="ctab" id="physicsTab">
+    <div class="pcrd">
+      <h2>FDTD MAXWELL SOLVER</h2>
+      <p>This simulator solves Maxwell's curl equations directly using the <strong>Finite-Difference Time-Domain (FDTD) Yee algorithm</strong>. The fields are updated at every time step from the actual PDE — no analytical solutions or shortcuts.</p>
+      <h3>Maxwell's Curl Equations (source-free)</h3>
+      <div class="eq">\[\begin{aligned}\nabla\times\mathbf E&=-\mu_0\frac{\partial\mathbf H}{\partial t}\\ \nabla\times\mathbf H&=\varepsilon_0\frac{\partial\mathbf E}{\partial t}\end{aligned}\]</div>
+      <h3>1-D Reduction (propagation along ẑ)</h3>
+      <p>For a TEM wave with E in the x-y plane and no x,y variation:</p>
+      <div class="eq">\[\begin{aligned}\frac{\partial H_y}{\partial t}&=-\frac{1}{\mu_0}\frac{\partial E_x}{\partial z}, &\quad \frac{\partial E_x}{\partial t}&=-\frac{1}{\varepsilon_0}\frac{\partial H_y}{\partial z}\\[4pt] \frac{\partial H_x}{\partial t}&=+\frac{1}{\mu_0}\frac{\partial E_y}{\partial z}, &\quad \frac{\partial E_y}{\partial t}&=+\frac{1}{\varepsilon_0}\frac{\partial H_x}{\partial z}\end{aligned}\]</div>
+      <p>Both <strong>polarization components propagate independently</strong> — superposition holds exactly.</p>
+      <h3>Yee Discretization (Normalized: \(c=\Delta z/\Delta t=1\))</h3>
+      <div class="fdtdbox">
+        <code>// Half-step H update (n → n+½)</code>
+        <code>Hy[i] = Hy[i] − (Ex[i+1] − Ex[i])</code>
+        <code>Hx[i] = Hx[i] + (Ey[i+1] − Ey[i])</code>
+        <code>&nbsp;</code>
+        <code>// Full-step E update (n → n+1)</code>
+        <code>Ex[i] = Ex[i] − (Hy[i] − Hy[i-1])</code>
+        <code>Ey[i] = Ey[i] + (Hx[i] − Hx[i-1])</code>
+      </div>
+      <div class="hbox">Courant condition \(c\,\Delta t/\Delta z\le 1\) ensures stability. Here \(c\,\Delta t/\Delta z=1\) exactly \(\Rightarrow\) numerically exact wave speed.</div>
+      <h3>Perfectly Matched Layer (PML)</h3>
+      <p>The boundaries use exponentially graded conductivity \(\sigma(d)=\sigma_{\max}(d/D)^3\). Fields in the PML satisfy \(E_{\mathrm{pml}}\to E\,e^{-\sigma t}\), suppressing artificial reflections. 25-cell PML is used on both ends.</p>
+    </div>
+    <div class="pcrd">
+      <h2>POLARIZATION THEORY</h2>
+      <h3>General Elliptical Polarization</h3>
+      <div class="eq">\[\mathbf E(z,t)=A_x\cos(kz-\omega t+\varphi_x)\,\hat{\mathbf x}+A_y\cos(kz-\omega t+\varphi_y)\,\hat{\mathbf y}\]</div>
+      <p>The tip of \(\mathbf E\) at any fixed \(z\) traces an <strong>ellipse</strong> in the transverse plane. Special cases:</p>
+      <div class="ybox">Linear: \(A_x\) or \(A_y=0\), or \(\Delta\varphi=0\) or \(\pi\)<br>Circular: \(A_x=A_y,\ \Delta\varphi=\pm\pi/2\)<br>Elliptical: all other cases</div>
+      <h3>Jones Calculus</h3>
+      <div class="eq">\[\mathbf J=\begin{pmatrix}A_x e^{j\varphi_x}\\ A_y e^{j\varphi_y}\end{pmatrix}\]</div>
+      <p>Jones matrices describe polarization-transforming optical elements. Wave plates, polarizers, and rotators are all 2×2 complex matrices.</p>
+      <h3>Stokes Parameters</h3>
+      <div class="eq">\[\begin{aligned}S_0&=A_x^2+A_y^2 &&\text{(total intensity)}\\ S_1&=A_x^2-A_y^2 &&\text{(linear H/V preference)}\\ S_2&=2A_xA_y\cos\delta &&\text{(linear }\pm45^\circ\text{ preference)}\\ S_3&=2A_xA_y\sin\delta &&\text{(circular preference)}\end{aligned}\]</div>
+      <p>where \(\delta=\varphi_y-\varphi_x\). The Poincaré sphere has \(S_1,S_2,S_3\) as Cartesian axes. Any fully polarized state maps to its surface.</p>
+      <div class="hbox">North pole: RHCP (\(\delta=+\pi/2,\ S_3=+S_0\))<br>South pole: LHCP (\(\delta=-\pi/2,\ S_3=-S_0\))<br>Equator: all linear states</div>
+      <h3>Orientation & Ellipticity</h3>
+      <div class="eq">\[\begin{aligned}\tan 2\psi&=S_2/S_1 &&\Rightarrow\ \psi\in[0^\circ,180^\circ]\\ \sin 2\chi&=S_3/S_0 &&\Rightarrow\ \chi\in[-45^\circ,+45^\circ]\end{aligned}\]</div>
+      <h3>Poynting Vector</h3>
+      <div class="eq">\[\mathbf S=\mathbf E\times\mathbf H\quad[\mathrm{W/m^2}]\]\[\langle I\rangle=\tfrac12\,\varepsilon_0 c\,(A_x^2+A_y^2)\]</div>
+      <p>Both polarization components contribute to the total power. The FDTD correctly propagates total field energy.</p>
+      <h3>Wave Equation</h3>
+      <div class="eq">\[\nabla^2\mathbf E=\frac{1}{c^2}\frac{\partial^2\mathbf E}{\partial t^2}\ \Rightarrow\ \mathbf E=\mathbf E_0\,e^{j(kz-\omega t)}\]</div>
+      <div class="eq">\[c=\frac{1}{\sqrt{\mu_0\varepsilon_0}}=299\,792\,458\ \mathrm{m/s}\]</div>
+    </div>
+    <div class="pcrd">
+      <h2>NUMERICAL ACCURACY</h2>
+      <h3>Phase Velocity Error</h3>
+      <p>The FDTD numerical phase velocity for a 1D Yee grid with Courant number \(S=c\,\Delta t/\Delta z\):</p>
+      <div class="eq">\[v_{\mathrm{ph}}=\frac{\omega}{k}=\frac{2}{k\,\Delta t}\sin^{-1}\!\Big(S\,\sin\frac{k\Delta z}{2}\Big)\]</div>
+      <p>At \(S=1\) exactly, \(v_{\mathrm{ph}}=c\) (no numerical dispersion in 1D). This is why we choose \(c\,\Delta t/\Delta z=1\).</p>
+      <h3>Dispersion Relation</h3>
+      <div class="eq">\[\frac{\sin^2(\omega\Delta t/2)}{(c\,\Delta t)^2}=\frac{\sin^2(k\Delta z/2)}{(\Delta z)^2}\]</div>
+      <p>For \(S=1\) this reduces to \(\omega\Delta t/2=k\Delta z/2\), giving the exact continuous dispersion \(\omega=ck\). All wavelengths travel at exactly \(c\).</p>
+      <h3>Source Injection (Soft Source)</h3>
+      <p>The source is injected additively at cell \(i_{\mathrm{src}}=60\):</p>
+      <div class="fdtdbox">
+        <code>// Applied each step n:</code>
+        <code>Ex[ISRC] += Ax·sin(ω·n)·ramp(n)</code>
+        <code>Ey[ISRC] += Ay·sin(ω·n+δ)·ramp(n)</code>
+        <code>ramp(n) = tanh(n·fc/1.5)  // smooth startup</code>
+      </div>
+      <p>Soft source generates waves in both ±z. The −z wave is absorbed by the left PML. The +z wave propagates to fill the domain.</p>
+      <h3>Energy Conservation</h3>
+      <div class="eq">\[\frac{d}{dt}\int\tfrac12\left(\varepsilon_0|\mathbf E|^2+\mu_0|\mathbf H|^2\right)dV=-\oint\mathbf S\cdot d\mathbf A\]</div>
+      <p>Total EM energy change equals Poynting flux through boundaries. PML gradually absorbs energy at the edges, preventing artificial reflections.</p>
+      <div class="hbox">Grid resolution: \(\lambda/\Delta z\ge 1/f_c=40\) cells/wavelength (well above the minimum 10 cells/\(\lambda\) required for accuracy).</div>
+      
+      <h3>Visual  What it is </h3>
+       <div class="fdtdbox">
+    
+                <p><strong>| Red curve |</strong> Eₓ(z,t) — true FDTD solution, sinusoidal in the XZ plane |</p>
+               <p><strong>|Blue curve | </strong> Eᵧ(z,t) — FDTD solution, oscillates in YZ plane |</p>
+               <p><strong>|Magenta helix | </strong> E⃗ = (Eₓ, Eᵧ, z) — the actual 3D field vector path |</p>
+              <p><strong>  |Green curves | </strong>H-field (Hₓ, Hᵧ), toggle on |<p>
+             <p><strong>  | Color arrows | </strong> Instantaneous E⃗ direction, hue = angle in XY |</p>
+              <p><strong>  |Teal probe ellipse |</strong>  E-field tip traced at z = 0 in 3D |</p>
+             <p><strong>  | Lissajous inset | </strong> Eₓ vs Eᵧ at probe — becomes a circle for CP, line for LP |</p>
+    <p> Hit **Lin X → RHCP → LHCP → Ellip.** presets and watch the helix transform from a flat ribbon into a right- or left-handed helix — that's the FDTD solution updating in real time.</p>   
+
+        </div>
+
+      
+
+      
+   
+      
+      
+      
+    </div>
+  </div><!-- /#physicsTab -->
+
+  <!-- APPLICATIONS TAB -->
+  <div class="ctab" id="appTab">
+    <div class="pcrd">
+      <h2>FIBER OPTICS</h2>
+      <p>Optical fibers guide polarized EM waves via <strong>total internal reflection</strong>. Understanding polarization from Maxwell's equations is fundamental to fiber design.</p>
+      <h3>Polarization Mode Dispersion (PMD)</h3>
+      <p>Real fibers have slight birefringence (different phase velocities for x and y polarizations), causing the two components to arrive at different times. This limits bandwidth in long-haul links.</p>
+      <div class="eq">\[\langle\Delta\tau\rangle=D_{\mathrm{PMD}}\sqrt{L}\]Typical SMF: \(D_{\mathrm{PMD}}\approx 0.1\ \mathrm{ps}/\sqrt{\mathrm{km}}\)</div>
+      <h3>Polarization-Maintaining Fiber (PMF)</h3>
+      <p>Deliberately strong birefringence (Panda, Bow-Tie fiber) keeps the polarization stable over long distances. Essential for fiber gyroscopes and coherent communications.</p>
+      <h3>Coherent Detection & Polarization Diversity</h3>
+      <p>Modern 100G+ DWDM systems use dual-polarization QPSK, recovering both Ex and Ey quadratures. Stokes parameters are measured in real-time by the coherent receiver DSP.</p>
+      <div class="hbox">Capacity: Dual-pol 16-QAM at 600 Gbps per wavelength (2024 commercial record)</div>
+      <h3>Fiber Lasers</h3>
+      <p>The output polarization of a fiber laser depends on the cavity birefringence and gain medium. FDTD simulation of the fiber cross-section determines the guided modes.</p>
+    </div>
+    <div class="pcrd">
+      <h2>ANTENNA POLARIZATION</h2>
+      <p>Antenna polarization directly corresponds to the E-field orientation the antenna radiates. Polarization mismatch causes signal loss set by \(|\hat{\mathbf e}_{rx}\cdot\hat{\mathbf e}_{tx}|^2\).</p>
+      <h3>Polarization Loss Factor (PLF)</h3>
+      <div class="eq">\[\mathrm{PLF}=|\hat{\mathbf e}_{tx}\cdot\hat{\mathbf e}_{rx}|^2\]Vertical \(\perp\) horizontal: \(\mathrm{PLF}=0\ \Rightarrow\ -\infty\) dB loss!</div>
+      <h3>Circularly Polarized Antennas</h3>
+      <p>GPS, satellite TV, and many radar systems use circular polarization. RHCP antenna receives RHCP with \(\mathrm{PLF}=1\) but LHCP with \(\mathrm{PLF}=0\). Circular polarization is robust to antenna rotation.</p>
+      <div class="eq">RHCP patch: two feeds with \(90^\circ\) hybrid coupler<br>Axial ratio \(\le 3\) dB for “good” circular polarization</div>
+      <h3>Polarimetric Radar</h3>
+      <p>Transmit H, receive both H and V (or transmit both simultaneously). The \(2\times2\) scattering matrix \(\begin{bmatrix}S_{hh}&S_{hv}\\ S_{vh}&S_{vv}\end{bmatrix}\) fully characterizes the target's polarimetric response.</p>
+      <div class="hbox">Dual-pol weather radar identifies rain (spherical drops: ZDR≈0 dB) vs hail (tumbling: ZDR≈0 dB but different LDR) vs snow (aligned crystals: high ZDR)</div>
+      <h3>5G Massive MIMO Polarization</h3>
+      <p>Cross-polarized antenna elements (±45°) double the number of spatial streams. The FDTD-computed element patterns determine the full array radiation characteristics.</p>
+    </div>
+    <div class="pcrd">
+      <h2>FURTHER APPLICATIONS</h2>
+      <h3>Quantum Optics & Entanglement</h3>
+      <p>Photon polarization is a qubit. Bell states are maximally entangled polarization pairs. The Stokes parameters have quantum analogues in the density matrix formalism:</p>
+      <div class="eq">\[\rho=\tfrac12\left(I+\vec S\cdot\vec\sigma\right)\]where \(\vec\sigma\) are the Pauli matrices</div>
+      <h3>Ellipsometry</h3>
+      <p>Measure how reflection changes polarization (ψ, Δ) to characterize thin film thickness and refractive index to sub-nm precision. Used for semiconductor process control.</p>
+      <div class="eq">\[\tan\psi\,e^{j\Delta}=\frac{r_p}{r_s}\quad\text{(Fresnel ratios)}\]</div>
+      <h3>Optical Coherence Tomography (OCT)</h3>
+      <p>Polarization-sensitive OCT adds another contrast channel beyond intensity: local birefringence reveals tissue structure (collagen, nerve fibers, retinal layers) invisible in standard OCT.</p>
+      <h3>LCD & OLED Displays</h3>
+      <p>LCDs work entirely on polarization control: backlight → linear polarizer → liquid crystal (variable waveplate) → crossed analyzer. Every pixel is a FDTD-designable polarization rotator.</p>
+      <div class="hbox">FDTD is the primary design tool for photonic crystals, integrated photonic circuits, metasurfaces, and near-field optics — everywhere Maxwell matters at the wavelength scale.</div>
+      <h3>MRI</h3>
+      <p>The RF coils excite a circularly polarized \(B_1\) field at the Larmor frequency. Only one circular polarization (co-rotating with precessing spins) is absorbed — the other is rejected. This halves the required RF power vs linear polarization.</p>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- STATUS -->
+<div class="sbar">
+  <div class="si">FDTD:<b>Yee 1-D</b></div>
+  <div class="si">Nz:<b>400</b></div>
+  <div class="si">λ:<b id="sLam">—</b></div>
+  <div class="si">ω:<b id="sOmg">—</b></div>
+  <div class="si">Pol:<b id="sPol">Linear X</b></div>
+  <div class="si" style="margin-left:auto">DRAG·ROTATE &nbsp; SCROLL·ZOOM &nbsp; RIGHT-DRAG·PAN</div>
+</div>
+
+<!-- MATHJAX -->
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+
+<!-- THREE.JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════════
+// THEME ENGINE (day / night)
+// ═══════════════════════════════════════════════════════════════════════
+const THEMES={
+ night:{bg:0x010812,grid1:0x2a6a92,grid2:0x16405c,ex:0xff2244,ey:0x2299ff,hy:0x00ff88,hx:0x00bb66,hel:0xff44ee,prb:0x00ffcc,
+  pRing:0x00d4ff,pPlane:0x00aacc,pPlaneOp:.08,pRingOp:.4,arrL:.6,
+  lGrid:'rgba(80,190,255,.25)',lTrail:'rgba(255,136,238,',lDot:'#ffffff',lTxt:'rgba(150,215,255,.9)'},
+ day:{bg:0xe9f0f6,grid1:0x7f9db3,grid2:0xc2d3de,ex:0xc4122f,ey:0x1259b8,hy:0x087a45,hx:0x2f9a67,hel:0xa8149a,prb:0x007a66,
+  pRing:0x006f9e,pPlane:0x0088b0,pPlaneOp:.12,pRingOp:.75,arrL:.36,
+  lGrid:'rgba(0,70,120,.25)',lTrail:'rgba(168,20,154,',lDot:'#0a1f30',lTxt:'rgba(10,50,80,.9)'}
+};
+let TH=THEMES.night, gridHelper=null;
+function loadTheme(){ try{return localStorage.getItem('fdtdTheme')==='day'?'day':'night';}catch(e){return 'night';} }
+function toggleTheme(){ applyTheme(TH===THEMES.night?'day':'night'); }
+function applyTheme(m){
+  TH=THEMES[m];
+  document.documentElement.setAttribute('data-theme',m);
+  try{localStorage.setItem('fdtdTheme',m);}catch(e){}
+  if(typeof renderer==='undefined'||!renderer||!staticGroup) return;
+  renderer.setClearColor(TH.bg,1);
+  if(gridHelper){ staticGroup.remove(gridHelper); gridHelper.geometry.dispose(); }
+  gridHelper=new THREE.GridHelper(22,22,TH.grid1,TH.grid2); staticGroup.add(gridHelper);
+  exLine.material.color.setHex(TH.ex);   eyLine.material.color.setHex(TH.ey);
+  hyLine.material.color.setHex(TH.hy);   hxLine.material.color.setHex(TH.hx);
+  helixLine.material.color.setHex(TH.hel); probeEllipse.material.color.setHex(TH.prb);
+  staticGroup.children.forEach(c=>{
+    if(!c.userData.isProbe) return;
+    const pl=c.geometry.type==='CircleGeometry';
+    c.material.color.setHex(pl?TH.pPlane:TH.pRing);
+    c.material.opacity=pl?TH.pPlaneOp:TH.pRingOp;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// FDTD MAXWELL SOLVER
+// 1-D, z-axis propagation, two independent polarization modes
+// Normalized: c = Δz/Δt = 1,  ε₀ = μ₀ = η₀ = 1
+// Yee staggered grid: E at integer i, H at half-integer i+½
+// ═══════════════════════════════════════════════════════════════════════
+const NZ   = 400;   // number of cells
+const ISRC = 60;    // source injection cell
+const PML_R = 25;   // right PML width (cells)
+const PML_L = 18;   // left  PML width (cells)
+
+// Primary field arrays
+const Ex = new Float64Array(NZ);
+const Ey = new Float64Array(NZ);
+const Hx = new Float64Array(NZ);
+const Hy = new Float64Array(NZ);
+
+// PML conductivity profile σ(i), applied as multiplicative decay
+const SIG = new Float64Array(NZ);
+(function buildPML(){
+  for(let i=0;i<PML_L;i++){
+    const d=(PML_L-i)/PML_L; SIG[i]=0.55*d*d*d;
+  }
+  for(let i=NZ-PML_R;i<NZ;i++){
+    const d=(i-(NZ-PML_R))/PML_R; SIG[i]=0.55*d*d*d;
+  }
+})();
+
+// Source parameters (updated by UI)
+const SRC = { ax:1.0, ay:0.0, dphi:0.0, fc:0.025 };
+
+// Visualization options
+const VIS = {
+  scale:1.5, spf:4,
+  showEx:true, showEy:true, showH:false, showHelix:true,
+  showArrows:true, showProbe:true
+};
+
+let fdtdN = 0;
+let simPlaying = true;
+
+function resetSim(){
+  Ex.fill(0); Ey.fill(0); Hx.fill(0); Hy.fill(0);
+  fdtdN = 0;
+  prHead = 0; prEx.fill(0); prEy.fill(0);
+}
+
+// ── Probe history for Lissajous ─────────────────────────────────────
+const PROBE_I = 200;          // probe at center cell (z=0 in display)
+const PROBE_L = 600;
+const prEx = new Float32Array(PROBE_L);
+const prEy = new Float32Array(PROBE_L);
+let   prHead = 0;
+
+// ── FDTD advance N steps ────────────────────────────────────────────
+function fdtdAdvance(nSteps){
+  const fc = SRC.fc;
+  const omega = 2*Math.PI*fc;
+  const ax = SRC.ax, ay = SRC.ay, dphi = SRC.dphi;
+
+  for(let s=0; s<nSteps; s++){
+    const n = fdtdN;
+
+    // Smooth startup ramp (avoid step-function transient)
+    const ramp = Math.tanh(n * fc / 1.5);   // ~1 after ≈6 cycles
+
+    const t = n;
+    const sx = ax * Math.sin(omega * t) * ramp;
+    const sy = ay * Math.sin(omega * t + dphi) * ramp;
+
+    // ── UPDATE H (half-step, staggered in time) ──────────────────
+    // ∂Hᵧ/∂t = −∂Eₓ/∂z  →  Hy[i] += −(Ex[i+1]−Ex[i])
+    for(let i=0; i<NZ-1; i++){
+      Hy[i] = (1-SIG[i]) * (Hy[i] - (Ex[i+1]-Ex[i]));
+    }
+    // ∂Hₓ/∂t = +∂Eᵧ/∂z  →  Hx[i] += +(Ey[i+1]−Ey[i])
+    for(let i=0; i<NZ-1; i++){
+      Hx[i] = (1-SIG[i]) * (Hx[i] + (Ey[i+1]-Ey[i]));
+    }
+    // TFSF-style H correction at source interface
+    Hy[ISRC-1] -= sx * 0.5;
+    Hx[ISRC-1] += sy * 0.5;
+
+    // ── UPDATE E (full step) ──────────────────────────────────────
+    // ∂Eₓ/∂t = −∂Hᵧ/∂z  →  Ex[i] += −(Hy[i]−Hy[i−1])
+    for(let i=1; i<NZ-1; i++){
+      Ex[i] = (1-SIG[i]) * (Ex[i] - (Hy[i]-Hy[i-1]));
+    }
+    // ∂Eᵧ/∂t = +∂Hₓ/∂z  →  Ey[i] += +(Hx[i]−Hx[i−1])
+    for(let i=1; i<NZ-1; i++){
+      Ey[i] = (1-SIG[i]) * (Ey[i] + (Hx[i]-Hx[i-1]));
+    }
+    // Soft source injection into E
+    Ex[ISRC] += sx;
+    Ey[ISRC] += sy;
+
+    // Hard-wall boundaries (backed by PML, so no reflection)
+    Ex[0]=0; Ex[NZ-1]=0; Ey[0]=0; Ey[NZ-1]=0;
+
+    fdtdN++;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════════════════
+let renderer, camera, scene3, controls;
+const D3 = { z0:-10, z1:10 };   // Three.js z range mapped from cells 0..NZ
+
+function cellToZ(i){ return (i/NZ)*(D3.z1-D3.z0)+D3.z0; }
+
+function initThree(){
+  const cvs=document.getElementById('cvs');
+  renderer=new THREE.WebGLRenderer({canvas:cvs,antialias:true,alpha:false});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(0x020b14,1);
+  camera=new THREE.PerspectiveCamera(50,1,0.05,200);
+  camera.position.set(7,4.5,13);
+  scene3=new THREE.Scene();
+  controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.055;
+  controls.minDistance=2; controls.maxDistance=70;
+  resize3(); window.addEventListener('resize',resize3);
+}
+function resize3(){
+  const b=document.getElementById('cvs').parentElement.getBoundingClientRect();
+  renderer.setSize(b.width,b.height,false);
+  camera.aspect=b.width/b.height; camera.updateProjectionMatrix();
+}
+
+// ── Static scene elements ────────────────────────────────────────────
+let staticGroup;
+function buildStaticScene(){
+  staticGroup=new THREE.Group();
+  // Grid (in XZ plane, y=0)
+  gridHelper=new THREE.GridHelper(22,22,0x2a6a92,0x16405c); staticGroup.add(gridHelper);
+  // Z-axis (propagation)
+  staticGroup.add(mkStatLine([new THREE.Vector3(-10,0,D3.z0),new THREE.Vector3(-10,0,D3.z1)],0x112233,.0));
+  staticGroup.add(new THREE.ArrowHelper(
+    new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,D3.z0-0.5),
+    (D3.z1-D3.z0)+1.5, 0x4a8ab0, .7,.3));
+  // X and Y axis stubs at z=-10
+  staticGroup.add(mkStatLine([new THREE.Vector3(0,0,D3.z0),new THREE.Vector3(3.5,0,D3.z0)],0xcc4455,.9));
+  staticGroup.add(mkStatLine([new THREE.Vector3(0,0,D3.z0),new THREE.Vector3(0,3.5,D3.z0)],0x4477dd,.9));
+  // Axis labels (thin colored planes)
+  // Source marker
+  const srcZ=cellToZ(ISRC);
+  const srcPlane=new THREE.Mesh(
+    new THREE.PlaneGeometry(.08,3.5),
+    new THREE.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:.55,side:THREE.DoubleSide}));
+  srcPlane.rotation.y=Math.PI/2; srcPlane.position.set(0,0,srcZ);
+  staticGroup.add(srcPlane);
+  // Probe plane (transparent teal at z=0)
+  const probeZ=cellToZ(PROBE_I);
+  const probePlane=new THREE.Mesh(
+    new THREE.CircleGeometry(2.8,48),
+    new THREE.MeshBasicMaterial({color:0x00aacc,transparent:true,opacity:.06,side:THREE.DoubleSide,depthWrite:false}));
+  probePlane.rotation.y=Math.PI/2; probePlane.position.set(0,0,probeZ);
+  probePlane.userData.isProbe=true;
+  staticGroup.add(probePlane);
+  // Probe ring
+  const probeRing=new THREE.Mesh(
+    new THREE.RingGeometry(2.7,2.85,48),
+    new THREE.MeshBasicMaterial({color:0x00d4ff,transparent:true,opacity:.28,side:THREE.DoubleSide}));
+  probeRing.rotation.y=Math.PI/2; probeRing.position.set(0,0,probeZ);
+  probeRing.userData.isProbe=true;
+  staticGroup.add(probeRing);
+  // X/Y cross at probe
+  const crossMat=new THREE.LineBasicMaterial({color:0x00d4ff,transparent:true,opacity:.18});
+  const cx=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-2.5,probeZ),new THREE.Vector3(0,2.5,probeZ)]);
+  staticGroup.add(new THREE.Line(cx,crossMat));
+  const cy=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.5,0,probeZ),new THREE.Vector3(2.5,0,probeZ)]);
+  staticGroup.add(new THREE.Line(cy,crossMat));
+
+  scene3.add(staticGroup);
+}
+
+function mkStatLine(pts,col,op=1){
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op}));
+}
+
+// ── Dynamic geometry objects ─────────────────────────────────────────
+const N_CURVE = 200;  // downsampled from NZ=400 for display
+const N_ARROW = 30;   // arrow ticks along z
+
+let exLine, eyLine, hyLine, hxLine, helixLine;
+let exArr, eyArr, eArrows=[]; // eArrows = pool of ArrowHelper
+let probeEllipse;
+
+// Dynamic curve: n points, updated each frame
+function mkDynCurve(n, col, op=1){
+  const pos=new Float32Array(n*3);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op,linewidth:1.5});
+  const line=new THREE.Line(geo,mat); line._n=n; return line;
+}
+function setCurvePoint(line,i,x,y,z){
+  const a=line.geometry.attributes.position.array;
+  a[i*3]=x; a[i*3+1]=y; a[i*3+2]=z;
+}
+function flushCurve(line){ line.geometry.attributes.position.needsUpdate=true; }
+
+function buildDynScene(){
+  // Ex curve: oscillates in X, propagates along Z
+  exLine=mkDynCurve(N_CURVE,0xff2244,.95);
+  eyLine=mkDynCurve(N_CURVE,0x2299ff,.95);
+  hyLine=mkDynCurve(N_CURVE,0x00ff88,.75);
+  hxLine=mkDynCurve(N_CURVE,0x00bb66,.6);
+  helixLine=mkDynCurve(N_CURVE,0xff44ee,.85);
+  scene3.add(exLine,eyLine,hyLine,hxLine,helixLine);
+
+  // Arrow pool (ArrowHelper is expensive to create; reuse them)
+  for(let i=0;i<N_ARROW;i++){
+    const a=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),.5,0xffffff,.25,.15);
+    a.visible=false; scene3.add(a); eArrows.push(a);
+  }
+  // Probe ellipse (small line loop at probe z)
+  probeEllipse=mkDynCurve(65,0x00ffcc,.9);
+  probeEllipse.position.set(0,0,0);
+  scene3.add(probeEllipse);
+}
+
+// Update ALL dynamic geometry from current FDTD arrays
+const SKIP = NZ/N_CURVE; // cells per display point (=2)
+function updateDynGeom(){
+  const sc=VIS.scale;
+  for(let vi=0; vi<N_CURVE; vi++){
+    const ci=Math.round(vi*SKIP); // FDTD cell index
+    const z=cellToZ(ci);
+    const ex=Ex[ci]*sc, ey=Ey[ci]*sc;
+    const hx=Hx[ci]*sc*.85, hy=Hy[ci]*sc*.85;
+    setCurvePoint(exLine,   vi, ex, 0, z);
+    setCurvePoint(eyLine,   vi, 0, ey, z);
+    setCurvePoint(hyLine,   vi, 0,-hy, z);  // By=-Hy for +z wave
+    setCurvePoint(hxLine,   vi, hx, 0, z);
+    setCurvePoint(helixLine,vi, ex, ey, z); // 3D ribbon (Ex,Ey,z)
+  }
+  flushCurve(exLine); flushCurve(eyLine);
+  flushCurve(hyLine); flushCurve(hxLine);
+  flushCurve(helixLine);
+
+  // E-vector arrows at N_ARROW positions
+  const ASKIP = NZ/N_ARROW;
+  for(let ai=0;ai<N_ARROW;ai++){
+    const ci=Math.round(ai*ASKIP);
+    const z=cellToZ(ci);
+    const ex=Ex[ci]*sc, ey=Ey[ci]*sc;
+    const len=Math.sqrt(ex*ex+ey*ey);
+    const arr=eArrows[ai];
+    if(len<0.015){ arr.visible=false; continue; }
+    arr.visible=VIS.showArrows;
+    arr.position.set(0,0,z);
+    arr.setDirection(new THREE.Vector3(ex/len,ey/len,0));
+    const hl=Math.min(.3,len*.35), hr=Math.min(.14,len*.25);
+    arr.setLength(len,hl,hr);
+    // Color by angle in XY: hue = atan2(ey,ex)
+    const hue=((Math.atan2(ey,ex)+Math.PI)/(2*Math.PI));
+    arr.setColor(new THREE.Color().setHSL(hue,1,TH.arrL));
+  }
+
+  // Probe ellipse: draw recent (Ex,Ey) trace at z_probe
+  const pz=cellToZ(PROBE_I);
+  for(let pi=0;pi<64;pi++){
+    const idx=(prHead-pi-1+PROBE_L)%PROBE_L;
+    setCurvePoint(probeEllipse, pi, prEx[idx]*sc, prEy[idx]*sc, pz);
+  }
+  // close it
+  const idx0=(prHead-1+PROBE_L)%PROBE_L;
+  setCurvePoint(probeEllipse, 64, prEx[idx0]*sc, prEy[idx0]*sc, pz);
+  flushCurve(probeEllipse);
+
+  // Visibility
+  exLine.visible=VIS.showEx;
+  eyLine.visible=VIS.showEy;
+  hyLine.visible=VIS.showH;
+  hxLine.visible=VIS.showH;
+  helixLine.visible=VIS.showHelix;
+  probeEllipse.visible=VIS.showProbe;
+  // Probe plane in static scene
+  staticGroup.children.forEach(c=>{
+    if(c.userData.isProbe) c.visible=VIS.showProbe;
+  });
+}
+function upd3DShow(){
+  // called from toggles immediately
+  exLine&&(exLine.visible=VIS.showEx);
+  eyLine&&(eyLine.visible=VIS.showEy);
+  hyLine&&(hyLine.visible=VIS.showH);
+  hxLine&&(hxLine.visible=VIS.showH);
+  helixLine&&(helixLine.visible=VIS.showHelix);
+  eArrows.forEach(a=>{ a.visible=VIS.showArrows&&a.visible; });
+  probeEllipse&&(probeEllipse.visible=VIS.showProbe);
+  // toggles visual
+  syncToggle('tEx',VIS.showEx); syncToggle('tEy',VIS.showEy);
+  syncToggle('tHx',VIS.showHelix); syncToggle('tH',VIS.showH);
+  syncToggle('tArr',VIS.showArrows); syncToggle('tPrb',VIS.showProbe);
+}
+function syncToggle(id,val){
+  const el=document.getElementById(id);
+  if(el) el.className='tck'+(val?' on':'');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LISSAJOUS / POLARIZATION INSET (2D Canvas)
+// ═══════════════════════════════════════════════════════════════════════
+const lissCtx = document.getElementById('lissCanvas').getContext('2d');
+const LISS_W = 130, LISS_H = 130;
+const LISS_CX = LISS_W/2, LISS_CY = LISS_H/2, LISS_R = 48;
+
+function drawLissajous(){
+  lissCtx.clearRect(0,0,LISS_W,LISS_H);
+  // Background
+  lissCtx.fillStyle='rgba(2,11,20,0)'; lissCtx.fillRect(0,0,LISS_W,LISS_H);
+  // Grid lines
+  lissCtx.strokeStyle=TH.lGrid; lissCtx.lineWidth=.5;
+  lissCtx.beginPath(); lissCtx.moveTo(0,LISS_CY); lissCtx.lineTo(LISS_W,LISS_CY); lissCtx.stroke();
+  lissCtx.beginPath(); lissCtx.moveTo(LISS_CX,0); lissCtx.lineTo(LISS_CX,LISS_H); lissCtx.stroke();
+  // Unit circle guide
+  lissCtx.beginPath(); lissCtx.arc(LISS_CX,LISS_CY,LISS_R,0,Math.PI*2);
+  lissCtx.strokeStyle=TH.lGrid; lissCtx.stroke();
+
+  // Amplitude scale (from FDTD probe history)
+  let maxA=0;
+  for(let i=0;i<PROBE_L;i++) maxA=Math.max(maxA,Math.abs(prEx[i]),Math.abs(prEy[i]));
+  const sc=maxA>0.02?LISS_R/maxA:LISS_R;
+
+  // Draw trail (older points more faded)
+  for(let i=PROBE_L-1;i>=1;i--){
+    const idx0=(prHead-i  +PROBE_L)%PROBE_L;
+    const idx1=(prHead-i+1+PROBE_L)%PROBE_L;
+    const x0=LISS_CX+prEx[idx0]*sc, y0=LISS_CY-prEy[idx0]*sc;
+    const x1=LISS_CX+prEx[idx1]*sc, y1=LISS_CY-prEy[idx1]*sc;
+    const alpha=0.05+0.65*(1-i/PROBE_L);
+    lissCtx.strokeStyle=TH.lTrail+(alpha+.15).toFixed(2)+')';
+    lissCtx.lineWidth=1.2;
+    lissCtx.beginPath(); lissCtx.moveTo(x0,y0); lissCtx.lineTo(x1,y1); lissCtx.stroke();
+  }
+  // Current point (white dot)
+  const cx=LISS_CX+prEx[(prHead-1+PROBE_L)%PROBE_L]*sc;
+  const cy=LISS_CY-prEy[(prHead-1+PROBE_L)%PROBE_L]*sc;
+  lissCtx.fillStyle=TH.lDot; lissCtx.shadowColor=TH.lDot; lissCtx.shadowBlur=6;
+  lissCtx.beginPath(); lissCtx.arc(cx,cy,3,0,Math.PI*2); lissCtx.fill();
+  lissCtx.shadowBlur=0;
+  // Labels
+  lissCtx.fillStyle=TH.lTxt; lissCtx.font='10px Share Tech Mono';
+  lissCtx.fillText('Eₓ→',LISS_W-28,LISS_CY+12);
+  lissCtx.fillText('Eᵧ↑',LISS_CX+3,10);
+  lissCtx.fillText('POL·ELLIPSE',4,12);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RESULTS PANEL UPDATE
+// ═══════════════════════════════════════════════════════════════════════
+function computeStokes(){
+  // Compute from source parameters (analytical, always accurate)
+  const ax=SRC.ax, ay=SRC.ay, d=SRC.dphi;
+  const S0=ax*ax+ay*ay||0.001;
+  const S1=ax*ax-ay*ay;
+  const S2=2*ax*ay*Math.cos(d);
+  const S3=2*ax*ay*Math.sin(d);
+  return{S0,S1,S2,S3};
+}
+function polarizationType(ax,ay,d){
+  const eps=0.08;
+  if(ay<eps) return'Linear X';
+  if(ax<eps) return'Linear Y';
+  const cd=Math.abs(Math.cos(d)), sd=Math.abs(Math.sin(d));
+  if(cd<eps){
+    if(Math.abs(ax-ay)<eps) return d>0?'RHCP':'LHCP';
+    return d>0?'Ellip. RHCP':'Ellip. LHCP';
+  }
+  if(sd<eps) return'Linear (tilted)';
+  return'Elliptical';
+}
+function set(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+
+function updateResults(){
+  const n=fdtdN;
+  set('tval',   (n*0.0167).toFixed(3));   // ps (approximate scale)
+  set('stepval',n);
+  set('rStep',  n);
+
+  // Probe values
+  const ex=Ex[PROBE_I], ey=Ey[PROBE_I];
+  const hx=Hx[PROBE_I], hy=Hy[PROBE_I];
+  const emod=Math.sqrt(ex*ex+ey*ey);
+  const poynting=ex*hy - ey*hx; // Sz = Ex·Hy - Ey·Hx
+  set('rEx',  ex.toFixed(5));
+  set('rEy',  ey.toFixed(5));
+  set('rEmod',emod.toFixed(5));
+  set('rHx',  hx.toFixed(5));
+  set('rHy',  hy.toFixed(5));
+  set('rSz',  poynting.toFixed(5));
+
+  // Source
+  set('rfc',  SRC.fc.toFixed(4));
+  set('romg', (2*Math.PI*SRC.fc).toFixed(4));
+  set('rlam', (1/SRC.fc).toFixed(1));
+  set('rax',  SRC.ax.toFixed(3));
+  set('ray',  SRC.ay.toFixed(3));
+  set('rdp',  (SRC.dphi*180/Math.PI).toFixed(1)+'°');
+  set('sLam', (1/SRC.fc).toFixed(0)+' cells');
+  set('sOmg', (2*Math.PI*SRC.fc).toFixed(3)+' rad/step');
+
+  // Stokes
+  const{S0,S1,S2,S3}=computeStokes();
+  const s0n=S0||1;
+  set('rS0',(S0).toFixed(4));
+  set('rS1',(S1/s0n).toFixed(4));
+  set('rS2',(S2/s0n).toFixed(4));
+  set('rS3',(S3/s0n).toFixed(4));
+  // Bars
+  function bar(fillId,lblId,val){
+    const pct=Math.abs(val/s0n)*100;
+    const el=document.getElementById(fillId); if(el) el.style.width=Math.min(pct,100).toFixed(1)+'%';
+    set(lblId,pct.toFixed(0)+'%');
+  }
+  bar('fS1','bS1',S1);
+  bar('fS2','bS2',S2);
+  bar('fS3','bS3',S3);
+
+  // Polarization state
+  const ptype=polarizationType(SRC.ax,SRC.ay,SRC.dphi);
+  set('rPT',  ptype);
+  set('sPol', ptype);
+  set('rDoP', '1.000');
+  // Ellipse orientation ψ and ellipticity χ
+  const psi2=Math.atan2(S2,S1); // 2ψ
+  const psi=psi2/2*180/Math.PI;
+  const chi2=Math.asin(Math.min(1,Math.abs(S3)/s0n))*Math.sign(S3);
+  const chi=chi2/2*180/Math.PI;
+  set('rPsi',psi.toFixed(1)+'°');
+  set('rChi',chi.toFixed(1)+'°');
+  const ar=Math.abs(chi)>0.1?(1/Math.tan(Math.abs(chi2/2))).toFixed(2):'∞';
+  set('rAR', ar);
+  set('rHand', S3>0.05?'RHCP':S3<-0.05?'LHCP':SRC.ax+SRC.ay>0.05?'Linear':'—');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI CONTROLS
+// ═══════════════════════════════════════════════════════════════════════
+function onSrcChg(){ /* live update, FDTD source uses SRC.* directly */ }
+
+const PRESETS = {
+  lx:  {ax:1.0, ay:0.0, dphi:0},
+  ly:  {ax:0.0, ay:1.0, dphi:0},
+  l45: {ax:1.0, ay:1.0, dphi:0},
+  rcp: {ax:1.0, ay:1.0, dphi: Math.PI/2},
+  lcp: {ax:1.0, ay:1.0, dphi:-Math.PI/2},
+  ell: {ax:1.0, ay:0.6, dphi: Math.PI/3},
+};
+function setPreset(key, btn){
+  document.querySelectorAll('#polPresets .pbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const p=PRESETS[key];
+  SRC.ax=p.ax; SRC.ay=p.ay; SRC.dphi=p.dphi;
+  // Sync sliders
+  sl('slAx',p.ax); sl('slAy',p.ay); sl('slDp',p.dphi*180/Math.PI);
+  set('lax',p.ax.toFixed(2)); set('lay',p.ay.toFixed(2));
+  set('ldp',(p.dphi*180/Math.PI).toFixed(0)+'°');
+  resetSim();
+}
+function sl(id,v){ const e=document.getElementById(id); if(e) e.value=v; }
+
+function togglePlay(){
+  simPlaying=!simPlaying;
+  document.getElementById('playbtn').textContent=simPlaying?'⏸ PAUSE':'▶ PLAY';
+}
+
+// ── Tab switching ────────────────────────────────────────────────────
+function setTab(name, el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('sim').style.display=name==='sim'?'flex':'none';
+  document.getElementById('physicsTab').className='ctab'+(name==='physics'?' show':'');
+  document.getElementById('appTab').className='ctab'+(name==='applications'?' show':'');
+  if(name==='sim') setTimeout(resize3,40);
+}
+
+// ── Toggle helpers ───────────────────────────────────────────────────
+// Bind toggles: clicking the parent div already toggles VIS.* inline via onclick
+
+// ═══════════════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════════════
+function loop(){
+  requestAnimationFrame(loop);
+  if(simPlaying){
+    fdtdAdvance(VIS.spf);
+    // Record probe
+    prEx[prHead]=Ex[PROBE_I];
+    prEy[prHead]=Ey[PROBE_I];
+    prHead=(prHead+1)%PROBE_L;
+  }
+  updateDynGeom();
+  drawLissajous();
+  updateResults();
+  controls.update();
+  renderer.render(scene3,camera);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  initThree();
+  buildStaticScene();
+  buildDynScene();
+  upd3DShow();
+  applyTheme(loadTheme());
+  loop();
+});
+</script>
+</body>
+</html>

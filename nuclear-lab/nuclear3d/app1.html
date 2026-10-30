@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Bound State Solver — Nuclear Physics</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#03060d;--bg-panel:#080e1c;--bg-card:#0c1426;--bg-ctrl:#101a2e;--bg-input:#0a1020;
+  --border:rgba(0,200,255,0.14);--border-hl:rgba(0,200,255,0.42);
+  --cyan:#00e5ff;--cyan-dim:rgba(0,229,255,0.55);
+  --amber:#ffd740;--red:#ff5252;--green:#00e676;--orange:#ff9100;--purple:#b388ff;--blue:#448aff;
+  --teal:#64ffda;--pink:#ff4081;--dpurp:#e040fb;
+  --text:#b8ccdd;--text-hi:#e8f4ff;--muted:#4a6078;--glow:0 0 18px rgba(0,229,255,0.18);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:9999}
+
+header{padding:24px 40px 18px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(0,229,255,0.05) 0%,transparent 100%);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo-area h1{font-family:'Chakra Petch',sans-serif;font-size:1.7rem;font-weight:700;letter-spacing:0.05em;color:var(--text-hi);text-shadow:0 0 20px rgba(0,229,255,0.35)}
+.logo-area p{font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.15em;color:var(--cyan-dim);margin-top:4px}
+.status-bar{font-family:'Share Tech Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;color:var(--muted);display:flex;align-items:center;gap:16px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+nav.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 40px;background:var(--bg-panel)}
+.tab-btn{font-family:'Chakra Petch',sans-serif;font-size:0.82rem;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;padding:16px 28px;cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent;transition:all .2s;position:relative;top:1px}
+.tab-btn:hover{color:var(--cyan-dim)}
+.tab-btn.active{color:var(--cyan);border-bottom-color:var(--cyan);text-shadow:0 0 12px rgba(0,229,255,0.5)}
+
+main{padding:28px 40px;min-height:calc(100vh - 136px)}
+.tab-content{display:none}.tab-content.active{display:block}
+.section-title{font-family:'Chakra Petch',sans-serif;font-size:1.05rem;font-weight:600;letter-spacing:0.08em;color:var(--cyan);border-left:3px solid var(--cyan);padding-left:12px;margin-bottom:14px;text-shadow:0 0 10px rgba(0,229,255,0.3)}
+.sub-title{font-family:'Chakra Petch',sans-serif;font-size:0.88rem;font-weight:500;letter-spacing:0.06em;color:var(--amber);margin-bottom:8px}
+.eq{font-family:'Share Tech Mono',monospace;font-size:0.9rem;background:var(--bg-ctrl);border:1px solid var(--border);border-left:3px solid var(--cyan-dim);padding:12px 16px;border-radius:4px;color:var(--text-hi);line-height:1.9;margin:10px 0}
+
+/* ═══ SIMULATOR LAYOUT ═══ */
+.sim-layout{display:flex;gap:22px;align-items:flex-start}
+.panel-wrapper{flex-shrink:0;width:390px;min-width:390px;max-width:390px;overflow:hidden;transition:width .38s cubic-bezier(.4,0,.2,1),min-width .38s cubic-bezier(.4,0,.2,1),max-width .38s cubic-bezier(.4,0,.2,1),opacity .25s ease}
+.panel-wrapper.collapsed{width:0;min-width:0;max-width:0;opacity:0}
+.params-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden;position:sticky;top:16px;width:390px;display:flex;flex-direction:column;height:calc(100vh - 54px)}
+.params-header{background:var(--bg-ctrl);padding:11px 16px;border-bottom:1px solid var(--border);font-family:'Chakra Petch',sans-serif;font-size:0.8rem;letter-spacing:0.1em;color:var(--cyan);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-collapse-btn{background:none;border:1px solid var(--border);color:var(--cyan-dim);border-radius:4px;width:24px;height:24px;cursor:pointer;font-size:0.7rem;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.panel-collapse-btn:hover{border-color:var(--border-hl);color:var(--cyan);background:rgba(0,229,255,0.08)}
+.params-body{overflow-y:auto;flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+
+.param-group{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px 12px;transition:opacity .2s}
+.param-group-label{font-family:'Chakra Petch',sans-serif;font-size:0.67rem;letter-spacing:0.16em;color:var(--muted);margin-bottom:9px;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.pg-badge{font-size:0.58rem;background:rgba(0,229,255,0.08);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--cyan-dim);letter-spacing:0.05em}
+.param-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.param-row:last-child{margin-bottom:0}
+.param-label{font-size:0.79rem;color:var(--text);flex:1;display:flex;align-items:center;gap:5px}
+.unit{font-size:0.68rem;color:var(--muted);font-family:'Share Tech Mono',monospace}
+.param-input{width:84px;font-family:'Share Tech Mono',monospace;font-size:0.82rem;background:var(--bg-card);border:1px solid var(--border);color:var(--text-hi);padding:4px 7px;border-radius:4px;text-align:right;transition:border-color .15s}
+.param-input:focus{outline:none;border-color:var(--border-hl);box-shadow:0 0 0 2px rgba(0,229,255,0.08)}
+select.param-input{text-align:left;cursor:pointer}
+
+.preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:2px}
+.preset-btn{padding:6px 3px;font-family:'Chakra Petch',sans-serif;font-size:0.65rem;font-weight:500;letter-spacing:0.05em;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;color:var(--cyan-dim);cursor:pointer;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.preset-btn:hover{border-color:var(--border-hl);color:var(--cyan);background:rgba(0,229,255,0.07)}
+.preset-btn.active-preset{border-color:var(--amber);color:var(--amber);background:rgba(255,215,64,0.05)}
+
+/* ═══ POTENTIAL ACCORDION ═══ */
+.acc-section-label{font-family:'Chakra Petch',sans-serif;font-size:0.67rem;letter-spacing:0.16em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.acc-section-label span{font-size:0.58rem;color:var(--cyan-dim);font-family:'Share Tech Mono',monospace;letter-spacing:0.05em}
+.pot-accordion{display:flex;flex-direction:column;gap:3px}
+
+.pot-item{border-radius:5px;border:1px solid var(--border);overflow:hidden;transition:border-color .18s,box-shadow .18s}
+.pot-item.selected{border-color:var(--border-hl);box-shadow:0 0 0 1px rgba(0,229,255,0.12) inset}
+
+.pot-header{display:flex;align-items:center;gap:9px;padding:9px 11px;cursor:pointer;background:var(--bg-input);transition:background .15s;user-select:none;position:relative}
+.pot-header:hover{background:rgba(0,229,255,0.04)}
+.pot-item.selected .pot-header{background:rgba(0,229,255,0.06)}
+
+.pot-check{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--muted);transition:all .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:transparent;font-weight:bold;font-family:'Share Tech Mono',monospace}
+.pot-item.selected .pot-check{background:var(--cyan);border-color:var(--cyan);color:#03060d}
+
+.pot-title-area{flex:1;display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden}
+.pot-title{font-family:'Chakra Petch',sans-serif;font-size:0.77rem;font-weight:600;letter-spacing:0.06em;color:var(--text);white-space:nowrap;transition:color .15s}
+.pot-item.selected .pot-title{color:var(--cyan)}
+.pot-formula-hint{font-family:'Share Tech Mono',monospace;font-size:0.63rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.pot-item.selected .pot-formula-hint{color:rgba(0,229,255,0.4)}
+
+.pot-chevron{font-size:0.55rem;color:var(--muted);transition:transform .2s,color .15s;flex-shrink:0;margin-left:2px}
+.pot-item.selected .pot-chevron{transform:rotate(90deg);color:var(--cyan)}
+
+.pot-body{display:none;padding:10px 11px 11px;background:#050c19;border-top:1px solid var(--border)}
+.pot-item.selected .pot-body{display:block}
+
+.acc-param-row{display:grid;grid-template-columns:36px 1fr 26px 80px;align-items:center;gap:6px;margin-bottom:6px}
+.acc-param-row:last-child{margin-bottom:0}
+.acc-param-row.info-row{grid-template-columns:1fr;margin-top:4px}
+
+.apb{font-family:'Share Tech Mono',monospace;font-size:0.58rem;padding:2px 5px;border-radius:3px;border:1px solid;letter-spacing:0.04em;text-align:center;font-weight:600}
+.apb-vl  {color:var(--purple);border-color:rgba(179,136,255,.35);background:rgba(179,136,255,.07)}
+.apb-vc  {color:var(--blue);border-color:rgba(68,138,255,.35);background:rgba(68,138,255,.07)}
+.apb-ws  {color:#00e676;border-color:rgba(0,230,118,.35);background:rgba(0,230,118,.07)}
+.apb-ws2 {color:#40c4ff;border-color:rgba(64,196,255,.35);background:rgba(64,196,255,.07)}
+.apb-wss {color:var(--orange);border-color:rgba(255,145,0,.35);background:rgba(255,145,0,.07)}
+.apb-cosh{color:var(--amber);border-color:rgba(255,215,64,.35);background:rgba(255,215,64,.07)}
+.apb-g   {color:var(--blue);border-color:rgba(68,138,255,.35);background:rgba(68,138,255,.07)}
+.apb-y   {color:var(--purple);border-color:rgba(179,136,255,.35);background:rgba(179,136,255,.07)}
+.apb-sc  {color:var(--red);border-color:rgba(255,82,82,.35);background:rgba(255,82,82,.07)}
+.apb-so  {color:var(--purple);border-color:rgba(179,136,255,.35);background:rgba(179,136,255,.07)}
+.apb-exp {color:var(--orange);border-color:rgba(255,145,0,.35);background:rgba(255,145,0,.07)}
+.apb-yukr{color:var(--dpurp);border-color:rgba(224,64,251,.35);background:rgba(224,64,251,.07)}
+.apb-gausr{color:var(--teal);border-color:rgba(100,255,218,.35);background:rgba(100,255,218,.07)}
+.apb-so2 {color:var(--pink);border-color:rgba(255,64,129,.35);background:rgba(255,64,129,.07)}
+
+.acc-param-label{font-size:0.78rem;color:var(--text)}
+.acc-unit{font-size:0.67rem;color:var(--muted);font-family:'Share Tech Mono',monospace;text-align:right}
+.acc-input{font-family:'Share Tech Mono',monospace;font-size:0.82rem;background:var(--bg-card);border:1px solid var(--border);color:var(--text-hi);padding:4px 7px;border-radius:4px;text-align:right;transition:border-color .15s;width:100%}
+.acc-input:focus{outline:none;border-color:var(--border-hl);box-shadow:0 0 0 2px rgba(0,229,255,0.08)}
+
+.acc-shared-note{font-size:0.66rem;color:var(--muted);font-family:'Share Tech Mono',monospace;margin-top:8px;padding-top:7px;border-top:1px solid var(--border);display:flex;align-items:center;gap:5px}
+.acc-shared-note::before{content:'→';color:var(--cyan-dim)}
+.acc-info-note{font-size:0.66rem;color:var(--muted);font-family:'Share Tech Mono',monospace;line-height:1.6;padding:6px 8px;border:1px solid var(--border);border-radius:3px;background:rgba(0,0,0,0.2)}
+
+.multi-hint{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--muted);text-align:right;margin-bottom:4px;padding-right:2px}
+.multi-hint span{color:var(--cyan-dim)}
+
+/* Accordion group divider label */
+.acc-group-divider{font-family:'Chakra Petch',sans-serif;font-size:0.6rem;letter-spacing:0.18em;color:var(--amber);text-transform:uppercase;padding:6px 4px 3px;border-bottom:1px solid rgba(255,215,64,0.15);margin-bottom:3px;margin-top:4px}
+
+/* ── V_eff Composition Strip ── */
+.vn-comp{display:flex;flex-wrap:wrap;gap:3px;padding:8px 12px 8px;background:#03080f;border-top:1px solid var(--border)}
+.vn-comp-empty{font-family:'Share Tech Mono',monospace;font-size:0.63rem;color:var(--muted);padding:8px 12px;background:#03080f;border-top:1px solid var(--border);letter-spacing:0.06em}
+.vn-token{font-family:'Share Tech Mono',monospace;font-size:0.67rem;padding:2px 7px;border-radius:3px;border:1px solid;letter-spacing:0.03em}
+.vn-l   {background:rgba(179,136,255,.08);border-color:rgba(179,136,255,.3);color:var(--purple)}
+.vn-c   {background:rgba(68,138,255,.08);border-color:rgba(68,138,255,.3);color:var(--blue)}
+.vn-ws  {background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:#00e676}
+.vn-wss {background:rgba(255,145,0,.08);border-color:rgba(255,145,0,.3);color:var(--orange)}
+.vn-sc  {background:rgba(255,82,82,.08);border-color:rgba(255,82,82,.3);color:var(--red)}
+.vn-so  {background:rgba(179,136,255,.08);border-color:rgba(179,136,255,.3);color:var(--purple)}
+.vn-g   {background:rgba(68,138,255,.08);border-color:rgba(68,138,255,.3);color:var(--blue)}
+.vn-y   {background:rgba(179,136,255,.08);border-color:rgba(179,136,255,.3);color:var(--purple)}
+.vn-cosh{background:rgba(255,215,64,.08);border-color:rgba(255,215,64,.3);color:var(--amber)}
+.vn-exp {background:rgba(255,145,0,.08);border-color:rgba(255,145,0,.3);color:var(--orange)}
+.vn-yukr{background:rgba(224,64,251,.08);border-color:rgba(224,64,251,.3);color:var(--dpurp)}
+.vn-gausr{background:rgba(100,255,218,.08);border-color:rgba(100,255,218,.3);color:var(--teal)}
+.vn-so2 {background:rgba(255,64,129,.08);border-color:rgba(255,64,129,.3);color:var(--pink)}
+.vn-plus{background:none;border:none;color:var(--muted);padding:2px 1px}
+
+/* ── Formula Box ── */
+.formula-wrap{background:#03060d;border-top:1px solid var(--border)}
+.formula-hdr{font-family:'Chakra Petch',sans-serif;font-size:0.62rem;letter-spacing:0.16em;color:var(--cyan);text-transform:uppercase;padding:6px 12px;background:rgba(0,229,255,0.05);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.formula-body{padding:10px 12px 10px;min-height:56px}
+.formula-line{font-family:'Share Tech Mono',monospace;display:block;margin:3px 0;line-height:1.8}
+.fl-main{font-size:0.8rem;color:var(--text-hi)}
+.fl-main-empty{font-size:0.75rem;color:var(--muted);font-style:italic}
+.fl-eq{font-size:0.73rem;padding:4px 8px;margin:4px 0;border-left:2px solid;border-radius:0 3px 3px 0;display:block}
+.fl-vl  {color:var(--purple);border-color:var(--purple);background:rgba(179,136,255,.04)}
+.fl-vc  {color:var(--blue);border-color:var(--blue);background:rgba(68,138,255,.04)}
+.fl-ws  {color:#00e676;border-color:#00e676;background:rgba(0,230,118,.04)}
+.fl-ws2 {color:#40c4ff;border-color:#40c4ff;background:rgba(64,196,255,.04)}
+.fl-wss {color:var(--orange);border-color:var(--orange);background:rgba(255,145,0,.04)}
+.fl-cosh{color:var(--amber);border-color:var(--amber);background:rgba(255,215,64,.04)}
+.fl-g   {color:var(--blue);border-color:var(--blue);background:rgba(68,138,255,.04)}
+.fl-y   {color:var(--purple);border-color:var(--purple);background:rgba(179,136,255,.04)}
+.fl-sc  {color:var(--red);border-color:var(--red);background:rgba(255,82,82,.04)}
+.fl-so  {color:var(--purple);border-color:rgba(179,136,255,.4);background:rgba(179,136,255,.04)}
+.fl-exp {color:var(--orange);border-color:var(--orange);background:rgba(255,145,0,.04)}
+.fl-yukr{color:var(--dpurp);border-color:var(--dpurp);background:rgba(224,64,251,.04)}
+.fl-gausr{color:var(--teal);border-color:var(--teal);background:rgba(100,255,218,.04)}
+.fl-so2 {color:var(--pink);border-color:var(--pink);background:rgba(255,64,129,.04)}
+.fl-note{font-size:0.67rem;color:var(--muted);display:block;margin-top:5px}
+.fl-sum {font-size:0.72rem;color:var(--cyan-dim);display:block;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+
+/* ── Action Buttons ── */
+.run-btn{width:100%;padding:12px;font-family:'Chakra Petch',sans-serif;font-size:0.88rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;background:linear-gradient(135deg,rgba(0,229,255,0.15),rgba(0,229,255,0.07));border:1px solid var(--cyan);color:var(--cyan);border-radius:6px;cursor:pointer;transition:all .2s;box-shadow:0 0 20px rgba(0,229,255,0.1)}
+.run-btn:hover{background:rgba(0,229,255,0.2);box-shadow:var(--glow);transform:translateY(-1px)}
+.run-btn:active{transform:translateY(0)}
+.run-btn.computing{animation:compute .8s infinite;border-color:var(--amber);color:var(--amber)}
+@keyframes compute{0%,100%{opacity:1}50%{opacity:0.55}}
+.scan-btn{width:100%;padding:9px;font-family:'Chakra Petch',sans-serif;font-size:0.78rem;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;background:linear-gradient(135deg,rgba(179,136,255,0.1),rgba(179,136,255,0.05));border:1px solid rgba(179,136,255,0.4);color:var(--purple);border-radius:6px;cursor:pointer;transition:all .2s}
+.scan-btn:hover{background:rgba(179,136,255,0.18);box-shadow:0 0 16px rgba(179,136,255,0.15);transform:translateY(-1px)}
+.scan-btn.scanning{animation:compute .8s infinite;border-color:var(--amber);color:var(--amber)}
+.panel-reopen-btn{display:none;align-self:flex-start;position:sticky;top:16px;padding:10px 7px;writing-mode:vertical-rl;letter-spacing:0.14em;font-family:'Chakra Petch',sans-serif;font-size:0.7rem;font-weight:600;background:var(--bg-ctrl);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;color:var(--cyan-dim);cursor:pointer;transition:all .15s;flex-shrink:0}
+.panel-reopen-btn:hover{color:var(--cyan);border-color:var(--border-hl)}
+.panel-reopen-btn.visible{display:flex;align-items:center;gap:6px}
+
+/* ── Plot Panel ── */
+.plot-panel{display:flex;flex-direction:column;gap:18px;flex:1;min-width:0}
+.chart-wrapper{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:18px;box-shadow:inset 0 0 40px rgba(0,10,20,0.5)}
+.chart-title{font-family:'Chakra Petch',sans-serif;font-size:0.75rem;letter-spacing:0.1em;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+#energyDiagram{display:block;width:105%;height:660px;border-radius:4px}
+.diagram-placeholder{padding:36px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--muted);letter-spacing:0.1em;border:1px dashed var(--border);border-radius:6px}
+.results-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.results-header{background:var(--bg-ctrl);padding:11px 18px;border-bottom:1px solid var(--border);font-family:'Chakra Petch',sans-serif;font-size:0.75rem;letter-spacing:0.12em;color:var(--amber)}
+.results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1px;background:var(--border)}
+.result-item{background:var(--bg-card);padding:12px 16px}
+.result-label{font-size:0.68rem;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.result-value{font-family:'Share Tech Mono',monospace;font-size:1.05rem;color:var(--text-hi)}
+.result-value.energy{color:var(--amber);text-shadow:0 0 8px rgba(255,215,64,0.4)}
+.result-value.good{color:var(--green)}
+.no-result{padding:36px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.83rem;color:var(--muted);letter-spacing:0.1em}
+.error-msg{background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);border-radius:5px;padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:0.79rem;color:var(--red);margin-top:7px}
+.warn-msg{background:rgba(255,145,0,0.07);border:1px solid rgba(255,145,0,0.3);border-radius:5px;padding:8px 14px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--orange);margin-top:4px}
+.info-msg{background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);border-radius:5px;padding:8px 14px;font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--cyan-dim);margin-top:4px}
+
+/* ── Theory ── */
+.theory-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(370px,1fr));gap:20px;max-width:1400px}
+.theory-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:22px 26px;transition:border-color .2s}
+.theory-card:hover{border-color:var(--border-hl)}
+.theory-card p{font-size:0.88rem;line-height:1.75;color:var(--text);margin-bottom:8px}
+.theory-card ul{list-style:none;padding:0}
+.theory-card ul li{font-size:0.86rem;line-height:1.7;color:var(--text);padding:3px 0 3px 16px;position:relative}
+.theory-card ul li::before{content:'›';position:absolute;left:0;color:var(--cyan)}
+.pot-color{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.badge{display:inline-block;font-family:'Share Tech Mono',monospace;font-size:0.7rem;padding:2px 7px;border-radius:3px;margin:2px;background:var(--bg-ctrl);border:1px solid var(--border);color:var(--cyan-dim)}
+table.eq-table{width:100%;border-collapse:collapse;font-size:0.82rem;margin-top:8px}
+table.eq-table th{font-family:'Chakra Petch',sans-serif;font-size:0.7rem;letter-spacing:0.1em;color:var(--amber);padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+table.eq-table td{padding:6px 10px;border-bottom:1px solid rgba(0,200,255,0.06);color:var(--text)}
+table.eq-table td:first-child{font-family:'Share Tech Mono',monospace;color:var(--cyan-dim)}
+table.eq-table tr:hover td{background:rgba(0,229,255,0.04)}
+
+/* ── Manual ── */
+.manual-layout{max-width:900px}
+.manual-section{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:26px 30px;margin-bottom:20px}
+.manual-section p{font-size:0.88rem;line-height:1.8;margin-bottom:9px}
+.step{display:flex;gap:14px;margin-bottom:12px;align-items:flex-start}
+.step-num{min-width:26px;height:26px;border-radius:50%;background:var(--bg-ctrl);border:1px solid var(--cyan);font-family:'Share Tech Mono',monospace;font-size:0.78rem;color:var(--cyan);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-text{font-size:0.86rem;line-height:1.7;padding-top:3px}
+.param-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:0.82rem}
+.param-table th{font-family:'Chakra Petch',sans-serif;font-size:0.7rem;letter-spacing:0.1em;color:var(--cyan);padding:7px 11px;border-bottom:1px solid var(--border);text-align:left}
+.param-table td{padding:7px 11px;border-bottom:1px solid rgba(0,200,255,0.06)}
+.param-table td:first-child{font-family:'Share Tech Mono',monospace;color:var(--cyan-dim)}
+.param-table td:nth-child(2){color:var(--text-hi)}
+.param-table tr:hover td{background:rgba(0,229,255,0.03)}
+
+@media(max-width:960px){.sim-layout{flex-direction:column}.panel-wrapper,.panel-wrapper.collapsed{width:100%!important;min-width:0!important;max-width:100%!important;opacity:1!important}.params-panel{position:static;width:100%;height:auto}.panel-reopen-btn.visible{display:none!important}.panel-collapse-btn{display:none}main{padding:16px}}
+@media(max-width:600px){header{padding:16px}header .status-bar{display:none}.logo-area h1{font-size:1.25rem}nav.tabs{padding:0 10px}.tab-btn{padding:12px 12px;font-size:0.72rem}.theory-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <h1>&#9883; QUANTUM BOUND STATE SOLVER</h1>
+    <p>SCHR&#214;DINGER EQUATION &middot; NUCLEAR POTENTIALS &middot; UNIFIED ACCORDION &middot; v3.1</p>
+  </div>
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span>SYSTEM ONLINE</span><span>|</span>
+    <span id="headerStatus">READY</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" onclick="showTab('simulator')">Simulator</button>
+  <button class="tab-btn" onclick="showTab('theory')">Theory</button>
+  <button class="tab-btn" onclick="showTab('manual')">Manual</button>
+</nav>
+
+<main>
+<!-- ═══════════════ SIMULATOR ═══════════════ -->
+<div id="simulator" class="tab-content active">
+<div class="sim-layout" id="simLayout">
+
+  <div class="panel-wrapper" id="panelWrapper">
+  <div class="params-panel">
+    <div class="params-header">
+      <span>&#9881; PARAMETERS</span>
+      <button class="panel-collapse-btn" id="panelCollapseBtn" onclick="togglePanel()">&#9664;</button>
+    </div>
+    <div class="params-body">
+
+      <!-- PRESETS -->
+      <div class="param-group">
+        <div class="param-group-label">Quick Presets</div>
+        <div class="preset-grid">
+          <button class="preset-btn" id="pr-deuteron"  onclick="loadPreset('deuteron')">Deuteron</button>
+          <button class="preset-btn" id="pr-p4He"      onclick="loadPreset('p4He')">p + &#8308;He</button>
+          <button class="preset-btn" id="pr-p40Ca"     onclick="loadPreset('p40Ca')">p + &#8308;&#8304;Ca</button>
+          <button class="preset-btn" id="pr-gaussian"  onclick="loadPreset('gaussian')">Gaussian</button>
+          <button class="preset-btn" id="pr-yukawa"    onclick="loadPreset('yukawa')">Yukawa</button>
+          <button class="preset-btn" id="pr-cosh"      onclick="loadPreset('cosh')">Cosh P-T</button>
+        </div>
+      </div>
+
+      <!-- NUCLEAR SYSTEM -->
+      <div class="param-group">
+        <div class="param-group-label">Nuclear System</div>
+        <div class="param-row">
+          <span class="param-label">A<sub>P</sub> (projectile mass)</span>
+          <input type="number" id="AP" class="param-input" value="1" min="1">
+        </div>
+        <div class="param-row">
+          <span class="param-label">Z<sub>P</sub> (projectile charge)</span>
+          <input type="number" id="ZP" class="param-input" value="1" min="0">
+        </div>
+        <div class="param-row">
+          <span class="param-label">A<sub>T</sub> (target mass)</span>
+          <input type="number" id="AT" class="param-input" value="4" min="1">
+        </div>
+        <div class="param-row">
+          <span class="param-label">Z<sub>T</sub> (target charge)</span>
+          <input type="number" id="ZT" class="param-input" value="2" min="0">
+        </div>
+      </div>
+
+      <!-- QUANTUM NUMBERS -->
+      <div class="param-group">
+        <div class="param-group-label">Quantum Numbers</div>
+        <div class="param-row">
+          <span class="param-label">n<sub>r</sub> (radial nodes)</span>
+          <input type="number" id="nr" class="param-input" value="0" min="0">
+        </div>
+        <div class="param-row">
+          <span class="param-label">&#8467; (orbital ang. mom.)</span>
+          <input type="number" id="ell" class="param-input" value="1" min="0">
+        </div>
+        <div class="param-row">
+          <span class="param-label">s (spin &plusmn;&frac12;)</span>
+          <input type="number" id="spin" class="param-input" value="0.5" step="0.5">
+        </div>
+      </div>
+
+      <!-- ════ UNIFIED POTENTIAL ACCORDION ════ -->
+      <div class="param-group" style="padding:10px 0 0;background:var(--bg-input)">
+        <div style="padding:0 12px">
+          <div class="acc-section-label">
+            <span>Effective Potential&nbsp; V<sub>eff</sub></span>
+          </div>
+          <div class="multi-hint">Click to <span>add / remove</span> &mdash; V<sub>eff</sub> = &Sigma; selected</div>
+        </div>
+
+        <div class="pot-accordion" id="potAccordion" style="padding:0 8px 8px">
+
+          <!-- ─── GROUP: GEOMETRIC / BARRIER ─── -->
+          <div class="acc-group-divider">&#9654; Geometric &amp; Barrier</div>
+
+          <!-- Centrifugal VL -->
+          <div class="pot-item" id="pot-centrifugal" data-type="centrifugal">
+            <div class="pot-header" onclick="togglePotential('centrifugal')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Centrifugal V<sub>L</sub></span>
+                <span class="pot-formula-hint">&#295;&#178;&ell;(&ell;+1)/(2&mu;r&#178;)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-info-note">V<sub>L</sub>(r) = &#295;&#178;&ell;(&ell;+1)/(2&mu;r&#178;)<br>Uses &ell; and &mu; from Quantum Numbers / Nuclear System.<br>No additional parameters needed.</div>
+            </div>
+          </div>
+
+          <!-- Spherical Coulomb Core (SC) -->
+          <div class="pot-item" id="pot-scoulomb" data-type="scoulomb">
+            <div class="pot-header" onclick="togglePotential('scoulomb')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Coulomb </span>
+                <span class="pot-formula-hint">K&middot;Z<sub>eff</sub>/(2R<sub>c</sub>)&middot;[3&minus;(r/R<sub>c</sub>)&#178;]</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-sc">SC</span>
+                <span class="acc-param-label">Z<sub>eff</sub> (charge)</span>
+                <span class="acc-unit"></span>
+                <input type="number" id="Zeff_sc" class="acc-input" value="2" step="1" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-sc">SC</span>
+                <span class="acc-param-label">r<sub>c</sub> (radius)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="rc_sc" class="acc-input" value="1.2" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">R<sub>c</sub>=r<sub>c</sub>&middot;CC; Z<sub>eff</sub>&gt;0 repulsive, &lt;0 attractive</div>
+            </div>
+          </div>
+
+          <!-- ─── GROUP: WOODS-SAXON FAMILY ─── -->
+          <div class="acc-group-divider">&#9654; Woods-Saxon Family</div>
+
+          <!-- Woods-Saxon -->
+          <div class="pot-item" id="pot-ws" data-type="ws">
+            <div class="pot-header" onclick="togglePotential('ws')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Woods-Saxon</span>
+                <span class="pot-formula-hint">&minus;V&#8320;/(1+e<sup>x</sup>), x=(r&minus;R)/a</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-ws">WS</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_ws" class="acc-input" value="63.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-ws">WS</span>
+                <span class="acc-param-label">r<sub>v</sub> (radius)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="rv_ws" class="acc-input" value="0.96" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-ws">WS</span>
+                <span class="acc-param-label">a (diffuseness)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_ws" class="acc-input" value="0.66" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">CC=A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>; R=r<sub>v</sub>&middot;CC; x=(r&minus;R)/a</div>
+            </div>
+          </div>
+
+          <!-- WS-Squared -->
+          <div class="pot-item" id="pot-ws2" data-type="ws2">
+            <div class="pot-header" onclick="togglePotential('ws2')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">WS-Squared</span>
+                <span class="pot-formula-hint">&minus;V&#8320;/(1+e<sup>x</sup>)&#178;</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-ws2">WS&#178;</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_ws2" class="acc-input" value="63.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-ws2">WS&#178;</span>
+                <span class="acc-param-label">r<sub>v</sub> (radius)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="rv_ws2" class="acc-input" value="0.96" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-ws2">WS&#178;</span>
+                <span class="acc-param-label">a (diffuseness)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_ws2" class="acc-input" value="0.66" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">CC=A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>; R=r<sub>v</sub>&middot;CC; x=(r&minus;R)/a; sharper surface</div>
+            </div>
+          </div>
+
+          <!-- WS Surface -->
+          <div class="pot-item" id="pot-wss" data-type="wss">
+            <div class="pot-header" onclick="togglePotential('wss')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">WS Surface</span>
+                <span class="pot-formula-hint">&minus;4V<sub>s</sub>&middot;e<sup>x</sup>/(1+e<sup>x</sup>)&#178;</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-wss">WSS</span>
+                <span class="acc-param-label">V<sub>s</sub> (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="Vs_wss" class="acc-input" value="15.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-wss">WSS</span>
+                <span class="acc-param-label">r<sub>v</sub> (radius)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="rv_wss" class="acc-input" value="0.96" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-wss">WSS</span>
+                <span class="acc-param-label">a (diffuseness)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_wss" class="acc-input" value="0.66" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">Peak=&minus;V<sub>s</sub> at r=R; x=(r&minus;R)/a; R=r<sub>v</sub>&middot;CC</div>
+            </div>
+          </div>
+
+          <!-- ─── GROUP: ANALYTIC CENTRAL ─── -->
+          <div class="acc-group-divider">&#9654; Analytic Central Potentials</div>
+
+          <!-- Cosh -->
+          <div class="pot-item" id="pot-cosh" data-type="cosh">
+            <div class="pot-header" onclick="togglePotential('cosh')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Cosh (P&ouml;schl-Teller)</span>
+                <span class="pot-formula-hint">&minus;V&#8320;/cosh&#178;(r/a)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-cosh">COSH</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_cosh" class="acc-input" value="40.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-cosh">COSH</span>
+                <span class="acc-param-label">a (range)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_cosh" class="acc-input" value="3.0" step="0.1" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">P&ouml;schl-Teller; exactly solvable in 1D; centred at r=0</div>
+            </div>
+          </div>
+
+          <!-- Gaussian (standard) -->
+          <div class="pot-item" id="pot-gaussian" data-type="gaussian">
+            <div class="pot-header" onclick="togglePotential('gaussian')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Gaussian (r&#178; form)</span>
+                <span class="pot-formula-hint">&minus;V&#8320;&middot;exp[&minus;(r/R<sub>g</sub>)&#178;]</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-g">GAUSS</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_g" class="acc-input" value="45.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-g">GAUSS</span>
+                <span class="acc-param-label">r&#8320; &rarr; R<sub>g</sub>=r&#8320;&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="r0_g" class="acc-input" value="1.2" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">R<sub>g</sub>=r&#8320;&middot;(A<sub>T</sub><sup>1/3</sup>+A<sub>P</sub><sup>1/3</sup>); centred at origin</div>
+            </div>
+          </div>
+
+          <!-- Yukawa (standard) -->
+          <div class="pot-item" id="pot-yukawa" data-type="yukawa">
+            <div class="pot-header" onclick="togglePotential('yukawa')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Yukawa (r-scaled)</span>
+                <span class="pot-formula-hint">&minus;V&#8320;&middot;(R<sub>y</sub>/r)&middot;e<sup>&minus;r/Ry</sup></span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-y">YUK</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_y" class="acc-input" value="50.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-y">YUK</span>
+                <span class="acc-param-label">r&#8320; &rarr; R<sub>y</sub>=r&#8320;&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="r0_y" class="acc-input" value="1.3" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">Pion-exchange range; R<sub>y</sub>=r&#8320;&middot;CC; diverges at origin</div>
+            </div>
+          </div>
+
+          <!-- ─── GROUP: SHIFTED ANALYTIC FORMS ─── -->
+          <div class="acc-group-divider">&#9654; Shifted Analytic (surface-peaked)</div>
+
+          <!-- Exponential -->
+          <div class="pot-item" id="pot-exp" data-type="exp">
+            <div class="pot-header" onclick="togglePotential('exp')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Exponential</span>
+                <span class="pot-formula-hint">&minus;V&#8320;&middot;exp[&minus;(r&minus;R)/a]</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-exp">EXP</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_exp" class="acc-input" value="50.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-exp">EXP</span>
+                <span class="acc-param-label">r&#8320; &rarr; R=r&#8320;&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="r0_exp" class="acc-input" value="1.2" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-exp">EXP</span>
+                <span class="acc-param-label">a (range)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_exp" class="acc-input" value="0.65" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">CC=A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>; R=r&#8320;&middot;CC</div>
+            </div>
+          </div>
+
+          <!-- Yukawa-R (shifted) -->
+          <div class="pot-item" id="pot-yukr" data-type="yukr">
+            <div class="pot-header" onclick="togglePotential('yukr')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Yukawa (shifted)</span>
+                <span class="pot-formula-hint">&minus;V&#8320;&middot;exp[&minus;(r&minus;R)/a]/r</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-yukr">YUK-R</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_yukr" class="acc-input" value="50.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-yukr">YUK-R</span>
+                <span class="acc-param-label">r&#8320; &rarr; R=r&#8320;&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="r0_yukr" class="acc-input" value="1.2" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-yukr">YUK-R</span>
+                <span class="acc-param-label">a (range)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_yukr" class="acc-input" value="0.65" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">Surface-shifted Yukawa; R=r&#8320;&middot;CC; use &ell;&ge;0</div>
+            </div>
+          </div>
+
+          <!-- Gaussian-R (shifted) -->
+          <div class="pot-item" id="pot-gausr" data-type="gausr">
+            <div class="pot-header" onclick="togglePotential('gausr')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">Gaussian (shifted)</span>
+                <span class="pot-formula-hint">&minus;V&#8320;&middot;exp[&minus;((r&minus;R)/a)&#178;]</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-gausr">GAUSS-R</span>
+                <span class="acc-param-label">V&#8320; (depth)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="V0_gausr" class="acc-input" value="45.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-gausr">GAUSS-R</span>
+                <span class="acc-param-label">r&#8320; &rarr; R=r&#8320;&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="r0_gausr" class="acc-input" value="1.2" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-gausr">GAUSS-R</span>
+                <span class="acc-param-label">a (width)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="a_gausr" class="acc-input" value="0.65" step="0.01" onchange="syncFormula()">
+              </div>
+              <div class="acc-shared-note">Surface-shifted Gaussian; R=r&#8320;&middot;CC</div>
+            </div>
+          </div>
+
+          <!-- ─── GROUP: SPIN-ORBIT ─── -->
+          <div class="acc-group-divider">&#9654; Spin-Orbit (Thomas form)</div>
+
+          <!-- Spin-Orbit VSO (WS) -->
+          <div class="pot-item" id="pot-so" data-type="so">
+            <div class="pot-header" onclick="togglePotential('so')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">SO&mdash;WS Thomas</span>
+                <span class="pot-formula-hint">&minus;&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;&middot;V<sub>so</sub>&middot;f&prime;/r</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-so">SO</span>
+                <span class="acc-param-label">V<sub>so</sub> (strength)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="Vso" class="acc-input" value="10.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so">SO</span>
+                <span class="acc-param-label">r<sub>so</sub> (radius)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="rso" class="acc-input" value="1.1" step="0.01">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so">SO</span>
+                <span class="acc-param-label">a<sub>so</sub> (diffuseness)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="aso" class="acc-input" value="0.6" step="0.01">
+              </div>
+              <div class="acc-shared-note">x&prime;=(r&minus;R<sub>so</sub>)/a<sub>so</sub>; R<sub>so</sub>=r<sub>so</sub>&middot;CC; &lang;&ell;&middot;s&rang;=[j(j+1)&minus;&ell;(&ell;+1)&minus;s(s+1)]/2</div>
+            </div>
+          </div>
+
+          <!-- SO — WS² derivative -->
+          <div class="pot-item" id="pot-so_ws2" data-type="so_ws2">
+            <div class="pot-header" onclick="togglePotential('so_ws2')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">SO&mdash;WS&#178; deriv.</span>
+                <span class="pot-formula-hint">&minus;C&middot;P1&middot;E&#178;/(1+E)&#179;/(2rP3)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-WS&#178;</span>
+                <span class="acc-param-label">P1 (strength)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="P1_sows2" class="acc-input" value="10.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-WS&#178;</span>
+                <span class="acc-param-label">P2 &rarr; R=P2&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P2_sows2" class="acc-input" value="1.1" step="0.01">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-WS&#178;</span>
+                <span class="acc-param-label">P3 (diffuseness)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P3_sows2" class="acc-input" value="0.6" step="0.01">
+              </div>
+              <div class="acc-shared-note">E=exp(&minus;(r&minus;R)/P3); C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;</div>
+            </div>
+          </div>
+
+          <!-- SO — Gaussian derivative -->
+          <div class="pot-item" id="pot-so_gauss" data-type="so_gauss">
+            <div class="pot-header" onclick="togglePotential('so_gauss')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">SO&mdash;Gaussian deriv.</span>
+                <span class="pot-formula-hint">&minus;C&middot;P1&middot;exp(&minus;RH&#178;)&middot;RH/(2rP3)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-G</span>
+                <span class="acc-param-label">P1 (strength)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="P1_sogauss" class="acc-input" value="10.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-G</span>
+                <span class="acc-param-label">P2 &rarr; R=P2&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P2_sogauss" class="acc-input" value="1.1" step="0.01">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-G</span>
+                <span class="acc-param-label">P3 (width)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P3_sogauss" class="acc-input" value="0.6" step="0.01">
+              </div>
+              <div class="acc-shared-note">RH=(r&minus;R)/P3; C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;</div>
+            </div>
+          </div>
+
+          <!-- SO — Yukawa derivative -->
+          <div class="pot-item" id="pot-so_yukawa" data-type="so_yukawa">
+            <div class="pot-header" onclick="togglePotential('so_yukawa')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">SO&mdash;Yukawa deriv.</span>
+                <span class="pot-formula-hint">&minus;C&middot;P1&middot;E(1+r/P3)/(4r&#179;P3)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-Y</span>
+                <span class="acc-param-label">P1 (strength)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="P1_soyu" class="acc-input" value="10.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-Y</span>
+                <span class="acc-param-label">P2 &rarr; R=P2&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P2_soyu" class="acc-input" value="1.1" step="0.01">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-Y</span>
+                <span class="acc-param-label">P3 (range)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P3_soyu" class="acc-input" value="0.6" step="0.01">
+              </div>
+              <div class="acc-shared-note">E=exp(&minus;(r&minus;R)/P3); C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;</div>
+            </div>
+          </div>
+
+          <!-- SO — Exponential derivative -->
+          <div class="pot-item" id="pot-so_exp" data-type="so_exp">
+            <div class="pot-header" onclick="togglePotential('so_exp')">
+              <div class="pot-check">&#10003;</div>
+              <div class="pot-title-area">
+                <span class="pot-title">SO&mdash;Exponential deriv.</span>
+                <span class="pot-formula-hint">&minus;C&middot;P1&middot;E/(4rP3)</span>
+              </div>
+              <span class="pot-chevron">&#9658;</span>
+            </div>
+            <div class="pot-body">
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-E</span>
+                <span class="acc-param-label">P1 (strength)</span>
+                <span class="acc-unit">MeV</span>
+                <input type="number" id="P1_soexp" class="acc-input" value="10.0" step="0.5" onchange="syncFormula()">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-E</span>
+                <span class="acc-param-label">P2 &rarr; R=P2&middot;CC</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P2_soexp" class="acc-input" value="1.1" step="0.01">
+              </div>
+              <div class="acc-param-row">
+                <span class="apb apb-so2">SO-E</span>
+                <span class="acc-param-label">P3 (range)</span>
+                <span class="acc-unit">fm</span>
+                <input type="number" id="P3_soexp" class="acc-input" value="0.6" step="0.01">
+              </div>
+              <div class="acc-shared-note">E=exp(&minus;(r&minus;R)/P3); C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;</div>
+            </div>
+          </div>
+
+        </div><!-- /pot-accordion -->
+
+        <!-- V_eff Composition Strip -->
+        <div id="vnCompWrap"></div>
+
+        <!-- Formula Box -->
+        <div class="formula-wrap">
+          <div class="formula-hdr">
+            <span>Active Potential Formula</span>
+            <span style="color:var(--muted);font-size:0.6rem">V<sub>eff</sub> = &Sigma; selected</span>
+          </div>
+          <div class="formula-body" id="formulaBody"></div>
+        </div>
+
+      </div><!-- /param-group accordion wrapper -->
+
+      <!-- GRID & SEARCH -->
+      <div class="param-group">
+        <div class="param-group-label">Grid &amp; Energy Search</div>
+        <div class="param-row">
+          <span class="param-label">r<sub>max</sub> <span class="unit">[fm]</span></span>
+          <input type="number" id="rmax" class="param-input" value="20" step="1">
+        </div>
+        <div class="param-row">
+          <span class="param-label">h (step) <span class="unit">[fm]</span></span>
+          <input type="number" id="hstep" class="param-input" value="0.01" step="0.001">
+        </div>
+        <div class="param-row">
+          <span class="param-label">E<sub>min</sub> <span class="unit">[MeV]</span></span>
+          <input type="number" id="emin" class="param-input" value="-200">
+        </div>
+        <div class="param-row">
+          <span class="param-label">E<sub>max</sub> <span class="unit">[MeV]</span></span>
+          <input type="number" id="emax" class="param-input" value="0">
+        </div>
+        <div class="param-row">
+          <span class="param-label">Method</span>
+          <select id="method" class="param-input">
+            <option value="numerov">Numerov</option>
+            <option value="fd">Finite Diff.</option>
+            <option value="rk4">Runge-Kutta 4</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="run-btn" id="runBtn" onclick="runSolver()">&#9654; COMPUTE BOUND STATE</button>
+      <button class="scan-btn" id="scanBtn" onclick="scanAllStates()">&#8853; SCAN ALL BOUND STATES</button>
+      <div id="errorDiv"></div>
+
+    </div><!-- /params-body -->
+  </div><!-- /params-panel -->
+  </div><!-- /panel-wrapper -->
+
+  <!-- RIGHT: Plots + Results -->
+  <div class="plot-panel" id="plotPanel">
+    <button class="panel-reopen-btn" id="panelReopenBtn" onclick="togglePanel()">&#9658; PARAMS</button>
+
+    <div class="chart-wrapper">
+      <div class="chart-title">POTENTIAL LANDSCAPE &middot; ENERGY EIGENVALUE &middot; NORMALISED WAVEFUNCTION</div>
+      <canvas id="mainChart"></canvas>
+    </div>
+
+    <div class="chart-wrapper">
+      <div class="chart-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>NUCLEAR ENERGY LEVEL DIAGRAM</span>
+        <span id="diagramStateCount" style="font-size:0.7rem;color:var(--purple)"></span>
+      </div>
+      <div id="diagramPlaceholderEl" class="diagram-placeholder">Run solver or "Scan All Bound States" to populate the energy level diagram</div>
+      <canvas id="energyDiagram" style="display:none"></canvas>
+    </div>
+
+    <div class="results-panel" id="resultsPanel">
+      <div class="results-header">&#9672; EIGENSTATE RESULTS</div>
+      <div class="no-result">Run the solver to display results</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════ THEORY ═══════════════ -->
+<div id="theory" class="tab-content">
+<div class="theory-grid">
+
+  <div class="theory-card">
+    <div class="section-title">Radial Schr&ouml;dinger Equation</div>
+    <p>For a particle with orbital angular momentum &ell; in a central potential, the radial wave function u(r) = r&middot;R(r) satisfies:</p>
+    <div class="eq">&minus;&hbar;&#178;/(2&mu;) &middot; d&#178;u/dr&#178; + V<sub>eff</sub>(r)&middot;u(r) = E&middot;u(r)</div>
+    <p>Rearranged as a standard second-order ODE:</p>
+    <div class="eq">d&#178;u/dr&#178; = &minus;k&#178;(r)&middot;u(r)<br>k&#178;(r) = (2&mu;/&hbar;&#178;)&middot;[E &minus; V<sub>eff</sub>(r)]</div>
+    <p>Bound states: <span style="color:var(--cyan)">E &lt; 0</span>, <span style="color:var(--cyan)">u(r&rarr;&infin;) = 0</span>. The n<sub>r</sub>-th state has n<sub>r</sub> radial nodes.</p>
+  </div>
+
+  <div class="theory-card">
+    <div class="section-title">Effective Potential &mdash; Unified Selection</div>
+    <p>All contributions to V<sub>eff</sub> are treated on equal footing. The user adds each term individually from the accordion:</p>
+    <div class="eq">V<sub>eff</sub>(r) = &Sigma;<sub>i</sub> V<sub>i</sub>(r)&nbsp;&nbsp;&nbsp;(sum of selected)</div>
+    <ul>
+      <li><span class="pot-color" style="background:var(--purple)"></span><strong>V<sub>L</sub></strong> &mdash; centrifugal barrier</li>
+      <li><span class="pot-color" style="background:var(--blue)"></span><strong>V<sub>C</sub>, V<sub>SC</sub></strong> &mdash; Coulomb (point/core)</li>
+      <li><span class="pot-color" style="background:var(--green)"></span><strong>V<sub>WS</sub>, V<sub>WS&#178;</sub>, V<sub>WSS</sub></strong> &mdash; Woods-Saxon family</li>
+      <li><span class="pot-color" style="background:var(--amber)"></span><strong>V<sub>cosh</sub></strong> &mdash; P&ouml;schl-Teller</li>
+      <li><span class="pot-color" style="background:var(--blue)"></span><strong>V<sub>G</sub>, V<sub>Y</sub></strong> &mdash; Gaussian / Yukawa (origin-based)</li>
+      <li><span class="pot-color" style="background:var(--orange)"></span><strong>V<sub>exp</sub></strong> &mdash; Shifted Exponential</li>
+      <li><span class="pot-color" style="background:var(--dpurp)"></span><strong>V<sub>Y-R</sub></strong> &mdash; Shifted Yukawa (surface)</li>
+      <li><span class="pot-color" style="background:var(--teal)"></span><strong>V<sub>G-R</sub></strong> &mdash; Shifted Gaussian (surface)</li>
+      <li><span class="pot-color" style="background:var(--purple)"></span><strong>V<sub>SO</sub></strong> &mdash; WS Thomas spin-orbit</li>
+      <li><span class="pot-color" style="background:var(--pink)"></span><strong>SO-WS&#178;, SO-G, SO-Y, SO-E</strong> &mdash; derivative SO forms</li>
+    </ul>
+  </div>
+
+  <!-- Woods-Saxon card — with explicit CC, R, x -->
+  <div class="theory-card">
+    <div class="section-title">Woods-Saxon Potentials</div>
+    <p>Common geometry definitions used throughout the WS family:</p>
+    <div class="eq">CC = A<sub>P</sub><sup>1/3</sup> + A<sub>T</sub><sup>1/3</sup><br>R = r<sub>v</sub> &middot; CC<br>x = (r &minus; R) / a</div>
+    <div class="eq">V<sub>WS</sub>(r)  = &minus;V&#8320; / [1 + exp(x)]<br>V<sub>WS&#178;</sub>(r) = &minus;V&#8320; / [1 + exp(x)]&#178;<br>V<sub>WSS</sub>(r) = &minus;4V<sub>s</sub> &middot; exp(x) / [1 + exp(x)]&#178;</div>
+    <ul>
+      <li>V&#8320; &asymp; 50&ndash;70 MeV; r<sub>v</sub> &asymp; 0.9&ndash;1.1 fm; a &asymp; 0.5&ndash;0.7 fm</li>
+      <li>WS&#178; has sharper surface falloff (~exp(&minus;2x)) — needs larger V&#8320;</li>
+      <li>WSS peaks at r = R with value &minus;V<sub>s</sub>; models surface absorption</li>
+      <li>As r &rarr; 0: WS &rarr; &minus;V&#8320;/(1+exp(&minus;R/a)); WS&#178; squares that denominator</li>
+    </ul>
+  </div>
+
+  <!-- Combined Coulomb card -->
+  <div class="theory-card">
+    <div class="section-title">Coulomb Potentials (Point &amp; Spherical Core)</div>
+    <p> Coulomb term use a uniform-sphere model inside R<sub>c</sub> and a point-charge form outside:</p>
+    <div class="eq">V<sub>C</sub>(r &le; R<sub>c</sub>) = K&middot;Z<sub>eff</sub>/(2R<sub>c</sub>)&middot;[3 &minus; (r/R<sub>c</sub>)&#178;]<br>V<sub>C</sub>(r &gt; R<sub>c</sub>) = K&middot;Z<sub>eff</sub>/r</div>
+    <ul>
+      <li>K = e&#178;/(4&pi;&epsilon;&#8320;) = 1.43997 MeV&middot;fm</li>
+      <li>R<sub>c</sub> = r<sub>c</sub> &middot; CC = r<sub>c</sub>&middot;(A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>)</li>
+    </ul>
+  </div>
+
+  <!-- Shifted analytic forms card -->
+  <div class="theory-card">
+    <div class="section-title">Shifted Analytic Potentials</div>
+    <p>These forms are centred at the nuclear surface R rather than the origin:</p>
+    <div class="eq">CC = A<sub>P</sub><sup>1/3</sup> + A<sub>T</sub><sup>1/3</sup><br>R = r&#8320; &middot; CC</div>
+    <div class="eq">V<sub>exp</sub>(r) = &minus;V&#8320; &middot; exp[&minus;(r&minus;R)/a]<br><br>V<sub>Y-R</sub>(r) = &minus;V&#8320; &middot; exp[&minus;(r&minus;R)/a] / r<br><br>V<sub>G-R</sub>(r) = &minus;V&#8320; &middot; exp[&minus;((r&minus;R)/a)&#178;]</div>
+    <ul>
+      <li>V<sub>exp</sub>: decays exponentially outward from R; peaked at surface</li>
+      <li>V<sub>Y-R</sub>: shifted Yukawa; extra 1/r falloff; use &ell; &ge; 0 (finite at R)</li>
+      <li>V<sub>G-R</sub>: Gaussian envelope centred at R; symmetric about surface</li>
+      <li>All three reduce to the standard origin forms when R &rarr; 0</li>
+    </ul>
+  </div>
+
+  <!-- Cosh / origin Gaussian / Yukawa -->
+  <div class="theory-card">
+    <div class="section-title">Origin-Centred Analytic Forms</div>
+    <div class="eq">V<sub>G</sub>(r) = &minus;V&#8320;&middot;exp[&minus;(r/R<sub>g</sub>)&#178;]<br>V<sub>Y</sub>(r) = &minus;V&#8320;&middot;(R<sub>y</sub>/r)&middot;exp(&minus;r/R<sub>y</sub>)<br>V<sub>cosh</sub>(r) = &minus;V&#8320;/cosh&#178;(r/a)</div>
+    <ul>
+      <li>Gaussian V<sub>G</sub>: Fourier transform also Gaussian; used in M3Y; R<sub>g</sub>=r&#8320;&middot;CC</li>
+      <li>Yukawa V<sub>Y</sub>: meson-exchange (OPEP); diverges at origin &mdash; use &ell;&gt;0; R<sub>y</sub>=r&#8320;&middot;CC</li>
+      <li>Cosh: P&ouml;schl-Teller; exactly solvable in 1D; symmetric, peaked at r=0</li>
+    </ul>
+  </div>
+
+  <!-- Spin-orbit card — with x' explanation -->
+  <div class="theory-card">
+    <div class="section-title">Spin-Orbit &mdash; Thomas Form</div>
+    <p>The standard WS spin-orbit term uses the Thomas reduction of (1/r)(dV/dr):</p>
+    <div class="eq">x&prime; = (r &minus; R<sub>so</sub>) / a<sub>so</sub><br>R<sub>so</sub> = r<sub>so</sub> &middot; CC<br><br>V<sub>SO</sub>(r) = &minus;&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;&middot;V<sub>so</sub>&middot; e<sup>&minus;x&prime;</sup> / [(1+e<sup>&minus;x&prime;</sup>)&#178;&middot;a<sub>so</sub>&middot;r]<br><br>&lang;&ell;&middot;s&rang; = [j(j+1)&minus;&ell;(&ell;+1)&minus;s(s+1)] / 2</div>
+    <ul>
+      <li>x&prime; is the reduced radial coordinate shifted to R<sub>so</sub>: x&prime; = (r&minus;R<sub>so</sub>)/a<sub>so</sub></li>
+      <li>The Thomas kernel e<sup>&minus;x&prime;</sup>/(1+e<sup>&minus;x&prime;</sup>)&#178; is the derivative of the WS form factor</li>
+      <li>j=&ell;+&frac12;: &lang;&ell;&middot;s&rang;=+&ell;/2 (lowers energy); j=&ell;&minus;&frac12;: &lang;&ell;&middot;s&rang;=&minus;(&ell;+1)/2</li>
+      <li>&lambda;<sub>&pi;</sub>&asymp;2 fm&#178;;  K = 1.43997 MeV&middot;fm</li>
+    </ul>
+  </div>
+
+  <!-- Derivative SO forms card -->
+  <div class="theory-card">
+    <div class="section-title">Spin-Orbit Derivative Forms</div>
+    <p>Thomas spin-orbit terms derived from the shifted analytic potentials. Let:</p>
+    <div class="eq">R = P2 &middot; CC,&nbsp; E = exp[&minus;(r&minus;R)/P3]<br>RH = (r&minus;R)/P3<br>C = &lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;</div>
+    <div class="eq">SO-WS&#178;: &minus;C&middot;P1&middot;E&#178;/(1+E)&#179; / (2r&middot;P3)<br>SO-Gauss: &minus;C&middot;P1&middot;exp(&minus;RH&#178;)&middot;RH / (2r&middot;P3)<br>SO-Yukawa: &minus;C&middot;P1&middot;E&middot;(1+r/P3) / (4r&#179;&middot;P3)<br>SO-Exp: &minus;C&middot;P1&middot;E / (4r&middot;P3)</div>
+    <ul>
+      <li>Each form is proportional to (1/r)&middot;dV/dr of the corresponding central potential</li>
+      <li>P1 = strength (MeV); P2 = radius parameter (fm); P3 = range/diffuseness (fm)</li>
+      <li>All vanish when &ell; = 0 (C = 0 since &lang;0&middot;s&rang; = 0)</li>
+    </ul>
+  </div>
+
+  <div class="theory-card">
+    <div class="section-title">Numerical Methods</div>
+    <table class="eq-table">
+      <thead><tr><th>Method</th><th>Scheme</th><th>Global Error</th></tr></thead>
+      <tbody>
+        <tr><td>Numerov</td><td>3-point recurrence, implicit k&#178;</td><td>O(h&#8310;)</td></tr>
+        <tr><td>Finite Diff.</td><td>&psi;<sub>n+1</sub>=2&psi;<sub>n</sub>&minus;&psi;<sub>n&minus;1</sub>&minus;h&#178;k&#178;&psi;<sub>n</sub></td><td>O(h&#178;)</td></tr>
+        <tr><td>Runge-Kutta 4</td><td>Full RK4 on {u,u&prime;} pair</td><td>O(h&#8308;)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:10px">Energy eigenvalue found by binary search on node count. Convergence: |&Delta;E| &lt; 10&#8315;&#8309; MeV.</p>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════ MANUAL ═══════════════ -->
+<div id="manual" class="tab-content">
+<div class="manual-layout">
+  <div class="manual-section">
+    <div class="section-title">Quick Start</div>
+    <div class="step"><div class="step-num">1</div><div class="step-text"><strong>Load a preset</strong> using the Quick Presets buttons &mdash; each preset activates the correct set of potentials automatically.</div></div>
+    <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Build V<sub>eff</sub> manually</strong> by clicking any potential name in the accordion to add it. V<sub>eff</sub> = &Sigma; selected. No potentials are active by default &mdash; you build the Hamiltonian explicitly. Every potential can be freely combined with any other.</div></div>
+    <div class="step"><div class="step-num">3</div><div class="step-text"><strong>The composition strip</strong> and the <em>Active Potential Formula</em> box update in real time to show exactly what V<sub>eff</sub> contains.</div></div>
+    <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Click &#9654; COMPUTE BOUND STATE</strong> for a single eigenstate, or <strong>&#8853; SCAN ALL BOUND STATES</strong> to populate the energy level diagram.</div></div>
+  </div>
+  <div class="manual-section">
+    <div class="section-title">Potential Parameters Quick Reference</div>
+    <table class="param-table">
+      <thead><tr><th>Potential</th><th>Parameters</th><th>Typical Values</th></tr></thead>
+      <tbody>
+        <tr><td>V<sub>L</sub></td><td>uses &ell;, &mu; (no extra params)</td><td>automatic from quantum numbers</td></tr>
+        <tr><td>V<sub>C</sub></td><td>r<sub>c</sub></td><td>1.2 fm; uses Z<sub>P</sub>,Z<sub>T</sub></td></tr>
+        <tr><td>WS</td><td>V&#8320;, r<sub>v</sub>, a</td><td>50&ndash;70 MeV, 0.9&ndash;1.1 fm, 0.5&ndash;0.7 fm</td></tr>
+        <tr><td>WS&#178;</td><td>V&#8320;, r<sub>v</sub>, a</td><td>Similar to WS; needs larger V&#8320;</td></tr>
+        <tr><td>WSS</td><td>V<sub>s</sub>, r<sub>v</sub>, a</td><td>5&ndash;20 MeV peak at r=R</td></tr>
+        <tr><td>Cosh</td><td>V&#8320;, a</td><td>30&ndash;60 MeV, 2&ndash;5 fm</td></tr>
+        <tr><td>Gaussian V<sub>G</sub></td><td>V&#8320;, r&#8320;</td><td>40&ndash;60 MeV, 1.0&ndash;1.4 fm</td></tr>
+        <tr><td>Yukawa V<sub>Y</sub></td><td>V&#8320;, r&#8320;</td><td>40&ndash;80 MeV, 1.0&ndash;1.5 fm</td></tr>
+        <tr><td>Exponential V<sub>exp</sub></td><td>V&#8320;, r&#8320;, a</td><td>40&ndash;60 MeV, 1.0&ndash;1.3 fm, 0.5&ndash;0.7 fm</td></tr>
+        <tr><td>Yukawa-R V<sub>Y-R</sub></td><td>V&#8320;, r&#8320;, a</td><td>40&ndash;80 MeV, 1.0&ndash;1.4 fm, 0.5&ndash;0.8 fm</td></tr>
+        <tr><td>Gaussian-R V<sub>G-R</sub></td><td>V&#8320;, r&#8320;, a</td><td>40&ndash;60 MeV, 1.0&ndash;1.4 fm, 0.5&ndash;0.8 fm</td></tr>
+        <tr><td>Coulomb Core (SC)</td><td>Z<sub>eff</sub>, r<sub>c</sub></td><td>Z<sub>eff</sub> free; r<sub>c</sub> &asymp; 1.2 fm</td></tr>
+        <tr><td>V<sub>SO</sub> (WS Thomas)</td><td>V<sub>so</sub>, r<sub>so</sub>, a<sub>so</sub></td><td>5&ndash;15 MeV, 1.0&ndash;1.2 fm, 0.5&ndash;0.7 fm</td></tr>
+        <tr><td>SO-WS&#178;, SO-G, SO-Y, SO-E</td><td>P1, P2, P3</td><td>P1: 5&ndash;15 MeV; P2: 1.0&ndash;1.2 fm; P3: 0.5&ndash;0.7 fm</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+</main>
+
+<script>
+/* ═══ PHYSICS CONSTANTS ═══ */
+const HBAR_C=197.3269804, AMU=931.502, KE_C=1.43997, LAMBDA_PI=2.0;
+function safExp(x){return Math.exp(Math.max(-80,Math.min(80,x)))}
+function getCC(AP,AT){return Math.pow(AT,1/3)+Math.pow(AP,1/3)}
+
+/* ═══ MULTI-SELECT STATE ═══ */
+let selectedPotTypes = new Set();
+
+/* ═══ HELPER: ⟨ℓ·s⟩ ═══ */
+function getLS(p){
+  const j=p.l+p.s;
+  return (j*(j+1)-p.l*(p.l+1)-Math.abs(p.s)*(Math.abs(p.s)+1))/2;
+}
+
+/* ═══ POTENTIAL FUNCTIONS ═══ */
+function Vcentrifugal(r,l,mu_c){if(r<1e-10)r=1e-10;return HBAR_C*HBAR_C/(2*mu_c)*l*(l+1)/(r*r)}
+
+function Vcoulomb(r,p){
+  if(p.ZP===0||p.ZT===0)return 0;
+  const RC=p.rc*p.CC;if(r<1e-10)r=1e-10;
+  if(r<=RC)return KE_C*p.ZP*p.ZT/(2*RC)*(3-(r/RC)*(r/RC));
+  return KE_C*p.ZP*p.ZT/r;
+}
+function VwoodsSaxon(r,p){
+  const R=p.rv_ws*p.CC,x=(r-R)/p.a_ws;
+  return -p.V0_ws/(1+safExp(x));
+}
+function VwoodsSaxonSq(r,p){
+  const R=p.rv_ws2*p.CC,x=(r-R)/p.a_ws2,ex=safExp(x),d=1+ex;
+  return -p.V0_ws2/(d*d);
+}
+function VwoodsSaxonSurf(r,p){
+  const R=p.rv_wss*p.CC,x=(r-R)/p.a_wss,ex=safExp(x),d=1+ex;
+  return -p.Vs_wss*4.0*ex/(d*d);
+}
+function Vcosh(r,p){const ch=Math.cosh(r/p.a_cosh);return -p.V0_cosh/(ch*ch)}
+function Vgaussian(r,p){const Rg=p.r0_g*p.CC;if(Rg<1e-10)return -p.V0_g;return -p.V0_g*Math.exp(-(r/Rg)*(r/Rg))}
+function Vyukawa(r,p){if(r<1e-10)r=1e-10;const Ry=p.r0_y*p.CC;if(Ry<1e-10)return 0;return -p.V0_y*(Ry/r)*Math.exp(-r/Ry)}
+function VsphericalCoulomb(r,p){
+  if(r<1e-10)r=1e-10;
+  const Rc=p.rc_sc*p.CC;if(Rc<1e-10)return 0;
+  if(r<=Rc)return KE_C*p.Zeff_sc/(2*Rc)*(3-(r/Rc)*(r/Rc));
+  return KE_C*p.Zeff_sc/r;
+}
+function VspinOrbit(r,p){
+  if(r<1e-10)r=1e-10;if(p.l===0)return 0;
+  const ls2=getLS(p);
+  const R=p.rso*p.CC,xm=-(r-R)/p.aso,Em=safExp(xm);
+  const denom=(1+Em)*(1+Em)*p.aso*r;
+  if(Math.abs(denom)<1e-30)return 0;
+  return -LAMBDA_PI*ls2*p.Vso*Em/denom;
+}
+
+/* ── NEW: Shifted Analytic Central Potentials ── */
+function Vexponential(r,p){
+  if(r<1e-10)r=1e-10;
+  const R=p.r0_exp*p.CC;
+  return -p.V0_exp*safExp(-(r-R)/p.a_exp);
+}
+function VyukawaR(r,p){
+  if(r<1e-10)r=1e-10;
+  const R=p.r0_yukr*p.CC;
+  return -p.V0_yukr*safExp(-(r-R)/p.a_yukr)/r;
+}
+function VgaussianR(r,p){
+  if(r<1e-10)r=1e-10;
+  const R=p.r0_gausr*p.CC;
+  const x=(r-R)/p.a_gausr;
+  return -p.V0_gausr*Math.exp(-x*x);
+}
+
+/* ── NEW: Derivative Spin-Orbit Forms ── */
+function Vso_ws2(r,p){
+  if(r<1e-10)r=1e-10;
+  const ls=getLS(p);if(ls===0)return 0;
+  const R=p.P2_sows2*p.CC,P3=p.P3_sows2;
+  const E=safExp(-(r-R)/P3);
+  const den=Math.pow(1+E,3)*2*r*P3;
+  if(Math.abs(den)<1e-30)return 0;
+  return -LAMBDA_PI*ls*p.P1_sows2*E*E/den;
+}
+function Vso_gauss(r,p){
+  if(r<1e-10)r=1e-10;
+  const ls=getLS(p);if(ls===0)return 0;
+  const R=p.P2_sogauss*p.CC,P3=p.P3_sogauss;
+  const RH=(r-R)/P3;
+  const den=2*r*P3;
+  if(Math.abs(den)<1e-30)return 0;
+  return -LAMBDA_PI*ls*p.P1_sogauss*Math.exp(-RH*RH)*RH/den;
+}
+function Vso_yukawa(r,p){
+  if(r<1e-10)r=1e-10;
+  const ls=getLS(p);if(ls===0)return 0;
+  const R=p.P2_soyu*p.CC,P3=p.P3_soyu;
+  const E=safExp(-(r-R)/P3);
+  const den=4*r*r*r*P3;
+  if(Math.abs(den)<1e-30)return 0;
+  return -LAMBDA_PI*ls*p.P1_soyu*E*(1+r/P3)/den;
+}
+function Vso_exp(r,p){
+  if(r<1e-10)r=1e-10;
+  const ls=getLS(p);if(ls===0)return 0;
+  const R=p.P2_soexp*p.CC,P3=p.P3_soexp;
+  const E=safExp(-(r-R)/P3);
+  const den=4*r*P3;
+  if(Math.abs(den)<1e-30)return 0;
+  return -LAMBDA_PI*ls*p.P1_soexp*E/den;
+}
+
+/* ── Dispatch ── */
+function VbyType(r,p,type){
+  switch(type){
+    case 'centrifugal': return Vcentrifugal(r,p.l,p.mu_c);
+    case 'coulomb':     return Vcoulomb(r,p);
+    case 'ws':          return VwoodsSaxon(r,p);
+    case 'ws2':         return VwoodsSaxonSq(r,p);
+    case 'wss':         return VwoodsSaxonSurf(r,p);
+    case 'cosh':        return Vcosh(r,p);
+    case 'gaussian':    return Vgaussian(r,p);
+    case 'yukawa':      return Vyukawa(r,p);
+    case 'scoulomb':    return VsphericalCoulomb(r,p);
+    case 'so':          return VspinOrbit(r,p);
+    case 'exp':         return Vexponential(r,p);
+    case 'yukr':        return VyukawaR(r,p);
+    case 'gausr':       return VgaussianR(r,p);
+    case 'so_ws2':      return Vso_ws2(r,p);
+    case 'so_gauss':    return Vso_gauss(r,p);
+    case 'so_yukawa':   return Vso_yukawa(r,p);
+    case 'so_exp':      return Vso_exp(r,p);
+    default: return 0;
+  }
+}
+
+function Vtotal(r,p){
+  let V=0;
+  for(const t of p.selectedTypes) V+=VbyType(r,p,t);
+  return V;
+}
+function kSq(r,En,p){return 2*p.mu_c/(HBAR_C*HBAR_C)*(En-Vtotal(r,p))}
+
+function Vdepth(p){
+  if(p.selectedTypes.length===0)return 10;
+  let d=0;
+  for(const t of p.selectedTypes){
+    const v=VbyType(0.5,p,t);
+    if(v<0)d=Math.max(d,Math.abs(v));
+  }
+  return Math.max(10,d);
+}
+
+/* ═══ SOLVERS ═══ */
+function solveNumerov(En,p,rmax,h){
+  const N=Math.floor(rmax/h);const r=new Float64Array(N+1);const psi=new Float64Array(N+1);
+  for(let i=0;i<=N;i++)r[i]=i*h;psi[0]=0;psi[1]=1;const c1=h*h/12;
+  for(let i=1;i<N;i++){
+    const k2=kSq(r[i],En,p),k2p=kSq(r[i+1],En,p),k2m=kSq(r[i-1],En,p);
+    const num=2*psi[i]*(1-5*c1*k2)-psi[i-1]*(1+c1*k2m);
+    psi[i+1]=num/(1+c1*k2p);if(!isFinite(psi[i+1])){psi[i+1]=0;break;}
+  }
+  return{r,psi,N};
+}
+function solveFD(En,p,rmax,h){
+  const N=Math.floor(rmax/h);const r=new Float64Array(N+1);const psi=new Float64Array(N+1);
+  for(let i=0;i<=N;i++)r[i]=i*h;psi[0]=0;psi[1]=1;
+  for(let i=1;i<N;i++){psi[i+1]=2*psi[i]-psi[i-1]-h*h*kSq(r[i],En,p)*psi[i];if(!isFinite(psi[i+1])){psi[i+1]=0;break;}}
+  return{r,psi,N};
+}
+function solveRK4(En,p,rmax,h){
+  const N=Math.floor(rmax/h);const r=new Float64Array(N+1);const psi=new Float64Array(N+1);
+  for(let i=0;i<=N;i++)r[i]=i*h;psi[0]=0;psi[1]=1;let y=1,z=1/h;
+  for(let i=1;i<N;i++){
+    const ri=r[i],f1=-kSq(ri,En,p),f2=-kSq(ri+h/2,En,p),f4=-kSq(ri+h,En,p);
+    const k1y=h*z,k1z=h*f1*y,k2y=h*(z+k1z/2),k2z=h*f2*(y+k1y/2);
+    const k3y=h*(z+k2z/2),k3z=h*f2*(y+k2y/2),k4y=h*(z+k3z),k4z=h*f4*(y+k3y);
+    y+=(k1y+2*k2y+2*k3y+k4y)/6;z+=(k1z+2*k2z+2*k3z+k4z)/6;
+    psi[i+1]=y;if(!isFinite(psi[i+1])){psi[i+1]=0;break;}
+  }
+  return{r,psi,N};
+}
+function solve(En,p,method,rmax,h){
+  if(method==='numerov')return solveNumerov(En,p,rmax,h);
+  if(method==='fd')return solveFD(En,p,rmax,h);
+  return solveRK4(En,p,rmax,h);
+}
+function countNodes(psi,N){let n=0;for(let i=0;i<N;i++)if(psi[i]*psi[i+1]<0)n++;return n}
+function findBoundState(nr,p,method,rmax,h,emin0,emax0){
+  let Emin=emin0,Emax=emax0;const TOL=1e-5,MAX=200;
+  for(let i=0;i<MAX;i++){const En=(Emax+Emin)/2;const{psi,N}=solve(En,p,method,rmax,h);
+    if(countNodes(psi,N)>nr)Emax=En;else Emin=En;if(Emax-Emin<TOL)break;}
+  return(Emax+Emin)/2;
+}
+function findTruncIdx(psi,N){for(let i=N;i>1;i--)if((psi[i]-psi[i-1])*psi[i]<0)return i;return N}
+function normalize(r,psi,end){
+  let norm=0;for(let i=0;i<end-1;i++){const dr=r[i+1]-r[i];norm+=dr*(psi[i]*psi[i]+psi[i+1]*psi[i+1])/2;}
+  if(norm<1e-30)return{psi_norm:psi.slice(0,end)};const sq=Math.sqrt(norm);
+  const psi_norm=new Float64Array(end);for(let i=0;i<end;i++)psi_norm[i]=psi[i]/sq;
+  return{psi_norm};
+}
+
+/* ═══ BUILD PARAMS ═══ */
+function getV(id){const el=document.getElementById(id);return el?parseFloat(el.value)||0:0}
+function buildParams(){
+  const AP=parseInt(document.getElementById('AP').value);
+  const ZP=parseInt(document.getElementById('ZP').value);
+  const AT=parseInt(document.getElementById('AT').value);
+  const ZT=parseInt(document.getElementById('ZT').value);
+  return{
+    AP,ZP,AT,ZT,
+    CC:getCC(AP,AT),
+    mu_c:(AP*AT)/(AP+AT)*AMU,
+    l:parseInt(document.getElementById('ell').value),
+    s:parseFloat(document.getElementById('spin').value),
+    selectedTypes:[...selectedPotTypes],
+    /* Coulomb */
+    rc:getV('rc'),
+    /* WS */
+    V0_ws:getV('V0_ws'),rv_ws:getV('rv_ws'),a_ws:getV('a_ws'),
+    /* WS2 */
+    V0_ws2:getV('V0_ws2'),rv_ws2:getV('rv_ws2'),a_ws2:getV('a_ws2'),
+    /* WSS */
+    Vs_wss:getV('Vs_wss'),rv_wss:getV('rv_wss'),a_wss:getV('a_wss'),
+    /* Cosh */
+    V0_cosh:getV('V0_cosh'),a_cosh:getV('a_cosh'),
+    /* Gaussian (origin) */
+    V0_g:getV('V0_g'),r0_g:getV('r0_g'),
+    /* Yukawa (origin) */
+    V0_y:getV('V0_y'),r0_y:getV('r0_y'),
+    /* SC */
+    Zeff_sc:getV('Zeff_sc'),rc_sc:getV('rc_sc'),
+    /* SO (WS Thomas) */
+    Vso:getV('Vso'),rso:getV('rso'),aso:getV('aso'),
+    /* Exponential */
+    V0_exp:getV('V0_exp'),r0_exp:getV('r0_exp'),a_exp:getV('a_exp'),
+    /* Yukawa-R (shifted) */
+    V0_yukr:getV('V0_yukr'),r0_yukr:getV('r0_yukr'),a_yukr:getV('a_yukr'),
+    /* Gaussian-R (shifted) */
+    V0_gausr:getV('V0_gausr'),r0_gausr:getV('r0_gausr'),a_gausr:getV('a_gausr'),
+    /* SO-WS2 */
+    P1_sows2:getV('P1_sows2'),P2_sows2:getV('P2_sows2'),P3_sows2:getV('P3_sows2'),
+    /* SO-Gauss */
+    P1_sogauss:getV('P1_sogauss'),P2_sogauss:getV('P2_sogauss'),P3_sogauss:getV('P3_sogauss'),
+    /* SO-Yukawa */
+    P1_soyu:getV('P1_soyu'),P2_soyu:getV('P2_soyu'),P3_soyu:getV('P3_soyu'),
+    /* SO-Exp */
+    P1_soexp:getV('P1_soexp'),P2_soexp:getV('P2_soexp'),P3_soexp:getV('P3_soexp'),
+  };
+}
+
+/* ═══ POTENTIAL TOGGLE ═══ */
+function togglePotential(type){
+  if(selectedPotTypes.has(type)){
+    selectedPotTypes.delete(type);
+    document.getElementById('pot-'+type).classList.remove('selected');
+  } else {
+    selectedPotTypes.add(type);
+    document.getElementById('pot-'+type).classList.add('selected');
+  }
+  updateVnStrip();updateFormulaBox();
+}
+function setSelectedPotentials(types){
+  selectedPotTypes=new Set(types);
+  document.querySelectorAll('.pot-item').forEach(function(el){
+    el.classList.toggle('selected',selectedPotTypes.has(el.dataset.type));
+  });
+  updateVnStrip();updateFormulaBox();
+}
+function syncFormula(){updateFormulaBox();}
+
+/* ── V_eff Composition Strip ── */
+const TOKEN_HTML={
+  centrifugal:'<span class="vn-token vn-l">V<sub>L</sub></span>',
+  coulomb:    '<span class="vn-token vn-c">V<sub>C</sub></span>',
+  ws:         '<span class="vn-token vn-ws">V<sub>WS</sub></span>',
+  ws2:        '<span class="vn-token vn-ws">V<sub>WS&#178;</sub></span>',
+  wss:        '<span class="vn-token vn-wss">V<sub>WSS</sub></span>',
+  cosh:       '<span class="vn-token vn-cosh">V<sub>cosh</sub></span>',
+  gaussian:   '<span class="vn-token vn-g">V<sub>G</sub></span>',
+  yukawa:     '<span class="vn-token vn-y">V<sub>Y</sub></span>',
+  scoulomb:   '<span class="vn-token vn-sc">V<sub>SC</sub></span>',
+  so:         '<span class="vn-token vn-so">V<sub>SO</sub></span>',
+  exp:        '<span class="vn-token vn-exp">V<sub>exp</sub></span>',
+  yukr:       '<span class="vn-token vn-yukr">V<sub>Y-R</sub></span>',
+  gausr:      '<span class="vn-token vn-gausr">V<sub>G-R</sub></span>',
+  so_ws2:     '<span class="vn-token vn-so2">SO-WS&#178;</span>',
+  so_gauss:   '<span class="vn-token vn-so2">SO-G</span>',
+  so_yukawa:  '<span class="vn-token vn-so2">SO-Y</span>',
+  so_exp:     '<span class="vn-token vn-so2">SO-E</span>',
+};
+const PLUS='<span class="vn-token vn-plus">+</span>';
+
+function updateVnStrip(){
+  const wrap=document.getElementById('vnCompWrap');
+  const types=[...selectedPotTypes];
+  if(types.length===0){
+    wrap.innerHTML='<div class="vn-comp-empty">No potentials selected &mdash; V<sub>eff</sub> = 0</div>';
+    return;
+  }
+  let html='<div class="vn-comp">';
+  types.forEach(function(t,i){
+    if(i>0)html+=PLUS;
+    html+=TOKEN_HTML[t]||('<span class="vn-token">'+t+'</span>');
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+/* ── Formula Box ── */
+const FORMULA_DATA={
+  centrifugal:{cls:'fl-vl',  label:'V<sub>L</sub>(r)',      form:'&#295;&#178;&ell;(&ell;+1) / (2&mu;r&#178;)', note:'Uses &ell; and &mu;=m<sub>P</sub>m<sub>T</sub>/(m<sub>P</sub>+m<sub>T</sub>)'},
+  coulomb:    {cls:'fl-vc',  label:'V<sub>C</sub>(r)',      form:'K&middot;Z<sub>P</sub>Z<sub>T</sub>/(2R<sub>c</sub>)[3&minus;(r/R<sub>c</sub>)&#178;] or K/r', note:'R<sub>c</sub>=r<sub>c</sub>&middot;CC; CC=A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>'},
+  ws:         {cls:'fl-ws',  label:'V<sub>WS</sub>(r)',     form:'&minus;V&#8320; / [1+exp(x)]; x=(r&minus;R)/a', note:'R=r<sub>v</sub>&middot;CC; CC=A<sub>P</sub><sup>1/3</sup>+A<sub>T</sub><sup>1/3</sup>'},
+  ws2:        {cls:'fl-ws2', label:'V<sub>WS&#178;</sub>(r)',form:'&minus;V&#8320; / [1+exp(x)]&#178;; x=(r&minus;R)/a', note:'R=r<sub>v</sub>&middot;CC'},
+  wss:        {cls:'fl-wss', label:'V<sub>WSS</sub>(r)',    form:'&minus;4V<sub>s</sub>&middot;exp(x)/[1+exp(x)]&#178;; x=(r&minus;R)/a', note:'Peak=&minus;V<sub>s</sub> at r=R'},
+  cosh:       {cls:'fl-cosh',label:'V<sub>cosh</sub>(r)',   form:'&minus;V&#8320; / cosh&#178;(r/a)', note:'P&ouml;schl-Teller; smooth at origin'},
+  gaussian:   {cls:'fl-g',   label:'V<sub>G</sub>(r)',      form:'&minus;V&#8320;&middot;exp[&minus;(r/R<sub>g</sub>)&#178;]', note:'R<sub>g</sub>=r&#8320;&middot;CC'},
+  yukawa:     {cls:'fl-y',   label:'V<sub>Y</sub>(r)',      form:'&minus;V&#8320;&middot;(R<sub>y</sub>/r)&middot;exp(&minus;r/R<sub>y</sub>)', note:'R<sub>y</sub>=r&#8320;&middot;CC'},
+  scoulomb:   {cls:'fl-sc',  label:'V<sub>SC</sub>(r)',     form:'K&middot;Z<sub>eff</sub>/(2R<sub>c</sub>)[3&minus;(r/R<sub>c</sub>)&#178;] or K&middot;Z<sub>eff</sub>/r', note:'R<sub>c</sub>=r<sub>c</sub>&middot;CC'},
+  so:         {cls:'fl-so',  label:'V<sub>SO</sub>(r)',     form:'&minus;&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;&middot;V<sub>so</sub>&middot;e<sup>&minus;x&prime;</sup>/[(1+e<sup>&minus;x&prime;</sup>)&#178;&middot;a<sub>so</sub>&middot;r]', note:'x&prime;=(r&minus;R<sub>so</sub>)/a<sub>so</sub>; R<sub>so</sub>=r<sub>so</sub>&middot;CC'},
+  exp:        {cls:'fl-exp', label:'V<sub>exp</sub>(r)',    form:'&minus;V&#8320;&middot;exp[&minus;(r&minus;R)/a]', note:'R=r&#8320;&middot;CC'},
+  yukr:       {cls:'fl-yukr',label:'V<sub>Y-R</sub>(r)',   form:'&minus;V&#8320;&middot;exp[&minus;(r&minus;R)/a] / r', note:'R=r&#8320;&middot;CC; surface-shifted Yukawa'},
+  gausr:      {cls:'fl-gausr',label:'V<sub>G-R</sub>(r)',  form:'&minus;V&#8320;&middot;exp[&minus;((r&minus;R)/a)&#178;]', note:'R=r&#8320;&middot;CC; surface-shifted Gaussian'},
+  so_ws2:     {cls:'fl-so2', label:'SO-WS&#178;(r)',       form:'&minus;C&middot;P1&middot;E&#178;/(1+E)&#179;/(2r&middot;P3)', note:'E=exp(&minus;(r&minus;R)/P3); R=P2&middot;CC; C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;'},
+  so_gauss:   {cls:'fl-so2', label:'SO-G(r)',              form:'&minus;C&middot;P1&middot;exp(&minus;RH&#178;)&middot;RH/(2r&middot;P3)', note:'RH=(r&minus;R)/P3; C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;'},
+  so_yukawa:  {cls:'fl-so2', label:'SO-Y(r)',              form:'&minus;C&middot;P1&middot;E&middot;(1+r/P3)/(4r&#179;&middot;P3)', note:'E=exp(&minus;(r&minus;R)/P3); C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;'},
+  so_exp:     {cls:'fl-so2', label:'SO-E(r)',              form:'&minus;C&middot;P1&middot;E/(4r&middot;P3)', note:'E=exp(&minus;(r&minus;R)/P3); C=&lambda;<sub>&pi;</sub>&lang;&ell;&middot;s&rang;'},
+};
+
+function updateFormulaBox(){
+  const types=[...selectedPotTypes];
+  let html='';
+  if(types.length===0){
+    html='<span class="formula-line fl-main-empty">No potentials selected &mdash; add at least one above</span>';
+  } else {
+    const sumLabel=types.map(function(t){return(FORMULA_DATA[t]&&FORMULA_DATA[t].label)||t;}).join(' + ');
+    html='<span class="formula-line fl-main">V<sub>eff</sub>(r) = '+sumLabel+'</span>';
+    types.forEach(function(t){
+      const d=FORMULA_DATA[t];if(!d)return;
+      html+='<span class="formula-line fl-eq '+d.cls+'">'+d.label+' = '+d.form+'</span>';
+      if(types.length===1)html+='<span class="formula-line fl-note">'+d.note+'</span>';
+    });
+    if(types.length>1)html+='<span class="formula-line fl-sum">V<sub>eff</sub>(r) = &Sigma; '+sumLabel+'</span>';
+  }
+  document.getElementById('formulaBody').innerHTML=html;
+}
+
+/* ═══ PRESETS ═══ */
+const PRESETS={
+  deuteron:{AP:1,ZP:0,AT:2,ZT:1,nr:0,ell:0,spin:0.5,
+    selectedTypes:['ws'],
+    rc:1.2,V0_ws:22,rv_ws:1.07,a_ws:0.63,
+    V0_ws2:72.15,rv_ws2:1.18,a_ws2:0.63,Vs_wss:15,rv_wss:0.96,a_wss:0.66,
+    V0_cosh:40,a_cosh:3,V0_g:45,r0_g:1.2,V0_y:50,r0_y:1.3,
+    Zeff_sc:2,rc_sc:1.2,Vso:0,rso:1.1,aso:0.6,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.005,emin:-100,emax:0,
+    note:'Deuteron (n+d) s-wave WS — E ≈ −2.225 MeV; ZP=0 (neutron), no Coulomb'},
+  p4He:{AP:1,ZP:1,AT:4,ZT:2,nr:0,ell:1,spin:0.5,
+    selectedTypes:['centrifugal','coulomb','ws','so'],
+    rc:1.2,V0_ws:63.0,rv_ws:0.96,a_ws:0.66,
+    V0_ws2:63.0,rv_ws2:0.96,a_ws2:0.66,Vs_wss:15,rv_wss:0.96,a_wss:0.66,
+    V0_cosh:40,a_cosh:3,V0_g:45,r0_g:1.2,V0_y:50,r0_y:1.3,
+    Zeff_sc:2,rc_sc:1.2,Vso:10.0,rso:1.1,aso:0.6,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.01,emin:-200,emax:0,
+    note:'p+4He p-wave: V_L + V_C + WS + V_SO'},
+  p40Ca:{AP:1,ZP:1,AT:40,ZT:20,nr:0,ell:2,spin:0.5,
+    selectedTypes:['centrifugal','coulomb','ws','so'],
+    rc:1.3,V0_ws:54.0,rv_ws:1.17,a_ws:0.75,
+    V0_ws2:54.0,rv_ws2:1.17,a_ws2:0.75,Vs_wss:9,rv_wss:1.17,a_wss:0.75,
+    V0_cosh:40,a_cosh:3,V0_g:45,r0_g:1.2,V0_y:50,r0_y:1.3,
+    Zeff_sc:2,rc_sc:1.2,Vso:6.2,rso:1.01,aso:0.75,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.01,emin:-200,emax:0,
+    note:'p+40Ca d-wave Becchetti-Greenlees: V_L + V_C + WS + V_SO'},
+  gaussian:{AP:1,ZP:0,AT:12,ZT:0,nr:0,ell:0,spin:0.5,
+    selectedTypes:['gaussian'],
+    rc:1.2,V0_ws:63,rv_ws:0.96,a_ws:0.66,V0_ws2:63,rv_ws2:0.96,a_ws2:0.66,
+    Vs_wss:15,rv_wss:0.96,a_wss:0.66,V0_cosh:40,a_cosh:3,
+    V0_g:45.0,r0_g:1.2,V0_y:50,r0_y:1.3,Zeff_sc:2,rc_sc:1.2,Vso:5,rso:1.1,aso:0.6,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.01,emin:-100,emax:0,
+    note:'Gaussian well — neutral n+12C; pure V_G only'},
+  yukawa:{AP:1,ZP:0,AT:16,ZT:0,nr:0,ell:0,spin:0.5,
+    selectedTypes:['yukawa'],
+    rc:1.2,V0_ws:63,rv_ws:0.96,a_ws:0.66,V0_ws2:63,rv_ws2:0.96,a_ws2:0.66,
+    Vs_wss:15,rv_wss:0.96,a_wss:0.66,V0_cosh:40,a_cosh:3,
+    V0_g:45,r0_g:1.2,V0_y:50.0,r0_y:1.3,Zeff_sc:2,rc_sc:1.2,Vso:5,rso:1.1,aso:0.6,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.01,emin:-200,emax:0,
+    note:'Yukawa OPEP-range — neutral; pure V_Y only'},
+  cosh:{AP:1,ZP:0,AT:4,ZT:0,nr:0,ell:0,spin:0.5,
+    selectedTypes:['cosh'],
+    rc:1.2,V0_ws:63,rv_ws:0.96,a_ws:0.66,V0_ws2:63,rv_ws2:0.96,a_ws2:0.66,
+    Vs_wss:15,rv_wss:0.96,a_wss:0.66,V0_cosh:40.0,a_cosh:3.0,
+    V0_g:45,r0_g:1.2,V0_y:50,r0_y:1.3,Zeff_sc:2,rc_sc:1.2,Vso:5,rso:1.1,aso:0.6,
+    V0_exp:50,r0_exp:1.2,a_exp:0.65,V0_yukr:50,r0_yukr:1.2,a_yukr:0.65,
+    V0_gausr:45,r0_gausr:1.2,a_gausr:0.65,
+    P1_sows2:10,P2_sows2:1.1,P3_sows2:0.6,P1_sogauss:10,P2_sogauss:1.1,P3_sogauss:0.6,
+    P1_soyu:10,P2_soyu:1.1,P3_soyu:0.6,P1_soexp:10,P2_soexp:1.1,P3_soexp:0.6,
+    rmax:20,hstep:0.01,emin:-100,emax:0,
+    note:'Cosh (Pöschl-Teller) a=3 fm — neutral; pure V_cosh only'},
+};
+
+function setV(id,v){const el=document.getElementById(id);if(el)el.value=v}
+function loadPreset(name){
+  const p=PRESETS[name];if(!p)return;
+  setV('AP',p.AP);setV('ZP',p.ZP);setV('AT',p.AT);setV('ZT',p.ZT);
+  setV('nr',p.nr);setV('ell',p.ell);setV('spin',p.spin);
+  setV('rc',p.rc);
+  setV('V0_ws',p.V0_ws);setV('rv_ws',p.rv_ws);setV('a_ws',p.a_ws);
+  setV('V0_ws2',p.V0_ws2);setV('rv_ws2',p.rv_ws2);setV('a_ws2',p.a_ws2);
+  setV('Vs_wss',p.Vs_wss);setV('rv_wss',p.rv_wss);setV('a_wss',p.a_wss);
+  setV('V0_cosh',p.V0_cosh);setV('a_cosh',p.a_cosh);
+  setV('V0_g',p.V0_g);setV('r0_g',p.r0_g);
+  setV('V0_y',p.V0_y);setV('r0_y',p.r0_y);
+  setV('Zeff_sc',p.Zeff_sc);setV('rc_sc',p.rc_sc);
+  setV('Vso',p.Vso);setV('rso',p.rso);setV('aso',p.aso);
+  setV('V0_exp',p.V0_exp);setV('r0_exp',p.r0_exp);setV('a_exp',p.a_exp);
+  setV('V0_yukr',p.V0_yukr);setV('r0_yukr',p.r0_yukr);setV('a_yukr',p.a_yukr);
+  setV('V0_gausr',p.V0_gausr);setV('r0_gausr',p.r0_gausr);setV('a_gausr',p.a_gausr);
+  setV('P1_sows2',p.P1_sows2);setV('P2_sows2',p.P2_sows2);setV('P3_sows2',p.P3_sows2);
+  setV('P1_sogauss',p.P1_sogauss);setV('P2_sogauss',p.P2_sogauss);setV('P3_sogauss',p.P3_sogauss);
+  setV('P1_soyu',p.P1_soyu);setV('P2_soyu',p.P2_soyu);setV('P3_soyu',p.P3_soyu);
+  setV('P1_soexp',p.P1_soexp);setV('P2_soexp',p.P2_soexp);setV('P3_soexp',p.P3_soexp);
+  setV('rmax',p.rmax);setV('hstep',p.hstep);setV('emin',p.emin);setV('emax',p.emax);
+  setSelectedPotentials(p.selectedTypes);
+  document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active-preset');});
+  const btn=document.getElementById('pr-'+name);if(btn)btn.classList.add('active-preset');
+  document.getElementById('errorDiv').innerHTML='<div class="info-msg">&#10022; '+p.note+'</div>';
+}
+
+/* ═══ MAIN CHART ═══ */
+let mainChart=null;
+function initChart(){
+  const ctx=document.getElementById('mainChart').getContext('2d');
+  Chart.defaults.color='#4a6078';
+  mainChart=new Chart(ctx,{type:'line',data:{datasets:[]},options:{
+    responsive:true,animation:{duration:280},interaction:{mode:'index',intersect:false},
+    scales:{
+      x:{type:'linear',title:{display:true,text:'r  [fm]',color:'#6b8ca8',font:{family:"'Share Tech Mono'"}},grid:{color:'rgba(0,200,255,0.06)'},ticks:{color:'#4a6078',font:{family:"'Share Tech Mono'"}}},
+      y:{title:{display:true,text:'Energy  [MeV]',color:'#6b8ca8',font:{family:"'Share Tech Mono'"}},grid:{color:'rgba(0,200,255,0.06)'},ticks:{color:'#4a6078',font:{family:"'Share Tech Mono'"}}}
+    },
+    plugins:{
+      legend:{display:true,labels:{color:'#8aacbf',font:{family:"'Share Tech Mono'",size:11},boxWidth:20,boxHeight:2,padding:12,usePointStyle:true,pointStyleWidth:18}},
+      tooltip:{backgroundColor:'rgba(8,14,28,0.95)',borderColor:'rgba(0,229,255,0.3)',borderWidth:1,titleColor:'#00e5ff',bodyColor:'#b8ccdd',titleFont:{family:"'Share Tech Mono'",size:11},bodyFont:{family:"'Share Tech Mono'",size:11},callbacks:{label:function(c){return ' '+c.dataset.label+': '+c.parsed.y.toFixed(3)+' MeV';}}}
+    }
+  }});
+}
+
+const COMP_COLORS={
+  centrifugal:'#b388ff',coulomb:'#448aff',ws:'#00e676',ws2:'#40c4ff',
+  wss:'#ff9100',cosh:'#ffd740',gaussian:'#448aff',yukawa:'#ea80fc',
+  scoulomb:'#ff5252',so:'#b388ff',
+  exp:'#ff9100',yukr:'#e040fb',gausr:'#64ffda',
+  so_ws2:'#ff4081',so_gauss:'#69f0ae',so_yukawa:'#ea80fc',so_exp:'#ff6d00'
+};
+const TYPE_LABEL_SHORT={
+  centrifugal:'V_L',coulomb:'V_C',ws:'V_WS',ws2:'V_WS2',wss:'V_WSS',
+  cosh:'V_cosh',gaussian:'V_G',yukawa:'V_Y',scoulomb:'V_SC',so:'V_SO',
+  exp:'V_exp',yukr:'V_YR',gausr:'V_GR',
+  so_ws2:'SO-WS2',so_gauss:'SO-G',so_yukawa:'SO-Y',so_exp:'SO-E'
+};
+
+function buildChartData(p,rmax,h,En,r_trunc,psi_norm,truncEnd){
+  const N=Math.floor(rmax/h),step=Math.max(1,Math.floor(N/1000));
+  const rArr=[];const Vtot=[];const perType={};
+  for(const t of p.selectedTypes)perType[t]=[];
+  for(let i=0;i<=N;i+=step){
+    const ri=i*h;rArr.push(ri);
+    Vtot.push(Vtotal(ri,p));
+    for(const t of p.selectedTypes)perType[t].push(VbyType(ri,p,t));
+  }
+  const depth=Vdepth(p);
+  let maxPsi=0;for(let i=0;i<truncEnd;i++)maxPsi=Math.max(maxPsi,Math.abs(psi_norm[i]));
+  const scale=maxPsi>1e-12?depth*0.38/maxPsi:1;
+  const wfStep=Math.max(1,Math.floor(truncEnd/900));
+  const wfData=[];for(let i=0;i<truncEnd;i+=wfStep)wfData.push({x:r_trunc[i],y:En+scale*psi_norm[i]});
+  const ds=[
+    {label:'V_eff(r)',data:rArr.map(function(r,i){return{x:r,y:Vtot[i]};}),borderColor:'#ff5252',borderWidth:2.5,pointRadius:0,tension:0,order:10},
+    {label:'E = '+En.toFixed(4)+' MeV',data:[{x:0,y:En},{x:rmax,y:En}],borderColor:'#ffd740',borderWidth:1.8,borderDash:[10,5],pointRadius:0,tension:0,order:9},
+    {label:'psi(r) [scaled]',data:wfData,borderColor:'#00e5ff',borderWidth:2.5,pointRadius:0,tension:0,order:11,fill:false},
+  ];
+  p.selectedTypes.forEach(function(t){
+    if(p.selectedTypes.length===1)return;
+    ds.push({
+      label:TYPE_LABEL_SHORT[t]+'(r)',
+      data:rArr.map(function(r,i){return{x:r,y:perType[t][i]};}),
+      borderColor:COMP_COLORS[t]||'#888',borderWidth:1.2,borderDash:[4,3],
+      pointRadius:0,tension:0,order:5
+    });
+  });
+  return{datasets:ds};
+}
+
+/* ═══ ENERGY LEVEL DIAGRAM ═══ */
+let foundStates=[];
+const SPECTRO=['s','p','d','f','g','h'];
+const STATE_COLORS=['#ffd740','#00e5ff','#00e676','#ff9100','#b388ff','#ff5252','#40c4ff','#ea80fc'];
+
+function drawEnergyDiagram(){
+  const canvas=document.getElementById('energyDiagram');
+  const placeholder=document.getElementById('diagramPlaceholderEl');
+  const countEl=document.getElementById('diagramStateCount');
+  if(!canvas||foundStates.length===0){canvas.style.display='none';placeholder.style.display='block';if(countEl)countEl.textContent='';return;}
+  placeholder.style.display='none';canvas.style.display='block';
+  const params=buildParams();
+  const depth=Vdepth(params);
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.getBoundingClientRect().width||800,H=320;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  const allEn=foundStates.map(function(s){return s.En;});
+  const E_top=8,E_bot=Math.min(Math.min.apply(null,allEn)-16,-depth-8);
+  const Erange=E_top-E_bot;
+  const ml=60,mr=180,mt=20,mb=28,dW=W-ml-mr,dH=H-mt-mb;
+  const rmax_d=parseFloat(document.getElementById('rmax').value)||20;
+  const rshow=Math.min(rmax_d,20);
+  const eY=function(e){return mt+dH*(E_top-e)/Erange;};
+  const rX=function(r){return ml+dW*(r/rshow);};
+  ctx.fillStyle='#080e1c';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(0,200,255,0.05)';ctx.lineWidth=1;
+  for(let i=0;i<=6;i++){const e=E_bot+Erange*i/6,y=eY(e);ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(W-mr,y);ctx.stroke();}
+  ctx.fillStyle='#364e62';ctx.font=(9.5*Math.min(1,W/600))+'px "Share Tech Mono"';ctx.textAlign='right';
+  for(let i=0;i<=6;i++){const e=E_bot+Erange*i/6;ctx.fillText(e.toFixed(0),ml-5,eY(e)+3);}
+  ctx.save();ctx.translate(12,H/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='#5a7a90';ctx.font='10px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('ENERGY  [MeV]',0,0);ctx.restore();
+  const Nv=400,hv=rshow/Nv,vPts=[];
+  for(let i=1;i<=Nv;i++){const r=i*hv,v=Vtotal(r,params);vPts.push({r:r,v:v,x:rX(r),y:eY(Math.max(E_bot,Math.min(E_top+80,v)))});}
+  ctx.beginPath();let started=false;
+  for(let pi=0;pi<vPts.length;pi++){const pt=vPts[pi];if(pt.v>E_bot&&pt.v<E_top+80){if(!started){ctx.moveTo(pt.x,pt.y);started=true;}else ctx.lineTo(pt.x,pt.y);}else started=false;}
+  ctx.lineTo(rX(rshow),eY(E_bot));ctx.lineTo(rX(0),eY(E_bot));ctx.closePath();
+  ctx.fillStyle='rgba(0,229,255,0.025)';ctx.fill();
+  ctx.beginPath();ctx.strokeStyle='rgba(255,82,82,0.7)';ctx.lineWidth=2;ctx.setLineDash([]);started=false;
+  for(let pi=0;pi<vPts.length;pi++){const pt=vPts[pi];if(pt.v>E_bot&&pt.v<E_top+60){if(!started){ctx.moveTo(pt.x,pt.y);started=true;}else ctx.lineTo(pt.x,pt.y);}else started=false;}
+  ctx.stroke();
+  const y0=eY(0);ctx.beginPath();ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([10,6]);ctx.moveTo(ml-6,y0);ctx.lineTo(W-mr+6,y0);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,255,255,0.32)';ctx.font='9px "Share Tech Mono"';ctx.textAlign='left';ctx.fillText('E = 0',W-mr+8,y0+3);
+  const yV0=eY(-depth);
+  ctx.beginPath();ctx.strokeStyle='rgba(255,82,82,0.16)';ctx.setLineDash([3,5]);ctx.moveTo(ml,yV0);ctx.lineTo(W-mr,yV0);ctx.stroke();ctx.setLineDash([]);
+  foundStates.forEach(function(st,idx){
+    const y=eY(st.En),color=STATE_COLORS[idx%STATE_COLORS.length];
+    const j=st.l+st.s,sname=SPECTRO[Math.min(st.l,5)];
+    let x1=rX(0.1),x2=rX(rshow*0.75);let wasIn=false;
+    for(let i=1;i<=Nv;i++){const r=i*hv,v=Vtotal(r,params);if(!wasIn&&v<st.En){x1=rX(r);wasIn=true;}if(wasIn&&v>st.En){x2=rX(r);break;}}
+    const wfWidth=Math.max(20,x2-x1);
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1;ctx.globalAlpha=0.18;ctx.setLineDash([3,4]);ctx.moveTo(ml,y);ctx.lineTo(W-mr,y);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+    const wfAmp=Math.max(3,Math.min(10,dH/(foundStates.length*3+2)));
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.globalAlpha=0.82;
+    for(let i=0;i<=180;i++){const t2=Math.PI*(st.nr+1)*i/180,env=Math.sin(Math.PI*i/180);const xf=x1+wfWidth*i/180,yf=y+wfAmp*Math.sin(t2)*env;if(i===0)ctx.moveTo(xf,yf);else ctx.lineTo(xf,yf);}
+    ctx.stroke();ctx.globalAlpha=1;
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1;ctx.globalAlpha=0.45;ctx.moveTo(x1,y-5);ctx.lineTo(x1,y+5);ctx.moveTo(x2,y-5);ctx.lineTo(x2,y+5);ctx.stroke();ctx.globalAlpha=1;
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;ctx.moveTo(ml-3,y);ctx.lineTo(ml+3,y);ctx.stroke();
+    const jNum=Math.round(j*2),sname2=SPECTRO[Math.min(st.l,5)];
+    ctx.fillStyle=color;ctx.font='bold 12px "Share Tech Mono"';ctx.textAlign='left';ctx.fillText((st.nr+1)+sname2+jNum+'/2',W-mr+8,y-2);
+    ctx.globalAlpha=0.7;ctx.font='9.5px "Share Tech Mono"';ctx.fillText(st.En.toFixed(3)+' MeV',W-mr+8,y+10);ctx.globalAlpha=1;
+  });
+  ctx.fillStyle='#5a7a90';ctx.font='10px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText('r  [fm]',ml+dW/2,H-4);
+  ctx.fillStyle='#364e62';ctx.font='8px "Share Tech Mono"';ctx.textAlign='center';
+  for(let r=0;r<=rshow;r+=5){const x=rX(r);ctx.beginPath();ctx.strokeStyle='rgba(0,200,255,0.12)';ctx.lineWidth=1;ctx.moveTo(x,eY(E_bot));ctx.lineTo(x,eY(E_bot)+3);ctx.stroke();ctx.fillText(r,x,H-14);}
+  if(countEl)countEl.textContent=foundStates.length+' STATE'+(foundStates.length!==1?'S':'')+' FOUND';
+}
+window.addEventListener('resize',function(){if(foundStates.length>0)drawEnergyDiagram();});
+
+/* ═══ SCAN ALL STATES ═══ */
+function scanAllStates(){
+  const sb=document.getElementById('scanBtn');
+  document.getElementById('errorDiv').innerHTML='';
+  if(selectedPotTypes.size===0){document.getElementById('errorDiv').innerHTML='<div class="error-msg">No potentials selected. Add at least one potential to V<sub>eff</sub>.</div>';return;}
+  sb.classList.add('scanning');sb.textContent='Scanning...';
+  document.getElementById('headerStatus').textContent='SCANNING';
+  setTimeout(function(){
+    try{
+      const p=buildParams(),rmax=parseFloat(document.getElementById('rmax').value);
+      const h=parseFloat(document.getElementById('hstep').value),emin=parseFloat(document.getElementById('emin').value);
+      const method=document.getElementById('method').value;
+      foundStates=[];
+      for(let nr=0;nr<=8;nr++){
+        const En=findBoundState(nr,p,method,rmax,h,emin,0);
+        if(En>=-0.001)break;
+        const res=solve(En,p,method,rmax,h);
+        if(countNodes(res.psi,res.N)!==nr)break;
+        foundStates.push({nr:nr,l:p.l,s:p.s,En:En});
+      }
+      if(foundStates.length===0)document.getElementById('errorDiv').innerHTML='<div class="error-msg">No bound states found. Try larger |E_min| or deeper potential.</div>';
+      else drawEnergyDiagram();
+    }catch(e){document.getElementById('errorDiv').innerHTML='<div class="error-msg">SCAN ERROR: '+e.message+'</div>';}
+    sb.classList.remove('scanning');sb.textContent='&#8853; SCAN ALL BOUND STATES';
+    document.getElementById('headerStatus').textContent='READY';
+  },50);
+}
+
+/* ═══ MAIN SOLVER ═══ */
+function runSolver(){
+  const btn=document.getElementById('runBtn');
+  document.getElementById('errorDiv').innerHTML='';
+  if(selectedPotTypes.size===0){document.getElementById('errorDiv').innerHTML='<div class="error-msg">No potentials selected. Add at least one potential to V<sub>eff</sub>.</div>';return;}
+  btn.classList.add('computing');btn.textContent='Computing...';
+  document.getElementById('headerStatus').textContent='COMPUTING';
+  setTimeout(function(){
+    try{_doSolve();}
+    catch(e){document.getElementById('errorDiv').innerHTML='<div class="error-msg">ERROR: '+e.message+'</div>';console.error(e);}
+    btn.classList.remove('computing');btn.textContent='&#9654; COMPUTE BOUND STATE';
+    document.getElementById('headerStatus').textContent='READY';
+  },50);
+}
+
+function _doSolve(){
+  const params=buildParams();
+  const nr=parseInt(document.getElementById('nr').value);
+  const rmax=parseFloat(document.getElementById('rmax').value);
+  const h=parseFloat(document.getElementById('hstep').value);
+  const emin=parseFloat(document.getElementById('emin').value);
+  const emax=parseFloat(document.getElementById('emax').value);
+  const method=document.getElementById('method').value;
+  const errDiv=document.getElementById('errorDiv');
+  if(h<=0||rmax<=0)throw new Error('rmax and h must be positive');
+  if(emin>=emax)throw new Error('Emin must be less than Emax');
+  const Ng=Math.floor(rmax/h);
+  if(Ng>80000)errDiv.innerHTML='<div class="warn-msg">Warning: Large grid ('+Ng+' pts)</div>';
+  const En=findBoundState(nr,params,method,rmax,h,emin,emax);
+  if(En>=-0.001)throw new Error('No bound state found. Try larger |Emin| or deeper potential.');
+  const res=solve(En,params,method,rmax,h);
+  const r=res.r,psi=res.psi,Nf=res.N;
+  const truncIdx=findTruncIdx(psi,Nf);
+  const normRes=normalize(r,psi,truncIdx);
+  const psi_norm=normRes.psi_norm;
+  const nodes=countNodes(psi_norm,truncIdx-1);
+  let tp1=null,tp2=null;let prevS=Math.sign(Vtotal(r[0],params)-En);
+  for(let i=1;i<=Nf;i++){const s=Math.sign(Vtotal(r[i],params)-En);if(s!==prevS){if(tp1===null)tp1=r[i].toFixed(3);else{tp2=r[i].toFixed(3);break;}prevS=s;}}
+  const j=params.l+params.s;
+  if(!mainChart)initChart();
+  mainChart.data=buildChartData(params,rmax,h,En,r,psi_norm,truncIdx);
+  const Vpts=[];for(let i=1;i<=100;i++)Vpts.push(Vtotal(i*rmax/100,params));
+  const depth=Vdepth(params);
+  mainChart.options.scales.y.min=Math.min(Math.min.apply(null,Vpts)-8,En-5);
+  mainChart.options.scales.y.max=Math.max(15,depth*0.25+5);
+  mainChart.options.scales.x.max=rmax;mainChart.update();
+  foundStates=[{nr:nr,l:params.l,s:params.s,En:En}];setTimeout(drawEnergyDiagram,60);
+  const jStr=Number.isInteger(j*2)?(j*2)+'/2':j.toFixed(1);
+  const spectro=['s','p','d','f','g','h'][Math.min(params.l,5)];
+  const potName=params.selectedTypes.map(function(t){return TYPE_LABEL_SHORT[t];}).join('+');
+  
+  
+  document.getElementById('resultsPanel').innerHTML=
+    '<div class="results-header">&#9672; EIGENSTATE &mdash; '+method.toUpperCase()+' | '+potName+' | '+(nr+1)+spectro+'<sub>'+jStr+'</sub></div>'+
+    '<div class="results-grid">'+
+      '<div class="result-item"><div class="result-label">Energy Eigenvalue</div><div class="result-value energy">'+En.toFixed(5)+' MeV</div></div>'+
+      '<div class="result-item"><div class="result-label">Quantum Numbers nr,l,s,j</div><div class="result-value">'+nr+', '+params.l+', '+(params.s>0?'+':'')+params.s+', '+j.toFixed(1)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Nodes Verified</div><div class="result-value '+(nodes===nr?'good':'')+'">'+nodes+' '+(nodes===nr?'&#10003;':'&ne; expected '+nr)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Reduced Mass &mu;c&#178;</div><div class="result-value">'+params.mu_c.toFixed(2)+' MeV/c&#178;</div></div>'+
+      '<div class="result-item"><div class="result-label">Geometry CC</div><div class="result-value">'+params.CC.toFixed(4)+' fm</div></div>'+
+      '<div class="result-item"><div class="result-label">Turning Point r&#8321;</div><div class="result-value">'+(tp1!==null?tp1+' fm':'N/A')+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Turning Point r&#8322;</div><div class="result-value">'+(tp2!==null?tp2+' fm':'N/A')+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Grid Points</div><div class="result-value">'+(Nf+1)+' pts (h='+h+' fm)</div></div>'+
+    '</div>';
+}
+
+/* ═══ PANEL TOGGLE ═══ */
+function togglePanel(){
+  const w=document.getElementById('panelWrapper'),rb=document.getElementById('panelReopenBtn'),cb=document.getElementById('panelCollapseBtn');
+  const col=!w.classList.contains('collapsed');w.classList.toggle('collapsed');
+  if(col){rb.classList.add('visible');cb.textContent='&#9658;';}else{rb.classList.remove('visible');cb.textContent='&#9664;';}
+  setTimeout(function(){if(mainChart)mainChart.resize();if(foundStates.length>0)drawEnergyDiagram();},420);
+}
+
+/* ═══ TAB NAV ═══ */
+function showTab(id){
+  document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(el){el.classList.remove('active');});
+  document.getElementById(id).classList.add('active');
+  const map={simulator:0,theory:1,manual:2};
+  document.querySelectorAll('.tab-btn')[map[id]].classList.add('active');
+  if(id==='simulator'){if(!mainChart)setTimeout(initChart,60);if(foundStates.length>0)setTimeout(drawEnergyDiagram,80);}
+}
+
+/* ═══ INIT ═══ */
+window.addEventListener('DOMContentLoaded',function(){
+  setTimeout(initChart,80);
+  setSelectedPotentials([]);
+  updateFormulaBox();
+});
+</script>
+</body>
+</html> 

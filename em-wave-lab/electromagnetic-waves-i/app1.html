@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EM Wave Simulator — Interactive Optics Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Barlow:wght@300;400;600&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+/* apply saved theme before first paint */
+try{ if(localStorage.getItem('emwTheme')==='day') document.documentElement.setAttribute('data-theme','day'); }catch(e){}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root,:root[data-theme="night"]{
+  --bg:#020b16;--panel:#071a2e;--card:#0a2036;
+  --b1:rgba(80,190,255,.22);--b2:rgba(80,200,255,.42);
+  --cyan:#35dcff;--mag:#ff7aaa;--grn:#3dffa0;--yel:#ffd84a;
+  --red:#ff6b6b;--blu:#5aaeff;--orn:#ff9a2e;
+  --txt:#b4d4e6;--txtb:#eef8ff;--dim:#8fb4cc;
+  --ovl:rgba(3,14,26,.92);
+  --hdr:linear-gradient(90deg,#020b18,#06233a,#020b18);
+  --gc:0 0 10px rgba(53,220,255,.5);
+}
+:root[data-theme="day"]{
+  --bg:#e9f0f6;--panel:#f7fafd;--card:#ffffff;
+  --b1:rgba(0,70,120,.16);--b2:rgba(0,70,120,.35);
+  --cyan:#006f9e;--mag:#a8149a;--grn:#087a45;--yel:#8a6100;
+  --red:#c4122f;--blu:#1259b8;--orn:#b24a00;
+  --txt:#27455a;--txtb:#0a1f30;--dim:#4a6479;
+  --ovl:rgba(255,255,255,.94);
+  --hdr:linear-gradient(90deg,#d8e7f2,#f4f9fd,#d8e7f2);
+  --gc:0 0 0 transparent;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--txt);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+.hdr{background:var(--hdr);border-bottom:1px solid var(--b2);
+  padding:7px 18px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+.htitle{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:var(--cyan);
+  text-shadow:var(--gc);letter-spacing:3px}
+.hsub{font-family:'Share Tech Mono',monospace;font-size:10.5px;color:var(--dim);letter-spacing:2px;margin-top:2px}
+.hright{margin-left:auto;display:flex;gap:12px;align-items:center}
+.playbtn{font-family:'Share Tech Mono',monospace;font-size:12.5px;padding:5px 14px;
+  border:1px solid var(--b2);border-radius:3px;cursor:pointer;color:var(--cyan);
+  background:transparent;transition:all .2s;letter-spacing:1px}
+.playbtn:hover{box-shadow:var(--gc)}
+.htimer{font-family:'Share Tech Mono',monospace;font-size:12.5px;color:var(--dim)}
+.htimer span{color:var(--cyan)}
+.themebtn{display:flex;gap:2px;padding:3px}
+.tm{padding:3px 9px;border-radius:2px;opacity:.6;transition:all .2s}
+:root[data-theme="night"] .tm.n,:root[data-theme="day"] .tm.d{opacity:1;background:var(--cyan);color:var(--bg);font-weight:700}
+
+/* ── TABS ── */
+.tabbar{display:flex;background:var(--panel);border-bottom:1px solid var(--b1);
+  padding:0 8px;gap:1px;flex-shrink:0;overflow-x:auto}
+.tabbar::-webkit-scrollbar{height:2px}
+.tabbar::-webkit-scrollbar-thumb{background:var(--b2)}
+.tab{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;
+  letter-spacing:1.5px;text-transform:uppercase;padding:8px 15px;cursor:pointer;
+  color:var(--dim);border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--txtb)}
+.tab.on{color:var(--cyan);border-bottom-color:var(--cyan);text-shadow:var(--gc)}
+
+/* ── MAIN ── */
+.wrap{flex:1;position:relative;overflow:hidden}
+
+/* ── 3D LAYOUT ── */
+#viz3d{position:absolute;inset:0;display:flex}
+.cpanel{width:250px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--b1);
+  overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:7px}
+.cpanel::-webkit-scrollbar{width:3px}
+.cpanel::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+.cbox{flex:1;position:relative;overflow:hidden}
+#cvs{width:100%;height:100%;display:block;cursor:grab}
+#cvs:active{cursor:grabbing}
+.rpanel{width:250px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--b1);
+  overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:7px}
+.rpanel::-webkit-scrollbar{width:3px}
+.rpanel::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* ── CONTROLS ── */
+.csec{background:var(--card);border:1px solid var(--b1);border-radius:4px;padding:10px}
+.ctitle{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:3px;
+  color:var(--cyan);margin-bottom:8px;text-transform:uppercase}
+.crow{display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
+.crow:last-child{margin-bottom:0}
+.clbl{display:flex;justify-content:space-between;font-size:13px;color:var(--txt)}
+.cval{font-family:'Share Tech Mono',monospace;color:var(--cyan);font-size:12.5px}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;background:var(--b2);
+  border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+  background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:var(--gc)}
+.radios{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.rbtn{font-size:11.5px;padding:4px 8px;border:1px solid var(--b2);border-radius:2px;
+  cursor:pointer;color:var(--txt);background:transparent;
+  font-family:'Share Tech Mono',monospace;transition:all .2s;letter-spacing:.5px}
+.rbtn:hover{color:var(--cyan)}
+.rbtn.on{border-color:var(--cyan);color:var(--cyan);background:var(--b1);font-weight:700}
+
+/* ── RESULTS ── */
+.rcard{background:var(--card);border:1px solid var(--b1);border-radius:4px;padding:10px}
+.rtitle{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2.5px;
+  color:var(--cyan);margin-bottom:8px;text-transform:uppercase}
+.rrow{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:6px}
+.rn{color:var(--txt);font-size:12px}
+.rv{font-family:'Share Tech Mono',monospace;font-size:12.5px;text-align:right}
+.rv.g{color:var(--grn)}.rv.y{color:var(--yel)}.rv.c{color:var(--cyan)}
+.rv.r{color:var(--red)}.rv.o{color:var(--orn)}.rv.w{color:var(--txtb)}
+
+/* ── OVERLAY ── */
+.lgnd{position:absolute;bottom:10px;left:10px;background:var(--ovl);
+  border:1px solid var(--b2);border-radius:4px;padding:8px 11px;pointer-events:none}
+.li{display:flex;align-items:center;gap:7px;font-family:'Share Tech Mono',monospace;
+  font-size:11.5px;margin-bottom:3px;color:var(--txt)}
+.li:last-child{margin-bottom:0}
+.lbar{width:18px;height:3px;border-radius:1px;flex-shrink:0}
+.angbox{position:absolute;top:10px;right:10px;background:var(--ovl);
+  border:1px solid var(--b2);border-radius:4px;padding:7px 11px;
+  font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--txtb);pointer-events:none}
+.pol2d{position:absolute;bottom:50px;right:10px;border:1px solid var(--b2);border-radius:4px;background:var(--ovl)}
+
+/* ── CONTENT TABS (Physics / Applications) ── */
+.ctab{position:absolute;inset:0;overflow-y:auto;padding:26px;gap:20px;flex-wrap:wrap;
+  align-content:flex-start;display:none;background:var(--bg)}
+.ctab.show{display:flex}
+.ctab::-webkit-scrollbar{width:5px}
+.ctab::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+.pcrd{background:var(--card);border:1px solid var(--b1);border-radius:6px;padding:26px;
+  flex:1;min-width:300px;max-width:640px}
+.pcrd h2{font-family:'Orbitron',monospace;font-size:16px;color:var(--cyan);
+  margin-bottom:16px;letter-spacing:2px}
+.pcrd h3{font-family:'Barlow Condensed',sans-serif;font-size:18.5px;font-weight:600;
+  color:var(--txtb);margin:16px 0 7px;letter-spacing:.5px}
+.pcrd p{font-size:15.5px;line-height:1.75;color:var(--txt);margin-bottom:10px}
+.pcrd p strong{color:var(--txtb)}
+.eq{background:var(--b1);border-left:3px solid var(--cyan);padding:10px 14px;
+  margin:9px 0;font-family:'Share Tech Mono',monospace;font-size:15px;
+  color:var(--txtb);border-radius:0 4px 4px 0;line-height:1.7;overflow-x:auto}
+.hbox{background:rgba(0,160,100,.1);border:1px solid rgba(0,160,100,.35);border-radius:4px;
+  padding:9px 13px;font-family:'Share Tech Mono',monospace;font-size:14.5px;color:var(--grn);margin:9px 0;overflow-x:auto}
+.ybox{background:rgba(200,150,0,.1);border:1px solid rgba(200,150,0,.35);border-radius:4px;
+  padding:9px 13px;font-size:15px;color:var(--yel);margin:9px 0}
+.mbox{background:rgba(220,40,140,.08);border:1px solid rgba(220,40,140,.3);border-radius:4px;
+  padding:9px 13px;font-family:'Share Tech Mono',monospace;font-size:14.5px;color:var(--mag);margin:9px 0;overflow-x:auto}
+
+/* MathJax */
+mjx-container{color:inherit}
+.eq mjx-container[display="true"]{margin:.35em 0 !important;text-align:left !important}
+.eq mjx-container{font-size:110% !important}
+.pcrd p mjx-container,.hbox mjx-container,.mbox mjx-container,.ybox mjx-container{font-size:106% !important}
+
+/* ── STATUS ── */
+.sbar{background:var(--panel);border-top:1px solid var(--b1);padding:3px 16px;
+  display:flex;gap:18px;font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:var(--dim);flex-shrink:0;align-items:center}
+.si{display:flex;gap:4px}.si span{color:var(--cyan)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="htitle">⚡ EM WAVE SIMULATOR</div>
+    <div class="hsub">MAXWELL · FRESNEL · POLARIMETRY · INTERFERENCE · OPTICS</div>
+  </div>
+  <div class="hright">
+    <button class="playbtn" id="playbtn" onclick="togglePlay()">⏸ PAUSE</button>
+    <div class="htimer">t = <span id="tdisp">0.000</span> s</div>
+    <button class="playbtn themebtn" id="themeBtn" onclick="toggleTheme()" title="Toggle day / night"><span class="tm n">🌙 NIGHT</span><span class="tm d">☀ DAY</span></button>
+  </div>
+</div>
+
+<div class="tabbar">
+  <div class="tab on"  onclick="setTab('wave',this)">Wave</div>
+  <div class="tab"     onclick="setTab('reflection',this)">Reflection</div>
+  <div class="tab"     onclick="setTab('refraction',this)">Refraction</div>
+  <div class="tab"     onclick="setTab('interference',this)">Interference</div>
+  <div class="tab"     onclick="setTab('polarization',this)">Polarization</div>
+  <div class="tab"     onclick="setTab('physics',this)">Physics</div>
+  <div class="tab"     onclick="setTab('applications',this)">Applications</div>
+</div>
+
+<div class="wrap">
+  <div id="viz3d">
+    <div class="cpanel" id="cpanel"></div>
+    <div class="cbox">
+      <canvas id="cvs"></canvas>
+      <div class="lgnd" id="lgnd"></div>
+      <div class="angbox" id="angbox" style="display:none"></div>
+    </div>
+    <div class="rpanel" id="rpanel"></div>
+  </div>
+
+  <!-- Physics Tab -->
+  <div class="ctab" id="physicsTab">
+    <div class="pcrd">
+      <h2>MAXWELL'S EQUATIONS</h2>
+      <p>All electromagnetic phenomena — light, radio, X-rays — follow four equations derived by Maxwell in 1865. The crucial insight was the <strong>displacement current</strong> term, predicting self-sustaining waves.</p>
+      <h3>Gauss (Electric)</h3><div class="eq">\[\nabla\cdot\mathbf E=\rho/\varepsilon_0\ \Rightarrow\ \nabla\cdot\mathbf E=0\quad\text{(free space)}\]</div>
+      <h3>Gauss (Magnetic)</h3><div class="eq">\[\nabla\cdot\mathbf B=0\quad\text{(no magnetic monopoles)}\]</div>
+      <h3>Faraday's Law</h3><div class="eq">\[\nabla\times\mathbf E=-\frac{\partial\mathbf B}{\partial t}\quad\text{(changing }\mathbf B\text{ induces }\mathbf E\text{)}\]</div>
+      <h3>Ampère–Maxwell Law</h3><div class="eq">\[\nabla\times\mathbf B=\mu_0\mathbf J+\mu_0\varepsilon_0\frac{\partial\mathbf E}{\partial t}\]</div>
+      <h3>Wave Equation</h3><div class="eq">\[\nabla^2\mathbf E=\frac{1}{c^2}\frac{\partial^2\mathbf E}{\partial t^2}\]</div>
+      <div class="hbox">\(c=1/\sqrt{\mu_0\varepsilon_0}=299\,792\,458\) m/s (exact, SI definition)</div>
+      <h3>Plane Wave Solution</h3>
+      <div class="eq">\[\begin{aligned}\mathbf E(z,t)&=E_0\cos(kz-\omega t)\,\hat{\mathbf x}\\ \mathbf B(z,t)&=\frac{E_0}{c}\cos(kz-\omega t)\,\hat{\mathbf y}\end{aligned}\]</div>
+      <p>\(\mathbf E\perp\mathbf B\perp\hat{\mathbf k}\) always. In the Wave tab the red curve is the E-field and the blue curve is B, rotated 90° (B is drawn at 0.45× its relative size for clarity).</p>
+    </div>
+    <div class="pcrd">
+      <h2>REFLECTION &amp; REFRACTION</h2>
+      <h3>Snell's Law</h3>
+      <div class="eq">\[n_1\sin\theta_1=n_2\sin\theta_2\]</div>
+      <h3>Critical Angle (TIR)</h3>
+      <div class="eq">\[\theta_c=\arcsin(n_2/n_1)\quad[\text{requires }n_1>n_2]\]</div>
+      <p>For \(\theta_i>\theta_c\), <strong>total internal reflection</strong> occurs — no energy crosses the interface. This is the principle behind fiber optics.</p>
+      <h3>Fresnel Equations (s-pol)</h3>
+      <div class="eq">\[r_s=\frac{n_1\cos\theta_i-n_2\cos\theta_t}{n_1\cos\theta_i+n_2\cos\theta_t},\qquad t_s=\frac{2n_1\cos\theta_i}{n_1\cos\theta_i+n_2\cos\theta_t}\]</div>
+      <h3>Fresnel Equations (p-pol)</h3>
+      <div class="eq">\[r_p=\frac{n_2\cos\theta_i-n_1\cos\theta_t}{n_2\cos\theta_i+n_1\cos\theta_t},\qquad t_p=\frac{2n_1\cos\theta_i}{n_2\cos\theta_i+n_1\cos\theta_t}\]</div>
+      <h3>Brewster's Angle</h3>
+      <div class="eq">\[\theta_B=\arctan(n_2/n_1)\ \Rightarrow\ r_p=0\]</div>
+      <p>At Brewster's angle, reflected light is <strong>completely s-polarized</strong>. Used in polarizing sunglasses and laser Brewster windows.</p>
+      <h3>Poynting Vector</h3>
+      <div class="eq">\[\mathbf S=\frac{1}{\mu_0}\,\mathbf E\times\mathbf B\quad[\mathrm{W/m^2}]\]\[\langle I\rangle=\tfrac12\varepsilon_0 c\,|E_0|^2=\frac{|E_0|^2}{2\eta_0}\]</div>
+      <div class="hbox">\(\eta_0=\sqrt{\mu_0/\varepsilon_0}=376.73\ \Omega\) (impedance of free space)</div>
+    </div>
+    <div class="pcrd">
+      <h2>INTERFERENCE &amp; POLARIZATION</h2>
+      <h3>Superposition</h3>
+      <div class="eq">\[\mathbf E_{\text{tot}}=\mathbf E_1+\mathbf E_2\quad\text{(linearity of Maxwell)}\]\[I=I_1+I_2+2\sqrt{I_1I_2}\,\cos\Delta\varphi\quad(f_1=f_2)\]</div>
+      <div class="hbox">Constructive: \(\Delta\varphi=2n\pi\ \Rightarrow\ I=(\sqrt{I_1}+\sqrt{I_2})^2\)</div>
+      <div class="mbox">Destructive: \(\Delta\varphi=(2n+1)\pi\ \Rightarrow\ I=(\sqrt{I_1}-\sqrt{I_2})^2\)</div>
+      <p>Fringe visibility: \(V=2\sqrt{I_1I_2}/(I_1+I_2)\). Beats occur when \(f_1\ne f_2\).</p>
+      <h3>Standing Waves (Reflection)</h3>
+      <div class="eq">\[E=2E_0\sin(kz)\sin(\omega t)\quad[r_s=-1]\]</div>
+      <p>The incident + reflected waves form a pattern with nodes at \(kz=n\pi\) and antinodes at \(kz=(n+\tfrac12)\pi\).</p>
+      <h3>Linear Polarization</h3>
+      <div class="eq">\[\mathbf E(z,t)=E_0\sin(kz-\omega t)\left(\cos\varphi\,\hat{\mathbf x}+\sin\varphi\,\hat{\mathbf y}\right)\]</div>
+      <h3>Circular Polarization (RHCP)</h3>
+      <div class="eq">\[\mathbf E=E_0\left[\cos(kz-\omega t)\,\hat{\mathbf x}+\sin(kz-\omega t)\,\hat{\mathbf y}\right]\]</div>
+      <p>The E-field traces a right-handed helix through space — visible directly in the Polarization tab.</p>
+      <h3>Stokes Parameters</h3>
+      <div class="eq">\[\begin{aligned}S_0&=I_0, & S_1&=I_0\cos2\chi\cos2\psi,\\ S_2&=I_0\cos2\chi\sin2\psi, & S_3&=I_0\sin2\chi\end{aligned}\]</div>
+    </div>
+  </div>
+
+  <!-- Applications Tab -->
+  <div class="ctab" id="appTab">
+    <div class="pcrd">
+      <h2>FIBER OPTICS</h2>
+      <p>Optical fibers exploit <strong>total internal reflection</strong> to confine light within the core (\(n_{\text{core}}>n_{\text{clad}}\)). Light bounces along the fiber with near-zero loss.</p>
+      <div class="eq">\[NA=\sqrt{n_{\text{core}}^2-n_{\text{clad}}^2},\qquad\theta_{\text{accept}}=\arcsin(NA)\]acceptance cone half-angle (launch from air)</div>
+      <h3>Single-Mode Fiber (SMF-28)</h3>
+      <p>Core ≈ 9 μm. One guided mode (HE₁₁). Used for long-haul internet (transatlantic cables). Attenuation: 0.18 dB/km at 1550 nm.</p>
+      <div class="hbox">Single-mode when \(V\lt 2.405\), with \(V=\dfrac{2\pi a}{\lambda}\,NA\)</div>
+      <h3>Multi-Mode Fiber (MMF)</h3>
+      <p>Core ≈ 50 μm. Hundreds of modes. Modal dispersion limits bandwidth to ~500 MHz·km. Used for short-distance campus/datacenter links.</p>
+      <h3>Graded-Index (GRIN)</h3>
+      <div class="eq">\[n(r)=n_{\text{core}}\sqrt{1-2\Delta\,(r/a)^2}\]</div>
+      <p>Parabolic index profile equalizes path lengths — all modes travel at nearly the same group velocity, minimizing modal dispersion.</p>
+      <h3>EDFA &amp; WDM</h3>
+      <p>Erbium-doped fiber amplifiers provide ~35 dB gain at 1550 nm. Wavelength-division multiplexing (WDM) carries 80–160 channels per fiber at 100 GHz spacing → Tbps per fiber pair.</p>
+    </div>
+    <div class="pcrd">
+      <h2>ANTENNA THEORY</h2>
+      <p>Antennas convert guided EM power to/from free-space radiation. The oscillating current creates a time-varying electric dipole that radiates.</p>
+      <h3>Hertzian Dipole (Far Field)</h3>
+      <div class="eq">\[E_\theta=\frac{j\eta I_0\,\Delta z}{2\lambda r}\sin\theta\;e^{-jkr},\qquad D=1.5\ (1.76\ \mathrm{dBi})\]</div>
+      <h3>Half-Wave Dipole (λ/2)</h3>
+      <div class="eq">\[F(\theta)=\frac{\cos^2\!\left(\tfrac{\pi}{2}\cos\theta\right)}{\sin^2\theta}\]\[D=1.64\ (2.15\ \mathrm{dBi}),\qquad Z_{\text{in}}\approx 73+j42.5\ \Omega\]</div>
+      <h3>Friis Transmission</h3>
+      <div class="eq">\[\frac{P_r}{P_t}=G_tG_r\left(\frac{\lambda}{4\pi R}\right)^2\]</div>
+      <p>The received-power factor \((\lambda/4\pi R)^2\) falls with distance <em>and</em> with frequency (shorter \(\lambda\)), so free-space path loss grows with both. Used for link budget calculations in all wireless systems.</p>
+      <h3>Phased Array / MIMO</h3>
+      <div class="eq">\[AF(\theta)=\sum_{n=1}^{N}a_n\,e^{j(n-1)(kd\cos\theta+\beta)}\]</div>
+      <p>5G massive MIMO uses 64–256 elements for spatial multiplexing, boosting spectral efficiency 10× over legacy SISO. Beam steering requires only phase shifts (\(\beta\)), no mechanical motion.</p>
+      <h3>Applications</h3>
+      <p>5G mm-wave · AESA radar · GPS patch · radio astronomy (SKA) · RFID · radar altimeters · EM compatibility</p>
+    </div>
+    <div class="pcrd">
+      <h2>FURTHER APPLICATIONS</h2>
+      <h3>Radar &amp; Doppler</h3>
+      <div class="eq">\[R=\frac{c\,\Delta t}{2},\qquad\Delta f=\frac{2vf_0}{c}\]</div>
+      <p>Pulse-Doppler radar resolves range AND velocity simultaneously. SAR (synthetic aperture radar) achieves &lt;0.5 m ground resolution from satellites at 500 km altitude.</p>
+      <h3>MRI</h3>
+      <p>RF at Larmor frequency (42.58 MHz/T for ¹H) flips nuclear spins. T₁/T₂ relaxation encodes tissue contrast. 3T scanners reach sub-millimeter resolution without ionizing radiation.</p>
+      <h3>Thin-Film Optical Coatings</h3>
+      <div class="eq">\[n_{\text{film}}=\sqrt{n_1n_2},\qquad t=\frac{\lambda}{4\,n_{\text{film}}}\]</div>
+      <p>Quarter-wave layers produce destructive interference of reflections. Modern DSLR lenses use 7–14 layers, reducing each surface from 4% → &lt;0.1% reflection.</p>
+      <h3>Metamaterials &amp; Negative Index</h3>
+      <div class="eq">\[n_{\text{eff}}=-\sqrt{\varepsilon_{\text{eff}}\,\mu_{\text{eff}}}\quad\text{when both }\varepsilon_{\text{eff}},\mu_{\text{eff}}\lt 0\]</div>
+      <p>Double-negative metamaterials reverse Snell's law, enable sub-diffraction imaging (superlens), and are actively researched for EM cloaking and perfect absorbers.</p>
+      <div class="hbox">Photons are the gauge bosons of QED — the fundamental carriers of all EM interactions shown in this simulator.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sbar">
+  <div class="si">MODE:<span id="smode">WAVE PROPAGATION</span></div>
+  <div class="si">λ=<span id="swl">—</span></div>
+  <div class="si">f=<span id="sfreq">—</span></div>
+  <div class="si">c=<span>2.998×10⁸ m/s</span></div>
+  <div class="si" style="margin-left:auto">DRAG·ROTATE &nbsp;SCROLL·ZOOM &nbsp;RIGHT-DRAG·PAN</div>
+</div>
+
+<!-- MATHJAX -->
+<script>
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// THEME PALETTES (3D scene + 2D inset)
+// ═══════════════════════════════════════════════════════════════════════
+const COLS={
+ night:{bg:0x020b16,grid1:0x2a6a92,grid2:0x16405c,
+  E:0xff5a5a,B:0x4aa8ff,inc:0x00ff88,ref:0xff55b0,tot:0xffffff,trn:0x00ddff,
+  w1:0xff9a2e,w2:0x5a9fff,wr:0x00ff99,iface:0x00d4ff,ifacePl:0x00aaff,
+  med1:0x001a3a,med2:0x001f44,kax:0x5a85d0,trail:0xff88ff,
+  axX:0xff5a5a,axY:0x4aa8ff,guideOp:.22,hsl:.6,
+  pGrid:'rgba(80,190,255,.3)',pTrail:'rgba(255,136,255,.8)',pDot:'#ffffff',pTxt:'rgba(150,215,255,.95)'},
+ day:{bg:0xe9f0f6,grid1:0x7f9db3,grid2:0xc2d3de,
+  E:0xc4122f,B:0x1259b8,inc:0x087a45,ref:0xa8149a,tot:0x0a1f30,trn:0x006f9e,
+  w1:0xb24a00,w2:0x1259b8,wr:0x087a45,iface:0x006f9e,ifacePl:0x0088b0,
+  med1:0xd5e4ef,med2:0xc3d8e8,kax:0x4a6479,trail:0xa8149a,
+  axX:0xc4122f,axY:0x1259b8,guideOp:.35,hsl:.38,
+  pGrid:'rgba(0,70,120,.3)',pTrail:'rgba(168,20,154,.85)',pDot:'#0a1f30',pTxt:'rgba(10,50,80,.95)'}
+};
+function loadTheme(){ try{return localStorage.getItem('emwTheme')==='day'?'day':'night';}catch(e){return 'night';} }
+let COL=COLS[loadTheme()];
+const hx=n=>'#'+n.toString(16).padStart(6,'0');
+function toggleTheme(){ applyTheme(COL===COLS.night?'day':'night'); }
+function applyTheme(m){
+  COL=COLS[m];
+  document.documentElement.setAttribute('data-theme',m);
+  try{localStorage.setItem('emwTheme',m);}catch(e){}
+  if(renderer) renderer.setClearColor(COL.bg,1);
+  if(scene && currentTab!=='physics' && currentTab!=='applications') initScene(currentTab);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GLOBAL STATE & PARAMETERS
+// ═══════════════════════════════════════════════════════════════════════
+const P = {
+  // Wave
+  amp:1.0, freq:1.0, lam:5.0, polAng:0,
+  // Reflection / Refraction
+  n1:1.0, n2:1.5, thetaI:35, pSel:'s',
+  // Interference
+  a1:1.0, a2:1.0, f1:1.0, f2:1.2, dPhi:0,
+  // Polarization
+  polMode:'linear', chi:1
+};
+let scene, camera, renderer, controls, clock;
+let sceneObjs = [], tabS = {}; // current tab's dynamic objects
+let currentTab='wave', totalTime=0, isPlaying=true;
+
+// ═══════════════════════════════════════════════════════════════════════
+// THREE.JS INIT
+// ═══════════════════════════════════════════════════════════════════════
+function initThree(){
+  const cvs=document.getElementById('cvs');
+  renderer=new THREE.WebGLRenderer({canvas:cvs,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(COL.bg,1);
+  camera=new THREE.PerspectiveCamera(50,1,0.05,500);
+  camera.position.set(9,5,14);
+  scene=new THREE.Scene();
+  controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=0.06;
+  controls.minDistance=2; controls.maxDistance=80;
+  clock=new THREE.Clock();
+  resize(); window.addEventListener('resize',resize);
+}
+function resize(){
+  const b=document.getElementById('cvs').parentElement.getBoundingClientRect();
+  renderer.setSize(b.width,b.height);
+  camera.aspect=b.width/b.height; camera.updateProjectionMatrix();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SCENE HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function add(o){scene.add(o);sceneObjs.push(o);return o}
+function clrScene(){
+  sceneObjs.forEach(o=>{
+    scene.remove(o);
+    o.traverse&&o.traverse(c=>{
+      c.geometry&&c.geometry.dispose();
+      if(c.material){Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose()}
+    });
+  });
+  sceneObjs=[];
+}
+function mkGrid(s=16,d=16){
+  return new THREE.GridHelper(s,d,COL.grid1,COL.grid2);
+}
+function mkStaticLine(pts,col,op=1){
+  const g=new THREE.BufferGeometry().setFromPoints(pts);
+  const m=new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op});
+  return new THREE.Line(g,m);
+}
+
+// ── Dynamic line (BufferGeometry, N pts, updated every frame) ──
+function mkDynLine(N,col,op=1){
+  const pos=new Float32Array(N*3);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op});
+  const l=new THREE.Line(geo,mat); l._N=N; return l;
+}
+// fn(i,N) → [x,y,z]
+function updLine(line,fn){
+  const a=line.geometry.attributes.position.array,N=line._N;
+  for(let i=0;i<N;i++){const[x,y,z]=fn(i,N);a[i*3]=x;a[i*3+1]=y;a[i*3+2]=z}
+  line.geometry.attributes.position.needsUpdate=true;
+}
+
+// ── Arrow pool ──
+function mkAPool(N,col){
+  const g=new THREE.Group();
+  for(let i=0;i<N;i++){
+    const a=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,0),.5,col,.2,.12);
+    a.visible=false; g.add(a);
+  }
+  return g;
+}
+function setA(pool,i,px,py,pz,dx,dy,dz,len){
+  const a=pool.children[i]; if(!a) return;
+  if(len<.018){a.visible=false;return}
+  a.visible=true; a.position.set(px,py,pz);
+  const d=new THREE.Vector3(dx,dy,dz).normalize(); a.setDirection(d);
+  const hl=Math.min(.28,len*.3),hr=Math.min(.15,len*.22);
+  a.setLength(len,hl,hr);
+}
+function hideAPool(pool,from=0){for(let i=from;i<pool.children.length;i++)pool.children[i].visible=false}
+
+// ── Semi-transparent plane ──
+function mkPlane(w,h,col,op,rx=0,ry=0,rz=0,px=0,py=0,pz=0){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,side:THREE.DoubleSide,depthWrite:false}));
+  m.rotation.set(rx,ry,rz); m.position.set(px,py,pz); return m;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB: WAVE
+// ═══════════════════════════════════════════════════════════════════════
+const ZR=14, NC=360, NA=28;
+function initWave(){
+  clrScene(); tabS={};
+  camera.position.set(9,5,14); camera.lookAt(0,0,0); controls.reset();
+  add(mkGrid(20,20));
+  // Axes
+  const ax=new THREE.Group();
+  ax.add(mkStaticLine([new THREE.Vector3(0,0,0),new THREE.Vector3(7,0,0)],COL.axX,.7));
+  ax.add(mkStaticLine([new THREE.Vector3(0,0,0),new THREE.Vector3(0,4,0)],COL.axY,.7));
+  ax.add(mkStaticLine([new THREE.Vector3(0,0,-9),new THREE.Vector3(0,0,9)],COL.kax,.8));
+  add(ax);
+  // Axis arrow (k direction)
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-7),14,COL.kax,.45,.25));
+  // E and B curves
+  tabS.eL=add(mkDynLine(NC,COL.E));
+  tabS.bL=add(mkDynLine(NC,COL.B));
+  // Arrows
+  tabS.eA=add(mkAPool(NA,COL.E));
+  tabS.bA=add(mkAPool(NA,COL.B));
+  setLegend(`
+    <div class="li"><div class="lbar" style="background:${hx(COL.E)}"></div>E-field (electric)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.B)}"></div>B-field (magnetic, drawn ×0.45)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.kax)}"></div>k propagation (z-axis)</div>
+  `);
+}
+function animWave(t){
+  const k=2*Math.PI/P.lam, w=2*Math.PI*P.freq;
+  const phi=P.polAng*Math.PI/180, A=P.amp;
+  // E curve: oscillates in (cosφ, sinφ, 0) direction
+  updLine(tabS.eL,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    const v=A*Math.sin(k*z-w*t);
+    return[v*Math.cos(phi), v*Math.sin(phi), z];
+  });
+  // B curve: oscillates in (-sinφ, cosφ, 0) direction, drawn at 0.45 A for clarity
+  const Bv=A*.45;
+  updLine(tabS.bL,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    const v=Bv*Math.sin(k*z-w*t);
+    return[-v*Math.sin(phi), v*Math.cos(phi), z];
+  });
+  // E arrows
+  for(let i=0;i<NA;i++){
+    const z=-ZR/2+(i/(NA-1))*ZR;
+    const v=A*Math.sin(k*z-w*t);
+    const s=v>=0?1:-1;
+    setA(tabS.eA,i,0,0,z, s*Math.cos(phi),s*Math.sin(phi),0, Math.abs(v));
+  }
+  // B arrows
+  for(let i=0;i<NA;i++){
+    const z=-ZR/2+(i/(NA-1))*ZR;
+    const v=Bv*Math.sin(k*z-w*t);
+    const s=v>=0?1:-1;
+    setA(tabS.bA,i,0,0,z, -s*Math.sin(phi),s*Math.cos(phi),0, Math.abs(v));
+  }
+  // Results (normalized units: c = ε₀ = μ₀ = 1, so B₀ = E₀ and η₀ = 1)
+  const E0=A, I=.5*E0*E0, kv=k, wv=w;
+  setRC('rc1','WAVE PARAMS',[
+    ['Amplitude E₀',E0.toFixed(3)+' a.u.','c'],
+    ['Frequency f',P.freq.toFixed(2)+' Hz',''],
+    ['Wavelength λ',P.lam.toFixed(2)+' u',''],
+    ['Wave number k',kv.toFixed(4)+' u⁻¹',''],
+    ['Angular ω',wv.toFixed(4)+' rad/s',''],
+    ['Period T',(1/P.freq).toFixed(3)+' s','g'],
+  ]);
+  const eNow=E0*Math.abs(Math.sin(-w*t));
+  setRC('rc2','FIELD VALUES',[
+    ['|E|(z=0,t)',eNow.toFixed(5),'y'],
+    ['Phase v = fλ',(P.freq*P.lam).toFixed(3)+' u/s',''],
+    ['Pol. angle φ',P.polAng.toFixed(1)+'°',''],
+    ['η₀ = E/H','376.73 Ω (SI)','c'],
+    ['⟨I⟩ = E₀²/2',I.toFixed(4),'g'],
+    ['Photon energy','hf = ℏω',''],
+  ]);
+  setRC('rc3','POYNTING VECTOR',[
+    ['S(z=0,t)',(E0*E0*Math.sin(w*t)**2).toFixed(5),'y'],
+    ['⟨S⟩ = E₀²/2',I.toFixed(5),'g'],
+    ['Momentum dens. ⟨S⟩/c²',I.toFixed(4)+' (c=1)',''],
+    ['Rad. pressure','⟨S⟩/c',''],
+  ]);
+  document.getElementById('swl').textContent=P.lam.toFixed(1)+' u';
+  document.getElementById('sfreq').textContent=P.freq.toFixed(2)+' Hz';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB: REFLECTION
+// Three parallel tracks (Y offset): incident, reflected, total+transmitted
+// Interface at z = 0
+// ═══════════════════════════════════════════════════════════════════════
+const RF_L=7; // half-length each side
+const RF_N=200;
+
+function initReflection(){
+  clrScene(); tabS={};
+  camera.position.set(4,5,16); camera.lookAt(0,0,0); controls.reset();
+  add(mkGrid(20,20));
+  // Interface plane at z=0
+  add(mkPlane(8,3,COL.ifacePl,.1, Math.PI/2,0,0, 0,0,0));
+  add(mkStaticLine([new THREE.Vector3(0,-2,0),new THREE.Vector3(0,2,0)],COL.iface,.95));
+  add(mkStaticLine([new THREE.Vector3(-RF_L,-0.02,0),new THREE.Vector3(RF_L,-0.02,0)],COL.iface,.5));
+  // Track guide lines
+  add(mkStaticLine([new THREE.Vector3(-RF_L,1.5,0),new THREE.Vector3(0,1.5,0)],COL.inc,COL.guideOp));
+  add(mkStaticLine([new THREE.Vector3(-RF_L,-1.5,0),new THREE.Vector3(0,-1.5,0)],COL.ref,COL.guideOp));
+  add(mkStaticLine([new THREE.Vector3(-RF_L,0,0),new THREE.Vector3(RF_L,0,0)],COL.tot,.12));
+  // z-axis arrow
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-RF_L-1),RF_L*2+2,COL.kax,.4,.22));
+  // Medium label planes
+  add(mkPlane(RF_L,1.5,COL.med1,.35, Math.PI/2,0,0, -RF_L/2,0,0)); // medium 1
+  add(mkPlane(RF_L,1.5,COL.med2,.6, Math.PI/2,0,0,  RF_L/2,0,0)); // medium 2
+  // Dynamic lines: incident, reflected, total (med1) + transmitted (med2)
+  tabS.iL=add(mkDynLine(RF_N,COL.inc));
+  tabS.rL=add(mkDynLine(RF_N,COL.ref));
+  tabS.tL=add(mkDynLine(RF_N,COL.tot,.9));
+  tabS.xL=add(mkDynLine(RF_N,COL.trn));
+  // Arrow pools
+  tabS.iA=add(mkAPool(16,COL.inc));
+  tabS.rA=add(mkAPool(16,COL.ref));
+  tabS.tA=add(mkAPool(16,COL.tot));
+  tabS.xA=add(mkAPool(16,COL.trn));
+  setLegend(`
+    <div class="li"><div class="lbar" style="background:${hx(COL.inc)}"></div>Incident  (y=+1.5, z&lt;0)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.ref)}"></div>Reflected (y=−1.5, z&lt;0)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.tot)}"></div>Total field  (y=0, z&lt;0)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.trn)}"></div>Transmitted (y=0, z&gt;0)</div>
+  `);
+  document.getElementById('angbox').style.display='none';
+}
+
+function animReflection(t){
+  const n1=P.n1,n2=P.n2,ti=P.thetaI;
+  const ti_r=ti*Math.PI/180;
+  const ci=Math.cos(ti_r),si_=Math.sin(ti_r);
+  const sT2=(n1/n2)*si_, isTIR=sT2>=1;
+  const ct=isTIR?0:Math.sqrt(Math.max(0,1-sT2*sT2));
+  const rs=(n1*ci-n2*ct)/(n1*ci+n2*ct+1e-12);
+  const ts=2*n1*ci/(n1*ci+n2*ct+1e-12);
+  const rp_=(n2*ci-n1*ct)/(n2*ci+n1*ct+1e-12);
+  const tp_=2*n1*ci/(n2*ci+n1*ct+1e-12);
+  const r=P.pSel==='s'?rs:rp_;
+  const tr=P.pSel==='s'?ts:tp_;
+  const k1=2*Math.PI/P.lam, w=2*Math.PI*P.freq;
+  const k2=k1*(n2/n1);
+  const A=P.amp;
+
+  // Incident wave: E = A*cos(k1*z - wt), track at y=1.5, z in [-RF_L, 0]
+  updLine(tabS.iL,(i,N)=>{
+    const z=-RF_L+(i/(N-1))*RF_L;
+    const v=A*Math.cos(k1*z-w*t);
+    return[v, 1.5, z];
+  });
+  // Reflected wave: E = r*A*cos(-k1*z - wt), track at y=-1.5, z in [-RF_L, 0]
+  updLine(tabS.rL,(i,N)=>{
+    const z=-RF_L+(i/(N-1))*RF_L;
+    const v=r*A*Math.cos(-k1*z-w*t);
+    return[v, -1.5, z];
+  });
+  // Total field in medium 1 (incident + reflected), y=0, z in [-RF_L, 0]
+  updLine(tabS.tL,(i,N)=>{
+    const z=-RF_L+(i/(N-1))*RF_L;
+    const v=A*Math.cos(k1*z-w*t) + r*A*Math.cos(-k1*z-w*t);
+    return[v, 0, z];
+  });
+  // Transmitted wave in medium 2, y=0, z in [0, RF_L]
+  updLine(tabS.xL,(i,N)=>{
+    const z=(i/(N-1))*RF_L;
+    const v=isTIR?0:tr*A*Math.cos(k2*z-w*t);
+    return[v, 0, z];
+  });
+  // Arrows
+  const Na=12;
+  for(let i=0;i<Na;i++){
+    const z=-RF_L+(i/(Na-1))*RF_L;
+    const vi=A*Math.cos(k1*z-w*t);
+    setA(tabS.iA,i,0,1.5,z, vi>=0?1:-1,0,0,Math.abs(vi));
+    const vr=r*A*Math.cos(-k1*z-w*t);
+    setA(tabS.rA,i,0,-1.5,z, vr>=0?1:-1,0,0,Math.abs(vr));
+    const vt=vi+vr;
+    setA(tabS.tA,i,0,0,z, vt>=0?1:-1,0,0,Math.abs(vt));
+  }
+  for(let i=0;i<Na;i++){
+    const z=(i/(Na-1))*RF_L;
+    const vx=isTIR?0:tr*A*Math.cos(k2*z-w*t);
+    setA(tabS.xA,i,0,0,z, vx>=0?1:-1,0,0,Math.abs(vx));
+  }
+  // angbox
+  document.getElementById('angbox').style.display='block';
+  document.getElementById('angbox').innerHTML=
+    `θᵢ = ${ti}° &nbsp;|&nbsp; n₁=${n1} → n₂=${n2}` +
+    (isTIR?'&nbsp;&nbsp;<span style="color:var(--yel)">⚡ TIR</span>':'');
+  // Results
+  const Rs=rs*rs,Rp=rp_*rp_,R=r*r,T=1-R;
+  const tB=Math.atan(n2/n1)*180/Math.PI;
+  const tC=n1>n2?Math.asin(n2/n1)*180/Math.PI:null;
+  setRC('rc1','FRESNEL (AMPL.)',[
+    ['rₛ',rs.toFixed(5),''],['rₚ',rp_.toFixed(5),''],
+    ['tₛ',isTIR?'0':ts.toFixed(5),''],['tₚ',isTIR?'0':tp_.toFixed(5),''],
+    ['r (sel)',r.toFixed(5),'y'],['t (sel)',isTIR?'0':tr.toFixed(5),'y'],
+  ]);
+  setRC('rc2','REFLECTANCE',[
+    ['Rₛ',Rs.toFixed(5),''],['Rₚ',Rp.toFixed(5),''],
+    ['R (sel)',(R).toFixed(5),'y'],['T (sel)',isTIR?'0':T.toFixed(5),'g'],
+    ['TIR?',isTIR?'YES ⚡':'NO',isTIR?'r':''],
+    ['Phase shift (rs)',rs<0?'π (180°)':'0°','c'],
+  ]);
+  setRC('rc3','SPECIAL ANGLES',[
+    ['θ Brewster',tB.toFixed(2)+'°','c'],
+    ['θ critical',tC?tC.toFixed(2)+'°':'N/A (n₁<n₂)',''],
+    ['At Brewster','rₚ = 0','c'],
+    ['n₂/n₁',(n2/n1).toFixed(4),''],
+    ['Standing wave?',Math.abs(r)>.9?'YES (≈TIR)':'PARTIAL',''],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB: REFRACTION
+// N_RAYS parallel rays in XY-plane. Interface at y=0. E oscillates in Z.
+// ═══════════════════════════════════════════════════════════════════════
+const N_RAYS=7, RAY_SPACZ=1.6, RAY_LEN=6;
+const REF_N=120, WF_N=14;
+
+function initRefraction(){
+  clrScene(); tabS={};
+  camera.position.set(2,12,10); camera.lookAt(1,0,0); controls.reset();
+  add(mkGrid(16,16));
+  // Interface at y=0 (xz-plane)
+  add(mkPlane(14,12,COL.ifacePl,.09, 0,0,0, 0,0,0));
+  add(mkStaticLine([new THREE.Vector3(-7,0,0),new THREE.Vector3(7,0,0)],COL.iface,.95));
+  // Medium color planes
+  add(mkPlane(14,7,COL.med1,.4, 0,0,0, 0, 3.5,0)); // medium 1 upper
+  add(mkPlane(14,7,COL.med2,.65, 0,0,0, 0,-3.5,0)); // medium 2 lower
+
+  tabS.iRays=[]; tabS.rRays=[]; tabS.tRays=[];
+  tabS.iArrs=[]; tabS.rArrs=[]; tabS.tArrs=[];
+  for(let j=0;j<N_RAYS;j++){
+    tabS.iRays.push(add(mkDynLine(REF_N,COL.inc,.95)));
+    tabS.rRays.push(add(mkDynLine(REF_N,COL.ref,.85)));
+    tabS.tRays.push(add(mkDynLine(REF_N,COL.trn,.95)));
+    tabS.iArrs.push(add(mkAPool(8,COL.inc)));
+    tabS.rArrs.push(add(mkAPool(8,COL.ref)));
+    tabS.tArrs.push(add(mkAPool(8,COL.trn)));
+  }
+  // Wavefront lines
+  tabS.iWF=[]; tabS.rWF=[]; tabS.tWF=[];
+  for(let i=0;i<WF_N;i++){
+    tabS.iWF.push(add(mkDynLine(2,COL.inc,.5)));
+    tabS.rWF.push(add(mkDynLine(2,COL.ref,.45)));
+    tabS.tWF.push(add(mkDynLine(2,COL.trn,.5)));
+  }
+  setLegend(`
+    <div class="li"><div class="lbar" style="background:${hx(COL.inc)}"></div>Incident rays (E in Z)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.ref)}"></div>Reflected rays</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.trn)}"></div>Refracted (transmitted)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.iface)};opacity:.5"></div>Wavefronts (equal phase)</div>
+  `);
+}
+
+function animRefraction(t){
+  const ti=P.thetaI*Math.PI/180;
+  const n1=P.n1,n2=P.n2;
+  const sT2=(n1/n2)*Math.sin(ti), isTIR=sT2>=1;
+  const tt=isTIR?Math.PI/2:Math.asin(Math.min(sT2,1));
+  const ci=Math.cos(ti),ct=Math.cos(tt);
+  const rs=(n1*ci-n2*ct)/(n1*ci+n2*ct+1e-12);
+  const ts_=2*n1*ci/(n1*ci+n2*ct+1e-12);
+  const k1=2*Math.PI/P.lam, k2=k1*(n2/n1), w=2*Math.PI*P.freq;
+  const A=P.amp;
+  // direction vectors
+  const dix=Math.sin(ti),diy=-Math.cos(ti);   // incident: rightward and downward
+  const drx=Math.sin(ti),dry= Math.cos(ti);   // reflected: rightward and upward
+  const dtx=Math.sin(tt),dty=-Math.cos(tt);   // transmitted
+
+  const x_start=-5, y_start=5;
+  const Linc=y_start/Math.max(Math.cos(ti),.05); // arc length from start to interface
+  const hit_x=x_start+Linc*dix;
+
+  for(let j=0;j<N_RAYS;j++){
+    const zj=(j-(N_RAYS-1)/2)*RAY_SPACZ;
+    // INCIDENT ray
+    updLine(tabS.iRays[j],(i,N)=>{
+      const u=(i/(N-1))*Linc;
+      const x=x_start+u*dix, y=y_start+u*diy;
+      const v=A*Math.cos(k1*(u-Linc)-w*t);
+      return[x,y, zj+v];
+    });
+    for(let ai=0;ai<8;ai++){
+      const u=(ai/7)*Linc;
+      const x=x_start+u*dix, y=y_start+u*diy;
+      const v=A*Math.cos(k1*(u-Linc)-w*t);
+      setA(tabS.iArrs[j],ai, x,y,zj, 0,0,v>=0?1:-1, Math.abs(v));
+    }
+    // REFLECTED ray
+    updLine(tabS.rRays[j],(i,N)=>{
+      const v=(i/(N-1))*RAY_LEN;
+      const x=hit_x+v*drx, y=v*dry;
+      const val=rs*A*Math.cos(k1*v-w*t);
+      return[x,y, zj+val];
+    });
+    for(let ai=0;ai<8;ai++){
+      const v=(ai/7)*RAY_LEN;
+      const x=hit_x+v*drx, y=v*dry;
+      const val=rs*A*Math.cos(k1*v-w*t);
+      setA(tabS.rArrs[j],ai, x,y,zj, 0,0,val>=0?1:-1, Math.abs(val));
+    }
+    // TRANSMITTED ray
+    if(!isTIR){
+      const tLen=RAY_LEN*1.1;
+      updLine(tabS.tRays[j],(i,N)=>{
+        const ww=(i/(N-1))*tLen;
+        const x=hit_x+ww*dtx, y=ww*dty;
+        const val=ts_*A*Math.cos(k2*ww-w*t);
+        return[x,y, zj+val];
+      });
+      for(let ai=0;ai<8;ai++){
+        const ww=(ai/7)*tLen;
+        const x=hit_x+ww*dtx, y=ww*dty;
+        const val=ts_*A*Math.cos(k2*ww-w*t);
+        setA(tabS.tArrs[j],ai, x,y,zj, 0,0,val>=0?1:-1, Math.abs(val));
+      }
+    } else {
+      updLine(tabS.tRays[j],()=>[hit_x,0,zj]);
+      hideAPool(tabS.tArrs[j]);
+    }
+  }
+
+  // WAVEFRONT LINES (connect equal-phase points across z-stack)
+  const zMin=(-(N_RAYS-1)/2)*RAY_SPACZ-RAY_SPACZ*.5;
+  const zMax=( (N_RAYS-1)/2)*RAY_SPACZ+RAY_SPACZ*.5;
+  for(let wi=0;wi<WF_N;wi++){
+    const n=wi-Math.floor(WF_N/2);
+    // Incident: phase k1*(u-Linc)-wt = 2πn → u = Linc + (2πn + wt)/k1
+    const u_wf=Linc+(2*Math.PI*n+w*t)/k1;
+    const xi=x_start+u_wf*dix, yi=y_start+u_wf*diy;
+    if(yi>0 && yi<y_start+.5 && xi>-8 && xi<8){
+      updLine(tabS.iWF[wi],(i,N)=>i===0?[xi,yi,zMin]:[xi,yi,zMax]);
+    } else {
+      updLine(tabS.iWF[wi],()=>[0,y_start+1,0]);
+    }
+    // Reflected wavefronts
+    const v_wf=(2*Math.PI*n+w*t)/k1;
+    const xr=hit_x+v_wf*drx, yr=v_wf*dry;
+    if(v_wf>0 && yr<y_start && yr>0 && xr>-8 && xr<8){
+      updLine(tabS.rWF[wi],(i,N)=>i===0?[xr,yr,zMin]:[xr,yr,zMax]);
+    } else {
+      updLine(tabS.rWF[wi],()=>[0,y_start+1,0]);
+    }
+    // Transmitted wavefronts
+    if(!isTIR){
+      const w_wf=(2*Math.PI*n+w*t)/k2;
+      const xt=hit_x+w_wf*dtx, yt=w_wf*dty;
+      if(w_wf>0 && yt<0 && yt>-y_start && xt>-8 && xt<8){
+        updLine(tabS.tWF[wi],(i,N)=>i===0?[xt,yt,zMin]:[xt,yt,zMax]);
+      } else {
+        updLine(tabS.tWF[wi],()=>[0,-1,0]);
+      }
+    } else {
+      updLine(tabS.tWF[wi],()=>[0,-1,0]);
+    }
+  }
+
+  // Angle display
+  document.getElementById('angbox').style.display='block';
+  const tt_deg=isTIR?'TIR':(tt*180/Math.PI).toFixed(1)+'°';
+  document.getElementById('angbox').innerHTML=
+    `θᵢ=${P.thetaI}° &nbsp;|&nbsp; θₜ=${tt_deg} &nbsp;|&nbsp; n₁=${n1} → n₂=${n2}`+
+    (isTIR?'&nbsp;<span style="color:var(--yel)">⚡ TIR</span>':'');
+  // Results
+  const tC=n1>n2?Math.asin(n2/n1)*180/Math.PI:null;
+  const tB=Math.atan(n2/n1)*180/Math.PI;
+  setRC('rc1',"SNELL'S LAW",[
+    ['n₁',n1.toFixed(3),'c'],['n₂',n2.toFixed(3),'c'],
+    ['θᵢ',P.thetaI.toFixed(1)+'°','y'],
+    ['θₜ',isTIR?'TIR ⚡':(tt*180/Math.PI).toFixed(2)+'°',isTIR?'r':'g'],
+    ['n₁sinθᵢ',(n1*Math.sin(ti)).toFixed(4),''],
+    ['n₂sinθₜ',isTIR?'> n₁sinθᵢ':(n2*Math.sin(tt)).toFixed(4),''],
+  ]);
+  setRC('rc2','VELOCITIES',[
+    ['v₁ = c/n₁','c/'+n1.toFixed(2),''],
+    ['v₂ = c/n₂','c/'+n2.toFixed(2),''],
+    ['λ₂ = λ₁·n₁/n₂',(P.lam*n1/n2).toFixed(3)+' u','g'],
+    ['θ_critical',tC?tC.toFixed(2)+'°':'n₁<n₂',''],
+    ['θ_Brewster',tB.toFixed(2)+'°','c'],
+    ['TIR active?',isTIR?'YES ⚡':'NO',isTIR?'r':''],
+  ]);
+  setRC('rc3','FRESNEL',[
+    ['rₛ (s-pol)',rs.toFixed(4),''],
+    ['Rₛ',(rs*rs).toFixed(4),'y'],
+    ['tₛ',isTIR?'0':ts_.toFixed(4),''],
+    ['Tₛ',isTIR?'0':(1-rs*rs).toFixed(4),'g'],
+    ['Wavefront bend','θ changes at n₁→n₂','c'],
+    ['Phase vel. ratio v₂/v₁',(n1/n2).toFixed(4),''],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB: INTERFERENCE
+// 3 animated sinusoidal tracks at y = +2, 0, -2
+// ═══════════════════════════════════════════════════════════════════════
+const INT_N=300;
+function initInterference(){
+  clrScene(); tabS={};
+  camera.position.set(9,5,14); camera.lookAt(0,0,0); controls.reset();
+  add(mkGrid(20,20));
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,2,-7),14,COL.kax,.3,.2));
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,-2,-7),14,COL.kax,.3,.2));
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-7),14,COL.kax,.3,.2));
+  // Guide lines
+  add(mkStaticLine([new THREE.Vector3(0,2,-7),new THREE.Vector3(0,2,7)],COL.w1,COL.guideOp));
+  add(mkStaticLine([new THREE.Vector3(0,-2,-7),new THREE.Vector3(0,-2,7)],COL.w2,COL.guideOp));
+  add(mkStaticLine([new THREE.Vector3(0,0,-7),new THREE.Vector3(0,0,7)],COL.wr,COL.guideOp));
+  // Dynamic curves
+  tabS.w1=add(mkDynLine(INT_N,COL.w1));
+  tabS.w2=add(mkDynLine(INT_N,COL.w2));
+  tabS.wr=add(mkDynLine(INT_N,COL.wr));
+  // Arrows
+  tabS.a1=add(mkAPool(20,COL.w1));
+  tabS.a2=add(mkAPool(20,COL.w2));
+  tabS.ar=add(mkAPool(20,COL.wr));
+  setLegend(`
+    <div class="li"><div class="lbar" style="background:${hx(COL.w1)}"></div>Wave 1 (orange, y=+2)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.w2)}"></div>Wave 2 (blue, y=−2)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.wr)}"></div>Resultant E₁+E₂ (y=0)</div>
+  `);
+  document.getElementById('angbox').style.display='none';
+}
+function animInterference(t){
+  const k=2*Math.PI/P.lam;
+  const w1=2*Math.PI*P.f1, w2=2*Math.PI*P.f2;
+  const A1=P.a1, A2=P.a2, dp=P.dPhi;
+  updLine(tabS.w1,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    const v=A1*Math.sin(k*z-w1*t);
+    return[v,2,z];
+  });
+  updLine(tabS.w2,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    const v=A2*Math.sin(k*z-w2*t+dp);
+    return[v,-2,z];
+  });
+  updLine(tabS.wr,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    const v=A1*Math.sin(k*z-w1*t)+A2*Math.sin(k*z-w2*t+dp);
+    return[v,0,z];
+  });
+  const Na=18;
+  for(let i=0;i<Na;i++){
+    const z=-ZR/2+(i/(Na-1))*ZR;
+    const v1=A1*Math.sin(k*z-w1*t);
+    const v2=A2*Math.sin(k*z-w2*t+dp);
+    const vr=v1+v2;
+    setA(tabS.a1,i,0,2,z,v1>=0?1:-1,0,0,Math.abs(v1));
+    setA(tabS.a2,i,0,-2,z,v2>=0?1:-1,0,0,Math.abs(v2));
+    setA(tabS.ar,i,0,0,z,vr>=0?1:-1,0,0,Math.abs(vr));
+  }
+  hideAPool(tabS.a1,Na); hideAPool(tabS.a2,Na); hideAPool(tabS.ar,Na);
+  // Results
+  const E1now=A1*Math.sin(-w1*t), E2now=A2*Math.sin(-w2*t+dp);
+  const Er=E1now+E2now;
+  const Amax=Math.sqrt(A1**2+A2**2+2*A1*A2*Math.cos(dp));
+  const vis=A1+A2>0?2*A1*A2/(A1**2+A2**2):0;
+  const beat=Math.abs(P.f1-P.f2);
+  const isCon=Math.abs(dp%(2*Math.PI))<.15||Math.abs(dp%(2*Math.PI)-2*Math.PI)<.15;
+  const isDes=Math.abs(dp%(2*Math.PI)-Math.PI)<.2;
+  setRC('rc1','WAVE PARAMS',[
+    ['A₁',A1.toFixed(3),''],['A₂',A2.toFixed(3),''],
+    ['f₁',P.f1.toFixed(2)+' Hz',''],['f₂',P.f2.toFixed(2)+' Hz',''],
+    ['Δφ',dp.toFixed(3)+' rad','y'],
+    ['Δφ/π',(dp/Math.PI).toFixed(3)+'π','c'],
+  ]);
+  setRC('rc2','INTERFERENCE',[
+    ['|A_res| (peak)',Amax.toFixed(4),'y'],
+    ['E₁(z=0)',E1now.toFixed(4),''],
+    ['E₂(z=0)',E2now.toFixed(4),''],
+    ['E_res(z=0)',Er.toFixed(4),'g'],
+    ['Type',isCon?'CONSTRUCTIVE ✓':isDes?'DESTRUCTIVE ✗':'PARTIAL',isCon?'g':isDes?'r':'y'],
+    ['Visibility V',vis.toFixed(4),'c'],
+  ]);
+  setRC('rc3','BEAT / ENERGY',[
+    ['|f₁−f₂|',beat.toFixed(3)+' Hz','y'],
+    ['Beat period',beat>0.001?(1/beat).toFixed(3)+' s':'∞',''],
+    ['I_max',((A1+A2)**2*.5).toFixed(3),'g'],
+    ['I_min',((Math.abs(A1-A2))**2*.5).toFixed(3),''],
+    ['⟨I_res⟩',(.5*(A1**2+A2**2)).toFixed(3),'c'],
+    ['Coherence',Math.abs(P.f1-P.f2)<.05?'HIGH':'LOW',''],
+  ]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB: POLARIZATION
+// Linear: sinusoid in tilted plane  |  Circular: 3D helix
+// ═══════════════════════════════════════════════════════════════════════
+const POL_N=400, POL_NA=30;
+let polCanvas2d, pol2dCtx;
+function removePolInset(){
+  document.querySelectorAll('.cbox canvas.pol2d').forEach(c=>c.remove());
+  polCanvas2d=null; pol2dCtx=null;
+}
+function initPolarization(){
+  clrScene(); tabS={};
+  camera.position.set(12,4,9); camera.lookAt(0,0,0); controls.reset();
+  add(mkGrid(20,20));
+  // Z axis (propagation)
+  add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1),new THREE.Vector3(0,0,-9),18,COL.kax,.45,.25));
+  // XY cross at z=0
+  add(mkStaticLine([new THREE.Vector3(-2.2,0,0),new THREE.Vector3(2.2,0,0)],COL.axX,.6));
+  add(mkStaticLine([new THREE.Vector3(0,-2.2,0),new THREE.Vector3(0,2.2,0)],COL.axY,.6));
+  // Main E-field curve
+  tabS.eL=add(mkDynLine(POL_N,COL.E));
+  // Trail
+  tabS.trail=add(mkDynLine(60,COL.trail,.8));
+  // Arrows
+  tabS.eA=add(mkAPool(POL_NA,COL.E));
+  // 2D inset canvas (remove any previous one first)
+  removePolInset();
+  polCanvas2d=document.createElement('canvas');
+  polCanvas2d.className='pol2d';
+  polCanvas2d.width=130; polCanvas2d.height=130;
+  document.querySelector('.cbox').appendChild(polCanvas2d);
+  pol2dCtx=polCanvas2d.getContext('2d');
+  setLegend(`
+    <div class="li"><div class="lbar" style="background:${hx(COL.E)}"></div>E-field curve (space)</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.trail)}"></div>E-tip trace at z=0</div>
+    <div class="li"><div class="lbar" style="background:${hx(COL.kax)}"></div>k-direction (z-axis)</div>
+  `);
+  document.getElementById('angbox').style.display='none';
+}
+function animPolarization(t){
+  const k=2*Math.PI/P.lam, w=2*Math.PI*P.freq, A=P.amp;
+  const phi=P.polAng*Math.PI/180;
+  const isLin=P.polMode==='linear';
+  // Main curve
+  updLine(tabS.eL,(i,N)=>{
+    const z=-ZR/2+(i/(N-1))*ZR;
+    let ex,ey;
+    if(isLin){ const v=A*Math.sin(k*z-w*t); ex=v*Math.cos(phi); ey=v*Math.sin(phi); }
+    else { ex=A*Math.cos(k*z-w*t); ey=P.chi*A*Math.sin(k*z-w*t); }
+    return[ex,ey,z];
+  });
+  // Arrows
+  const Na=POL_NA;
+  for(let i=0;i<Na;i++){
+    const z=-ZR/2+(i/(Na-1))*ZR;
+    let ex,ey;
+    if(isLin){ const v=A*Math.sin(k*z-w*t); ex=v*Math.cos(phi); ey=v*Math.sin(phi); }
+    else { ex=A*Math.cos(k*z-w*t); ey=P.chi*A*Math.sin(k*z-w*t); }
+    const len=Math.sqrt(ex*ex+ey*ey);
+    if(len>0.03){
+      const c=new THREE.Color().setHSL(((Math.atan2(ey,ex)+Math.PI)/(2*Math.PI)),1,COL.hsl);
+      tabS.eA.children[i].setColor&&tabS.eA.children[i].setColor(c);
+    }
+    setA(tabS.eA,i,0,0,z, ex,ey,0,len);
+  }
+  hideAPool(tabS.eA,Na);
+  // Trail at z=0
+  updLine(tabS.trail,(i,N)=>{
+    const tau=t-i*.03;
+    let ex,ey;
+    if(isLin){ const v=A*Math.sin(-w*tau); ex=v*Math.cos(phi); ey=v*Math.sin(phi); }
+    else { ex=A*Math.cos(-w*tau); ey=P.chi*A*Math.sin(-w*tau); }
+    return[ex,ey,0];
+  });
+  // 2D inset
+  draw2DPol(t);
+  // Results
+  let ex,ey;
+  if(isLin){ const v=A*Math.sin(-w*t); ex=v*Math.cos(phi); ey=v*Math.sin(phi); }
+  else { ex=A*Math.cos(-w*t); ey=P.chi*A*Math.sin(-w*t); }
+  const E=Math.sqrt(ex*ex+ey*ey);
+  const S0=A**2, S1=isLin?S0*Math.cos(2*phi):0;
+  const S2=isLin?S0*Math.sin(2*phi):0, S3=isLin?0:P.chi*S0;
+  setRC('rc1','E-FIELD STATE',[
+    ['|E|(t)',E.toFixed(5),'y'],
+    ['Eₓ(t)',ex.toFixed(5),''],
+    ['Eᵧ(t)',ey.toFixed(5),''],
+    ['Mode',P.polMode.toUpperCase(),'c'],
+    ['φ (linear)',isLin?phi.toFixed(3)+' rad':'N/A',''],
+    ['Chirality',!isLin?(P.chi===1?'RHCP':'LHCP'):'N/A',''],
+  ]);
+  setRC('rc2','STOKES PARAMS',[
+    ['S₀ (intensity)',S0.toFixed(4),'c'],
+    ['S₁',S1.toFixed(4),''],
+    ['S₂',S2.toFixed(4),''],
+    ['S₃ (circular)',S3.toFixed(4),'y'],
+    ['DoP = √(S₁²+S₂²+S₃²)/S₀','1.00','g'],
+  ]);
+  setRC('rc3','JONES VECTOR',[
+    ['Jₓ',isLin?Math.cos(phi).toFixed(4):'E₀',''],
+    ['Jᵧ',isLin?Math.sin(phi).toFixed(4):'E₀',''],
+    ['δ (phase diff)',isLin?'0':(P.chi===1?'+π/2':'-π/2'),'y'],
+    ['Ellipticity χ',isLin?'0°':'±45°',''],
+    ['Poincaré',isLin?'equator':(P.chi>0?'N pole':'S pole'),'c'],
+  ]);
+}
+function draw2DPol(t){
+  if(!pol2dCtx) return;
+  const cv=polCanvas2d, cx=cv.width/2, cy=cv.height/2, r=45;
+  const ctx=pol2dCtx;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle=COL.pGrid; ctx.lineWidth=.6;
+  ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(cv.width,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,cv.height); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+  // Same phase convention as the 3D curve at z=0: linear → sin(−ωt), circular → cos/sin(−ωt)
+  const w=2*Math.PI*P.freq, A=P.amp, phi=P.polAng*Math.PI/180;
+  const fld=tau=>{
+    if(P.polMode==='linear'){ const v=A*Math.sin(-w*tau); return[v*Math.cos(phi),v*Math.sin(phi)]; }
+    return[A*Math.cos(-w*tau),P.chi*A*Math.sin(-w*tau)];
+  };
+  const sc=r/Math.max(A,.01);
+  // Trail
+  ctx.beginPath(); ctx.strokeStyle=COL.pTrail; ctx.lineWidth=1.6;
+  const NP=80;
+  for(let i=0;i<=NP;i++){
+    const [ex,ey]=fld(t-i*.025);
+    const px=cx+ex*sc, py=cy-ey*sc;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+  // Current dot
+  const [ex,ey]=fld(t);
+  ctx.fillStyle=COL.pDot; ctx.shadowColor=COL.pDot; ctx.shadowBlur=6;
+  ctx.beginPath(); ctx.arc(cx+ex*sc,cy-ey*sc,3.5,0,Math.PI*2); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle=COL.pTxt; ctx.font='10.5px Share Tech Mono';
+  ctx.fillText('E-FIELD XY  z=0',4,13);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RESULTS & CONTROLS
+// ═══════════════════════════════════════════════════════════════════════
+function setRC(id,title,rows){
+  let c=document.getElementById(id);
+  if(!c){c=document.createElement('div');c.className='rcard';c.id=id;document.getElementById('rpanel').appendChild(c);}
+  c.innerHTML=`<div class="rtitle">${title}</div>`;
+  rows.forEach(([n,v,cls])=>{
+    const r=document.createElement('div'); r.className='rrow';
+    r.innerHTML=`<span class="rn">${n}</span><span class="rv ${cls||''}">${v}</span>`;
+    c.appendChild(r);
+  });
+}
+function setLegend(h){document.getElementById('lgnd').innerHTML=h}
+
+function buildControls(){
+  const p=document.getElementById('cpanel'); p.innerHTML='';
+  const tab=currentTab;
+  function sec(title,...rows){ const s=document.createElement('div'); s.className='csec'; s.innerHTML=`<div class="ctitle">${title}</div>`; rows.forEach(r=>s.appendChild(r)); p.appendChild(s); }
+  function sl(lbl,key,min,max,step,unit=''){
+    const d=document.createElement('div'); d.className='crow';
+    const vid=`v_${key}`;
+    d.innerHTML=`<div class="clbl">${lbl}<span class="cval" id="${vid}">${P[key]}${unit}</span></div>`;
+    const i=document.createElement('input'); i.type='range'; i.min=min; i.max=max; i.step=step; i.value=P[key];
+    i.oninput=function(){
+      P[key]=parseFloat(this.value); const el=document.getElementById(vid); if(el) el.textContent=P[key]+unit;
+      onPC(key);
+    };
+    d.appendChild(i); return d;
+  }
+  function rb(lbl,key,opts){
+    const d=document.createElement('div'); d.className='crow';
+    d.innerHTML=`<div class="clbl">${lbl}</div>`;
+    const g=document.createElement('div'); g.className='radios';
+    opts.forEach(([l,v])=>{
+      const b=document.createElement('div'); b.className='rbtn'+(P[key]===v?' on':'');
+      b.textContent=l;
+      b.onclick=function(){P[key]=v;g.querySelectorAll('.rbtn').forEach(x=>x.className='rbtn');this.className='rbtn on';onPC(key);};
+      g.appendChild(b);
+    });
+    d.appendChild(g); return d;
+  }
+  if(tab==='wave'){
+    sec('WAVE',sl('Amplitude E₀','amp',.1,2,.05,' a.u.'),sl('Frequency f','freq',.2,4,.1,' Hz'),sl('Wavelength λ','lam',1.5,12,.25,' u'));
+    sec('POLARIZATION',sl('Angle φ','polAng',0,180,1,'°'));
+  }
+  if(tab==='reflection'){
+    sec('MEDIA',sl('n₁','n1',1,3,.05),sl('n₂','n2',1,3,.05));
+    sec('INCIDENT',sl('Angle θᵢ','thetaI',0,89,1,'°'),rb('Polarisation','pSel',[['S-POL','s'],['P-POL','p']]));
+    sec('WAVE',sl('Amplitude','amp',.1,2,.05),sl('Wavelength λ','lam',1.5,12,.25,' u'),sl('Frequency f','freq',.2,4,.1,' Hz'));
+  }
+  if(tab==='refraction'){
+    sec('MEDIA',sl('n₁ (upper)','n1',1,3,.05),sl('n₂ (lower)','n2',1,3,.05));
+    sec('GEOMETRY',sl('Angle θᵢ','thetaI',0,70,1,'°'));
+    sec('WAVE',sl('Amplitude','amp',.1,2,.05,' a.u.'),sl('Wavelength λ','lam',1.5,12,.25,' u'),sl('Frequency f','freq',.2,4,.1,' Hz'));
+  }
+  if(tab==='interference'){
+    sec('WAVE 1',sl('Amplitude A₁','a1',0,2,.05),sl('Frequency f₁','f1',.2,4,.1,' Hz'));
+    sec('WAVE 2',sl('Amplitude A₂','a2',0,2,.05),sl('Frequency f₂','f2',.2,4,.1,' Hz'),sl('Phase Δφ','dPhi',0,6.28,.05,' rad'));
+    sec('COMMON',sl('Wavelength λ','lam',1.5,12,.25,' u'));
+  }
+  if(tab==='polarization'){
+    sec('WAVE',sl('Amplitude','amp',.1,2,.05,' a.u.'),sl('Frequency f','freq',.2,4,.1,' Hz'),sl('Wavelength λ','lam',1.5,12,.25,' u'));
+    sec('STATE',rb('Mode','polMode',[['LINEAR','linear'],['CIRCULAR','circular']]),sl('Linear angle φ','polAng',0,180,1,'°'),rb('Chirality','chi',[['RHCP',1],['LHCP',-1]]));
+  }
+}
+
+function onPC(key){
+  // Reinit if structural change
+  if(['polMode','chi'].includes(key)) initScene(currentTab);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════════
+const MODES={wave:'WAVE PROPAGATION',reflection:'REFLECTION — FRESNEL',refraction:'REFRACTION — SNELL',interference:'WAVE INTERFERENCE',polarization:'POLARIZATION STATES'};
+function setTab(name,el){
+  currentTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  const isContent=name==='physics'||name==='applications';
+  document.getElementById('viz3d').style.display=isContent?'none':'flex';
+  document.getElementById('physicsTab').className='ctab'+(name==='physics'?' show':'');
+  document.getElementById('appTab').className='ctab'+(name==='applications'?' show':'');
+  removePolInset();
+  document.getElementById('lgnd').innerHTML='';
+  document.getElementById('angbox').style.display='none';
+  if(!isContent){
+    document.getElementById('smode').textContent=MODES[name]||name.toUpperCase();
+    document.getElementById('rpanel').innerHTML='';
+    buildControls();
+    initScene(name);
+    setTimeout(resize,50);
+  }
+}
+function initScene(name){
+  if(name==='wave') initWave();
+  else if(name==='reflection') initReflection();
+  else if(name==='refraction') initRefraction();
+  else if(name==='interference') initInterference();
+  else if(name==='polarization') initPolarization();
+}
+function animateTab(t){
+  if(currentTab==='wave') animWave(t);
+  else if(currentTab==='reflection') animReflection(t);
+  else if(currentTab==='refraction') animRefraction(t);
+  else if(currentTab==='interference') animInterference(t);
+  else if(currentTab==='polarization') animPolarization(t);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PLAY / PAUSE
+// ═══════════════════════════════════════════════════════════════════════
+function togglePlay(){
+  isPlaying=!isPlaying;
+  document.getElementById('playbtn').textContent=isPlaying?'⏸ PAUSE':'▶ PLAY';
+  if(!isPlaying) clock.stop(); else clock.start();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════════════════════
+function loop(){
+  requestAnimationFrame(loop);
+  const dt=clock.getDelta();
+  if(isPlaying) totalTime+=Math.min(dt,.04);
+  document.getElementById('tdisp').textContent=totalTime.toFixed(3);
+  controls.update();
+  if(currentTab!=='physics'&&currentTab!=='applications') animateTab(totalTime);
+  renderer.render(scene,camera);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  initThree();
+  setTab('wave',document.querySelector('.tab'));
+  loop();
+});
+</script>
+</body>
+</html>

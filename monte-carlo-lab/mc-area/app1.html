@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monte Carlo vs Simpson's Area Estimation</title>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']]
+  },
+  chtml: { displayAlign: 'left' },
+  options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+};
+</script>
+<script id="MathJax-script" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+<style>
+:root {
+  --bg:#0d1117;--surface:#161b22;--surface-2:#21262d;--border:#30363d;
+  --text:#e6edf3;--text-2:#8b949e;--accent:#58a6ff;--acc-hover:#79b8ff;
+  --green:#3fb950;--red:#f85149;--purple:#bc8cff;--gold:#e3b341;
+  --orange:#ffa657;--teal:#39d353;--canvas-bg:#0a0e14;
+  --btn-bg:#21262d;--btn-hover:#30363d;--input-bg:#0d1117;
+  --shadow:rgba(0,0,0,.45);
+  --mono:'Cascadia Code','Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --r:7px;--rs:4px;
+  --simp-color:#f9826c;
+}
+[data-theme="light"] {
+  --bg:#f6f8fa;--surface:#ffffff;--surface-2:#f6f8fa;--border:#d0d7de;
+  --text:#24292f;--text-2:#57606a;--accent:#0969da;--acc-hover:#0550ae;
+  --green:#1a7f37;--red:#cf222e;--purple:#8250df;--gold:#9a6700;
+  --orange:#bc4c00;--canvas-bg:#eaf0fb;--btn-bg:#f6f8fa;--btn-hover:#eaeef2;
+  --input-bg:#ffffff;--shadow:rgba(31,35,40,.12);--simp-color:#e05d44;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;
+     line-height:1.5;min-height:100vh;transition:background .2s,color .2s}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:99;gap:12px;flex-wrap:wrap;
+}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo{color:var(--accent);flex-shrink:0}
+.hdr-title{font-size:1.05rem;font-weight:700;letter-spacing:-.02em}
+.hdr-sub{font-size:.72rem;color:var(--text-2)}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.status-pill{
+  display:flex;align-items:center;gap:5px;padding:3px 10px;
+  background:var(--surface-2);border:1px solid var(--border);
+  border-radius:20px;font-size:.7rem;color:var(--text-2);
+}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-2);
+            transition:background .3s;flex-shrink:0}
+.status-dot.running{background:var(--green);animation:pulse 1s infinite}
+.status-dot.paused{background:var(--gold)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.layout{display:grid;grid-template-columns:224px 1fr 290px;min-height:calc(100vh - 47px)}
+.panel{overflow-y:auto;padding:14px}
+.panel-left{background:var(--surface);border-right:1px solid var(--border)}
+.panel-center{background:var(--bg);display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px}
+.panel-right{background:var(--surface);border-left:1px solid var(--border)}
+
+.sec{margin-bottom:16px}
+.sec-title{
+  font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-2);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);
+}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  padding:5px 11px;border:1px solid var(--border);border-radius:var(--rs);
+  background:var(--btn-bg);color:var(--text);font-size:.78rem;font-weight:500;
+  cursor:pointer;transition:background .12s,border-color .12s,transform .05s;
+  white-space:nowrap;user-select:none;font-family:inherit;
+}
+.btn:hover{background:var(--btn-hover);border-color:var(--accent)}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn-primary:hover{background:var(--acc-hover);border-color:var(--acc-hover)}
+.btn-danger{color:var(--red);border-color:var(--red)}
+.btn-danger:hover{background:rgba(207,34,46,.1)}
+.btn-simp{color:var(--simp-color);border-color:var(--simp-color)}
+.btn-simp:hover{background:rgba(249,130,108,.1)}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.btn-full{width:100%}
+
+select{
+  width:100%;padding:5px 24px 5px 8px;background:var(--input-bg);
+  border:1px solid var(--border);border-radius:var(--rs);color:var(--text);
+  font-size:.78rem;cursor:pointer;appearance:none;font-family:inherit;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238b949e' d='M5 7L1 2h8z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+select:focus{outline:none;border-color:var(--accent)}
+input[type=text],input[type=number]{
+  width:100%;padding:5px 8px;background:var(--input-bg);
+  border:1px solid var(--border);border-radius:var(--rs);
+  color:var(--text);font-size:.78rem;font-family:var(--mono);
+}
+input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.ilab{font-size:.68rem;color:var(--text-2);margin-bottom:2px}
+
+.sg{margin-bottom:10px}
+.sg-head{display:flex;justify-content:space-between;align-items:center;
+         margin-bottom:4px;font-size:.73rem;color:var(--text-2)}
+.sv{font-family:var(--mono);font-size:.72rem;color:var(--accent);
+    background:var(--surface-2);padding:1px 5px;border-radius:3px}
+.sv-simp{color:var(--simp-color)!important}
+input[type=range]{width:100%;height:4px;appearance:none;
+  background:var(--surface-2);border-radius:2px;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;transition:transform .1s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.25)}
+input[type=range].simp-range::-webkit-slider-thumb{background:var(--simp-color)}
+
+.algo-steps{display:flex;flex-direction:column;gap:3px}
+.algo-step{
+  display:flex;gap:8px;align-items:flex-start;padding:5px 7px;
+  border-radius:var(--rs);border:1px solid transparent;transition:background .25s,border-color .25s;font-size:.72rem;
+}
+.algo-step.active{background:rgba(88,166,255,.07);border-color:rgba(88,166,255,.4)}
+.sn{
+  flex-shrink:0;width:17px;height:17px;border-radius:50%;
+  background:var(--surface-2);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.62rem;font-weight:700;color:var(--text-2);font-family:var(--mono);
+  transition:background .25s,border-color .25s,color .25s;
+}
+.algo-step.active .sn{background:var(--accent);border-color:var(--accent);color:#fff}
+.st{color:var(--text-2);line-height:1.4}
+.algo-step.active .st{color:var(--text)}
+
+.cv-header{display:flex;align-items:flex-start;justify-content:space-between;width:100%;max-width:480px}
+.cv-formula{font-family:var(--mono);font-size:.75rem;color:var(--gold);margin-bottom:1px}
+.cv-desc{font-size:.68rem;color:var(--text-2)}
+.cv-rate{font-size:.68rem;color:var(--text-2);text-align:right;font-family:var(--mono)}
+.canvas-wrap{
+  position:relative;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--border);background:var(--canvas-bg);
+  box-shadow:0 4px 20px var(--shadow);
+}
+canvas{display:block}
+.cv-caption{font-size:.68rem;color:var(--text-2);text-align:center;line-height:1.6}
+.plot-header{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:480px}
+.plot-legend{display:flex;gap:10px;font-size:.68rem;color:var(--text-2);flex-wrap:wrap}
+.lg-item{display:flex;align-items:center;gap:4px}
+.lg-line{width:18px;height:2px}
+
+/* Stats */
+.stats-grid{display:flex;flex-direction:column;gap:1px}
+.sr{display:flex;justify-content:space-between;align-items:center;
+    padding:5px 6px;border-radius:var(--rs)}
+.sr:nth-child(odd){background:var(--surface-2)}
+.sl{font-size:.73rem;color:var(--text-2);cursor:default}
+.sv2{font-family:var(--mono);font-size:.77rem;font-weight:600;color:var(--accent)}
+.sv2.ins{color:var(--green)}.sv2.out{color:var(--red)}
+.sv2.ext{color:var(--purple)}.sv2.err{color:var(--orange)}
+.sv2.simp{color:var(--simp-color)}
+.eff-bar{width:100%;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-top:4px}
+.eff-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:3px;transition:width .4s}
+
+/* Comparison table */
+.cmp-table{width:100%;border-collapse:collapse;font-size:.73rem;margin-top:4px}
+.cmp-table th{
+  font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--text-2);padding:5px 7px;border-bottom:1px solid var(--border);text-align:left;
+}
+.cmp-table td{padding:5px 7px;font-family:var(--mono);font-size:.72rem;border-bottom:1px solid var(--surface-2)}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table .method-mc{color:var(--accent)}
+.cmp-table .method-simp{color:var(--simp-color)}
+.cmp-table .method-exact{color:var(--purple)}
+.cmp-badge{
+  display:inline-flex;align-items:center;gap:4px;padding:1px 6px;
+  border-radius:3px;font-size:.65rem;font-weight:600;
+}
+.badge-mc{background:rgba(88,166,255,.12);color:var(--accent)}
+.badge-simp{background:rgba(249,130,108,.12);color:var(--simp-color)}
+.badge-exact{background:rgba(188,140,255,.12);color:var(--purple)}
+.win-badge{background:rgba(63,185,80,.15);color:var(--green);padding:1px 5px;
+           border-radius:3px;font-size:.65rem;font-weight:700}
+
+/* Simpson box */
+.simp-box{
+  background:rgba(249,130,108,.06);border:1px solid rgba(249,130,108,.25);
+  border-radius:var(--rs);padding:10px;margin-top:6px;
+}
+.simp-result{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:4px 0;font-size:.73rem;
+}
+.simp-lbl{color:var(--text-2)}
+.simp-val{font-family:var(--mono);color:var(--simp-color);font-weight:700;font-size:.8rem}
+
+/* Theory */
+.tblock{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--rs);padding:10px;margin-bottom:7px}
+.formula-box{
+  font-family:var(--mono);font-size:.75rem;color:var(--gold);
+  text-align:center;padding:8px;background:var(--canvas-bg);
+  border-radius:var(--rs);border:1px solid var(--border);margin-bottom:8px;line-height:2;
+}
+.formula-box.simp-formula{color:var(--simp-color)}
+.tt{font-size:.72rem;color:var(--text-2);line-height:1.6;margin-bottom:5px}
+.tt:last-child{margin-bottom:0}
+.tt strong{color:var(--text)}
+
+.cust-panel{display:none;flex-direction:column;gap:7px;margin-top:8px}
+.cust-panel.vis{display:flex}
+.draw-hint{
+  font-size:.68rem;color:var(--text-2);text-align:center;padding:8px;
+  background:var(--surface-2);border-radius:var(--rs);line-height:1.5;border:1px dashed var(--border);
+}
+#fnError{font-size:.69rem;color:var(--red);display:none;padding:3px 0}
+
+[data-tip]{position:relative}
+[data-tip]::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;
+  transform:translateX(-50%);background:var(--surface);color:var(--text);
+  border:1px solid var(--border);padding:4px 8px;border-radius:var(--rs);
+  font-size:.68rem;white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .15s;z-index:200;box-shadow:0 2px 8px var(--shadow);
+}
+[data-tip]:hover::after{opacity:1}
+
+.tab-bar{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:var(--r);padding:3px}
+.tab-btn{
+  padding:6px 14px;border:none;border-radius:var(--rs);background:transparent;
+  color:var(--text-2);font-size:.8rem;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:background .15s,color .15s;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{background:var(--accent);color:#fff}
+.tab-page{width:100%}
+.theory-wrap{max-width:1500px;margin:0 auto;padding:24px 32px 48px}
+.theory-title{font-size:1.7rem;font-weight:700;margin-bottom:6px}
+.theory-sub{font-size:1.05rem;color:var(--text-2);margin-bottom:22px}
+.theory-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.theory-grid .tblock{margin-bottom:0;padding:16px}
+.theory-grid .formula-box{font-size:1.05rem;padding:12px;line-height:2.1}
+.theory-grid .tt{font-size:1.05rem;line-height:1.8;margin-bottom:9px}
+.theory-grid .tblock>div[style*="font-weight:700"]{font-size:1.2rem!important;margin-bottom:10px!important}
+.theory-grid .formula-box mjx-container{color:inherit}
+.theory-grid .tt mjx-container{color:inherit}
+@media(max-width:980px){.theory-grid{grid-template-columns:1fr}}
+
+.theme-btn{
+  padding:4px 9px;background:var(--btn-bg);border:1px solid var(--border);
+  border-radius:var(--rs);cursor:pointer;font-size:.78rem;color:var(--text);
+  display:flex;align-items:center;gap:4px;transition:all .15s;font-family:inherit;
+}
+.theme-btn:hover{background:var(--btn-hover);border-color:var(--accent)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:1120px){.layout{grid-template-columns:200px 1fr 260px}}
+@media(max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .panel-left,.panel-right{border-right:none;border-left:none;border-bottom:1px solid var(--border)}
+  .panel-center{padding:10px}
+  .cv-header,.plot-header{max-width:100%}
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- HEADER -->
+<header>
+  <div class="hdr-left">
+    <svg class="hdr-logo" width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect x="2" y="2" width="24" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="8" cy="18" r="1.5" fill="var(--red)"/>
+      <circle cx="12" cy="10" r="1.5" fill="var(--green)"/>
+      <circle cx="17" cy="15" r="1.5" fill="var(--red)"/>
+      <circle cx="9" cy="13" r="1.5" fill="var(--green)"/>
+      <circle cx="19" cy="9"  r="1.5" fill="var(--green)"/>
+      <circle cx="14" cy="20" r="1.5" fill="var(--red)"/>
+      <path d="M5 14 Q14 4 23 14" stroke="var(--simp-color)" stroke-width="1.5" opacity=".6" fill="none"/>
+      <path d="M5 19 Q14 9 23 19" stroke="var(--accent)" stroke-width="1" opacity=".3" fill="none"/>
+    </svg>
+    <div>
+      <div class="hdr-title">Monte Carlo <span style="color:var(--text-2);font-weight:400"></span></div>
+      <div class="hdr-sub">Area estimation: random sampling ↔ numerical quadrature</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="status-pill">
+      <div class="status-dot" id="sDot"></div>
+      <span id="sTxt">Idle</span>
+    </div>
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" id="tabBtnSim" onclick="switchTab('simulator')">▶ Simulator</button>
+      <button class="tab-btn" id="tabBtnTheory" onclick="switchTab('theory')">Σ Theory</button>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">
+      <span id="thIcon">☀️</span><span id="thLbl">Light</span>
+    </button>
+  </div>
+</header>
+
+<div class="layout" id="tab-simulator">
+
+  <!-- LEFT PANEL -->
+  <aside class="panel panel-left">
+
+    <div class="sec">
+      <div class="sec-title">Shape</div>
+      <select id="shapeSelect" onchange="onShapeChange()">
+        <option value="circle">⬤ Circle</option>
+        <option value="ellipse">⭕ Ellipse</option>
+        <option value="heart">♥ Heart Curve</option>
+        <option value="custom_fn">𝑓 Custom Function</option>
+        <option value="custom_draw">✏ Draw Custom Shape</option>
+      </select>
+      <div class="cust-panel" id="cfPanel">
+        <div>
+          <div class="ilab">f(x) =</div>
+          <input type="text" id="fnInp" value="sin(x)" placeholder="e.g. sin(x), x^2, sqrt(1-x^2)">
+        </div>
+        <div class="row2">
+          <div><div class="ilab">x min</div><input type="number" id="xMin" value="0" step="0.1"></div>
+          <div><div class="ilab">x max</div><input type="number" id="xMax" value="3.14159" step="0.1"></div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="applyFn()">Apply Function</button>
+        <div id="fnError"></div>
+      </div>
+      <div class="cust-panel" id="cdPanel">
+        <div class="draw-hint" id="drawHint">Click canvas to add vertices.<br>Double-click or click near start ● to close.</div>
+        <div style="display:flex;gap:5px;margin-top:2px">
+          <button class="btn btn-full" onclick="beginDraw()">✏ Draw</button>
+          <button class="btn btn-danger btn-full" onclick="clearDraw()">✕ Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monte Carlo Controls -->
+    <div class="sec">
+      <div class="sec-title">Monte Carlo</div>
+      <div class="btn-grid">
+        <button class="btn btn-primary" onclick="startSim()" data-tip="Begin random sampling">▶ Start</button>
+        <button class="btn" onclick="pauseSim()" data-tip="Pause animation">⏸ Pause</button>
+        <button class="btn" onclick="stepSim()" data-tip="One batch of samples">⏭ Step</button>
+        <button class="btn btn-danger" onclick="resetSim()" data-tip="Clear all samples">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- MC Parameters -->
+    <div class="sec">
+      <div class="sec-title">MC Parameters</div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Points per animation frame">Samples / Frame</span>
+          <span class="sv" id="spfV">50</span>
+        </div>
+        <input type="range" id="spfS" min="1" max="500" value="50"
+          oninput="sim.spf=+this.value;document.getElementById('spfV').textContent=this.value">
+      </div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Target animation FPS">Speed (fps)</span>
+          <span class="sv" id="fpsV">60</span>
+        </div>
+        <input type="range" id="fpsS" min="1" max="120" value="60"
+          oninput="sim.interval=1000/this.value;document.getElementById('fpsV').textContent=this.value">
+      </div>
+    </div>
+
+    <!-- Simpson's Controls -->
+    <div class="sec">
+      <div class="sec-title" style="color:var(--simp-color)">Simpson's Rule</div>
+      <div class="sg">
+        <div class="sg-head">
+          <span data-tip="Number of subdivisions (must be even). More = more accurate.">Subdivisions (n)</span>
+          <span class="sv sv-simp" id="simpNV">200</span>
+        </div>
+        <input type="range" class="simp-range" id="simpNS" min="2" max="2000" step="2" value="200"
+          oninput="updateSimpN(+this.value)">
+      </div>
+      <button class="btn btn-simp btn-full" onclick="runSimpson(true)" data-tip="Compute area via Simpson's rule">∫ Calculate Simpson's</button>
+      <div class="simp-box" id="simpBox" style="margin-top:6px">
+        <div class="simp-result">
+          <span class="simp-lbl">Area estimate</span>
+          <span class="simp-val" id="simpAreaEl">—</span>
+        </div>
+        <div class="simp-result">
+          <span class="simp-lbl">vs Exact</span>
+          <span class="simp-val" id="simpErrEl" style="font-size:.72rem">—</span>
+        </div>
+        <div class="simp-result">
+          <span class="simp-lbl">Method</span>
+          <span class="simp-val" id="simpMethodEl" style="font-size:.66rem;color:var(--text-2)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Algorithm Steps -->
+    <div class="sec">
+      <div class="sec-title">MC Algorithm</div>
+      <div class="algo-steps">
+        <div class="algo-step" id="as1"><div class="sn">1</div><div class="st">Generate random (x, y) in bounding box</div></div>
+        <div class="algo-step" id="as2"><div class="sn">2</div><div class="st">Test if point lies inside shape</div></div>
+        <div class="algo-step" id="as3"><div class="sn">3</div><div class="st">Count total; increment inside if test passes</div></div>
+        <div class="algo-step" id="as4"><div class="sn">4</div><div class="st">Estimate = (inside / total) × box area</div></div>
+        <div class="algo-step" id="as5"><div class="sn">5</div><div class="st">Repeat — error shrinks as 1/√N</div></div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="sec">
+      <div class="sec-title">Export</div>
+      <button class="btn btn-full" onclick="exportCSV()" data-tip="Download comparison CSV">📥 Export Comparison CSV</button>
+    </div>
+
+  </aside>
+
+  <!-- CENTER PANEL -->
+  <section class="panel-center">
+
+    <div class="cv-header">
+      <div>
+        <div class="cv-formula" id="cvFormula">x² + y² ≤ 1</div>
+        <div class="cv-desc" id="cvDesc">Unit circle centered at origin</div>
+      </div>
+      <div class="cv-rate"><span id="rateEl">0</span> pts/s</div>
+    </div>
+
+    <div class="canvas-wrap" id="mainWrap" style="cursor:crosshair">
+      <canvas id="baseC"></canvas>
+      <canvas id="ptsC" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
+      <canvas id="topC" style="position:absolute;top:0;left:0"></canvas>
+    </div>
+
+    <div class="cv-caption">
+      <span style="color:var(--green)">●</span> inside &nbsp;
+      <span style="color:var(--red)">●</span> outside &nbsp;—&nbsp;
+      Monte Carlo scatters random points; Simpson's partitions into strips
+    </div>
+
+    <!-- Convergence Plot -->
+    <div class="plot-header">
+      <span style="font-size:.75rem;font-weight:600;color:var(--text-2)">Convergence</span>
+      <div class="plot-legend">
+        <div class="lg-item"><div class="lg-line" style="background:var(--accent)"></div><span>MC Estimate</span></div>
+        <div class="lg-item">
+          <div class="lg-line" style="background:transparent;border-top:2px dashed var(--purple);width:18px;height:0"></div>
+          <span>Exact</span>
+        </div>
+        <div class="lg-item">
+          <div class="lg-line" style="background:transparent;border-top:2px dashed var(--simp-color);width:18px;height:0"></div>
+          <span>Simpson's</span>
+        </div>
+        <div class="lg-item"><div class="lg-line" style="background:rgba(88,166,255,.15)"></div><span>95% CI</span></div>
+      </div>
+    </div>
+    <div class="canvas-wrap" id="convWrap" style="width:100%;max-width:480px">
+      <canvas id="convC"></canvas>
+    </div>
+
+    <!-- Simpson's Strip Visualiser (shown for custom_fn) -->
+    <div id="simpVizWrap" style="display:none;width:100%;max-width:480px">
+      <div class="plot-header" style="margin-bottom:4px">
+        <span style="font-size:.75rem;font-weight:600;color:var(--simp-color)">Simpson's Strips</span>
+        <span style="font-size:.68rem;color:var(--text-2)" id="simpStripInfo">n = 200 subdivisions</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="simpC"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT PANEL -->
+  <aside class="panel panel-right">
+
+    <!-- Method Comparison -->
+    <div class="sec">
+      <div class="sec-title">Method Comparison</div>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Area</th>
+            <th>Error</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="cmp-badge badge-mc">Monte Carlo</span></td>
+            <td class="method-mc" id="cmpMC">—</td>
+            <td class="method-mc" id="cmpMCErr">—</td>
+            <td id="cmpMCWin"></td>
+          </tr>
+          <tr>
+            <td><span class="cmp-badge badge-simp">Simpson's</span></td>
+            <td class="method-simp" id="cmpSimp">—</td>
+            <td class="method-simp" id="cmpSimpErr">—</td>
+            <td id="cmpSimpWin"></td>
+          </tr>
+          <tr>
+            <td><span class="cmp-badge badge-exact">Exact</span></td>
+            <td class="method-exact" id="cmpExact">—</td>
+            <td style="color:var(--green)">0.000%</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="cmpNote" style="font-size:.66rem;color:var(--text-2);margin-top:6px;line-height:1.6"></div>
+    </div>
+
+    <!-- MC Live Stats -->
+    <div class="sec">
+      <div class="sec-title">Monte Carlo Stats</div>
+      <div class="stats-grid">
+        <div class="sr"><span class="sl" data-tip="Total random points">Total Samples</span><span class="sv2" id="stTotal">0</span></div>
+        <div class="sr"><span class="sl">Inside (green)</span><span class="sv2 ins" id="stIn">0</span></div>
+        <div class="sr"><span class="sl">Outside (red)</span><span class="sv2 out" id="stOut">0</span></div>
+        <div class="sr"><span class="sl">Fraction Inside</span><span class="sv2" id="stFrac">—</span></div>
+        <div class="sr"><span class="sl">Box Area</span><span class="sv2" id="stBox">—</span></div>
+        <div class="sr"><span class="sl">MC Estimate</span><span class="sv2" id="stEst">—</span></div>
+        <div class="sr"><span class="sl">Exact Area</span><span class="sv2 ext" id="stExact">π ≈ 3.14159</span></div>
+        <div class="sr"><span class="sl">MC % Error</span><span class="sv2 err" id="stErr">—</span></div>
+      </div>
+    </div>
+
+    <!-- Precision -->
+    <div class="sec">
+      <div class="sec-title">Precision</div>
+      <div class="stats-grid">
+        <div class="sr"><span class="sl">Std Error (σ)</span><span class="sv2" id="stSE">—</span></div>
+        <div class="sr"><span class="sl">95% Conf. Interval</span><span class="sv2" id="stCI" style="font-size:.68rem">—</span></div>
+        <div class="sr"><span class="sl">Sampling Efficiency</span><span class="sv2" id="stEff">—</span></div>
+      </div>
+      <div class="eff-bar"><div class="eff-fill" id="effBar" style="width:0%"></div></div>
+    </div>
+
+  </aside>
+</div><!-- /tab-simulator -->
+
+<!-- THEORY TAB -->
+<div id="tab-theory" class="tab-page" style="display:none">
+  <div class="theory-wrap">
+    <div class="theory-title">Theory — Full Derivations</div>
+    <div class="theory-sub">Complete step-by-step derivations behind every statistic and formula shown in the Simulator tab.</div>
+    <div class="theory-grid">
+
+      <!-- MC 1: setup -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:6px">1 · Monte Carlo — Hit-or-Miss Estimator</div>
+        <div class="formula-box">
+          \[ \hat{A} = A_{box}\cdot\frac{N_{in}}{N} \]
+        </div>
+        <p class="tt">Enclose the shape in a box of known area \(A_{box}=(x_{max}-x_{min})(y_{max}-y_{min})\). Draw \(N\) points uniformly at random in the box. For a single point define the indicator</p>
+        <div class="formula-box" style="text-align:left">
+          \[ X_i = \begin{cases} 1, & (x_i,y_i)\in\text{shape} \\ 0, & \text{otherwise} \end{cases} \]
+        </div>
+        <p class="tt">Each \(X_i\) is an independent <strong>Bernoulli(\(p\))</strong> trial, where \(p = A_{shape}/A_{box}\) is the true area fraction (unknown — this is what we're estimating). The count \(N_{in}=\sum_i X_i\) is then <strong>Binomial(\(N,p\))</strong>, so \(E[N_{in}]=Np\) and the sample fraction \(\hat p = N_{in}/N\) is an unbiased estimator: \(E[\hat p]=p\). Multiplying by \(A_{box}\) gives the unbiased area estimator \(\hat A = A_{box}\hat p\).</p>
+      </div>
+
+      <!-- MC 2: variance / SE derivation -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:6px">2 · Standard Error — Full Derivation</div>
+        <p class="tt">Variance of a single Bernoulli trial: \(\text{Var}(X_i)=p(1-p)\). Since the \(X_i\) are i.i.d., variance of the sum adds:</p>
+        <div class="formula-box" style="text-align:left">
+          \[ \text{Var}(N_{in}) = N\,p(1-p), \qquad \text{Var}(\hat p) = \frac{\text{Var}(N_{in})}{N^2} = \frac{p(1-p)}{N} \]
+        </div>
+        <p class="tt">Since \(\hat A = A_{box}\hat p\) is a constant times \(\hat p\), \(\text{Var}(\hat A)=A_{box}^2\,\text{Var}(\hat p)\). Taking the square root gives the standard error actually used by the app (with \(p\) replaced by its sample estimate \(\hat p\), since \(p\) is unknown):</p>
+        <div class="formula-box">
+          \[ \sigma_{\hat A} = A_{box}\sqrt{\frac{\hat p(1-\hat p)}{N}} \]
+        </div>
+        <p class="tt">This is exactly the "Std Error (σ)" statistic shown in the Precision panel. Notice the \(N\) in the denominator sits <em>inside</em> a square root — this single fact is the origin of the famous \(1/\sqrt{N}\) convergence rate below.</p>
+      </div>
+
+      <!-- MC 3: CLT + CI -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:6px">3 · Confidence Interval (Central Limit Theorem)</div>
+        <p class="tt">Because \(N_{in}\) is a sum of \(N\) i.i.d. random variables, the Central Limit Theorem says that for large \(N\), \(\hat p\) is approximately Normal: \(\hat p \sim \mathcal{N}\!\left(p,\ \frac{p(1-p)}{N}\right)\). Standardizing, \(Z=(\hat p - p)/\sigma_{\hat p}\) is approximately \(\mathcal{N}(0,1)\). Requiring \(P(-z_* \le Z \le z_*) = 0.95\) gives \(z_*=1.96\), so the 95% confidence interval for the area is:</p>
+        <div class="formula-box">
+          \[ \hat A \pm 1.96\,\sigma_{\hat A} \]
+        </div>
+        <p class="tt">This is the "95% Conf. Interval" band drawn around the MC estimate line on the Convergence plot. It shrinks at the same \(1/\sqrt{N}\) rate as \(\sigma_{\hat A}\) itself, so quadrupling \(N\) only halves the interval width.</p>
+      </div>
+
+      <!-- MC 4: convergence rate derivation -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:6px">4 · Why the Error Scales as \(N^{-1/2}\)</div>
+        <p class="tt">From step 2, \(\sigma_{\hat A} = A_{box}\sqrt{p(1-p)}\cdot N^{-1/2}\). The prefactor \(A_{box}\sqrt{p(1-p)}\) does not depend on \(N\) — only the \(N^{-1/2}\) factor does. So:</p>
+        <div class="formula-box">
+          \[ \frac{\text{error}(N)}{\text{error}(4N)} = \sqrt{\frac{4N}{N}} = 2 \]
+        </div>
+        <p class="tt">To cut the typical error in half you must <strong>quadruple</strong> \(N\) — to cut it by 10× you need 100× more samples. This slow rate is the fundamental weakness of Monte Carlo, but critically it holds in <em>any</em> number of dimensions, since the derivation never used the dimensionality of the shape — only that each trial is an independent Bernoulli test.</p>
+      </div>
+
+      <!-- Simpson 1: quadratic-fit derivation -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--simp-color);margin-bottom:6px">5 · Simpson's Rule — Derivation from a Parabola</div>
+        <p class="tt">Take one panel \([x_0,x_2]\) of width \(2h\) with midpoint \(x_1=x_0+h\), and fit the unique quadratic \(P(x)=a+bx+cx^2\) through the three points \((x_0,f_0),(x_1,f_1),(x_2,f_2)\). Its exact integral over the panel, worked out from the interpolation coefficients, reduces to:</p>
+        <div class="formula-box">
+          \[ \int_{x_0}^{x_2} P(x)\,dx = \frac{h}{3}\left[f_0+4f_1+f_2\right] \]
+        </div>
+        <p class="tt">This is the single-panel Simpson rule — it is <em>exact</em> for any polynomial of degree \(\le 3\), not just \(\le 2\), because the odd cubic term integrates to zero by symmetry about the midpoint (a "free" extra order of accuracy).</p>
+      </div>
+
+      <!-- Simpson 2: composite -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--simp-color);margin-bottom:6px">6 · Composite Rule (n panels)</div>
+        <p class="tt">Split \([a,b]\) into \(n\) equal subintervals (\(n\) even), \(h=(b-a)/n\), nodes \(x_k=a+kh\). Applying the single-panel result to consecutive pairs and summing telescopes the shared endpoints into alternating weights 4, 2, 4, 2, …, 4:</p>
+        <div class="formula-box simp-formula">
+          \[ S = \frac{h}{3}\Big[f(x_0)+4f(x_1)+2f(x_2)+4f(x_3)+\cdots+4f(x_{n-1})+f(x_n)\Big] \]
+        </div>
+        <p class="tt">This is exactly the formula the app evaluates in <code>simpson1D()</code> — interior odd-index nodes get weight 4, interior even-index nodes get weight 2, and the two endpoints get weight 1.</p>
+      </div>
+
+      <!-- Simpson 3: error term -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--simp-color);margin-bottom:6px">7 · Error Term — Where \(h^4\) Comes From</div>
+        <p class="tt">Expand \(f(x)\) in a Taylor series about the panel midpoint \(x_1\) and integrate term by term against the true integral vs. the parabola's prediction. The linear and cubic terms cancel by symmetry (as noted above); the leading surviving discrepancy comes from the 4th-derivative term, giving the classical single-panel error:</p>
+        <div class="formula-box">
+          \[ E_{panel} = -\frac{h^5}{90}f^{(4)}(\xi), \qquad \xi\in[x_0,x_2] \]
+        </div>
+        <p class="tt">Summing this over \(n/2\) panels (each of width \(h\), total interval length \(b-a=nh\)) gives the composite error:</p>
+        <div class="formula-box">
+          \[ E_{total} = -\frac{(b-a)h^4}{180}f^{(4)}(\xi) \ \Longrightarrow\ E\propto h^4 \propto n^{-4} \]
+        </div>
+        <p class="tt">Doubling \(n\) (halving \(h\)) shrinks the error by a factor of \(2^4=16\) — dramatically faster than Monte Carlo's factor of 2 for a 4× sample increase. This is why the "Subdivisions (n)" slider converges to machine precision almost instantly for smooth functions, provided \(f^{(4)}\) stays bounded.</p>
+      </div>
+
+      <!-- Simpson 4: 2D + degradation -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--simp-color);margin-bottom:6px">8 · 2-D Extension and Why It Degrades on Shapes</div>
+        <p class="tt">For a shape boundary, replace \(f(x,y)\) with the indicator \(I(x,y)=1\) inside, \(0\) outside, and apply Simpson's rule on both axes (tensor product):</p>
+        <div class="formula-box">
+          \[ \iint I(x,y)\,dx\,dy \approx \frac{h_x h_y}{9}\sum_{i=0}^{n}\sum_{j=0}^{n} w_x^{(i)}\,w_y^{(j)}\,I(x_i,y_j) \]
+        </div>
+        <p class="tt">exactly as <code>simpson2D()</code> computes, with weights \(w^{(k)}=1\) at endpoints, \(4\) at odd indices, \(2\) at even interior indices. The \(h^4\) error bound derived in step 7 assumed \(f^{(4)}\) exists and is bounded — but \(I(x,y)\) is <strong>discontinuous</strong> at the shape's boundary, so all derivatives blow up there.</p>
+        <p class="tt">Only the \(O(n)\) grid cells that straddle the boundary (out of \(O(n^2)\) total) contribute an \(O(h)=O(1/n)\) error each; the bulk of interior/exterior cells are exact. Net result: composite error degrades from \(O(n^{-4})\) to \(O(n^{-1})\) — the same order as a crude Riemann sum. This is precisely why, for the Heart Curve and Draw-Custom-Shape modes, Simpson's advantage over Monte Carlo shrinks or disappears.</p>
+      </div>
+
+      <!-- Worked example -->
+      <div class="tblock">
+        <div style="font-size:.9rem;font-weight:700;color:var(--gold);margin-bottom:6px">9 · Worked Numerical Example (Unit Circle)</div>
+        <p class="tt">Take the unit circle, box area \(A_{box}=4\), true area \(\pi\approx 3.14159\) (\(p=\pi/4\approx 0.7854\)).</p>
+        <p class="tt"><strong>Monte Carlo, \(N=1000\):</strong> \(\sigma_{\hat A} = 4\sqrt{0.7854\cdot 0.2146/1000} \approx 4\times 0.01301 \approx\) <strong>0.052</strong>. A typical single run lands within ±0.052 of π about 68% of the time, and within ±0.10 (the 95% CI) most of the time — consistent with the live Precision panel.</p>
+        <p class="tt"><strong>Simpson's, \(n=200\) (1-D quarter-circle \(f(x)=\sqrt{1-x^2}\)):</strong> with \(f^{(4)}\) bounded away from the endpoints, error stays below \(10^{-6}\) — visibly exact on the Comparison table, versus Monte Carlo needing \(N\approx 10^{10}\) samples to reach the same precision (from \(N\propto 1/\text{error}^2\)). This gap is the entire point of the app: quadrature wins hands-down on smooth 1-D problems, and loses its edge the moment the domain gets an irregular boundary.</p>
+      </div>
+
+      <div class="tblock" style="grid-column:1/-1">
+        <p class="tt"><strong>When to prefer Simpson's:</strong> smooth 1-D integrands, known analytic form, high precision needed with few evaluations.</p>
+        <p class="tt"><strong>When to prefer Monte Carlo:</strong> irregular 2-D / n-D regions, no closed form, boundary complexity, or high dimensions where grid methods suffer the curse of dimensionality.</p>
+      </div>
+
+    </div>
+  </div>
+</div><!-- /tab-theory -->
+
+<script>
+'use strict';
+
+/* ── CONSTANTS ── */
+const CS=480, CW=480, CH=160, PAD=32, DPR=window.devicePixelRatio||1;
+const HIST_STEP=5, HIST_MAX=800, RATE_INT=600;
+
+/* ── HEART CURVE ── */
+const H_N=720;
+const H_PTS=new Float64Array(H_N*2);
+for(let i=0;i<H_N;i++){
+  const t=(i/H_N)*2*Math.PI;
+  H_PTS[2*i]=16*Math.pow(Math.sin(t),3)/17;
+  H_PTS[2*i+1]=(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17;
+}
+const H_AREA=(()=>{let a=0;for(let i=0;i<H_N;i++){const j=(i+1)%H_N;a+=H_PTS[2*i]*H_PTS[2*j+1]-H_PTS[2*j]*H_PTS[2*i+1];}return Math.abs(a)/2;})();
+
+/* ── POLYGON UTILS ── */
+function ptInPoly(px,py,poly){
+  const isT=poly instanceof Float64Array, n=isT?poly.length/2:poly.length;
+  let inside=false;
+  for(let i=0,j=n-1;i<n;j=i++){
+    const xi=isT?poly[2*i]:poly[i][0], yi=isT?poly[2*i+1]:poly[i][1];
+    const xj=isT?poly[2*j]:poly[j][0], yj=isT?poly[2*j+1]:poly[j][1];
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
+  }
+  return inside;
+}
+function polyBounds(poly){
+  let xn=Infinity,xx=-Infinity,yn=Infinity,yx=-Infinity;
+  for(const[x,y]of poly){if(x<xn)xn=x;if(x>xx)xx=x;if(y<yn)yn=y;if(y>yx)yx=y;}
+  const px=(xx-xn)*.08,py=(yx-yn)*.08;
+  return{xMin:xn-px,xMax:xx+px,yMin:yn-py,yMax:yx+py};
+}
+function shoelace(poly){let a=0,n=poly.length;for(let i=0;i<n;i++){const j=(i+1)%n;a+=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];}return Math.abs(a)/2;}
+
+/* ── FUNCTION PARSER ── */
+function parseFn(expr){
+  const s=expr.replace(/\^/g,'**')
+    .replace(/\bsin\b/g,'Math.sin').replace(/\bcos\b/g,'Math.cos').replace(/\btan\b/g,'Math.tan')
+    .replace(/\bsqrt\b/g,'Math.sqrt').replace(/\babs\b/g,'Math.abs').replace(/\bexp\b/g,'Math.exp')
+    .replace(/\blog\b/g,'Math.log').replace(/\bln\b/g,'Math.log').replace(/\bfloor\b/g,'Math.floor')
+    .replace(/\bceil\b/g,'Math.ceil').replace(/\bpi\b/gi,'Math.PI').replace(/\be(?![a-z])/g,'Math.E');
+  return new Function('x',`'use strict';return (${s});`);
+}
+
+/* ─────────────────────────────────────────────
+   SIMPSON'S RULE ENGINE
+   For custom_fn  → composite 1-D Simpson's on f(x)
+   For 2-D shapes → composite 2-D Simpson's on indicator I(x,y)
+   ───────────────────────────────────────────── */
+function simpson1D(fn, xMin, xMax, n){
+  if(n%2!==0)n++;
+  const h=(xMax-xMin)/n;
+  let sum=0;
+  for(let i=0;i<=n;i++){
+    const x=xMin+i*h;
+    let fx; try{fx=fn(x);}catch{fx=0;}
+    if(!isFinite(fx))fx=0;
+    const w=(i===0||i===n)?1:(i%2===0?2:4);
+    sum+=w*fx;
+  }
+  return(h/3)*sum;
+}
+
+function simpson2D(shape, n){
+  // n must be even; use same n for both axes
+  if(n%2!==0)n++;
+  const b=shape.bounds;
+  const xMin=b.xMin,xMax=b.xMax,yMin=b.yMin,yMax=b.yMax;
+  const hx=(xMax-xMin)/n, hy=(yMax-yMin)/n;
+  let sum=0;
+  for(let i=0;i<=n;i++){
+    const x=xMin+i*hx;
+    const wx=(i===0||i===n)?1:(i%2===0?2:4);
+    for(let j=0;j<=n;j++){
+      const y=yMin+j*hy;
+      const wy=(j===0||j===n)?1:(j%2===0?2:4);
+      sum+=wx*wy*(shape.inside(x,y)?1:0);
+    }
+  }
+  return sum*hx*hy/9;
+}
+
+/* State for Simpson's */
+const simpState={area:null, n:200, computing:false};
+
+function updateSimpN(v){
+  if(v%2!==0)v++;
+  simpState.n=v;
+  document.getElementById('simpNV').textContent=v;
+  document.getElementById('simpNS').value=v;
+}
+
+function runSimpson(force=false){
+  if(simpState.computing&&!force)return;
+  simpState.computing=true;
+  const shape=sim.shape, key=sim.key;
+  const n=simpState.n;
+
+  let area;
+  if(key==='custom_fn'){
+    if(!SHAPES.custom_fn._fn){simpState.area=null;simpState.computing=false;return;}
+    // Clamp f(x) to >=0: matches the MC inside-test (0<=y<=f(x), only defined when f(x)>=0),
+    // so Simpson's and Monte Carlo integrate the same "area above the x-axis" quantity
+    // even when the typed function dips negative (e.g. cos(x), sin(x) over a full period).
+    const rawFn=SHAPES.custom_fn._fn;
+    const clampedFn=x=>{const v=rawFn(x);return(isFinite(v)&&v>0)?v:0;};
+    area=simpson1D(clampedFn, shape.bounds.xMin, shape.bounds.xMax, n);
+    document.getElementById('simpMethodEl').textContent=`1-D composite, n=${n}`;
+  } else {
+    if(key==='custom_draw'&&SHAPES.custom_draw.polygon.length<3){
+      simpState.computing=false;
+      alert('Draw and close a shape first.');
+      return;
+    }
+    const nUse=Math.min(n,300); // cap 2-D to avoid blocking
+    area=simpson2D(shape, nUse);
+    document.getElementById('simpMethodEl').textContent=`2-D indicator grid, n=${nUse}²`;
+  }
+
+  simpState.area=area;
+  simpState.computing=false;
+
+  // Update UI
+  document.getElementById('simpAreaEl').textContent=area.toFixed(7);
+  const exact=shape.exactArea;
+  if(exact!==null&&exact>0){
+    const err=(Math.abs(area-exact)/exact*100);
+    document.getElementById('simpErrEl').textContent=err.toFixed(5)+'%';
+  } else {
+    document.getElementById('simpErrEl').textContent='—';
+  }
+  updateComparison();
+  drawConv();
+  if(key==='custom_fn') drawSimpsonStrips();
+  document.getElementById('simpStripInfo').textContent=`n = ${n} subdivisions`;
+  document.getElementById('simpVizWrap').style.display=(key==='custom_fn')?'block':'none';
+}
+
+
+/* ── SHAPES ── */
+const SHAPES={
+  circle:{
+    name:'Circle (r=1)',formula:'x² + y² ≤ 1',desc:'Unit circle, exact area = π',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:1.15},
+    exactArea:Math.PI, exactStr:'π ≈ '+Math.PI.toFixed(6),
+    inside(x,y){return x*x+y*y<=1},
+    draw(ctx,tc){const c=tc(0,0),r=tc(1,0).x-c.x;ctx.beginPath();ctx.arc(c.x,c.y,r,0,Math.PI*2);ctx.closePath();}
+  },
+  ellipse:{
+    name:'Ellipse (a=1, b=0.6)',formula:'x² + (y/0.6)² ≤ 1',desc:'Semi-axes a=1.0, b=0.6; exact = 0.6π',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:1.15},
+    exactArea:0.6*Math.PI, exactStr:'0.6π ≈ '+(0.6*Math.PI).toFixed(6),
+    inside(x,y){return x*x+(y/0.6)*(y/0.6)<=1},
+    draw(ctx,tc){const c=tc(0,0),rx=tc(1,0).x-c.x,ry=c.y-tc(0,0.6).y;ctx.beginPath();ctx.ellipse(c.x,c.y,rx,ry,0,0,Math.PI*2);ctx.closePath();}
+  },
+  heart:{
+    name:'Heart Curve',formula:'x=16sin³t/17, y=(13cos t−…)/17',
+    desc:'Parametric heart; shoelace area ≈ '+H_AREA.toFixed(4),
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:0.85},
+    exactArea:H_AREA, exactStr:H_AREA.toFixed(6),
+    inside(x,y){return ptInPoly(x,y,H_PTS)},
+    draw(ctx,tc){
+      ctx.beginPath();
+      for(let i=0;i<H_N;i++){const p=tc(H_PTS[2*i],H_PTS[2*i+1]);i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
+      ctx.closePath();
+    }
+  },
+  custom_fn:{
+    name:'Custom Function',formula:'f(x)',desc:'Area between f(x) and the x-axis',
+    bounds:{xMin:0,xMax:Math.PI,yMin:0,yMax:1.15},
+    exactArea:null,exactStr:'—',_fn:null,
+    inside(x,y){if(!this._fn)return false;try{const v=this._fn(x);return isFinite(v)&&y>=0&&y<=v;}catch{return false;}},
+    draw(ctx,tc){
+      if(!this._fn)return;
+      const{xMin,xMax,yMin}=this.bounds;
+      ctx.beginPath();let first=true;
+      for(let i=0;i<=400;i++){
+        const x=xMin+(i/400)*(xMax-xMin);
+        try{const y=this._fn(x);if(!isFinite(y))continue;const p=tc(x,y);first?(ctx.moveTo(p.x,p.y),first=false):ctx.lineTo(p.x,p.y);}catch{}
+      }
+      const pr=tc(xMax,yMin),pl=tc(xMin,yMin);
+      ctx.lineTo(pr.x,pr.y);ctx.lineTo(pl.x,pl.y);ctx.closePath();
+    }
+  },
+  custom_draw:{
+    name:'Custom Shape',formula:'User polygon',desc:'User-drawn closed polygon',
+    bounds:{xMin:-1.15,xMax:1.15,yMin:-1.15,yMax:1.15},
+    exactArea:null,exactStr:'—',polygon:[],
+    inside(x,y){return this.polygon.length>=3&&ptInPoly(x,y,this.polygon)},
+    draw(ctx,tc){
+      if(this.polygon.length<2)return;
+      ctx.beginPath();
+      for(let i=0;i<this.polygon.length;i++){const p=tc(this.polygon[i][0],this.polygon[i][1]);i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);}
+      if(this.polygon.length>=3)ctx.closePath();
+    }
+  }
+};
+
+/* ── SIM STATE ── */
+const sim={
+  shape:SHAPES.circle,key:'circle',
+  running:false,total:0,inside:0,history:[],
+  animId:null,lastTs:0,interval:1000/60,spf:50,
+  drawMode:false,drawPoly:[],
+  lastRateN:0,lastRateT:performance.now(),rate:0,
+  stepPhase:0
+};
+
+/* ── CANVASES ── */
+const baseC=document.getElementById('baseC'),ptsC=document.getElementById('ptsC'),
+      topC=document.getElementById('topC'),convC=document.getElementById('convC'),
+      simpC=document.getElementById('simpC');
+const bCtx=baseC.getContext('2d'),pCtx=ptsC.getContext('2d'),
+      tCtx=topC.getContext('2d'),cvCtx=convC.getContext('2d'),
+      scCtx=simpC.getContext('2d');
+
+function setupCanvas(c,w,h){c.width=w*DPR;c.height=h*DPR;c.style.width=w+'px';c.style.height=h+'px';const cx=c.getContext('2d');cx.scale(DPR,DPR);return cx;}
+function initCanvases(){
+  setupCanvas(baseC,CS,CS);setupCanvas(ptsC,CS,CS);setupCanvas(topC,CS,CS);
+  const cw=Math.min(document.getElementById('convWrap').clientWidth||CW,CW);
+  setupCanvas(convC,cw,CH);
+  setupCanvas(simpC,cw,CH);
+}
+
+/* ── COORDINATE MAPPING ── */
+function tc(sx,sy){
+  const b=sim.shape.bounds,dw=CS-2*PAD,dh=CS-2*PAD;
+  return{x:PAD+(sx-b.xMin)/(b.xMax-b.xMin)*dw, y:PAD+(1-(sy-b.yMin)/(b.yMax-b.yMin))*dh};
+}
+function fc(cx,cy){
+  const b=sim.shape.bounds,dw=CS-2*PAD,dh=CS-2*PAD;
+  return{x:b.xMin+(cx-PAD)/dw*(b.xMax-b.xMin), y:b.yMin+(1-(cy-PAD)/dh)*(b.yMax-b.yMin)};
+}
+
+function cv(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+
+/* ── BASE LAYER ── */
+function drawBase(){
+  const ctx=bCtx,S=CS;
+  ctx.clearRect(0,0,S,S);
+  ctx.fillStyle=cv('--canvas-bg');ctx.fillRect(0,0,S,S);
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=0.5;ctx.setLineDash([2,5]);
+  for(let i=1;i<5;i++){
+    const x=PAD+i*(S-2*PAD)/5,y=PAD+i*(S-2*PAD)/5;
+    ctx.beginPath();ctx.moveTo(x,PAD);ctx.lineTo(x,S-PAD);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(S-PAD,y);ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  const b=sim.shape.bounds;
+  ctx.fillStyle=cv('--text-2');ctx.font='9px monospace';ctx.textAlign='center';
+  for(const v of[b.xMin,(b.xMin+b.xMax)/2,b.xMax]){const p=tc(v,b.yMin);ctx.fillText(v.toFixed(2),p.x,p.y+13);}
+  ctx.textAlign='right';
+  for(const v of[b.yMin,(b.yMin+b.yMax)/2,b.yMax]){const p=tc(b.xMin,v);ctx.fillText(v.toFixed(2),p.x-4,p.y+3);}
+}
+
+/* ── TOP LAYER ── */
+function drawTop(){
+  const ctx=tCtx,S=CS;
+  ctx.clearRect(0,0,S,S);
+  ctx.strokeStyle=cv('--accent');ctx.lineWidth=1.5;ctx.setLineDash([]);
+  ctx.strokeRect(PAD,PAD,S-2*PAD,S-2*PAD);
+  const t=8;
+  [[PAD,PAD],[S-PAD,PAD],[PAD,S-PAD],[S-PAD,S-PAD]].forEach(([x,y])=>{
+    const sx=x===PAD?1:-1,sy=y===PAD?1:-1;
+    ctx.beginPath();ctx.moveTo(x+sx*t,y);ctx.lineTo(x,y);ctx.lineTo(x,y+sy*t);ctx.stroke();
+  });
+  ctx.fillStyle=cv('--accent');ctx.font='9px monospace';ctx.globalAlpha=0.55;ctx.textAlign='left';
+  ctx.fillText('bounding box',PAD+4,PAD-5);ctx.globalAlpha=1;
+  ctx.save();sim.shape.draw(ctx,tc);
+  ctx.fillStyle=document.body.getAttribute('data-theme')==='light'?'rgba(9,105,218,0.05)':'rgba(88,166,255,0.04)';
+  ctx.fill();ctx.restore();
+  ctx.save();sim.shape.draw(ctx,tc);
+  ctx.strokeStyle=cv('--accent');ctx.lineWidth=2;ctx.shadowColor=cv('--accent');ctx.shadowBlur=6;ctx.stroke();ctx.restore();
+  if(sim.drawMode&&sim.drawPoly.length>0){
+    const poly=sim.drawPoly;ctx.save();
+    ctx.strokeStyle=cv('--orange');ctx.lineWidth=2;ctx.setLineDash([5,3]);
+    ctx.beginPath();const p0=tc(poly[0][0],poly[0][1]);ctx.moveTo(p0.x,p0.y);
+    for(let i=1;i<poly.length;i++){const p=tc(poly[i][0],poly[i][1]);ctx.lineTo(p.x,p.y);}
+    ctx.stroke();ctx.setLineDash([]);
+    for(let i=0;i<poly.length;i++){
+      const p=tc(poly[i][0],poly[i][1]);ctx.fillStyle=i===0?cv('--green'):cv('--orange');
+      ctx.beginPath();ctx.arc(p.x,p.y,i===0?5:4,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+/* ── POINTS LAYER ── */
+function drawSamples(count){
+  const b=sim.shape.bounds,bw=b.xMax-b.xMin,bh=b.yMax-b.yMin;
+  for(let i=0;i<count;i++){
+    const x=b.xMin+Math.random()*bw,y=b.yMin+Math.random()*bh;
+    const ins=sim.shape.inside(x,y);
+    sim.total++;if(ins)sim.inside++;
+    const p=tc(x,y);
+    pCtx.fillStyle=ins?cv('--green'):cv('--red');
+    pCtx.globalAlpha=0.72;pCtx.beginPath();pCtx.arc(p.x,p.y,1.7,0,Math.PI*2);pCtx.fill();
+  }
+  pCtx.globalAlpha=1;
+  const n=sim.total;
+  if(n<=20||n%HIST_STEP===0){
+    const ba=bw*bh,est=(sim.inside/n)*ba,p=sim.inside/n;
+    const se=n>1?Math.sqrt(p*(1-p)/n)*ba:0;
+    sim.history.push({n,est,se});
+    if(sim.history.length>HIST_MAX)sim.history.shift();
+  }
+}
+
+/* ── SIMPSON'S STRIP VISUALISER (for custom_fn) ── */
+function drawSimpsonStrips(){
+  if(sim.key!=='custom_fn'||!SHAPES.custom_fn._fn) return;
+  const W=parseInt(simpC.style.width), H=CH;
+  const pL=44,pR=10,pT=10,pB=26, pw=W-pL-pR, ph=H-pT-pB;
+  const ctx=scCtx;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=cv('--canvas-bg');ctx.fillRect(0,0,W,H);
+
+  const fn=SHAPES.custom_fn._fn;
+  const b=sim.shape.bounds;
+  const xMin=b.xMin,xMax=b.xMax;
+  let n=Math.min(simpState.n,40); if(n%2!==0)n++;  // show at most 40 strips visually
+
+  // Determine y range
+  let ymax=0;
+  for(let i=0;i<=200;i++){const x=xMin+(i/200)*(xMax-xMin);try{const y=fn(x);if(isFinite(y)&&y>ymax)ymax=y;}catch{}}
+  ymax=ymax*1.15||1;
+
+  const mapX=x=>pL+(x-xMin)/(xMax-xMin)*pw;
+  const mapY=y=>pT+(1-y/ymax)*ph;
+
+  // Grid
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=0.5;ctx.setLineDash([2,4]);
+  for(let i=0;i<=4;i++){
+    const yy=pT+(i/4)*ph;ctx.beginPath();ctx.moveTo(pL,yy);ctx.lineTo(pL+pw,yy);ctx.stroke();
+    ctx.fillStyle=cv('--text-2');ctx.font='9px monospace';ctx.textAlign='right';
+    ctx.fillText((ymax*(1-i/4)).toFixed(2),pL-3,yy+3);
+    const xx=xMin+(i/4)*(xMax-xMin);
+    ctx.textAlign='center';ctx.fillText(xx.toFixed(2),mapX(xx),H-5);
+  }
+  ctx.setLineDash([]);
+
+  // Parabolic strips (coloured alternating)
+  const h=(xMax-xMin)/n;
+  for(let i=0;i<n;i+=2){
+    const x0=xMin+i*h, x1=x0+h, x2=x0+2*h;
+    let y0,y1,y2;
+    try{y0=fn(x0);y1=fn(x1);y2=fn(x2);}catch{continue;}
+    if(!isFinite(y0)||!isFinite(y1)||!isFinite(y2))continue;
+    // Draw parabolic arc through (x0,y0),(x1,y1),(x2,y2)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(mapX(x0),mapY(0));
+    ctx.lineTo(mapX(x0),mapY(Math.max(y0,0)));
+    // Approx parabola with many segments
+    const steps=20;
+    for(let s=0;s<=steps;s++){
+      const t=s/steps, x=x0+t*(x2-x0);
+      // Lagrange interpolation
+      const L0=(x-x1)*(x-x2)/((x0-x1)*(x0-x2));
+      const L1=(x-x0)*(x-x2)/((x1-x0)*(x1-x2));
+      const L2=(x-x0)*(x-x1)/((x2-x0)*(x2-x1));
+      const y=Math.max(0,y0*L0+y1*L1+y2*L2);
+      ctx.lineTo(mapX(x),mapY(y));
+    }
+    ctx.lineTo(mapX(x2),mapY(0));
+    ctx.closePath();
+    const col=i%4===0?'rgba(249,130,108,0.22)':'rgba(249,130,108,0.10)';
+    ctx.fillStyle=col;ctx.fill();
+    ctx.strokeStyle='rgba(249,130,108,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+    ctx.restore();
+  }
+
+  // True curve on top
+  ctx.beginPath();
+  ctx.strokeStyle=cv('--accent');ctx.lineWidth=1.8;
+  let first=true;
+  for(let i=0;i<=300;i++){
+    const x=xMin+(i/300)*(xMax-xMin);
+    try{const y=fn(x);if(!isFinite(y))continue;const px2=mapX(x),py2=mapY(Math.max(0,y));first?(ctx.moveTo(px2,py2),first=false):ctx.lineTo(px2,py2);}catch{}
+  }
+  ctx.stroke();
+
+  // Node points
+  for(let i=0;i<=n;i++){
+    const x=xMin+i*h;
+    try{
+      const y=fn(x);if(!isFinite(y))continue;
+      ctx.fillStyle=i%2===0?cv('--simp-color'):cv('--gold');
+      ctx.beginPath();ctx.arc(mapX(x),mapY(Math.max(0,y)),3,0,Math.PI*2);ctx.fill();
+    }catch{}
+  }
+
+  // Labels
+  ctx.fillStyle=cv('--text-2');ctx.font='9px sans-serif';ctx.textAlign='center';
+  ctx.fillText(`Simpson's strips (displaying ${n} of ${simpState.n})`,pL+pw/2,H-1);
+
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=1;ctx.strokeRect(pL,pT,pw,ph);
+}
+
+/* ── CONVERGENCE PLOT ── */
+function drawConv(){
+  const ctx=cvCtx, W=parseInt(convC.style.width), H=CH;
+  const pL=44,pR=10,pT=10,pB=26, pw=W-pL-pR, ph=H-pT-pB;
+  ctx.clearRect(0,0,W,H);ctx.fillStyle=cv('--canvas-bg');ctx.fillRect(0,0,W,H);
+  if(sim.history.length<2){
+    ctx.fillStyle=cv('--text-2');ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Run simulation to watch convergence…',W/2,H/2);ctx.textAlign='left';return;
+  }
+  const xmax=sim.history[sim.history.length-1].n;
+  const exact=sim.shape.exactArea;
+  const ests=sim.history.map(h=>h.est), ses=sim.history.map(h=>h.se);
+  let ylo=Math.min(...ests),yhi=Math.max(...ests);
+  if(exact!==null){ylo=Math.min(ylo,exact*.75);yhi=Math.max(yhi,exact*1.25);}
+  if(simpState.area!==null){ylo=Math.min(ylo,simpState.area*.85);yhi=Math.max(yhi,simpState.area*1.15);}
+  const ypad=(yhi-ylo)*.12;ylo-=ypad;yhi+=ypad;
+  if(ylo<0)ylo=0;if(yhi<=ylo)yhi=ylo+1;
+  const px=n=>pL+(n/xmax)*pw, py=v=>pT+(1-(v-ylo)/(yhi-ylo))*ph;
+
+  // Grid
+  ctx.strokeStyle=cv('--border');ctx.lineWidth=0.5;ctx.setLineDash([2,4]);
+  for(let i=0;i<=4;i++){
+    const yy=pT+(i/4)*ph;ctx.beginPath();ctx.moveTo(pL,yy);ctx.lineTo(pL+pw,yy);ctx.stroke();
+    ctx.fillStyle=cv('--text-2');ctx.font='9px monospace';ctx.textAlign='right';
+    ctx.fillText((yhi-i/4*(yhi-ylo)).toFixed(2),pL-3,yy+3);
+    const nn=i/4*xmax;ctx.textAlign='center';
+    ctx.fillText(nn>=1000?(nn/1000).toFixed(1)+'k':Math.round(nn).toString(),pL+i/4*pw,H-5);
+  }
+  ctx.setLineDash([]);ctx.strokeStyle=cv('--border');ctx.lineWidth=1;ctx.strokeRect(pL,pT,pw,ph);
+
+  // 95% CI band
+  ctx.beginPath();
+  for(let i=0;i<sim.history.length;i++){const x=px(sim.history[i].n),yUp=py(sim.history[i].est+1.96*sim.history[i].se);i===0?ctx.moveTo(x,yUp):ctx.lineTo(x,yUp);}
+  for(let i=sim.history.length-1;i>=0;i--){const x=px(sim.history[i].n),yDn=py(sim.history[i].est-1.96*sim.history[i].se);ctx.lineTo(x,yDn);}
+  ctx.closePath();ctx.fillStyle='rgba(88,166,255,0.08)';ctx.fill();
+
+  // Exact dashed line
+  if(exact!==null&&exact>=ylo&&exact<=yhi){
+    const ey=py(exact);ctx.strokeStyle=cv('--purple');ctx.lineWidth=1.5;ctx.setLineDash([7,4]);
+    ctx.beginPath();ctx.moveTo(pL,ey);ctx.lineTo(pL+pw,ey);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=cv('--purple');ctx.font='9px monospace';ctx.textAlign='left';ctx.fillText('exact',pL+3,ey-3);
+  }
+
+  // Simpson's dashed line
+  if(simpState.area!==null){
+    const sy=py(simpState.area);
+    if(sy>=pT&&sy<=pT+ph){
+      ctx.strokeStyle=cv('--simp-color');ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+      ctx.beginPath();ctx.moveTo(pL,sy);ctx.lineTo(pL+pw,sy);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle=cv('--simp-color');ctx.font='9px monospace';ctx.textAlign='right';
+      ctx.fillText("Simpson's",pL+pw-2,sy-3);
+    }
+  }
+
+  // MC estimate line
+  ctx.strokeStyle=cv('--accent');ctx.lineWidth=1.8;ctx.setLineDash([]);
+  ctx.beginPath();
+  for(let i=0;i<sim.history.length;i++){const x=px(sim.history[i].n),y=py(sim.history[i].est);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();
+
+  // Glowing endpoint
+  const last=sim.history[sim.history.length-1];
+  const epx=px(last.n),epy=py(last.est);
+  const grd=ctx.createRadialGradient(epx,epy,0,epx,epy,12);
+  grd.addColorStop(0,'rgba(88,166,255,.5)');grd.addColorStop(1,'rgba(88,166,255,0)');
+  ctx.fillStyle=grd;ctx.beginPath();ctx.arc(epx,epy,12,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=cv('--accent');ctx.beginPath();ctx.arc(epx,epy,3.5,0,Math.PI*2);ctx.fill();
+
+  ctx.fillStyle=cv('--text-2');ctx.font='9px sans-serif';ctx.textAlign='center';
+  ctx.fillText('N (samples)',pL+pw/2,H-0);
+  ctx.save();ctx.translate(9,pT+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('Estimated Area',0,0);ctx.restore();
+}
+
+/* ── COMPARISON TABLE UPDATE ── */
+function updateComparison(){
+  const n=sim.total,exact=sim.shape.exactArea;
+  const mcEst=n>0?(sim.inside/n)*(sim.shape.bounds.xMax-sim.shape.bounds.xMin)*(sim.shape.bounds.yMax-sim.shape.bounds.yMin):null;
+  const sEst=simpState.area;
+
+  document.getElementById('cmpExact').textContent=exact!==null?exact.toFixed(7):'—';
+
+  if(mcEst!==null){
+    document.getElementById('cmpMC').textContent=mcEst.toFixed(7);
+    if(exact!==null)document.getElementById('cmpMCErr').textContent=(Math.abs(mcEst-exact)/exact*100).toFixed(4)+'%';
+    else document.getElementById('cmpMCErr').textContent='—';
+  } else {
+    document.getElementById('cmpMC').textContent='—';document.getElementById('cmpMCErr').textContent='—';
+  }
+
+  if(sEst!==null){
+    document.getElementById('cmpSimp').textContent=sEst.toFixed(7);
+    if(exact!==null)document.getElementById('cmpSimpErr').textContent=(Math.abs(sEst-exact)/exact*100).toFixed(4)+'%';
+    else document.getElementById('cmpSimpErr').textContent='—';
+  } else {
+    document.getElementById('cmpSimp').textContent='—';document.getElementById('cmpSimpErr').textContent='—';
+  }
+
+  // Winner badge
+  document.getElementById('cmpMCWin').innerHTML='';
+  document.getElementById('cmpSimpWin').innerHTML='';
+  if(mcEst!==null&&sEst!==null&&exact!==null){
+    const mcE=Math.abs(mcEst-exact), sE=Math.abs(sEst-exact);
+    const winner=mcE<sE?'mc':'simp';
+    document.getElementById(winner==='mc'?'cmpMCWin':'cmpSimpWin').innerHTML='<span class="win-badge">✓ closer</span>';
+    const note=winner==='simp'
+      ?`Simpson's is ${(mcE/sE).toFixed(1)}× closer to exact with n=${simpState.n} subdivisions vs N=${n.toLocaleString()} MC samples.`
+      :`Monte Carlo is ${(sE/mcE).toFixed(1)}× closer with N=${n.toLocaleString()} samples vs Simpson's n=${simpState.n}.`;
+    document.getElementById('cmpNote').textContent=note;
+  } else {
+    document.getElementById('cmpNote').textContent='Run Monte Carlo and calculate Simpson\'s to compare accuracy.';
+  }
+}
+
+/* ── STATS UPDATE ── */
+function updateStats(){
+  const n=sim.total,ins=sim.inside,out=n-ins;
+  const b=sim.shape.bounds,ba=(b.xMax-b.xMin)*(b.yMax-b.yMin);
+  const est=n>0?(ins/n)*ba:null,p=n>0?ins/n:0;
+  const se=n>1?Math.sqrt(p*(1-p)/n)*ba:null,exact=sim.shape.exactArea;
+  const fi=v=>v===null?'—':v.toLocaleString();
+  const ff=(v,d=6)=>v===null?'—':v.toFixed(d);
+  document.getElementById('stTotal').textContent=fi(n);
+  document.getElementById('stIn').textContent=fi(ins);
+  document.getElementById('stOut').textContent=fi(out);
+  document.getElementById('stFrac').textContent=n>0?p.toFixed(7):'—';
+  document.getElementById('stBox').textContent=ba.toFixed(5);
+  document.getElementById('stEst').textContent=ff(est);
+  document.getElementById('stExact').textContent=sim.shape.exactStr;
+  if(est!==null&&exact!==null&&exact>0)document.getElementById('stErr').textContent=(Math.abs(est-exact)/exact*100).toFixed(4)+'%';
+  else document.getElementById('stErr').textContent='—';
+  document.getElementById('stSE').textContent=ff(se);
+  if(se!==null&&est!==null){const ci=1.96*se;document.getElementById('stCI').textContent=`[${(est-ci).toFixed(4)}, ${(est+ci).toFixed(4)}]`;}
+  else document.getElementById('stCI').textContent='—';
+  const eff=n>0?(p*100).toFixed(2)+'%':'—';
+  document.getElementById('stEff').textContent=eff;
+  document.getElementById('effBar').style.width=n>0?(p*100).toFixed(2)+'%':'0%';
+  const now=performance.now(),dt=(now-sim.lastRateT)/1000;
+  if(dt>=RATE_INT/1000){sim.rate=Math.round((sim.total-sim.lastRateN)/dt);sim.lastRateN=sim.total;sim.lastRateT=now;}
+  document.getElementById('rateEl').textContent=sim.rate.toLocaleString();
+  updateComparison();
+}
+
+/* ── ANIMATION LOOP ── */
+function animLoop(ts){
+  if(!sim.running)return;
+  const el=ts-sim.lastTs;
+  if(el>=sim.interval){
+    sim.lastTs=ts-(el%sim.interval);
+    drawSamples(sim.spf);drawTop();updateStats();drawConv();
+    sim.stepPhase=(sim.stepPhase+1)%5;
+    for(let i=1;i<=5;i++)document.getElementById('as'+i).classList.toggle('active',i-1===sim.stepPhase);
+  }
+  sim.animId=requestAnimationFrame(animLoop);
+}
+
+/* ── SIM CONTROLS ── */
+function startSim(){
+  if(sim.running)return;
+  if(sim.key==='custom_draw'&&SHAPES.custom_draw.polygon.length<3){alert('Draw and close a shape first.');return;}
+  if(sim.key==='custom_fn'&&!SHAPES.custom_fn._fn){alert('Apply a function first.');return;}
+  sim.running=true;sim.lastTs=performance.now();sim.animId=requestAnimationFrame(animLoop);setStatus('running');
+}
+function pauseSim(){
+  sim.running=false;if(sim.animId){cancelAnimationFrame(sim.animId);sim.animId=null;}
+  for(let i=1;i<=5;i++)document.getElementById('as'+i).classList.remove('active');setStatus('paused');
+}
+function resetSim(){
+  pauseSim();sim.total=0;sim.inside=0;sim.history=[];sim.rate=0;sim.lastRateN=0;sim.lastRateT=performance.now();
+  pCtx.clearRect(0,0,CS*DPR,CS*DPR);drawBase();drawTop();updateStats();drawConv();setStatus('idle');
+}
+function stepSim(){
+  if(sim.running)pauseSim();
+  if(sim.key==='custom_draw'&&SHAPES.custom_draw.polygon.length<3){alert('Draw and close a shape first.');return;}
+  drawSamples(sim.spf);drawTop();updateStats();drawConv();
+  for(let i=1;i<=5;i++){const el=document.getElementById('as'+i);el.classList.add('active');setTimeout(()=>el.classList.remove('active'),400+i*80);}
+  setStatus('paused');
+}
+function setStatus(s){
+  const dot=document.getElementById('sDot'),txt=document.getElementById('sTxt');
+  dot.className='status-dot '+(s==='running'?'running':s==='paused'?'paused':'');
+  txt.textContent=s==='running'?'Running':s==='paused'?'Paused':'Idle';
+}
+
+/* ── SHAPE CHANGE ── */
+function onShapeChange(){
+  const key=document.getElementById('shapeSelect').value;
+  sim.key=key;sim.shape=SHAPES[key];
+  document.getElementById('cfPanel').classList.toggle('vis',key==='custom_fn');
+  document.getElementById('cdPanel').classList.toggle('vis',key==='custom_draw');
+  document.getElementById('cvFormula').textContent=sim.shape.formula;
+  document.getElementById('cvDesc').textContent=sim.shape.desc;
+  document.getElementById('stExact').textContent=sim.shape.exactStr;
+  sim.drawMode=key==='custom_draw';
+  if(sim.drawMode){sim.drawPoly=[];SHAPES.custom_draw.polygon=[];}
+  simpState.area=null;
+  document.getElementById('simpAreaEl').textContent='—';
+  document.getElementById('simpErrEl').textContent='—';
+  document.getElementById('simpMethodEl').textContent='—';
+  document.getElementById('simpVizWrap').style.display='none';
+  resetSim();
+}
+
+/* ── CUSTOM FUNCTION ── */
+function applyFn(){
+  const expr=document.getElementById('fnInp').value.trim();
+  const xmn=parseFloat(document.getElementById('xMin').value);
+  const xmx=parseFloat(document.getElementById('xMax').value);
+  const errEl=document.getElementById('fnError');errEl.style.display='none';
+  if(!expr){errEl.textContent='Enter a function';errEl.style.display='block';return;}
+  if(xmn>=xmx){errEl.textContent='x min must be < x max';errEl.style.display='block';return;}
+  let fn;
+  try{fn=parseFn(expr);fn(0);}catch(e){errEl.textContent='Parse error: '+e.message;errEl.style.display='block';return;}
+  let ymx=0;
+  for(let i=0;i<=500;i++){const x=xmn+(i/500)*(xmx-xmn);try{const y=fn(x);if(isFinite(y)&&y>ymx)ymx=y;}catch{}}
+  if(ymx<=0){errEl.textContent='f(x) must be positive somewhere';errEl.style.display='block';return;}
+  SHAPES.custom_fn._fn=fn;
+  SHAPES.custom_fn.formula=`f(x) = ${expr}`;
+  SHAPES.custom_fn.desc=`x ∈ [${xmn.toFixed(3)}, ${xmx.toFixed(3)}], area under curve`;
+  SHAPES.custom_fn.bounds={xMin:xmn,xMax:xmx,yMin:0,yMax:ymx*1.12};
+  SHAPES.custom_fn.exactArea=null;SHAPES.custom_fn.exactStr='—';
+  document.getElementById('cvFormula').textContent=SHAPES.custom_fn.formula;
+  document.getElementById('cvDesc').textContent=SHAPES.custom_fn.desc;
+  document.getElementById('stExact').textContent='—';
+  simpState.area=null;
+  resetSim();
+  // Auto-run Simpson's for custom functions
+  setTimeout(()=>runSimpson(true), 100);
+}
+
+/* ── CUSTOM DRAW ── */
+function beginDraw(){sim.drawMode=true;sim.drawPoly=[];SHAPES.custom_draw.polygon=[];document.getElementById('drawHint').textContent='Click to add vertices. Double-click or click ● to close.';resetSim();}
+function clearDraw(){sim.drawPoly=[];SHAPES.custom_draw.polygon=[];sim.drawMode=true;document.getElementById('drawHint').textContent='Click canvas to add vertices. Double-click to close.';resetSim();}
+function finishDraw(){
+  if(sim.drawPoly.length<3)return;
+  SHAPES.custom_draw.polygon=[...sim.drawPoly];
+  const bounds=polyBounds(sim.drawPoly);SHAPES.custom_draw.bounds=bounds;
+  const ea=shoelace(sim.drawPoly);
+  SHAPES.custom_draw.exactArea=ea;SHAPES.custom_draw.exactStr=ea.toFixed(6)+' (shoelace)';
+  SHAPES.custom_draw.formula=`Polygon (${sim.drawPoly.length} vertices)`;
+  SHAPES.custom_draw.desc='User-drawn closed shape';sim.drawMode=false;
+  document.getElementById('cvFormula').textContent=SHAPES.custom_draw.formula;
+  document.getElementById('cvDesc').textContent=SHAPES.custom_draw.desc;
+  document.getElementById('stExact').textContent=SHAPES.custom_draw.exactStr;
+  document.getElementById('drawHint').textContent=`Closed with ${sim.drawPoly.length} vertices. Ready!`;
+  resetSim();
+  setTimeout(()=>runSimpson(true),100);
+}
+
+topC.addEventListener('click',e=>{
+  if(!sim.drawMode)return;
+  const rect=topC.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top,sp=fc(sx,sy);
+  if(sim.drawPoly.length>=3){const p0=tc(sim.drawPoly[0][0],sim.drawPoly[0][1]),dx=sx-p0.x,dy=sy-p0.y;if(Math.sqrt(dx*dx+dy*dy)<14){finishDraw();return;}}
+  sim.drawPoly.push([sp.x,sp.y]);drawTop();
+});
+topC.addEventListener('dblclick',e=>{if(!sim.drawMode)return;e.preventDefault();if(sim.drawPoly.length>=3)finishDraw();});
+
+/* ── CSV EXPORT ── */
+function exportCSV(){
+  if(!sim.history.length){alert('Run the simulation first.');return;}
+  const exact=sim.shape.exactArea,b=sim.shape.bounds,ba=(b.xMax-b.xMin)*(b.yMax-b.yMin);
+  let csv='n,mc_area,mc_fraction,mc_std_error,box_area,simpson_area,simpson_n';
+  if(exact!==null)csv+=',exact_area,mc_pct_error,simpson_pct_error';
+  csv+='\n';
+  for(const{n,est,se}of sim.history){
+    const frac=est/ba;
+    let row=`${n},${est.toFixed(8)},${frac.toFixed(8)},${se.toFixed(8)},${ba.toFixed(8)},${simpState.area!==null?simpState.area.toFixed(8):''},${simpState.n}`;
+    if(exact!==null)row+=`,${exact.toFixed(8)},${(Math.abs(est-exact)/exact*100).toFixed(6)},${simpState.area!==null?(Math.abs(simpState.area-exact)/exact*100).toFixed(6):''}`;
+    csv+=row+'\n';
+  }
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`mc_vs_simpson_${sim.key}_N${sim.total}_${Date.now()}.csv`;a.click();URL.revokeObjectURL(a.href);
+}
+
+/* ── TABS ── */
+function switchTab(name){
+  const sim=name==='simulator';
+  document.getElementById('tab-simulator').style.display=sim?'grid':'none';
+  document.getElementById('tab-theory').style.display=sim?'none':'block';
+  document.getElementById('tabBtnSim').classList.toggle('active',sim);
+  document.getElementById('tabBtnTheory').classList.toggle('active',!sim);
+  if(!sim && window.MathJax && window.MathJax.typesetPromise){
+    window.MathJax.typesetPromise([document.getElementById('tab-theory')]).catch(()=>{});
+  }
+}
+
+/* ── THEME ── */
+function toggleTheme(){
+  const isDark=document.body.getAttribute('data-theme')==='dark',next=isDark?'light':'dark';
+  document.body.setAttribute('data-theme',next);
+  document.getElementById('thIcon').textContent=isDark?'🌙':'☀️';
+  document.getElementById('thLbl').textContent=isDark?'Dark':'Light';
+  try{localStorage.setItem('mc_theme',next);}catch{}
+  drawBase();drawTop();drawConv();
+  if(sim.key==='custom_fn'&&SHAPES.custom_fn._fn)drawSimpsonStrips();
+}
+
+/* ── RESIZE ── */
+window.addEventListener('resize',()=>{
+  const cw=Math.min(document.getElementById('convWrap').clientWidth||CW,CW);
+  convC.getContext('2d').setTransform(1,0,0,1,0,0);setupCanvas(convC,cw,CH);
+  simpC.getContext('2d').setTransform(1,0,0,1,0,0);setupCanvas(simpC,cw,CH);
+  drawConv();
+  if(sim.key==='custom_fn'&&SHAPES.custom_fn._fn)drawSimpsonStrips();
+});
+
+/* ── INIT ── */
+function init(){
+  try{const t=localStorage.getItem('mc_theme');if(t){document.body.setAttribute('data-theme',t);if(t==='light'){document.getElementById('thIcon').textContent='🌙';document.getElementById('thLbl').textContent='Dark';}}}catch{}
+  initCanvases();
+  onShapeChange();
+  // Auto-compute Simpson's for default shape
+  setTimeout(()=>runSimpson(true),200);
+}
+init();
+</script>
+</body>
+</html> 

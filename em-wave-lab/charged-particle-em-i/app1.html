@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charged Particle · EM Field Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script>
+/* apply saved theme before first paint */
+try{ if(localStorage.getItem('emTheme')==='day') document.documentElement.setAttribute('data-theme','day'); }catch(e){}
+</script>
+<style>
+:root, :root[data-theme="night"] {
+  --bg: #020b16;
+  --panel: #071a2e;
+  --panel2: #0a2036;
+  --border: #17466b;
+  --accent: #35dcff;
+  --accent-glow: #35dcff33;
+  --accent-dim: #0a5a78;
+  --particle: #ff6a3d;
+  --axis-x: #ff6b6b;
+  --axis-y: #4cf07a;
+  --axis-z: #5aa8ff;
+  --text: #a9cde0;
+  --text-bright: #eaf7ff;
+  --text-dim: #84afc8;
+  --E-color: #ffe94a;
+  --B-color: #ff6af0;
+  --v-color: #3dffa0;
+  --trail: #00aaff;
+  --eqbg: #082540;   --eqb: #1a4c75;
+  --notebg: #06301a; --noteb: #14703a; --notetx: #bfecd0;
+  --warnbg: #33230a; --warnb: #80560f; --warntx: #f0dda0;
+  --keybg: #0d2d52;  --keyb: #1d5688;
+  --legbg: rgba(4,16,30,.88);
+  --playc: #3dffa0;  --pausec: #ffbb33;
+  --glow: 0 0 14px rgba(53,220,255,.6);
+}
+:root[data-theme="day"] {
+  --bg: #e9f0f6;
+  --panel: #f7fafd;
+  --panel2: #ffffff;
+  --border: #b5c8d8;
+  --accent: #006f9e;
+  --accent-glow: rgba(0,111,158,.12);
+  --accent-dim: #cfe6f3;
+  --particle: #d9480f;
+  --axis-x: #c4122f;
+  --axis-y: #12803a;
+  --axis-z: #1259b8;
+  --text: #27455a;
+  --text-bright: #0a1f30;
+  --text-dim: #4a6479;
+  --E-color: #8a6100;
+  --B-color: #a8149a;
+  --v-color: #087a45;
+  --trail: #1259b8;
+  --eqbg: #eaf3fa;   --eqb: #b5cde0;
+  --notebg: #e4f5ea; --noteb: #8fcca8; --notetx: #14502d;
+  --warnbg: #fdf3dc; --warnb: #e0b860; --warntx: #5c4200;
+  --keybg: #e1edf6;  --keyb: #9fbdd3;
+  --legbg: rgba(255,255,255,.92);
+  --playc: #087a45;  --pausec: #9a5b00;
+  --glow: 0 0 0 transparent;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ─── HEADER ─── */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 18px;
+  display: flex; align-items: center; gap: 18px;
+  flex-shrink: 0; position: relative; overflow: hidden;
+}
+header::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.logo { font-family:'Orbitron',monospace; font-size:14px; font-weight:900;
+  color:var(--accent); letter-spacing:4px; text-shadow:var(--glow); }
+.formula { font-size:13px; color:var(--text-dim); letter-spacing:1px; }
+.formula b { color:var(--accent); }
+.header-stats { margin-left:auto; display:flex; gap:20px; font-size:12.5px; }
+.hstat { color:var(--text-dim); }
+.hstat span { color:var(--text-bright); }
+.themebtn {
+  display:flex; gap:2px; padding:3px; cursor:pointer;
+  font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:1px;
+  border:1px solid var(--border); border-radius:2px; background:transparent; color:var(--accent);
+}
+.themebtn:hover { box-shadow:var(--glow); }
+.tm { padding:3px 9px; border-radius:2px; opacity:.6; transition:all .2s; }
+:root[data-theme="night"] .tm.n, :root[data-theme="day"] .tm.d {
+  opacity:1; background:var(--accent); color:var(--bg); font-weight:700; }
+
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width:340px; flex-shrink:0; background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* Tab nav */
+.sidebar-tabs {
+  display:flex; flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+}
+.stab {
+  flex:1; padding:10px 4px;
+  font-family:'Orbitron',monospace; font-size:10.5px; letter-spacing:2px;
+  text-align:center; cursor:pointer; color:var(--text-dim);
+  border:none; background:transparent;
+  border-bottom:2px solid transparent;
+  transition:all 0.15s; text-transform:uppercase;
+}
+.stab:hover { color:var(--accent); background:var(--accent-glow); }
+.stab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--panel); }
+
+/* Tab panels */
+.tab-panel { display:none; flex:1; overflow-y:auto; overflow-x:hidden;
+  padding:10px 14px 24px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+.tab-panel::-webkit-scrollbar { width:4px; }
+.tab-panel::-webkit-scrollbar-thumb { background:var(--border); }
+.tab-panel.active { display:block; }
+
+/* Controls tab */
+.sec-title {
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:3px;
+  color:var(--accent); text-transform:uppercase;
+  padding:10px 0 5px; border-bottom:1px solid var(--border);
+  margin-bottom:7px; display:flex; align-items:center; gap:6px;
+}
+.sec-title::before {
+  content:''; width:5px; height:5px; background:var(--accent);
+  clip-path:polygon(50% 0%,100% 100%,0% 100%); flex-shrink:0;
+}
+.param { display:flex; align-items:center; margin-bottom:6px; gap:6px; }
+.plabel { font-size:12.5px; color:var(--text); min-width:36px;
+  font-family:'Share Tech Mono',monospace; letter-spacing:0.5px; }
+.pval { font-size:12.5px; color:var(--text-bright); min-width:62px;
+  text-align:right; font-family:'Share Tech Mono',monospace; }
+input[type="range"] {
+  flex:1; height:3px; -webkit-appearance:none;
+  background:var(--border); border-radius:2px; outline:none; cursor:pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
+  background:var(--accent); cursor:pointer;
+  box-shadow:var(--glow); transition:transform 0.1s;
+}
+input[type="range"]:hover::-webkit-slider-thumb { transform:scale(1.25); }
+input[type="range"]::-moz-range-thumb {
+  width:12px; height:12px; border-radius:50%;
+  background:var(--accent); border:none;
+}
+.presets-grid { display:flex; flex-wrap:wrap; gap:5px; }
+.preset-btn {
+  background:transparent; border:1px solid var(--border); color:var(--text);
+  font-family:'Orbitron',monospace; font-size:10px; letter-spacing:1px;
+  padding:5px 9px; cursor:pointer; transition:all 0.15s; text-transform:uppercase;
+}
+.preset-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+.checks { display:flex; flex-wrap:wrap; gap:8px 12px; padding:2px 0; }
+.chk { display:flex; align-items:center; gap:5px; font-size:12.5px;
+  cursor:pointer; color:var(--text); user-select:none; }
+.chk input[type="checkbox"] { accent-color:var(--accent); cursor:pointer; }
+.chk:hover { color:var(--text-bright); }
+
+/* ─── PHYSICS + HELP TAB SHARED STYLES ─── */
+.ph-h1 {
+  font-family:'Orbitron',monospace; font-size:13px; letter-spacing:2px;
+  color:var(--accent); text-transform:uppercase;
+  padding:14px 0 6px; border-bottom:1px solid var(--border);
+  margin-bottom:9px; display:flex; align-items:center; gap:6px;
+}
+.ph-h1::before {
+  content:''; width:6px; height:6px; background:var(--accent);
+  clip-path:polygon(50% 0%,100% 100%,0% 100%); flex-shrink:0;
+}
+.ph-h2 {
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px;
+  color:var(--text-bright); text-transform:uppercase;
+  margin:12px 0 5px;
+}
+.ph-text {
+  font-size:13.5px; color:var(--text); line-height:1.7; margin:5px 0;
+}
+.eq-box {
+  background:var(--eqbg); border:1px solid var(--eqb);
+  border-left:3px solid var(--accent);
+  padding:9px 11px; margin:8px 0;
+  font-family:'Share Tech Mono',monospace; font-size:14px;
+  line-height:1.8; color:var(--text-bright); overflow-x:auto;
+}
+.eq-box.yellow { border-left-color:var(--E-color); }
+.eq-box.magenta { border-left-color:var(--B-color); }
+.eq-box.green { border-left-color:var(--v-color); }
+.eq-box.orange { border-left-color:var(--particle); }
+.cv  { color:var(--accent); }
+.cE  { color:var(--E-color); }
+.cB  { color:var(--B-color); }
+.cV  { color:var(--v-color); }
+.cX  { color:var(--axis-x); }
+.cY  { color:var(--axis-y); }
+.cZ  { color:var(--axis-z); }
+.cP  { color:var(--particle); }
+.note-box {
+  background:var(--notebg); border:1px solid var(--noteb); border-left:3px solid var(--v-color);
+  padding:8px 11px; margin:8px 0; font-size:13px; color:var(--notetx); line-height:1.7;
+}
+.warn-box {
+  background:var(--warnbg); border:1px solid var(--warnb); border-left:3px solid var(--E-color);
+  padding:8px 11px; margin:8px 0; font-size:13px; color:var(--warntx); line-height:1.7;
+}
+.preset-card {
+  background:var(--eqbg); border:1px solid var(--border); padding:10px 12px;
+  margin:7px 0;
+}
+.preset-card-name {
+  font-family:'Orbitron',monospace; font-size:11.5px; color:var(--accent);
+  letter-spacing:2px; text-transform:uppercase; margin-bottom:5px;
+}
+.preset-card-eq { font-size:13px; color:var(--E-color); margin-bottom:4px; }
+.preset-card-desc { font-size:13px; color:var(--text); line-height:1.65; margin:3px 0; }
+.help-key {
+  display:inline-block; background:var(--keybg); border:1px solid var(--keyb);
+  padding:1px 7px; font-size:12px; color:var(--text-bright);
+  margin:1px 2px; font-family:'Share Tech Mono',monospace;
+}
+.help-row {
+  display:flex; gap:9px; align-items:flex-start;
+  margin:6px 0; font-size:13px; line-height:1.65;
+}
+.help-row .icon { color:var(--accent); min-width:22px; }
+.help-row .desc { color:var(--text); flex:1; }
+.help-row .desc b { color:var(--text-bright); }
+.divider { border:none; border-top:1px solid var(--border); margin:12px 0; }
+.badge {
+  display:inline-block; font-family:'Orbitron',monospace; font-size:10px;
+  letter-spacing:1px; padding:2px 7px; border:1px solid; margin:2px 2px 2px 0;
+}
+.badge.cyan  { border-color:var(--accent); color:var(--accent); }
+.badge.green { border-color:var(--v-color); color:var(--v-color); }
+.badge.yel   { border-color:var(--E-color); color:var(--E-color); }
+.badge.mag   { border-color:var(--B-color); color:var(--B-color); }
+.badge.ora   { border-color:var(--particle); color:var(--particle); }
+
+/* MathJax */
+mjx-container { color:inherit; }
+.eq-box mjx-container[display="true"] { margin:.35em 0 !important; text-align:left !important; }
+.eq-box mjx-container { font-size:110% !important; }
+.ph-text mjx-container, .note-box mjx-container, .warn-box mjx-container,
+.preset-card-desc mjx-container, .preset-card-eq mjx-container, .help-row mjx-container { font-size:106% !important; }
+
+/* ─── CANVAS AREA ─── */
+.canvas-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.canvas-wrap  { flex:1; position:relative; overflow:hidden; }
+canvas { position:absolute; top:0; left:0; width:100%; height:100%; cursor:grab; }
+canvas:active { cursor:grabbing; }
+
+/* ─── BOTTOM BAR ─── */
+.bottom-bar {
+  background:var(--panel); border-top:1px solid var(--border);
+  padding:7px 14px; display:flex; align-items:center;
+  gap:8px; flex-shrink:0; flex-wrap:wrap;
+}
+.vbtn {
+  background:transparent; border:1px solid var(--border); color:var(--text);
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:1px;
+  padding:5px 11px; cursor:pointer; transition:all 0.15s; text-transform:uppercase;
+}
+.vbtn:hover { border-color:var(--accent); color:var(--accent); }
+.vbtn.active { background:var(--accent-dim); border-color:var(--accent);
+  color:var(--accent); box-shadow:0 0 10px var(--accent-glow); font-weight:700; }
+.sep { width:1px; height:20px; background:var(--border); margin:0 4px; }
+.sbtn {
+  background:transparent; border:1px solid; font-family:'Share Tech Mono',monospace;
+  font-size:13px; padding:4px 12px; cursor:pointer; transition:all 0.15s;
+}
+.sbtn.play  { border-color:var(--playc); color:var(--playc); }
+.sbtn.pause { border-color:var(--pausec); color:var(--pausec); }
+.sbtn.neutral { border-color:var(--border); color:var(--text); }
+.sbtn:hover { opacity:0.75; }
+.spacer { flex:1; }
+.infos { display:flex; gap:14px; font-size:12.5px; flex-wrap:wrap; }
+
+/* Legend */
+.legend {
+  position:absolute; top:12px; right:14px;
+  background:var(--legbg); border:1px solid var(--border);
+  padding:8px 12px; font-size:12.5px; pointer-events:none;
+  z-index:10; backdrop-filter:blur(4px);
+}
+.leg-item { display:flex; align-items:center; gap:7px; margin-bottom:4px; }
+.leg-item:last-child { margin-bottom:0; }
+.leg-dot { width:12px; height:3px; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ EM·Sim</div>
+  <div class="formula">Lorentz: <b>\(\mathbf F=q(\mathbf E+\mathbf v\times\mathbf B)\)</b></div>
+  <div class="formula">RK4 Integration &nbsp;|&nbsp; <b>\(\mathbf F=m\mathbf a\)</b></div>
+  <div class="header-stats">
+    <div class="hstat">t = <span id="hTime">0.000</span> s</div>
+    <div class="hstat">|v| = <span id="hSpeed">0.000</span></div>
+    <div class="hstat">KE = <span id="hKE">0.000</span></div>
+    <div class="hstat">pos = (<span id="hPos">0.00, 0.00, 0.00</span>)</div>
+  </div>
+  <button class="themebtn" id="themeBtn" onclick="toggleTheme()" title="Toggle day / night"><span class="tm n">🌙 NIGHT</span><span class="tm d">☀ DAY</span></button>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+
+    <!-- TAB NAV -->
+    <div class="sidebar-tabs">
+      <button class="stab active" id="stab-controls" onclick="showTab('controls')">⚙ Controls</button>
+      <button class="stab"        id="stab-physics"  onclick="showTab('physics')">∇ Physics</button>
+      <button class="stab"        id="stab-help"     onclick="showTab('help')">? Help</button>
+    </div>
+
+    <!-- ══════════════════════ CONTROLS TAB ══════════════════════ -->
+    <div id="tab-controls" class="tab-panel active">
+
+      <div class="sec-title">Particle</div>
+      <div class="param"><span class="plabel" title="Mass">mass</span>
+        <input type="range" id="sl_mass" min="0.1" max="5" step="0.05" value="1">
+        <span class="pval" id="sv_mass">1.000</span></div>
+      <div class="param"><span class="plabel" title="Charge">q</span>
+        <input type="range" id="sl_charge" min="-3" max="3" step="0.1" value="1">
+        <span class="pval" id="sv_charge">+1.000</span></div>
+
+      <div class="sec-title">Initial Position</div>
+      <div class="param"><span class="plabel" style="color:var(--axis-x)">x₀</span>
+        <input type="range" id="sl_x0" min="-4" max="4" step="0.1" value="0">
+        <span class="pval" id="sv_x0">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-y)">y₀</span>
+        <input type="range" id="sl_y0" min="-4" max="4" step="0.1" value="0">
+        <span class="pval" id="sv_y0">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-z)">z₀</span>
+        <input type="range" id="sl_z0" min="-4" max="4" step="0.1" value="0">
+        <span class="pval" id="sv_z0">+0.000</span></div>
+
+      <div class="sec-title">Initial Velocity</div>
+      <div class="param"><span class="plabel" style="color:var(--axis-x)">vx₀</span>
+        <input type="range" id="sl_vx0" min="-6" max="6" step="0.1" value="2">
+        <span class="pval" id="sv_vx0">+2.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-y)">vy₀</span>
+        <input type="range" id="sl_vy0" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_vy0">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-z)">vz₀</span>
+        <input type="range" id="sl_vz0" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_vz0">+0.000</span></div>
+
+      <div class="sec-title">Electric Field <b style="color:var(--E-color)">E</b></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-x)">Ex</span>
+        <input type="range" id="sl_Ex" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_Ex">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-y)">Ey</span>
+        <input type="range" id="sl_Ey" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_Ey">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-z)">Ez</span>
+        <input type="range" id="sl_Ez" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_Ez">+0.000</span></div>
+
+      <div class="sec-title">Magnetic Field <b style="color:var(--B-color)">B</b></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-x)">Bx</span>
+        <input type="range" id="sl_Bx" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_Bx">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-y)">By</span>
+        <input type="range" id="sl_By" min="-6" max="6" step="0.1" value="0">
+        <span class="pval" id="sv_By">+0.000</span></div>
+      <div class="param"><span class="plabel" style="color:var(--axis-z)">Bz</span>
+        <input type="range" id="sl_Bz" min="-6" max="6" step="0.1" value="1">
+        <span class="pval" id="sv_Bz">+1.000</span></div>
+
+      <div class="sec-title">Simulation</div>
+      <div class="param"><span class="plabel" title="Time step">dt</span>
+        <input type="range" id="sl_dt" min="0.002" max="0.05" step="0.001" value="0.01">
+        <span class="pval" id="sv_dt">0.010</span></div>
+      <div class="param"><span class="plabel" title="Steps per frame">spd</span>
+        <input type="range" id="sl_spd" min="1" max="30" step="1" value="5">
+        <span class="pval" id="sv_spd">5×</span></div>
+      <div class="param"><span class="plabel" title="Trail length">trail</span>
+        <input type="range" id="sl_trail" min="100" max="4000" step="100" value="1500">
+        <span class="pval" id="sv_trail">1500</span></div>
+      <div class="param"><span class="plabel" title="Zoom">zoom</span>
+        <input type="range" id="sl_zoom" min="20" max="300" step="5" value="80">
+        <span class="pval" id="sv_zoom">80</span></div>
+
+      <div class="sec-title">Display</div>
+      <div class="checks">
+        <label class="chk"><input type="checkbox" id="chk_axes" checked> Axes</label>
+        <label class="chk"><input type="checkbox" id="chk_grid" checked> Grid</label>
+        <label class="chk"><input type="checkbox" id="chk_E" checked> E vec</label>
+        <label class="chk"><input type="checkbox" id="chk_B" checked> B vec</label>
+        <label class="chk"><input type="checkbox" id="chk_vel" checked> Velocity</label>
+        <label class="chk"><input type="checkbox" id="chk_labels" checked> Labels</label>
+      </div>
+
+      <div class="sec-title">Presets</div>
+      <div class="presets-grid">
+        <button class="preset-btn" onclick="loadPreset('cyclotron')">Cyclotron</button>
+        <button class="preset-btn" onclick="loadPreset('helix')">Helix</button>
+        <button class="preset-btn" onclick="loadPreset('drift')">E×B Drift</button>
+        <button class="preset-btn" onclick="loadPreset('cycloid')">Cycloid</button>
+        <button class="preset-btn" onclick="loadPreset('accelerate')">E + B</button>
+        <button class="preset-btn" onclick="loadPreset('chaos')">Crossed</button>
+      </div>
+
+    </div><!-- /tab-controls -->
+
+    <!-- ══════════════════════ PHYSICS TAB ══════════════════════ -->
+    <div id="tab-physics" class="tab-panel">
+
+      <div class="ph-h1">The Lorentz Force</div>
+      <p class="ph-text">A charged particle moving through electric and magnetic fields experiences the <b style="color:var(--text-bright)">Lorentz force</b> — the fundamental law driving every trajectory in this simulation:</p>
+      <div class="eq-box">\[\mathbf F=\cP{q}\left(\cE{\mathbf E}+\cv{\mathbf v}\times\cB{\mathbf B}\right)\]</div>
+      <p class="ph-text">where \(\cP{q}\) is charge, \(\cE{\mathbf E}\) is electric field, \(\cv{\mathbf v}\) is velocity, and \(\cB{\mathbf B}\) is magnetic field.</p>
+
+      <div class="ph-h1">Equations of Motion</div>
+      <p class="ph-text">By Newton's 2nd law (\(\mathbf F=m\mathbf a\)), dividing by mass gives the acceleration. In component form:</p>
+      <div class="eq-box">\[\begin{aligned}
+        \frac{d\cX{v_x}}{dt}&=\frac{\cP{q}}{m}\left[\cE{E_x}+\cY{v_y}\,\cB{B_z}-\cZ{v_z}\,\cB{B_y}\right]\\[4pt]
+        \frac{d\cY{v_y}}{dt}&=\frac{\cP{q}}{m}\left[\cE{E_y}+\cZ{v_z}\,\cB{B_x}-\cX{v_x}\,\cB{B_z}\right]\\[4pt]
+        \frac{d\cZ{v_z}}{dt}&=\frac{\cP{q}}{m}\left[\cE{E_z}+\cX{v_x}\,\cB{B_y}-\cY{v_y}\,\cB{B_x}\right]
+        \end{aligned}\]</div>
+      <p class="ph-text">The terms \(\cE{E_i}\) give electric acceleration; the cross-product terms \(\cv{\mathbf v}\times\cB{\mathbf B}\) are the magnetic deflection — always perpendicular to velocity.</p>
+
+      <div class="ph-h1">Numerical Integration (RK4)</div>
+      <p class="ph-text">These 6 coupled ODEs are solved each step using <b style="color:var(--text-bright)">4th-order Runge-Kutta</b>, a high-accuracy method:</p>
+      <div class="eq-box green">\[\begin{aligned}
+        k_1&=f(t,\,y)\\
+        k_2&=f\!\left(t+\tfrac h2,\ y+\tfrac h2 k_1\right)\\
+        k_3&=f\!\left(t+\tfrac h2,\ y+\tfrac h2 k_2\right)\\
+        k_4&=f\!\left(t+h,\ y+h\,k_3\right)\\
+        y_{n+1}&=y_n+\tfrac h6\left(k_1+2k_2+2k_3+k_4\right)
+        \end{aligned}\]</div>
+      <p class="ph-text">Each frame advances the simulation by <b style="color:var(--text-bright)">speed × dt</b> seconds. Smaller dt → more accuracy; larger speed → faster playback.</p>
+
+      <div class="ph-h1">Energy</div>
+      <div class="note-box">
+        ⚡ The magnetic force <b>does NO work</b> — since \(\cB{\mathbf F_B}=q(\cv{\mathbf v}\times\cB{\mathbf B})\) is always perpendicular to \(\cv{\mathbf v}\), it cannot change the particle's speed.<br><br>
+        Only the electric field changes kinetic energy:<br>
+        \(\dfrac{d\,KE}{dt}=q\,\cE{\mathbf E}\cdot\cv{\mathbf v}\)
+      </div>
+      <p class="ph-text">This means with \(\mathbf E=0\), the particle's speed \(|\cv{\mathbf v}|\) is conserved — only its direction changes.</p>
+
+      <hr class="divider">
+
+      <!-- SPECIAL CASES -->
+      <div class="ph-h1">Special Cases by Preset</div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">🔵 Cyclotron Motion</div>
+        <div class="preset-card-eq">\(\mathbf E=0,\ \mathbf B\parallel\hat{\mathbf z},\ \mathbf v\perp\mathbf B\)</div>
+        <p class="preset-card-desc">Pure magnetic field causes circular orbit in the XY plane. The Lorentz force acts as centripetal force:</p>
+        <div class="eq-box" style="margin:6px 0;">\[\begin{aligned}
+          r&=\frac{m\,|\cv{v_\perp}|}{|\cP{q}|\,|\cB{B}|} &&\text{Larmor radius}\\[3pt]
+          \omega&=\frac{|\cP{q}|\,|\cB{B}|}{m} &&\text{cyclotron frequency}\\[3pt]
+          T&=\frac{2\pi m}{|\cP{q}|\,|\cB{B}|} &&\text{period}
+          \end{aligned}\]</div>
+        <p class="preset-card-desc">Notice: the period is <i>independent of velocity</i> — the basis of the cyclotron particle accelerator.</p>
+      </div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">🌀 Helical Motion</div>
+        <div class="preset-card-eq">\(\mathbf E=0,\ \mathbf B\parallel\hat{\mathbf z}\), v has a Z component</div>
+        <p class="preset-card-desc">When velocity has a component <i>parallel</i> to B, that component is unaffected by the magnetic force (\(\mathbf v_\parallel\times\mathbf B=0\)). The particle spirals along the field line:</p>
+        <div class="eq-box" style="margin:6px 0;">\[\text{pitch}=\cv{v_\parallel}\,T=\frac{2\pi\,\cv{v_\parallel}\,m}{|\cP{q}|\,|\cB{B}|}\]</div>
+      </div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">➡ E×B Drift</div>
+        <div class="preset-card-eq">\(\mathbf E\perp\mathbf B\) (e.g. E along Y, B along Z)</div>
+        <p class="preset-card-desc">When E and B are perpendicular, the guiding center drifts in the E×B direction, <i>regardless of q or m</i>:</p>
+        <div class="eq-box" style="margin:6px 0;">\[\cv{\mathbf v}_{\text{drift}}=\frac{\cE{\mathbf E}\times\cB{\mathbf B}}{|\cB{\mathbf B}|^2}\]</div>
+        <p class="preset-card-desc">This universal drift (same for ions and electrons) is key to plasma confinement physics.</p>
+      </div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">〜 Cycloid Motion</div>
+        <div class="preset-card-eq">\(\mathbf E\perp\mathbf B\), particle starts at rest</div>
+        <p class="preset-card-desc">Starting from rest with crossed fields, the particle traces a <b style="color:var(--text-bright)">cycloid</b> — a series of loops like a point on a rolling wheel. The guiding center drifts at \(v_d=E/B\), while the instantaneous speed oscillates between 0 and \(2E/B\).</p>
+      </div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">⚡ E + B (oblique E)</div>
+        <div class="preset-card-eq">\(\mathbf E\perp\mathbf B\), with initial velocity</div>
+        <p class="preset-card-desc">With a velocity already present, the particle gyrates about B while its guiding center drifts at \(\mathbf E\times\mathbf B/B^2\). Because \(\mathbf E\perp\mathbf B\), the kinetic energy <b style="color:var(--text-bright)">oscillates</b> rather than growing without bound; sustained acceleration requires a component of \(\mathbf E\) <i>parallel</i> to \(\mathbf B\).</p>
+      </div>
+
+      <div class="preset-card">
+        <div class="preset-card-name">🌐 Crossed Fields (3D)</div>
+        <div class="preset-card-eq">E and B both in oblique directions</div>
+        <p class="preset-card-desc">With all field components non-zero, the trajectory is a complex 3D path combining drift, spiraling, and acceleration along the part of E parallel to B. Numerical integration is the practical way to follow it.</p>
+      </div>
+
+      <hr class="divider">
+      <div class="ph-h1">Key Relationships</div>
+      <div class="eq-box orange">\[\begin{aligned}
+        r&=\frac{m\,v_\perp}{|q|\,B} &&\text{Larmor radius}\\[3pt]
+        \omega&=\frac{|q|\,B}{m} &&\text{cyclotron frequency}\\[3pt]
+        v_d&=\frac{E}{B} &&\text{drift speed } (\mathbf E\perp\mathbf B)\\[3pt]
+        \Delta KE&=q\,\mathbf E\cdot\Delta\mathbf x &&\text{work by } \mathbf E
+        \end{aligned}\]</div>
+      <div class="warn-box">
+        ⚠ Simulation uses <b>normalized units</b> (not SI). Scale factors for q, m, E, B are arbitrary — only their <i>ratios</i> determine the trajectory shape.
+      </div>
+
+    </div><!-- /tab-physics -->
+
+    <!-- ══════════════════════ HELP TAB ══════════════════════ -->
+    <div id="tab-help" class="tab-panel">
+
+      <div class="ph-h1">Quick Start</div>
+      <div class="note-box">
+        1. Pick a <b>Preset</b> in the Controls tab<br>
+        2. Press <span class="help-key">▶ Play</span> to run<br>
+        3. Drag the canvas to rotate (3D), scroll to zoom<br>
+        4. Adjust field, mass and charge sliders while running to see live effects
+      </div>
+
+      <div class="ph-h1">Interface Overview</div>
+      <div class="help-row"><span class="icon">⚙</span><span class="desc"><b>Controls tab</b> — all physics parameters and presets</span></div>
+      <div class="help-row"><span class="icon">∇</span><span class="desc"><b>Physics tab</b> — equations and derivations for each motion type</span></div>
+      <div class="help-row"><span class="icon">?</span><span class="desc"><b>Help tab</b> — you are here</span></div>
+      <div class="help-row"><span class="icon">📊</span><span class="desc"><b>Header bar</b> — live readout of time, speed, and kinetic energy</span></div>
+      <div class="help-row"><span class="icon">🎮</span><span class="desc"><b>Bottom bar</b> — view selector and simulation controls</span></div>
+      <div class="help-row"><span class="icon">🌙</span><span class="desc"><b>Night / Day</b> — top-right switch; your choice is remembered</span></div>
+
+      <div class="ph-h1">Simulation Controls</div>
+      <div class="help-row"><span class="icon">▶</span><span class="desc"><span class="help-key">Play / Pause</span> — start or freeze the simulation. Spacebar shortcut.</span></div>
+      <div class="help-row"><span class="icon">↺</span><span class="desc"><span class="help-key">Reset</span> — restart from the current initial conditions.</span></div>
+      <div class="help-row"><span class="icon">⌫</span><span class="desc"><span class="help-key">Trail</span> — clear the path history without resetting the particle.</span></div>
+      <div class="help-row"><span class="icon">⊞</span><span class="desc"><span class="help-key">Fit</span> — auto-scale zoom to fit the entire trail in view.</span></div>
+
+      <div class="ph-h1">View Modes</div>
+      <div class="help-row"><span class="icon" style="color:var(--accent)">3D</span><span class="desc">Full 3D perspective view. <b>Drag</b> to rotate, <b>scroll</b> to zoom.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--axis-x)">XY</span><span class="desc">2D projection onto the horizontal plane — shows circular cyclotron orbits viewed from above.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--axis-z)">XZ</span><span class="desc">2D side projection — shows helical pitch and vertical drift.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--axis-y)">YZ</span><span class="desc">2D front projection — reveals depth of 3D trajectories.</span></div>
+      <div class="help-row"><span class="icon">⊞</span><span class="desc"><b>Split</b> — all four panels simultaneously for complete 3D understanding.</span></div>
+
+      <div class="ph-h1">Parameter Guide</div>
+      <div class="ph-h2">Particle</div>
+      <div class="help-row"><span class="icon">m</span><span class="desc"><b>Mass</b> — heavier particles have larger Larmor radius and lower cyclotron frequency.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--particle)">q</span><span class="desc"><b>Charge</b> — positive curves one way, negative the other. Zero charge means no force at all (electric or magnetic), so the particle moves in a straight line at constant velocity.</span></div>
+
+      <div class="ph-h2">Fields</div>
+      <div class="help-row"><span class="icon" style="color:var(--E-color)">E</span><span class="desc"><b>Electric field</b> — accelerates particle along field direction. Does work → changes KE.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--B-color)">B</span><span class="desc"><b>Magnetic field</b> — deflects perpendicular to motion. Does <i>no work</i> → speed unchanged.</span></div>
+
+      <div class="ph-h2">Simulation Quality</div>
+      <div class="help-row"><span class="icon">dt</span><span class="desc"><b>Time step</b> — smaller = higher accuracy, slower. Use ≤0.01 for smooth orbits at high field strength.</span></div>
+      <div class="help-row"><span class="icon">spd</span><span class="desc"><b>Speed multiplier</b> — steps per animation frame. Higher values run faster but don't affect accuracy.</span></div>
+      <div class="help-row"><span class="icon">trail</span><span class="desc"><b>Trail length</b> — how many past positions to display. Long trails reveal periodic structure.</span></div>
+
+      <div class="ph-h1">Mouse & Keyboard</div>
+      <div class="help-row"><span class="icon">🖱</span><span class="desc"><span class="help-key">Drag</span> in 3D view to orbit the camera.</span></div>
+      <div class="help-row"><span class="icon">⚙</span><span class="desc"><span class="help-key">Scroll</span> to zoom in/out in any view.</span></div>
+      <div class="help-row"><span class="icon">⌨</span><span class="desc"><span class="help-key">Space</span> to play/pause.</span></div>
+      <div class="help-row"><span class="icon">⌨</span><span class="desc"><span class="help-key">R</span> to reset the simulation.</span></div>
+      <div class="help-row"><span class="icon">⌨</span><span class="desc"><span class="help-key">C</span> to clear the trail.</span></div>
+
+      <div class="ph-h1">Display Toggles</div>
+      <div class="help-row"><span class="icon">✕</span><span class="desc"><b>Axes</b> — <span class="cX">X</span> <span class="cY">Y</span> <span class="cZ">Z</span> coordinate arrows at origin.</span></div>
+      <div class="help-row"><span class="icon">⊞</span><span class="desc"><b>Grid</b> — reference grid on the XZ plane (3D) or background (2D).</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--E-color)">E</span><span class="desc"><b>E vector</b> — yellow arrow showing electric field direction.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--B-color)">B</span><span class="desc"><b>B vector</b> — magenta arrow showing magnetic field direction.</span></div>
+      <div class="help-row"><span class="icon" style="color:var(--v-color)">v</span><span class="desc"><b>Velocity arrow</b> — green arrow on the particle showing instantaneous velocity.</span></div>
+
+      <div class="ph-h1">Tips & Tricks</div>
+      <div class="warn-box">
+        💡 <b>Try this:</b> Load the Cyclotron preset, then slowly increase Bz. Watch the orbit radius shrink as \(\omega=qB/m\) grows — the particle completes faster but smaller circles.
+      </div>
+      <div class="warn-box">
+        💡 <b>Try this:</b> On the Helix preset, switch to <b>XZ view</b> to clearly see the pitch of the spiral, then <b>XY view</b> to see the circular cross-section.
+      </div>
+      <div class="warn-box">
+        💡 <b>Try this:</b> Set q to a negative value on the Cyclotron preset — the orbit direction reverses. This is how electrons vs protons behave in plasma.
+      </div>
+      <div class="note-box">
+        ℹ Initial-condition sliders (position, velocity) take effect on <b>Reset</b> (↺ or <span class="help-key">R</span>). Mass, charge, field and display sliders act on the running simulation immediately.
+      </div>
+
+      <div class="ph-h1">Presets Reference</div>
+      <div class="help-row"><span class="icon">🔵</span><span class="desc"><b>Cyclotron</b> — \(\mathbf B=\hat{\mathbf z},\ \mathbf v=\hat{\mathbf x}\). Perfect circle, constant speed. Best viewed in XY.</span></div>
+      <div class="help-row"><span class="icon">🌀</span><span class="desc"><b>Helix</b> — \(\mathbf B=\hat{\mathbf z}\), v has a Z component. Spiral along field line. Best in 3D or SPLIT.</span></div>
+      <div class="help-row"><span class="icon">➡</span><span class="desc"><b>E×B Drift</b> — \(\mathbf E=\hat{\mathbf y},\ \mathbf B=\hat{\mathbf z}\). Particle drifts in X. Shows universal E×B drift.</span></div>
+      <div class="help-row"><span class="icon">〜</span><span class="desc"><b>Cycloid</b> — \(\mathbf E=\hat{\mathbf x},\ \mathbf B=\hat{\mathbf z},\ \mathbf v_0=0\). Classic looping cycloid path.</span></div>
+      <div class="help-row"><span class="icon">⚡</span><span class="desc"><b>E + B</b> — \(\mathbf E\perp\mathbf B\) with initial velocity. Gyration plus E×B drift; KE oscillates.</span></div>
+      <div class="help-row"><span class="icon">🌐</span><span class="desc"><b>Crossed</b> — oblique 3D fields. Complex trajectory requiring full 3D view.</span></div>
+
+    </div><!-- /tab-help -->
+
+  </div><!-- /sidebar -->
+
+  <!-- ══════════════════════ CANVAS AREA ══════════════════════ -->
+  <div class="canvas-area">
+    <div class="canvas-wrap">
+      <canvas id="cv"></canvas>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--particle)"></div><span style="color:var(--text)">Particle</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--trail)"></div><span style="color:var(--text)">Trail</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--v-color)"></div><span style="color:var(--text)">Velocity v</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--E-color)"></div><span style="color:var(--text)">E field</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--B-color)"></div><span style="color:var(--text)">B field</span></div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <button class="vbtn active" id="vbtn3D"    onclick="setView('3D')">3D</button>
+      <button class="vbtn"        id="vbtnXY"    onclick="setView('XY')">XY</button>
+      <button class="vbtn"        id="vbtnXZ"    onclick="setView('XZ')">XZ</button>
+      <button class="vbtn"        id="vbtnYZ"    onclick="setView('YZ')">YZ</button>
+      <button class="vbtn"        id="vbtnSPLIT" onclick="setView('SPLIT')">Split</button>
+      <div class="sep"></div>
+      <button class="sbtn play" id="playBtn" onclick="togglePlay()">▶ Play</button>
+      <button class="sbtn neutral" onclick="resetSim()">↺ Reset</button>
+      <button class="sbtn neutral" onclick="clearTrail()">⌫ Trail</button>
+      <button class="sbtn neutral" onclick="autoFit()">⊞ Fit</button>
+      <div class="spacer"></div>
+      <div class="infos">
+        <div class="hstat">t=<span id="bTime">0.000</span>s</div>
+        <div class="hstat">x=<span id="bX">0.00</span></div>
+        <div class="hstat">y=<span id="bY">0.00</span></div>
+        <div class="hstat">z=<span id="bZ">0.00</span></div>
+        <div class="hstat">|v|=<span id="bV">0.000</span></div>
+        <div class="hstat">KE=<span id="bKE">0.000</span></div>
+      </div>
+    </div>
+  </div>
+</div><!-- /main -->
+
+<!-- MATHJAX -->
+<script>
+window.MathJax={
+  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true,
+    macros:{cE:['\\class{cE}{#1}',1],cB:['\\class{cB}{#1}',1],cv:['\\class{cv}{#1}',1],
+            cP:['\\class{cP}{#1}',1],cX:['\\class{cX}{#1}',1],cY:['\\class{cY}{#1}',1],cZ:['\\class{cZ}{#1}',1]}},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}
+};
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+
+<script>
+/* ================================================================
+   THEME (day / night)
+================================================================ */
+const THEMES = {
+  night: {
+    bg:'#020c18', grid:'#0d2a45', grid0:'#1a5080', tick:'#8fb8d0', plane:'#35dcff99', plane2:'#35dcffaa',
+    ax:'#ff6b6b', ay:'#4cf07a', az:'#5aa8ff', origin:'#ffffff55', divider:'#17466b',
+    E:'#ffe94a', B:'#ff6af0', V:'#3dffa0', core:'#ff6a3d', glow:'255,106,61', hi:'#ffffff',
+    scan:'rgba(0,180,255,0.015)',
+    trail:(t,al)=>`rgba(0,${Math.floor(t*170+50)},255,${al})`
+  },
+  day: {
+    bg:'#f4f8fb', grid:'#cfdde8', grid0:'#8aa9c0', tick:'#27455a', plane:'#006f9ebb', plane2:'#006f9ecc',
+    ax:'#c4122f', ay:'#12803a', az:'#1259b8', origin:'#0a1f3088', divider:'#a9bfd0',
+    E:'#8a6100', B:'#a8149a', V:'#087a45', core:'#d9480f', glow:'217,72,15', hi:'#ffffff',
+    scan:'rgba(0,0,0,0)',
+    trail:(t,al)=>`rgba(10,${Math.floor(130-t*60)},${Math.floor(215-t*30)},${al})`
+  }
+};
+let TH = THEMES.night;
+function loadTheme(){ try{ return localStorage.getItem('emTheme')==='day'?'day':'night'; }catch(e){ return 'night'; } }
+function applyTheme(m){
+  TH = THEMES[m];
+  document.documentElement.setAttribute('data-theme',m);
+  try{ localStorage.setItem('emTheme',m); }catch(e){}
+  render();
+}
+function toggleTheme(){ applyTheme(TH===THEMES.night?'day':'night'); }
+
+/* ================================================================
+   TAB SWITCHING
+================================================================ */
+function showTab(name) {
+  ['controls','physics','help'].forEach(t => {
+    G('tab-'+t).classList.toggle('active', t===name);
+    G('stab-'+t).classList.toggle('active', t===name);
+  });
+}
+
+/* ================================================================
+   PHYSICS ENGINE
+================================================================ */
+const deriv = (s, p) => {
+  const qm = p.q / p.m;
+  return {
+    x:  s.vx,
+    y:  s.vy,
+    z:  s.vz,
+    vx: qm * (p.Ex + s.vy*p.Bz - s.vz*p.By),
+    vy: qm * (p.Ey + s.vz*p.Bx - s.vx*p.Bz),
+    vz: qm * (p.Ez + s.vx*p.By - s.vy*p.Bx)
+  };
+};
+const sadd = (a,b) => ({x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,vx:a.vx+b.vx,vy:a.vy+b.vy,vz:a.vz+b.vz});
+const smul = (a,f) => ({x:a.x*f,y:a.y*f,z:a.z*f,vx:a.vx*f,vy:a.vy*f,vz:a.vz*f});
+
+function rk4(s, p, dt) {
+  const k1 = deriv(s, p);
+  const k2 = deriv(sadd(s, smul(k1, dt/2)), p);
+  const k3 = deriv(sadd(s, smul(k2, dt/2)), p);
+  const k4 = deriv(sadd(s, smul(k3, dt)),   p);
+  return sadd(s, smul(sadd(k1, sadd(smul(k2,2), sadd(smul(k3,2), k4))), dt/6));
+}
+
+/* ================================================================
+   SIMULATION STATE
+================================================================ */
+let simS = {x:0,y:0,z:0,vx:2,vy:0,vz:0};
+let trail = [];
+let simT = 0;
+let running = false;
+let lastTS = 0;
+
+const G  = id => document.getElementById(id);
+const GF = id => parseFloat(G(id).value);
+
+function getP() {
+  return {
+    m:GF('sl_mass'), q:GF('sl_charge'),
+    Ex:GF('sl_Ex'),  Ey:GF('sl_Ey'),  Ez:GF('sl_Ez'),
+    Bx:GF('sl_Bx'),  By:GF('sl_By'),  Bz:GF('sl_Bz')
+  };
+}
+function getInit() {
+  return {
+    x:GF('sl_x0'), y:GF('sl_y0'), z:GF('sl_z0'),
+    vx:GF('sl_vx0'), vy:GF('sl_vy0'), vz:GF('sl_vz0')
+  };
+}
+
+function resetSim() {
+  simS = getInit(); trail = [{...simS}]; simT = 0;
+  updateHUD(); render();
+}
+function clearTrail() { trail=[{...simS}]; render(); }
+
+function togglePlay() {
+  running = !running;
+  const btn = G('playBtn');
+  if (running) {
+    btn.textContent='⏸ Pause'; btn.className='sbtn pause';
+    lastTS = performance.now();
+    requestAnimationFrame(loop);
+  } else {
+    btn.textContent='▶ Play'; btn.className='sbtn play';
+  }
+}
+
+function loop(ts) {
+  if (!running) return;
+  lastTS = ts;
+  const dt  = GF('sl_dt'), spd = parseInt(G('sl_spd').value);
+  const tL  = parseInt(G('sl_trail').value), p = getP();
+  for (let i=0;i<spd;i++) {
+    simS = rk4(simS, p, dt); simT += dt;
+    trail.push({...simS});
+    if (trail.length > tL) trail.shift();
+  }
+  updateHUD(); render();
+  requestAnimationFrame(loop);
+}
+
+function updateHUD() {
+  const s=simS, p=getP();
+  const v=Math.sqrt(s.vx**2+s.vy**2+s.vz**2), ke=0.5*p.m*v*v;
+  G('hTime').textContent=simT.toFixed(3); G('hSpeed').textContent=v.toFixed(3);
+  G('hKE').textContent=ke.toFixed(3);
+  G('hPos').textContent=`${s.x.toFixed(2)}, ${s.y.toFixed(2)}, ${s.z.toFixed(2)}`;
+  G('bTime').textContent=simT.toFixed(3); G('bX').textContent=s.x.toFixed(2);
+  G('bY').textContent=s.y.toFixed(2); G('bZ').textContent=s.z.toFixed(2);
+  G('bV').textContent=v.toFixed(3); G('bKE').textContent=ke.toFixed(3);
+}
+
+function autoFit() {
+  if (trail.length<2) return;
+  let mx=-1e9;
+  for (const p of trail) { const v=Math.max(Math.abs(p.x),Math.abs(p.y),Math.abs(p.z)); if(v>mx) mx=v; }
+  const half=Math.min(cv.offsetWidth,cv.offsetHeight)/2*0.8;
+  const nz=Math.floor(half/Math.max(mx,0.1));
+  G('sl_zoom').value=Math.max(20,Math.min(300,nz));
+  G('sl_zoom').dispatchEvent(new Event('input'));
+}
+
+/* ================================================================
+   CAMERA & INPUT
+================================================================ */
+const cv=G('cv'), ctx=cv.getContext('2d');
+let camTh=0.55, camPh=-0.35, zoom=80, viewMode='3D';
+let dragging=false, lastMX=0, lastMY=0;
+
+cv.addEventListener('mousedown', e=>{ dragging=true; lastMX=e.clientX; lastMY=e.clientY; });
+cv.addEventListener('mousemove', e=>{
+  if (!dragging||viewMode!=='3D') return;
+  camTh += (e.clientX-lastMX)*0.007;
+  camPh = Math.max(-1.4, Math.min(1.4, camPh+(e.clientY-lastMY)*0.007));
+  lastMX=e.clientX; lastMY=e.clientY;
+  if (!running) render();
+});
+cv.addEventListener('mouseup',    ()=>dragging=false);
+cv.addEventListener('mouseleave', ()=>dragging=false);
+cv.addEventListener('wheel', e=>{
+  e.preventDefault();
+  zoom=Math.max(15,Math.min(400, zoom*(e.deltaY>0?0.88:1.13)));
+  G('sl_zoom').value=Math.round(zoom); G('sv_zoom').textContent=Math.round(zoom);
+  if (!running) render();
+},{passive:false});
+
+document.addEventListener('keydown', e=>{
+  if (e.target.tagName==='INPUT') return;
+  if (e.key===' ') { e.preventDefault(); togglePlay(); }
+  if (e.key==='r'||e.key==='R') resetSim();
+  if (e.key==='c'||e.key==='C') clearTrail();
+});
+
+function setView(mode) {
+  viewMode=mode;
+  ['3D','XY','XZ','YZ','SPLIT'].forEach(m=>G('vbtn'+m).classList.remove('active'));
+  G('vbtn'+mode).classList.add('active');
+  if (!running) render();
+}
+
+/* ================================================================
+   3D PROJECTION
+================================================================ */
+function proj3(wx,wy,wz,cx,cy) {
+  const cT=Math.cos(camTh),sT=Math.sin(camTh);
+  const cP=Math.cos(camPh),sP=Math.sin(camPh);
+  const rx=wx*cT+wz*sT, ry=wy, rz=-wx*sT+wz*cT;
+  const ry2=ry*cP-rz*sP, rz2=ry*sP+rz*cP;
+  return {sx:cx+rx*zoom, sy:cy-ry2*zoom, d:rz2};
+}
+
+function arrow3D(cx,cy, x1,y1,z1, x2,y2,z2, col, lbl, lw=1.5) {
+  const p1=proj3(x1,y1,z1,cx,cy), p2=proj3(x2,y2,z2,cx,cy);
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(p1.sx,p1.sy); ctx.lineTo(p2.sx,p2.sy); ctx.stroke();
+  const a=Math.atan2(p2.sy-p1.sy,p2.sx-p1.sx), h=9;
+  ctx.beginPath(); ctx.moveTo(p2.sx,p2.sy);
+  ctx.lineTo(p2.sx-h*Math.cos(a-.4),p2.sy-h*Math.sin(a-.4));
+  ctx.lineTo(p2.sx-h*Math.cos(a+.4),p2.sy-h*Math.sin(a+.4));
+  ctx.closePath(); ctx.fill();
+  if (lbl&&G('chk_labels').checked) {
+    ctx.font='bold 14px Share Tech Mono,monospace';
+    ctx.fillText(lbl,p2.sx+5,p2.sy-5);
+  }
+}
+
+function drawGrid3D(cx,cy) {
+  if (!G('chk_grid').checked) return;
+  const N=6; ctx.lineWidth=0.6;
+  for (let i=-N;i<=N;i++) {
+    ctx.strokeStyle=(i===0)?TH.grid0:TH.grid;
+    const p1=proj3(-N,0,i,cx,cy),p2=proj3(N,0,i,cx,cy);
+    ctx.beginPath();ctx.moveTo(p1.sx,p1.sy);ctx.lineTo(p2.sx,p2.sy);ctx.stroke();
+    const p3=proj3(i,0,-N,cx,cy),p4=proj3(i,0,N,cx,cy);
+    ctx.beginPath();ctx.moveTo(p3.sx,p3.sy);ctx.lineTo(p4.sx,p4.sy);ctx.stroke();
+  }
+}
+function drawAxes3D(cx,cy) {
+  if (!G('chk_axes').checked) return;
+  arrow3D(cx,cy,0,0,0,3.5,0,0,TH.ax+'cc','X');
+  arrow3D(cx,cy,0,0,0,0,3.5,0,TH.ay+'cc','Y');
+  arrow3D(cx,cy,0,0,0,0,0,3.5,TH.az+'cc','Z');
+  const op=proj3(0,0,0,cx,cy);
+  ctx.fillStyle=TH.origin; ctx.beginPath(); ctx.arc(op.sx,op.sy,3,0,Math.PI*2); ctx.fill();
+}
+function drawTrail3D(cx,cy) {
+  if (trail.length<2) return;
+  for (let i=1;i<trail.length;i++) {
+    const t=i/trail.length;
+    const p0=proj3(trail[i-1].x,trail[i-1].y,trail[i-1].z,cx,cy);
+    const p1=proj3(trail[i].x,  trail[i].y,  trail[i].z,  cx,cy);
+    const al=Math.pow(t,0.6)*0.9;
+    ctx.strokeStyle=TH.trail(t,al); ctx.lineWidth=0.9+t*1.5;
+    ctx.beginPath(); ctx.moveTo(p0.sx,p0.sy); ctx.lineTo(p1.sx,p1.sy); ctx.stroke();
+  }
+}
+function drawTrail2D(cx,cy,gh) {
+  if (trail.length<2) return;
+  for (let i=1;i<trail.length;i++) {
+    const t=i/trail.length, [h0,v0]=gh(trail[i-1]), [h1,v1]=gh(trail[i]);
+    const al=Math.pow(t,0.6)*0.9;
+    ctx.strokeStyle=TH.trail(t,al); ctx.lineWidth=0.9+t*1.5;
+    ctx.beginPath(); ctx.moveTo(cx+h0*zoom,cy-v0*zoom); ctx.lineTo(cx+h1*zoom,cy-v1*zoom); ctx.stroke();
+  }
+}
+function drawFields3D(cx,cy) {
+  const p=getP(), fs=2.0;
+  if (G('chk_E').checked) {
+    const m=Math.sqrt(p.Ex**2+p.Ey**2+p.Ez**2);
+    if (m>0.01) { const n=fs/m; arrow3D(cx,cy,0,0,0,p.Ex*n,p.Ey*n,p.Ez*n,TH.E+'dd','E',2.2); }
+  }
+  if (G('chk_B').checked) {
+    const m=Math.sqrt(p.Bx**2+p.By**2+p.Bz**2);
+    if (m>0.01) { const n=fs/m; arrow3D(cx,cy,0,0,0,p.Bx*n,p.By*n,p.Bz*n,TH.B+'dd','B',2.2); }
+  }
+}
+function glowParticle(px,py,r){
+  const rg=ctx.createRadialGradient(px,py,0,px,py,r);
+  rg.addColorStop(0,`rgba(${TH.glow},0.9)`); rg.addColorStop(0.25,`rgba(${TH.glow},0.35)`); rg.addColorStop(1,`rgba(${TH.glow},0)`);
+  ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=TH.core; ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=TH.hi; ctx.beginPath(); ctx.arc(px-1.5,py-1.5,1.5,0,Math.PI*2); ctx.fill();
+}
+function drawParticle3D(cx,cy) {
+  const pp=proj3(simS.x,simS.y,simS.z,cx,cy);
+  glowParticle(pp.sx,pp.sy,22);
+  if (G('chk_vel').checked) {
+    const vs=0.4;
+    arrow3D(cx,cy,simS.x,simS.y,simS.z,
+      simS.x+simS.vx*vs,simS.y+simS.vy*vs,simS.z+simS.vz*vs,TH.V+'dd','v',1.8);
+  }
+}
+function drawParticle2D(cx,cy,gh) {
+  const [ph,pv]=gh(simS), px=cx+ph*zoom, py=cy-pv*zoom;
+  glowParticle(px,py,20);
+}
+function drawGrid2D(cx,cy,W,H) {
+  if (!G('chk_grid').checked) return;
+  const N=Math.ceil(Math.max(W,H)/zoom)+2; ctx.lineWidth=0.6;
+  for (let i=-N;i<=N;i++) {
+    ctx.strokeStyle=(i===0)?TH.grid0:TH.grid;
+    ctx.beginPath();ctx.moveTo(cx+i*zoom,0);ctx.lineTo(cx+i*zoom,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,cy+i*zoom);ctx.lineTo(W,cy+i*zoom);ctx.stroke();
+  }
+}
+function drawAxes2D(cx,cy,W,H,aH,aV,cH,cV) {
+  if (!G('chk_axes').checked) return;
+  const lbl=G('chk_labels').checked; ctx.lineWidth=1.2;
+  ctx.strokeStyle=cH+'cc'; ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(W,cy); ctx.stroke();
+  ctx.fillStyle=cH+'cc';
+  ctx.beginPath();ctx.moveTo(W-2,cy);ctx.lineTo(W-10,cy-5);ctx.lineTo(W-10,cy+5);ctx.closePath();ctx.fill();
+  if(lbl){ctx.fillStyle=cH;ctx.font='bold 14px Share Tech Mono,monospace';ctx.fillText(aH,W-22,cy-10);}
+  ctx.strokeStyle=cV+'cc'; ctx.beginPath(); ctx.moveTo(cx,H); ctx.lineTo(cx,0); ctx.stroke();
+  ctx.fillStyle=cV+'cc';
+  ctx.beginPath();ctx.moveTo(cx,2);ctx.lineTo(cx-5,12);ctx.lineTo(cx+5,12);ctx.closePath();ctx.fill();
+  if(lbl){ctx.fillStyle=cV;ctx.font='bold 14px Share Tech Mono,monospace';ctx.fillText(aV,cx+10,20);}
+  ctx.font='11px Share Tech Mono,monospace'; ctx.fillStyle=TH.tick;
+  for(let i=-20;i<=20;i++){
+    if(i===0) continue;
+    const tx=cx+i*zoom,ty=cy-i*zoom;
+    if(tx>2&&tx<W-2){ctx.fillRect(tx-.5,cy-3,1,6);if(i%2===0)ctx.fillText(i,tx-4,cy+15);}
+    if(ty>2&&ty<H-2){ctx.fillRect(cx-3,ty-.5,6,1);if(i%2===0)ctx.fillText(i,cx+7,ty+4);}
+  }
+}
+function drawFieldV2D(cx,cy,fh,fv,col,lbl){
+  const m=Math.sqrt(fh**2+fv**2); if(m<0.01) return;
+  const n=2/m, x2=cx+fh*n*zoom, y2=cy-fv*n*zoom;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=2.2;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x2,y2);ctx.stroke();
+  const a=Math.atan2(y2-cy,x2-cx),h=9;
+  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-h*Math.cos(a-.4),y2-h*Math.sin(a-.4));ctx.lineTo(x2-h*Math.cos(a+.4),y2-h*Math.sin(a+.4));ctx.closePath();ctx.fill();
+  if(G('chk_labels').checked){ctx.font='bold 14px Share Tech Mono,monospace';ctx.fillText(lbl,x2+6,y2-6);}
+}
+
+function getPC(plane){
+  if(plane==='XY') return {gh:s=>[s.x,s.y],aH:'X',aV:'Y',cH:TH.ax,cV:TH.ay,EH:p=>p.Ex,EV:p=>p.Ey,BH:p=>p.Bx,BV:p=>p.By,VH:s=>s.vx,VV:s=>s.vy};
+  if(plane==='XZ') return {gh:s=>[s.x,s.z],aH:'X',aV:'Z',cH:TH.ax,cV:TH.az,EH:p=>p.Ex,EV:p=>p.Ez,BH:p=>p.Bx,BV:p=>p.Bz,VH:s=>s.vx,VV:s=>s.vz};
+                   return {gh:s=>[s.y,s.z],aH:'Y',aV:'Z',cH:TH.ay,cV:TH.az,EH:p=>p.Ey,EV:p=>p.Ez,BH:p=>p.By,BV:p=>p.Bz,VH:s=>s.vy,VV:s=>s.vz};
+}
+
+function bg(x,y,w,h){ctx.fillStyle=TH.bg;ctx.fillRect(x,y,w,h);}
+
+function render3D(ox,oy,W,H){
+  ctx.save();ctx.beginPath();ctx.rect(ox,oy,W,H);ctx.clip();bg(ox,oy,W,H);
+  const cx=ox+W/2,cy=oy+H/2;
+  drawGrid3D(cx,cy);drawAxes3D(cx,cy);drawTrail3D(cx,cy);drawFields3D(cx,cy);drawParticle3D(cx,cy);
+  ctx.restore();
+}
+function render2D(ox,oy,W,H,plane){
+  ctx.save();ctx.beginPath();ctx.rect(ox,oy,W,H);ctx.clip();ctx.translate(ox,oy);bg(0,0,W,H);
+  const cx=W/2,cy=H/2,c=getPC(plane);
+  drawGrid2D(cx,cy,W,H);drawAxes2D(cx,cy,W,H,c.aH,c.aV,c.cH,c.cV);drawTrail2D(cx,cy,c.gh);
+  const p=getP();
+  if(G('chk_E').checked) drawFieldV2D(cx,cy,c.EH(p),c.EV(p),TH.E+'dd','E');
+  if(G('chk_B').checked) drawFieldV2D(cx,cy,c.BH(p),c.BV(p),TH.B+'dd','B');
+  if(G('chk_vel').checked){
+    const [ph,pv]=c.gh(simS),vs=0.4,vh=c.VH(simS)*vs,vv=c.VV(simS)*vs;
+    const px=cx+ph*zoom,py=cy-pv*zoom,vx=cx+(ph+vh)*zoom,vy=cy-(pv+vv)*zoom;
+    ctx.strokeStyle=TH.V+'dd';ctx.fillStyle=TH.V+'dd';ctx.lineWidth=1.8;
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(vx,vy);ctx.stroke();
+    const a=Math.atan2(vy-py,vx-px),h=8;
+    ctx.beginPath();ctx.moveTo(vx,vy);ctx.lineTo(vx-h*Math.cos(a-.4),vy-h*Math.sin(a-.4));ctx.lineTo(vx-h*Math.cos(a+.4),vy-h*Math.sin(a+.4));ctx.closePath();ctx.fill();
+  }
+  drawParticle2D(cx,cy,c.gh);
+  if(G('chk_labels').checked){ctx.font='13px Orbitron,monospace';ctx.fillStyle=TH.plane;ctx.fillText(plane+' plane',8,20);}
+  ctx.restore();
+}
+function renderSplit(W,H){
+  const hw=Math.floor(W/2),hh=Math.floor(H/2);
+  render3D(0,0,hw,hh);render2D(hw,0,W-hw,hh,'XY');render2D(0,hh,hw,H-hh,'XZ');render2D(hw,hh,W-hw,H-hh,'YZ');
+  ctx.strokeStyle=TH.divider;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(hw,0);ctx.lineTo(hw,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,hh);ctx.lineTo(W,hh);ctx.stroke();
+  if(G('chk_labels').checked){
+    ctx.font='12px Orbitron,monospace';ctx.fillStyle=TH.plane2;
+    ctx.fillText('3D',8,18);ctx.fillText('XY',hw+8,18);ctx.fillText('XZ',8,hh+18);ctx.fillText('YZ',hw+8,hh+18);
+  }
+}
+function render(){
+  const wrap=cv.parentElement,W=wrap.offsetWidth,H=wrap.offsetHeight;
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+  ctx.clearRect(0,0,W,H);
+  if(viewMode==='3D') render3D(0,0,W,H);
+  else if(viewMode==='SPLIT') renderSplit(W,H);
+  else render2D(0,0,W,H,viewMode);
+  const sl=ctx.createLinearGradient(0,0,0,H);
+  sl.addColorStop(0,TH.scan);sl.addColorStop(.5,'rgba(0,0,0,0)');sl.addColorStop(1,TH.scan);
+  ctx.fillStyle=sl;ctx.fillRect(0,0,W,H);
+}
+
+/* ================================================================
+   SLIDER BINDINGS
+================================================================ */
+const SLIDERS = [
+  ['sl_mass','sv_mass',v=>v.toFixed(3)],
+  ['sl_charge','sv_charge',v=>(v>=0?'+':'')+v.toFixed(3)],
+  ['sl_x0','sv_x0',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_y0','sv_y0',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_z0','sv_z0',v=>(v>=0?'+':'')+v.toFixed(3)],
+  ['sl_vx0','sv_vx0',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_vy0','sv_vy0',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_vz0','sv_vz0',v=>(v>=0?'+':'')+v.toFixed(3)],
+  ['sl_Ex','sv_Ex',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_Ey','sv_Ey',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_Ez','sv_Ez',v=>(v>=0?'+':'')+v.toFixed(3)],
+  ['sl_Bx','sv_Bx',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_By','sv_By',v=>(v>=0?'+':'')+v.toFixed(3)],['sl_Bz','sv_Bz',v=>(v>=0?'+':'')+v.toFixed(3)],
+  ['sl_dt','sv_dt',v=>v.toFixed(3)],['sl_spd','sv_spd',v=>v+'×'],
+  ['sl_trail','sv_trail',v=>v|0],['sl_zoom','sv_zoom',v=>v|0],
+];
+SLIDERS.forEach(([sid,vid,fmt])=>{
+  G(sid).addEventListener('input',()=>{
+    G(vid).textContent=fmt(parseFloat(G(sid).value));
+    if(sid==='sl_zoom') zoom=parseFloat(G(sid).value);
+    if(!running) render();
+  });
+});
+document.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+  cb.addEventListener('change',()=>{ if(!running) render(); });
+});
+
+/* ================================================================
+   PRESETS
+================================================================ */
+function sv(id,val){ G(id).value=val; G(id).dispatchEvent(new Event('input')); }
+const PRESETS = {
+  cyclotron:  {sl_mass:1,sl_charge:1,sl_x0:0,sl_y0:0,sl_z0:0,sl_vx0:2,sl_vy0:0,sl_vz0:0,sl_Ex:0,sl_Ey:0,sl_Ez:0,sl_Bx:0,sl_By:0,sl_Bz:1},
+  helix:      {sl_mass:1,sl_charge:1,sl_x0:0,sl_y0:0,sl_z0:-3,sl_vx0:2,sl_vy0:0,sl_vz0:1.2,sl_Ex:0,sl_Ey:0,sl_Ez:0,sl_Bx:0,sl_By:0,sl_Bz:1},
+  drift:      {sl_mass:1,sl_charge:1,sl_x0:0,sl_y0:0,sl_z0:0,sl_vx0:0,sl_vy0:0,sl_vz0:0,sl_Ex:0,sl_Ey:2,sl_Ez:0,sl_Bx:0,sl_By:0,sl_Bz:2},
+  cycloid:    {sl_mass:1,sl_charge:1,sl_x0:-3,sl_y0:0,sl_z0:0,sl_vx0:0,sl_vy0:0,sl_vz0:0,sl_Ex:1.5,sl_Ey:0,sl_Ez:0,sl_Bx:0,sl_By:0,sl_Bz:2},
+  accelerate: {sl_mass:1,sl_charge:1,sl_x0:0,sl_y0:0,sl_z0:0,sl_vx0:1,sl_vy0:0.5,sl_vz0:0,sl_Ex:0.5,sl_Ey:1,sl_Ez:0,sl_Bx:0,sl_By:0,sl_Bz:0.8},
+  chaos:      {sl_mass:1,sl_charge:1,sl_x0:0.5,sl_y0:0,sl_z0:0,sl_vx0:1,sl_vy0:1,sl_vz0:1,sl_Ex:0.5,sl_Ey:0,sl_Ez:0.5,sl_Bx:0.5,sl_By:1,sl_Bz:0.5},
+};
+function loadPreset(name){
+  const pr=PRESETS[name]; if(!pr) return;
+  const was=running; if(running) togglePlay();
+  for(const [k,v] of Object.entries(pr)) sv(k,v);
+  resetSim(); if(was) togglePlay();
+}
+
+/* ================================================================
+   RESIZE & INIT
+================================================================ */
+window.addEventListener('resize',()=>{ if(!running) render(); });
+TH = THEMES[loadTheme()];
+resetSim();
+applyTheme(loadTheme());
+</script>
+</body>
+</html>
