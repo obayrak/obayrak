@@ -1,16 +1,21 @@
-## Hi there 👋
+# obayrak – static copy of https://sites.google.com/view/obayrak
 
-<!--
-**obayrak/obayrak** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+Static GitHub Pages version of the Google Site (185 pages, 184 interactive apps).
 
-Here are some ideas to get you started:
+## Structure
+- `index.html` – home page
+- `<section>/<page>/index.html` – each page (same paths as the Google Site), with the menu
+- `<section>/<page>/app1.html` – the interactive app that was embedded on that page (unchanged code)
+- `style.css` – layout and menu styling
+- `.nojekyll` – tells GitHub Pages to serve files as-is
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## Publish
+1. Create a public repository on GitHub (e.g. `obayrak`).
+2. Upload ALL files and folders from this zip to the repository root (Add file -> Upload files, or GitHub Desktop).
+3. Settings -> Pages -> Source: "Deploy from a branch", Branch: `main`, folder `/ (root)` -> Save.
+4. After about 1 minute the site is live at `https://<your-username>.github.io/obayrak/`.
+   (Name the repository `<your-username>.github.io` to get `https://<your-username>.github.io/` instead.)
+
+## Editing
+To change an app, edit its `app1.html`. To add a page, copy an existing page folder and add a menu entry
+in the `<aside>` of each page (the menu is repeated in every page).

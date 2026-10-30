@@ -1,0 +1,4139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Fourier Transform — FFT Simulation</title>
+
+<!-- =========================================================
+     MATHJAX 3
+     ========================================================= -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [
+      ['$', '$'],
+      ['\\(', '\\)']
+    ],
+    displayMath: [
+      ['$$', '$$'],
+      ['\\[', '\\]']
+    ],
+    processEscapes: true,
+    processEnvironments: true
+  },
+
+  options: {
+    skipHtmlTags: [
+      'script',
+      'noscript',
+      'style',
+      'textarea',
+      'pre',
+      'code'
+    ]
+  },
+
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+
+<script
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+</script>
+
+<link
+  href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap"
+  rel="stylesheet">
+
+<style>
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg0:#0d0f14;
+  --bg1:#13161e;
+  --bg2:#1a1e2a;
+  --bg3:#222636;
+  --bg4:#2c3044;
+
+  --line:rgba(255,255,255,0.05);
+  --line2:rgba(255,255,255,0.11);
+  --line3:rgba(255,255,255,0.20);
+
+  --txt0:#f0f2f8;
+  --txt1:#9da5c0;
+  --txt2:#5c6480;
+
+  --accent:#00e5a0;
+  --accent2:#f5a623;
+  --accent3:#7b8fff;
+  --danger:#ff4e4e;
+
+  --mono:'Space Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+}
+
+html,
+body {
+  height:100%;
+  background:var(--bg0);
+  color:var(--txt0);
+  font-family:var(--sans);
+  font-size:14px;
+  line-height:1.5;
+  overflow-x:hidden;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 24px;
+  border-bottom:1px solid var(--line2);
+  background:var(--bg1);
+}
+
+.logo {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.logo-icon {
+  width:30px;
+  height:30px;
+  border-radius:7px;
+  background:var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.logo-title {
+  font-family:var(--mono);
+  font-size:14px;
+  font-weight:700;
+  color:var(--txt0);
+}
+
+.logo-sub {
+  font-size:10px;
+  color:var(--txt2);
+  font-family:var(--mono);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.hdr-right {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.badge {
+  font-family:var(--mono);
+  font-size:10px;
+  padding:3px 9px;
+  border-radius:20px;
+  border:1px solid var(--line3);
+  color:var(--txt2);
+}
+
+.play-btn {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.04em;
+  padding:7px 14px;
+  border-radius:8px;
+  border:1px solid rgba(0,229,160,.35);
+  background:rgba(0,229,160,.08);
+  color:var(--accent);
+  cursor:pointer;
+  transition:background .15s,border-color .15s;
+  user-select:none;
+}
+
+.play-btn:hover {
+  background:rgba(0,229,160,.15);
+  border-color:rgba(0,229,160,.5);
+}
+
+.play-btn.playing {
+  background:rgba(245,166,35,.1);
+  border-color:rgba(245,166,35,.4);
+  color:var(--accent2);
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.tabs {
+  display:flex;
+  border-bottom:1px solid var(--line2);
+  background:var(--bg1);
+  padding:0 24px;
+}
+
+.tab {
+  font-family:var(--mono);
+  font-size:11px;
+  padding:11px 16px;
+  cursor:pointer;
+  color:var(--txt2);
+  border-bottom:2px solid transparent;
+  margin-bottom:-1px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  transition:color .15s,border-color .15s;
+  user-select:none;
+}
+
+.tab:hover {
+  color:var(--txt0);
+}
+
+.tab.active {
+  color:var(--accent);
+  border-bottom-color:var(--accent);
+}
+
+.panel {
+  display:none;
+}
+
+.panel.active {
+  display:block;
+}
+
+/* =========================================================
+   SIMULATION
+   ========================================================= */
+
+.sim-layout {
+  display:grid;
+  grid-template-columns:290px 1fr;
+  height:calc(100vh - 103px);
+  overflow:hidden;
+}
+
+.sidebar {
+  background:var(--bg1);
+  border-right:1px solid var(--line2);
+  overflow-y:auto;
+  padding:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.sidebar::-webkit-scrollbar {
+  width:3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background:var(--bg4);
+  border-radius:4px;
+}
+
+.canvases {
+  display:grid;
+  grid-template-rows:1fr 1fr;
+  overflow:hidden;
+}
+
+.canvas-panel {
+  position:relative;
+  border-bottom:1px solid var(--line2);
+  background:var(--bg0);
+  overflow:hidden;
+}
+
+.canvas-panel:last-child {
+  border-bottom:none;
+}
+
+.clabel {
+  position:absolute;
+  top:9px;
+  left:13px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--txt2);
+  z-index:2;
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+
+.cdot {
+  width:5px;
+  height:5px;
+  border-radius:50%;
+}
+
+canvas {
+  display:block;
+  width:100%;
+  height:100%;
+}
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.sec-label {
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--txt2);
+  padding-bottom:6px;
+  border-bottom:1px solid var(--line);
+}
+
+.comp-card {
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:9px;
+  padding:11px;
+  margin-bottom:8px;
+}
+
+.comp-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:9px;
+}
+
+.comp-title {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:700;
+}
+
+.comp-swatch {
+  width:7px;
+  height:7px;
+  border-radius:2px;
+  flex-shrink:0;
+}
+
+.comp-remove {
+  width:18px;
+  height:18px;
+  border-radius:4px;
+  border:none;
+  background:transparent;
+  color:var(--txt2);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  line-height:1;
+}
+
+.comp-remove:hover {
+  background:rgba(255,78,78,.15);
+  color:var(--danger);
+}
+
+.comp-row {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:7px;
+}
+
+.comp-row:last-child {
+  margin-bottom:0;
+}
+
+.comp-row label {
+  font-size:10px;
+  color:var(--txt2);
+  width:48px;
+  flex-shrink:0;
+}
+
+.comp-row .val {
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--txt1);
+  width:42px;
+  text-align:right;
+  flex-shrink:0;
+}
+
+input[type=range] {
+  flex:1;
+  height:3px;
+  border-radius:2px;
+  appearance:none;
+  -webkit-appearance:none;
+  background:var(--bg4);
+  outline:none;
+  cursor:pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  width:13px;
+  height:13px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:pointer;
+  border:2px solid var(--bg0);
+}
+
+select {
+  font-family:var(--mono);
+  font-size:11px;
+  padding:5px 9px;
+  background:var(--bg3);
+  border:1px solid var(--line3);
+  border-radius:6px;
+  color:var(--txt1);
+  cursor:pointer;
+  outline:none;
+  width:100%;
+  appearance:none;
+}
+
+.btn {
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.04em;
+  padding:7px 11px;
+  border-radius:7px;
+  border:1px solid var(--line3);
+  background:var(--bg3);
+  color:var(--txt1);
+  cursor:pointer;
+  transition:all .15s;
+}
+
+.btn:hover {
+  background:var(--bg4);
+  color:var(--txt0);
+}
+
+.btn-accent {
+  background:rgba(0,229,160,.08);
+  border-color:rgba(0,229,160,.3);
+  color:var(--accent);
+}
+
+.btn-accent:hover {
+  background:rgba(0,229,160,.16);
+}
+
+.toggle-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.toggle-label {
+  font-size:11px;
+  color:var(--txt1);
+}
+
+.toggle {
+  position:relative;
+  width:34px;
+  height:18px;
+}
+
+.toggle input {
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.toggle-slider {
+  position:absolute;
+  inset:0;
+  border-radius:20px;
+  background:var(--bg4);
+  cursor:pointer;
+  transition:background .2s;
+}
+
+.toggle-slider::before {
+  content:'';
+  position:absolute;
+  width:12px;
+  height:12px;
+  left:3px;
+  top:3px;
+  border-radius:50%;
+  background:var(--txt2);
+  transition:all .2s;
+}
+
+.toggle input:checked + .toggle-slider {
+  background:rgba(0,229,160,.3);
+}
+
+.toggle input:checked + .toggle-slider::before {
+  transform:translateX(16px);
+  background:var(--accent);
+}
+
+/* =========================================================
+   STATS
+   ========================================================= */
+
+.stats-bar {
+  position:absolute;
+  bottom:7px;
+  right:11px;
+  font-family:var(--mono);
+  font-size:9px;
+  color:var(--txt2);
+  display:flex;
+  gap:14px;
+  z-index:2;
+}
+
+.stats-bar span {
+  display:flex;
+  gap:3px;
+}
+
+.stats-val {
+  color:var(--txt1);
+}
+
+/* =========================================================
+   PRESETS
+   ========================================================= */
+
+.preset-pills {
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px;
+}
+
+.preset-pill {
+  font-family:var(--mono);
+  font-size:10px;
+  padding:3px 8px;
+  border-radius:20px;
+  border:1px solid var(--line3);
+  background:var(--bg3);
+  color:var(--txt2);
+  cursor:pointer;
+  transition:all .15s;
+}
+
+.preset-pill:hover {
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(0,229,160,.07);
+}
+
+/* =========================================================
+   SPEED
+   ========================================================= */
+
+.speed-row {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.speed-label {
+  font-size:10px;
+  color:var(--txt2);
+  font-family:var(--mono);
+  flex-shrink:0;
+}
+
+.speed-btn {
+  font-family:var(--mono);
+  font-size:10px;
+  padding:3px 7px;
+  border-radius:5px;
+  border:1px solid var(--line3);
+  background:var(--bg3);
+  color:var(--txt2);
+  cursor:pointer;
+  transition:all .12s;
+}
+
+.speed-btn:hover,
+.speed-btn.active {
+  border-color:var(--accent2);
+  color:var(--accent2);
+  background:rgba(245,166,35,.08);
+}
+
+/* =========================================================
+   DOCUMENTATION
+   ========================================================= */
+
+.doc-scroll {
+  height:calc(100vh - 103px);
+  overflow-y:auto;
+}
+
+.doc-scroll::-webkit-scrollbar {
+  width:4px;
+}
+
+.doc-scroll::-webkit-scrollbar-thumb {
+  background:var(--bg4);
+  border-radius:4px;
+}
+
+.doc-panel {
+  max-width:820px;
+  margin:0 auto;
+  padding:36px 28px;
+}
+
+.doc-h1 {
+  font-family:var(--mono);
+  font-size:22px;
+  font-weight:700;
+  color:var(--txt0);
+  margin-bottom:6px;
+}
+
+.doc-sub {
+  font-size:15px;
+  color:var(--txt2);
+  margin-bottom:34px;
+}
+
+.doc-h2 {
+  font-family:var(--mono);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.07em;
+  color:var(--accent);
+  text-transform:uppercase;
+  margin:28px 0 12px;
+  padding-bottom:6px;
+  border-bottom:1px solid var(--line2);
+}
+
+.doc-p {
+  font-size:14px;
+  color:var(--txt1);
+  line-height:1.8;
+  margin-bottom:13px;
+}
+
+/* =========================================================
+   MATHJAX
+   ========================================================= */
+
+.eq-block {
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-left:3px solid var(--accent);
+  border-radius:0 9px 9px 0;
+  padding:16px 22px;
+  margin:12px 0 20px;
+  overflow-x:auto;
+  overflow-y:hidden;
+}
+
+.eq-label {
+  font-family:var(--mono);
+  font-size:9px;
+  color:var(--txt2);
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  margin-bottom:10px;
+}
+
+.eq-block mjx-container {
+  color:#f0f2f8 !important;
+}
+
+.eq-block mjx-container[display="true"] {
+  margin:0 !important;
+  padding:4px 0;
+  overflow-x:auto;
+  overflow-y:hidden;
+}
+
+.eq-block mjx-container svg {
+  max-width:none;
+}
+
+/* =========================================================
+   DOCUMENT CARDS
+   ========================================================= */
+
+.doc-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;
+  margin:16px 0;
+}
+
+.doc-card {
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:9px;
+  padding:15px;
+}
+
+.doc-card-title {
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:700;
+  color:var(--txt0);
+  margin-bottom:6px;
+}
+
+.doc-card-body {
+  font-size:12px;
+  color:var(--txt2);
+  line-height:1.65;
+}
+
+.doc-card-body b {
+  color:var(--txt1);
+  font-weight:500;
+}
+
+/* =========================================================
+   STEPS
+   ========================================================= */
+
+.step-list {
+  counter-reset:steps;
+  list-style:none;
+  margin:10px 0 18px;
+}
+
+.step-list li {
+  counter-increment:steps;
+  padding:9px 13px 9px 46px;
+  position:relative;
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:8px;
+  margin-bottom:7px;
+  font-size:13px;
+  color:var(--txt1);
+  line-height:1.6;
+}
+
+.step-list li::before {
+  content:counter(steps);
+  position:absolute;
+  left:12px;
+  top:50%;
+  transform:translateY(-50%);
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:rgba(0,229,160,.12);
+  color:var(--accent);
+  font-family:var(--mono);
+  font-size:10px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.step-list li b {
+  color:var(--accent2);
+  font-weight:600;
+}
+
+/* =========================================================
+   OTHER DOCUMENT ELEMENTS
+   ========================================================= */
+
+.kbd {
+  font-family:var(--mono);
+  font-size:11px;
+  padding:1px 6px;
+  background:var(--bg3);
+  border:1px solid var(--line3);
+  border-radius:4px;
+  color:var(--txt0);
+  display:inline-block;
+}
+
+.color-legend {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:8px 0 18px;
+}
+
+.color-item {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  color:var(--txt2);
+}
+
+.color-swatch-lg {
+  width:9px;
+  height:9px;
+  border-radius:2px;
+}
+
+.formula-block {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:12px 0 18px;
+}
+
+.formula-card {
+  background:var(--bg2);
+  border:1px solid var(--line2);
+  border-radius:9px;
+  padding:13px 15px;
+}
+
+.formula-name {
+  font-size:10px;
+  color:var(--txt2);
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-family:var(--mono);
+}
+
+.formula-val {
+  font-family:var(--mono);
+  font-size:13px;
+  color:var(--accent);
+}
+
+.formula-val small {
+  font-size:10px;
+  color:var(--txt2);
+  display:block;
+  margin-top:3px;
+}
+
+table.doc-table {
+  width:100%;
+  border-collapse:collapse;
+  margin:12px 0 18px;
+  font-size:12px;
+}
+
+table.doc-table th {
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:var(--txt2);
+  padding:7px 11px;
+  border-bottom:1px solid var(--line2);
+  text-align:left;
+}
+
+table.doc-table td {
+  padding:8px 11px;
+  border-bottom:1px solid var(--line);
+  color:var(--txt1);
+}
+
+table.doc-table tr:last-child td {
+  border-bottom:none;
+}
+
+table.doc-table td:first-child {
+  font-family:var(--mono);
+  color:var(--accent2);
+  font-size:11px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width:800px) {
+
+  header {
+    padding:10px 14px;
+  }
+
+  .badge {
+    display:none;
+  }
+
+  .tabs {
+    padding:0 10px;
+  }
+
+  .sim-layout {
+    grid-template-columns:230px 1fr;
+  }
+
+  .doc-panel {
+    padding:25px 18px;
+  }
+}
+
+@media (max-width:600px) {
+
+  .sim-layout {
+    grid-template-columns:1fr;
+    grid-template-rows:auto 1fr;
+    height:auto;
+  }
+
+  .sidebar {
+    border-right:none;
+    border-bottom:1px solid var(--line2);
+    max-height:390px;
+  }
+
+  .canvases {
+    min-height:650px;
+  }
+
+  .formula-block {
+    grid-template-columns:1fr;
+  }
+
+  .logo-sub {
+    display:none;
+  }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+     ========================================================= -->
+
+<header>
+
+  <div class="logo">
+
+    <div class="logo-icon">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 18 18"
+        fill="none">
+
+        <path
+          d="M1 9 Q3 3 5 9 Q7 15 9 9 Q11 3 13 9 Q15 15 17 9"
+          stroke="#0d0f14"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          fill="none"/>
+      </svg>
+    </div>
+
+    <div>
+      <div class="logo-title">
+        FFT Simulator
+      </div>
+
+      <div class="logo-sub">
+        Fast Fourier Transform
+      </div>
+    </div>
+
+  </div>
+
+  <div class="hdr-right">
+
+    <button
+      class="play-btn"
+      id="playBtn"
+      onclick="togglePlay()">
+
+      <svg
+        id="playIcon"
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none">
+
+        <polygon
+          points="3,1 13,7 3,13"
+          fill="currentColor"/>
+      </svg>
+
+      <span id="playLabel">
+        Play
+      </span>
+
+    </button>
+
+    <div
+      class="badge"
+      id="badgeFs">
+      Fs = 512 Hz · N = 2048
+    </div>
+
+  </div>
+
+</header>
+
+<!-- =========================================================
+     TABS
+     ========================================================= -->
+
+<div class="tabs">
+
+  <div
+    class="tab active"
+    data-tab="simulation">
+    Simulation
+  </div>
+
+  <div
+    class="tab"
+    data-tab="physics">
+    Physics
+  </div>
+
+  <div
+    class="tab"
+    data-tab="manual">
+    Manual
+  </div>
+
+</div>
+
+<!-- =========================================================
+     SIMULATION TAB
+     ========================================================= -->
+
+<div
+  id="tab-simulation"
+  class="panel active">
+
+  <div class="sim-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <div class="sec-label">
+ 
+      </div>
+
+      <div id="comp-list"></div>
+
+      <button
+        class="btn btn-accent"
+        onclick="addComponent()"
+        style="
+          width:100%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:5px;
+        ">
+
+        <span
+          style="
+            font-size:15px;
+            line-height:1
+          ">
+          +
+        </span>
+
+        Add Frequency
+
+      </button>
+
+      <div class="sec-label">
+        Playback Speed
+      </div>
+
+      <div class="speed-row">
+
+        <span class="speed-label">
+          Speed:
+        </span>
+
+        <button
+          class="speed-btn"
+          onclick="setSpeed(.5)"
+          data-s=".5">
+          0.5×
+        </button>
+
+        <button
+          class="speed-btn active"
+          onclick="setSpeed(1)"
+          data-s="1">
+          1×
+        </button>
+
+        <button
+          class="speed-btn"
+          onclick="setSpeed(2)"
+          data-s="2">
+          2×
+        </button>
+
+        <button
+          class="speed-btn"
+          onclick="setSpeed(4)"
+          data-s="4">
+          4×
+        </button>
+
+      </div>
+
+      <div class="sec-label">
+        Presets
+      </div>
+
+      <div class="preset-pills">
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('sine')">
+          Pure Sine
+        </div>
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('square')">
+          Square Wave
+        </div>
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('sawtooth')">
+          Sawtooth
+        </div>
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('triangle')">
+          Triangle
+        </div>
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('am')">
+          AM Signal
+        </div>
+
+        <div
+          class="preset-pill"
+          onclick="loadPreset('chord')">
+          Chord
+        </div>
+
+      </div>
+
+      <div class="sec-label">
+        Display Options
+      </div>
+
+      <div
+        class="comp-row"
+        style="
+          flex-direction:column;
+          gap:5px;
+          align-items:stretch;
+        ">
+
+        <label
+          style="
+            width:auto;
+            font-size:10px;
+            color:var(--txt2);
+          ">
+          Window Function
+        </label>
+
+        <select
+          id="windowSelect"
+          onchange="updateFFT()">
+
+          <option value="rect">
+            Rectangular (None)
+          </option>
+
+          <option
+            value="hann"
+            selected>
+            Hann
+          </option>
+
+          <option value="hamming">
+            Hamming
+          </option>
+
+          <option value="blackman">
+            Blackman
+          </option>
+
+          <option value="flattop">
+            Flat Top
+          </option>
+
+        </select>
+
+      </div>
+
+      <div
+        class="comp-row"
+        style="
+          flex-direction:column;
+          gap:5px;
+          align-items:stretch;
+        ">
+
+        <label
+          style="
+            width:auto;
+            font-size:10px;
+            color:var(--txt2);
+          ">
+          Sample Rate
+        </label>
+
+        <select
+          id="srSelect"
+          onchange="updateFFT()">
+
+          <option value="256">
+            256 Hz
+          </option>
+
+          <option
+            value="512"
+            selected>
+            512 Hz
+          </option>
+
+          <option value="1024">
+            1024 Hz
+          </option>
+
+          <option value="2048">
+            2048 Hz
+          </option>
+
+        </select>
+
+      </div>
+
+      <div class="toggle-row">
+
+        <span class="toggle-label">
+          Noise floor
+        </span>
+
+        <label class="toggle">
+
+          <input
+            type="checkbox"
+            id="noiseToggle"
+            onchange="updateFFT()">
+
+          <span class="toggle-slider"></span>
+
+        </label>
+
+      </div>
+
+      <div class="toggle-row">
+
+        <span class="toggle-label">
+          Log freq scale
+        </span>
+
+        <label class="toggle">
+
+          <input
+            type="checkbox"
+            id="logToggle"
+            onchange="drawFFT()">
+
+          <span class="toggle-slider"></span>
+
+        </label>
+
+      </div>
+
+      <div class="toggle-row">
+
+        <span class="toggle-label">
+          Phase spectrum
+        </span>
+
+        <label class="toggle">
+
+          <input
+            type="checkbox"
+            id="phaseToggle"
+            onchange="drawFFT()">
+
+          <span class="toggle-slider"></span>
+
+        </label>
+
+      </div>
+
+    </aside>
+
+    <!-- CANVASES -->
+
+    <div class="canvases">
+
+      <!-- TIME DOMAIN -->
+
+      <div class="canvas-panel">
+
+        <div class="clabel">
+
+          <span
+            class="cdot"
+            style="background:var(--accent)">
+          </span>
+
+          Time Domain — Composite Signal
+
+        </div>
+
+        <canvas
+          id="timeDomainCanvas">
+        </canvas>
+
+        <div class="stats-bar">
+
+          <span>
+            Fs
+            <span
+              class="stats-val"
+              id="statFs">
+              512 Hz
+            </span>
+          </span>
+
+          <span>
+            N
+            <span class="stats-val">
+              2048
+            </span>
+          </span>
+
+          <span>
+            T
+            <span
+              class="stats-val"
+              id="statT">
+              4.00 s
+            </span>
+          </span>
+
+          <span
+            id="statPH"
+            style="color:var(--accent2)">
+          </span>
+
+        </div>
+
+      </div>
+
+      <!-- FREQUENCY DOMAIN -->
+
+      <div class="canvas-panel">
+
+        <div class="clabel">
+
+          <span
+            class="cdot"
+            style="background:var(--accent2)">
+          </span>
+
+          Frequency Domain — FFT Magnitude Spectrum
+
+        </div>
+
+        <canvas
+          id="freqDomainCanvas">
+        </canvas>
+
+        <div class="stats-bar">
+
+          <span>
+            Δf
+            <span
+              class="stats-val"
+              id="statRes">
+              0.25 Hz
+            </span>
+          </span>
+
+          <span>
+            Nyquist
+            <span
+              class="stats-val"
+              id="statNyq">
+              256 Hz
+            </span>
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================================================
+     PHYSICS TAB
+     ========================================================= -->
+
+<div
+  id="tab-physics"
+  class="panel">
+
+  <div class="doc-scroll">
+
+    <div class="doc-panel">
+
+      <div class="doc-h1">
+        The Physics of the Fourier Transform
+      </div>
+
+      <div class="doc-sub">
+        From time domain to frequency domain — the mathematics behind signal decomposition.
+      </div>
+
+      <!-- CORE IDEA -->
+
+      <div class="doc-h2">
+        Core Idea
+      </div>
+
+      <div class="doc-p">
+        Any periodic or finite-energy signal can be expressed as a weighted sum of sinusoids.
+        The Fourier Transform projects a signal onto a basis of complex exponentials,
+        revealing which frequencies are present and at what amplitude and phase.
+      </div>
+
+      <!-- CONTINUOUS FT -->
+
+      <div class="doc-h2">
+        Continuous Fourier Transform
+      </div>
+
+      <div class="doc-p">
+        For a continuous signal x(t), the Fourier Transform X(f) is defined as the integral below.
+        The complex exponential e<sup>−j2πft</sup> acts as a matched filter — when the signal
+        contains frequency f, the integral accumulates; all other frequencies cancel by orthogonality.
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Forward Transform
+        </div>
+
+        <div>
+          $$
+          X(f)=
+          \int_{-\infty}^{\infty}
+          x(t)\,e^{-j2\pi ft}\,dt
+          $$
+        </div>
+
+      </div>
+
+      <div class="doc-p">
+        The inverse transform reconstructs the original signal from its spectrum:
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Inverse Transform
+        </div>
+
+        <div>
+          $$
+          x(t)=
+          \int_{-\infty}^{\infty}
+          X(f)\,e^{j2\pi ft}\,df
+          $$
+        </div>
+
+      </div>
+
+      <!-- DFT -->
+
+      <div class="doc-h2">
+        Discrete Fourier Transform (DFT)
+      </div>
+
+      <div class="doc-p">
+        In digital systems we work with N equally-spaced samples.
+        The DFT maps them to N complex frequency bins.
+        Each bin X[k] gives the amplitude and phase at frequency k·Fs/N:
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          DFT Analysis Equation
+        </div>
+
+        <div>
+          $$
+          X[k]=
+          \sum_{n=0}^{N-1}
+          x[n]e^{-j2\pi kn/N}
+          $$
+        </div>
+
+      </div>
+
+      <div class="doc-p">
+        Only the first N/2 bins are unique for real signals (Hermitian symmetry).
+        |X[k]| = amplitude, ∠X[k] = phase at that frequency.
+      </div>
+
+      <div class="doc-grid">
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Frequency Resolution
+          </div>
+
+          <div class="doc-card-body">
+            Δf = <b>Fs / N</b>.
+            More samples or lower sample rate → finer frequency bins.
+            Here N = 2048.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Nyquist Theorem
+          </div>
+
+          <div class="doc-card-body">
+            Max representable frequency = <b>Fs / 2</b>.
+            Signals above this alias.
+            Always keep Fs > 2 × f<sub>max</sub>.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Parseval's Theorem
+          </div>
+
+          <div class="doc-card-body">
+            Σ|x[n]|² = (1/N)·Σ|X[k]|².
+            Energy is conserved between time and frequency domains.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Linearity
+          </div>
+
+          <div class="doc-card-body">
+            FFT{ax + by} = a·FFT{x} + b·FFT{y}.
+            Sum of sinusoids → sum of their individual spectra.
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- FFT -->
+
+      <div class="doc-h2">
+        Fast Fourier Transform (FFT)
+      </div>
+
+      <div class="doc-p">
+        The Cooley-Tukey radix-2 algorithm reduces DFT complexity
+        from O(N²) to O(N log₂N) by recursively splitting even and odd indices.
+        The core operation is the butterfly:
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Butterfly — Decimation in Time
+        </div>
+
+        <div>
+          $$
+          X[k]=E[k]+W_N^kO[k]
+          $$
+        </div>
+
+      </div>
+
+      <div class="formula-block">
+
+        <div class="formula-card">
+
+          <div class="formula-name">
+            DFT Complexity
+          </div>
+
+          <div class="formula-val">
+            O(N²)
+
+            <small>
+              N=2048 → 4,194,304 ops
+            </small>
+
+          </div>
+
+        </div>
+
+        <div class="formula-card">
+
+          <div class="formula-name">
+            FFT Complexity
+          </div>
+
+          <div
+            class="formula-val"
+            style="color:var(--accent)">
+
+            O(N log₂ N)
+
+            <small>
+              N=2048 → 22,528 ops · 186× faster
+            </small>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- WINDOWS -->
+
+      <div class="doc-h2">
+        Window Functions
+      </div>
+
+      <div class="doc-p">
+        Spectral leakage occurs when a frequency doesn't land exactly on a bin.
+        Window functions taper the signal edges to reduce leakage.
+        The Hann window is:
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Hann Window
+        </div>
+
+        <div>
+          $$
+          w[n]=
+          0.5
+          \left(
+          1-\cos
+          \frac{2\pi n}{N-1}
+          \right)
+          $$
+        </div>
+
+      </div>
+
+      <table class="doc-table">
+
+        <thead>
+
+          <tr>
+            <th>Window</th>
+            <th>Main Lobe</th>
+            <th>Sidelobe</th>
+            <th>Best For</th>
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          <tr>
+            <td>Rectangular</td>
+            <td>Narrowest</td>
+            <td>−13 dB</td>
+            <td>Tones exactly on bins</td>
+          </tr>
+
+          <tr>
+            <td>Hann</td>
+            <td>2× wider</td>
+            <td>−31 dB</td>
+            <td>General purpose</td>
+          </tr>
+
+          <tr>
+            <td>Hamming</td>
+            <td>2× wider</td>
+            <td>−43 dB</td>
+            <td>Better sidelobe suppression</td>
+          </tr>
+
+          <tr>
+            <td>Blackman</td>
+            <td>3× wider</td>
+            <td>−58 dB</td>
+            <td>High dynamic range</td>
+          </tr>
+
+          <tr>
+            <td>Flat Top</td>
+            <td>4× wider</td>
+            <td>−93 dB</td>
+            <td>Amplitude accuracy</td>
+          </tr>
+
+        </tbody>
+
+      </table>
+
+      <!-- FOURIER SERIES -->
+
+      <div class="doc-h2">
+        Fourier Series of Common Waveforms
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Square Wave Fourier Series
+        </div>
+
+        <div>
+          $$
+          x_{\mathrm{sq}}(t)=
+          \frac{4}{\pi}
+          \sum_{k=0}^{\infty}
+          \frac{
+            \sin\left((2k+1)2\pi f_0t\right)
+          }{2k+1}
+          $$
+        </div>
+
+      </div>
+
+      <div class="eq-block">
+
+        <div class="eq-label">
+          Sawtooth Wave Fourier Series
+        </div>
+
+        <div>
+          $$
+          x_{\mathrm{saw}}(t)=
+          \frac{2}{\pi}
+          \sum_{n=1}^{\infty}
+          \frac{(-1)^{n+1}}{n}
+          \sin(2\pi nf_0t)
+          $$
+        </div>
+
+      </div>
+
+      <div class="doc-grid">
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Square Wave
+          </div>
+
+          <div class="doc-card-body">
+            Odd harmonics:
+            f, 3f, 5f…
+            at amplitudes
+            1, 1/3, 1/5…
+            Spectrum falls at −6 dB/octave.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Sawtooth Wave
+          </div>
+
+          <div class="doc-card-body">
+            All harmonics:
+            f, 2f, 3f…
+            at amplitudes
+            1, 1/2, 1/3…
+            Rich harmonic content.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Triangle Wave
+          </div>
+
+          <div class="doc-card-body">
+            Odd harmonics only,
+            amplitudes fall as 1/n².
+            Smoother rolloff at −12 dB/oct.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            AM Signal
+          </div>
+
+          <div class="doc-card-body">
+            Carrier plus two sidebands at
+            f<sub>c</sub> ± f<sub>m</sub>.
+            Demonstrates spectral shifting by modulation.
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- APPLICATIONS -->
+
+      <div class="doc-h2">
+        Applications
+      </div>
+
+      <div class="doc-grid">
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Audio / Music
+          </div>
+
+          <div class="doc-card-body">
+            Pitch detection, equalizers,
+            noise reduction, MP3 (MDCT),
+            speech synthesis.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Communications
+          </div>
+
+          <div class="doc-card-body">
+            OFDM in WiFi/LTE/5G —
+            IFFT at transmitter,
+            FFT at receiver.
+            Each subcarrier is one bin.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Image Processing
+          </div>
+
+          <div class="doc-card-body">
+            2D FFT for filtering,
+            JPEG compression (DCT),
+            edge detection,
+            fast convolution.
+          </div>
+
+        </div>
+
+        <div class="doc-card">
+
+          <div class="doc-card-title">
+            Medical Imaging
+          </div>
+
+          <div class="doc-card-body">
+            MRI k-space is the 2D Fourier transform
+            of the image.
+            CT uses filtered back-projection.
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================================================
+     MANUAL TAB
+     ========================================================= -->
+
+<div
+  id="tab-manual"
+  class="panel">
+
+  <div class="doc-scroll">
+
+    <div class="doc-panel">
+
+      <div class="doc-h1">
+        User Manual
+      </div>
+
+      <div class="doc-sub">
+        How to use the FFT Simulator to explore signal decomposition.
+      </div>
+
+      <div class="doc-h2">
+        Getting Started
+      </div>
+
+      <ol class="step-list">
+
+        <li>
+          Open the <b>Simulation</b> tab.
+          A Square Wave preset loads automatically with 4 harmonic components.
+        </li>
+
+        <li>
+          The <b>top canvas</b> is the time-domain view.
+          Faded colored lines are individual components;
+          bright white is their sum.
+        </li>
+
+        <li>
+          The <b>bottom canvas</b> is the FFT spectrum.
+          Colored dots mark each component's frequency peak.
+        </li>
+
+        <li>
+          Press <b>Play</b> in the header to animate
+          an oscilloscope-style scanning playhead.
+        </li>
+
+      </ol>
+
+      <div class="doc-h2">
+        Play Controls
+      </div>
+
+      <ol class="step-list">
+
+        <li>
+          The <b>Play / Pause</b> button starts and stops
+          the animated playhead sweeping across the time domain.
+        </li>
+
+        <li>
+          The playhead reveals the signal left-to-right,
+          as on a real oscilloscope.
+          The FFT updates live based on signal captured so far.
+        </li>
+
+        <li>
+          Watch the FFT peaks <b>build up</b>
+          as the playhead captures more complete cycles of each frequency.
+        </li>
+
+        <li>
+          Use the <b>Speed</b> buttons
+          (0.5×, 1×, 2×, 4×)
+          to control how fast the playhead moves.
+        </li>
+
+      </ol>
+
+      <div class="doc-h2">
+        Building a Signal
+      </div>
+
+      <div class="color-legend">
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#00e5a0">
+          </span>
+          Component 1
+        </div>
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#f5a623">
+          </span>
+          Component 2
+        </div>
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#7b8fff">
+          </span>
+          Component 3
+        </div>
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#ff6b9d">
+          </span>
+          Component 4
+        </div>
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#c084fc">
+          </span>
+          Component 5
+        </div>
+
+        <div class="color-item">
+          <span
+            class="color-swatch-lg"
+            style="background:#38bdf8">
+          </span>
+          Component 6
+        </div>
+
+      </div>
+
+      <ol class="step-list">
+
+        <li>
+          Click <b>+ Add Frequency</b>
+          to add a new sine component.
+          Up to 6 supported.
+        </li>
+
+        <li>
+          Each card has sliders for
+          <b>Freq</b> (1–200 Hz),
+          <b>Amp</b> (0–1),
+          and
+          <b>Phase</b> (0–360°).
+        </li>
+
+        <li>
+          Click <b>×</b>
+          to remove a component.
+          Color assignments update automatically.
+        </li>
+
+      </ol>
+
+      <div class="doc-h2">
+        Controls Reference
+      </div>
+
+      <table class="doc-table">
+
+        <thead>
+
+          <tr>
+            <th>Control</th>
+            <th>Range</th>
+            <th>Effect</th>
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          <tr>
+            <td>Freq</td>
+            <td>1–200 Hz</td>
+            <td>Frequency of the sine component</td>
+          </tr>
+
+          <tr>
+            <td>Amp</td>
+            <td>0.0–1.0</td>
+            <td>Amplitude of the component</td>
+          </tr>
+
+          <tr>
+            <td>Phase</td>
+            <td>0°–360°</td>
+            <td>Phase offset of the component</td>
+          </tr>
+
+          <tr>
+            <td>Window</td>
+            <td>5 types</td>
+            <td>Reduces spectral leakage at window edges</td>
+          </tr>
+
+          <tr>
+            <td>Sample Rate</td>
+            <td>256–2048 Hz</td>
+            <td>Sets Fs, Nyquist limit, and frequency resolution Δf</td>
+          </tr>
+
+          <tr>
+            <td>Noise floor</td>
+            <td>Toggle</td>
+            <td>Adds white noise to the signal</td>
+          </tr>
+
+          <tr>
+            <td>Log freq scale</td>
+            <td>Toggle</td>
+            <td>Switches FFT x-axis to logarithmic scale</td>
+          </tr>
+
+          <tr>
+            <td>Phase spectrum</td>
+            <td>Toggle</td>
+            <td>Overlays phase angles on FFT display</td>
+          </tr>
+
+          <tr>
+            <td>Speed</td>
+            <td>0.5×–4×</td>
+            <td>Controls playback animation speed</td>
+          </tr>
+
+        </tbody>
+
+      </table>
+
+      <div class="doc-h2">
+        Guided Experiments
+      </div>
+
+      <ol class="step-list">
+
+        <li>
+          <b>Spectral Leakage:</b>
+          Load Pure Sine at 10 Hz with Rectangular window.
+          Move freq to 10.5 Hz — the peak smears.
+          Switch to Hann or Blackman to suppress it.
+        </li>
+
+        <li>
+          <b>Phase Cancellation:</b>
+          Add two same-frequency components with Phase at 0° and 180°
+          and equal Amp.
+          The composite signal cancels to zero.
+        </li>
+
+        <li>
+          <b>Aliasing:</b>
+          Set Sample Rate to 256 Hz.
+          Add a component above 128 Hz.
+          Its FFT peak appears at the wrong — aliased — frequency.
+        </li>
+
+        <li>
+          <b>Live FFT:</b>
+          Press Play and watch the spectrum build
+          as the playhead scans.
+          Peaks grow and stabilize once a full cycle is captured.
+        </li>
+
+      </ol>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
+
+<script>
+
+/* =========================================================
+   GLOBAL SETTINGS
+   ========================================================= */
+
+const COMP_COLORS = [
+  '#00e5a0',
+  '#f5a623',
+  '#7b8fff',
+  '#ff6b9d',
+  '#c084fc',
+  '#38bdf8'
+];
+
+const N = 2048;
+
+let components = [];
+
+let compIdCounter = 0;
+
+let fftMag = new Float32Array(N / 2);
+let fftPhase = new Float32Array(N / 2);
+
+let timeSignal = new Float32Array(N);
+
+let isPlaying = false;
+let playHead = 0;
+let playSpeed = 1;
+let lastTime = null;
+let animFrame = null;
+
+
+/* =========================================================
+   PLAY / PAUSE
+   ========================================================= */
+
+function togglePlay() {
+
+  isPlaying = !isPlaying;
+
+  const btn = document.getElementById('playBtn');
+  const icon = document.getElementById('playIcon');
+  const lbl = document.getElementById('playLabel');
+
+  if (isPlaying) {
+
+    btn.classList.add('playing');
+
+    icon.innerHTML =
+      '<rect x="2" y="1" width="4" height="12" rx="1" fill="currentColor"/>' +
+      '<rect x="8" y="1" width="4" height="12" rx="1" fill="currentColor"/>';
+
+    lbl.textContent = 'Pause';
+
+    playHead = 0;
+    lastTime = null;
+
+    animFrame = requestAnimationFrame(animPlay);
+
+  } else {
+
+    btn.classList.remove('playing');
+
+    icon.innerHTML =
+      '<polygon points="3,1 13,7 3,13" fill="currentColor"/>';
+
+    lbl.textContent = 'Play';
+
+    if (animFrame) {
+      cancelAnimationFrame(animFrame);
+      animFrame = null;
+    }
+
+    document.getElementById('statPH').textContent = '';
+
+    updateFFT();
+  }
+}
+
+
+/* =========================================================
+   SPEED
+   ========================================================= */
+
+function setSpeed(s) {
+
+  playSpeed = s;
+
+  document
+    .querySelectorAll('.speed-btn')
+    .forEach(function(b) {
+
+      b.classList.toggle(
+        'active',
+        parseFloat(b.dataset.s) === s
+      );
+
+    });
+}
+
+
+/* =========================================================
+   ANIMATION
+   ========================================================= */
+
+function animPlay(ts) {
+
+  if (!isPlaying) return;
+
+  if (!lastTime) {
+    lastTime = ts;
+  }
+
+  const dt = (ts - lastTime) / 1000;
+
+  lastTime = ts;
+
+  const fs =
+    parseInt(
+      document.getElementById('srSelect').value
+    );
+
+  playHead += fs * playSpeed * dt;
+
+  if (playHead >= N) {
+    playHead = 0;
+  }
+
+  const ph = Math.floor(playHead);
+
+  document.getElementById('statPH').textContent =
+    't=' + (ph / fs * 1000).toFixed(1) + 'ms';
+
+  drawTimePlay(fs, ph);
+
+  drawFFTLive(ph);
+
+  animFrame = requestAnimationFrame(animPlay);
+}
+
+
+/* =========================================================
+   RADIX-2 FFT
+   ========================================================= */
+
+function fftR(re, im) {
+
+  const n = re.length;
+
+  if (n <= 1) {
+    return;
+  }
+
+  const h = n >> 1;
+
+  const rE = new Float32Array(h);
+  const iE = new Float32Array(h);
+
+  const rO = new Float32Array(h);
+  const iO = new Float32Array(h);
+
+  for (let i = 0; i < h; i++) {
+
+    rE[i] = re[2 * i];
+    iE[i] = im[2 * i];
+
+    rO[i] = re[2 * i + 1];
+    iO[i] = im[2 * i + 1];
+
+  }
+
+  fftR(rE, iE);
+  fftR(rO, iO);
+
+  for (let k = 0; k < h; k++) {
+
+    const a =
+      -2 * Math.PI * k / n;
+
+    const wr = Math.cos(a);
+    const wi = Math.sin(a);
+
+    const tr =
+      wr * rO[k] -
+      wi * iO[k];
+
+    const ti =
+      wr * iO[k] +
+      wi * rO[k];
+
+    re[k] =
+      rE[k] + tr;
+
+    im[k] =
+      iE[k] + ti;
+
+    re[k + h] =
+      rE[k] - tr;
+
+    im[k + h] =
+      iE[k] - ti;
+  }
+}
+
+
+/* =========================================================
+   WINDOW FUNCTIONS
+   ========================================================= */
+
+function applyWin(data, type) {
+
+  const n = data.length;
+
+  const out =
+    new Float32Array(n);
+
+  for (let i = 0; i < n; i++) {
+
+    let w = 1;
+
+    if (type === 'hann') {
+
+      w =
+        .5 *
+        (
+          1 -
+          Math.cos(
+            2 * Math.PI * i / (n - 1)
+          )
+        );
+
+    }
+
+    else if (type === 'hamming') {
+
+      w =
+        .54 -
+        .46 *
+        Math.cos(
+          2 * Math.PI * i / (n - 1)
+        );
+
+    }
+
+    else if (type === 'blackman') {
+
+      w =
+        .42 -
+        .5 *
+        Math.cos(
+          2 * Math.PI * i / (n - 1)
+        ) +
+        .08 *
+        Math.cos(
+          4 * Math.PI * i / (n - 1)
+        );
+
+    }
+
+    else if (type === 'flattop') {
+
+      w =
+        1 -
+        1.93 *
+        Math.cos(
+          2 * Math.PI * i / (n - 1)
+        ) +
+        1.29 *
+        Math.cos(
+          4 * Math.PI * i / (n - 1)
+        ) -
+        .388 *
+        Math.cos(
+          6 * Math.PI * i / (n - 1)
+        ) +
+        .028 *
+        Math.cos(
+          8 * Math.PI * i / (n - 1)
+        );
+
+    }
+
+    out[i] =
+      data[i] * w;
+  }
+
+  return out;
+}
+
+
+/* =========================================================
+   FFT
+   ========================================================= */
+
+function runFFT(
+  sig,
+  wt,
+  outMag,
+  outPhase
+) {
+
+  const w =
+    applyWin(sig, wt);
+
+  const re =
+    new Float32Array(N);
+
+  const im =
+    new Float32Array(N);
+
+  for (let i = 0; i < N; i++) {
+    re[i] = w[i];
+  }
+
+  fftR(re, im);
+
+  let mx = 1e-10;
+
+  for (let k = 0; k < N / 2; k++) {
+
+    outMag[k] =
+      Math.sqrt(
+        re[k] * re[k] +
+        im[k] * im[k]
+      ) / (N / 2);
+
+    outPhase[k] =
+      Math.atan2(
+        im[k],
+        re[k]
+      );
+
+    if (outMag[k] > mx) {
+      mx = outMag[k];
+    }
+  }
+
+  for (let k = 0; k < N / 2; k++) {
+    outMag[k] /= mx;
+  }
+}
+
+
+/* =========================================================
+   BUILD SIGNAL
+   ========================================================= */
+
+function buildSig(fs) {
+
+  const noise =
+    document.getElementById(
+      'noiseToggle'
+    ).checked;
+
+  for (let i = 0; i < N; i++) {
+
+    let v = 0;
+
+    const t = i / fs;
+
+    for (
+      let j = 0;
+      j < components.length;
+      j++
+    ) {
+
+      const c =
+        components[j];
+
+      v +=
+        c.amp *
+        Math.sin(
+          2 * Math.PI *
+          c.freq *
+          t +
+          c.phase *
+          Math.PI / 180
+        );
+    }
+
+    if (noise) {
+
+      v +=
+        (Math.random() - .5) *
+        .025;
+    }
+
+    timeSignal[i] = v;
+  }
+}
+
+
+/* =========================================================
+   UPDATE FFT
+   ========================================================= */
+
+function updateFFT() {
+
+  const fs =
+    parseInt(
+      document.getElementById('srSelect').value
+    );
+
+  document.getElementById(
+    'statFs'
+  ).textContent =
+    fs + ' Hz';
+
+  document.getElementById(
+    'statT'
+  ).textContent =
+    (N / fs).toFixed(2) + ' s';
+
+  document.getElementById(
+    'statRes'
+  ).textContent =
+    (fs / N).toFixed(3) + ' Hz';
+
+  document.getElementById(
+    'statNyq'
+  ).textContent =
+    (fs / 2) + ' Hz';
+
+  document.getElementById(
+    'badgeFs'
+  ).textContent =
+    'Fs = ' + fs +
+    ' Hz · N = ' + N;
+
+  buildSig(fs);
+
+  runFFT(
+    timeSignal,
+    document.getElementById(
+      'windowSelect'
+    ).value,
+    fftMag,
+    fftPhase
+  );
+
+  if (!isPlaying) {
+
+    drawTime(fs);
+    drawFFT();
+  }
+}
+
+
+/* =========================================================
+   GRID
+   ========================================================= */
+
+function drawGrid(ctx, w, h) {
+
+  ctx.strokeStyle =
+    'rgba(255,255,255,0.035)';
+
+  ctx.lineWidth = 1;
+
+  for (let x = 0; x <= 10; x++) {
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x * w / 10,
+      0
+    );
+
+    ctx.lineTo(
+      x * w / 10,
+      h
+    );
+
+    ctx.stroke();
+  }
+
+  for (let y = 0; y <= 4; y++) {
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      0,
+      y * h / 4
+    );
+
+    ctx.lineTo(
+      w,
+      y * h / 4
+    );
+
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle =
+    'rgba(255,255,255,0.07)';
+
+  ctx.setLineDash([4,4]);
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    0,
+    h / 2
+  );
+
+  ctx.lineTo(
+    w,
+    h / 2
+  );
+
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+}
+
+
+/* =========================================================
+   TIME AXIS
+   ========================================================= */
+
+function timeAxisLabels(
+  ctx,
+  w,
+  h,
+  fs,
+  disp
+) {
+
+  ctx.fillStyle =
+    'rgba(92,100,128,.85)';
+
+  ctx.font =
+    '9px Space Mono,monospace';
+
+  ctx.textAlign =
+    'center';
+
+  for (let i = 0; i <= 5; i++) {
+
+    ctx.fillText(
+      (
+        i *
+        disp /
+        5 /
+        fs *
+        1000
+      ).toFixed(0) + 'ms',
+
+      i * w / 5,
+
+      h - 4
+    );
+  }
+}
+
+
+/* =========================================================
+   TIME DOMAIN
+   ========================================================= */
+
+function drawTime(fs) {
+
+  const cv =
+    document.getElementById(
+      'timeDomainCanvas'
+    );
+
+  const w = cv.width;
+  const h = cv.height;
+
+  const ctx =
+    cv.getContext('2d');
+
+  ctx.clearRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+  drawGrid(
+    ctx,
+    w,
+    h
+  );
+
+  if (!components.length) {
+
+    ctx.fillStyle =
+      'rgba(255,255,255,.13)';
+
+    ctx.font =
+      '12px Space Mono,monospace';
+
+    ctx.textAlign =
+      'center';
+
+    ctx.fillText(
+      'Add a frequency component to begin',
+      w / 2,
+      h / 2
+    );
+
+    return;
+  }
+
+  const disp =
+    Math.min(
+      N,
+      Math.round(fs * .5)
+    );
+
+  const sc =
+    h * .37;
+
+  components.forEach(function(c) {
+
+    ctx.strokeStyle =
+      c.color + '35';
+
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+
+    for (let i = 0; i < disp; i++) {
+
+      const x =
+        i * w / disp;
+
+      const t =
+        i / fs;
+
+      const y =
+        h / 2 -
+        c.amp *
+        Math.sin(
+          2 * Math.PI *
+          c.freq *
+          t +
+          c.phase *
+          Math.PI / 180
+        ) *
+        sc;
+
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    ctx.stroke();
+  });
+
+  ctx.strokeStyle =
+    'rgba(240,242,248,.88)';
+
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+
+  for (let i = 0; i < disp; i++) {
+
+    const x =
+      i * w / disp;
+
+    const y =
+      h / 2 -
+      timeSignal[i] *
+      sc;
+
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  ctx.stroke();
+
+  timeAxisLabels(
+    ctx,
+    w,
+    h,
+    fs,
+    disp
+  );
+}
+
+
+/* =========================================================
+   PLAYHEAD TIME DOMAIN
+   ========================================================= */
+
+function drawTimePlay(fs, ph) {
+
+  const cv =
+    document.getElementById(
+      'timeDomainCanvas'
+    );
+
+  const w = cv.width;
+  const h = cv.height;
+
+  const ctx =
+    cv.getContext('2d');
+
+  ctx.clearRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+  drawGrid(
+    ctx,
+    w,
+    h
+  );
+
+  if (!components.length) {
+    return;
+  }
+
+  const disp =
+    Math.min(
+      N,
+      Math.round(fs * .5)
+    );
+
+  const sc =
+    h * .37;
+
+  const hx =
+    (
+      Math.min(ph, disp) /
+      disp
+    ) * w;
+
+  /* Revealed */
+
+  ctx.strokeStyle =
+    'rgba(240,242,248,.9)';
+
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+
+  for (
+    let i = 0;
+    i < Math.min(ph, disp);
+    i++
+  ) {
+
+    const x =
+      i * w / disp;
+
+    const y =
+      h / 2 -
+      timeSignal[i] *
+      sc;
+
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  ctx.stroke();
+
+  /* Unrevealed */
+
+  if (ph < disp) {
+
+    ctx.strokeStyle =
+      'rgba(240,242,248,.1)';
+
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+
+    const start =
+      Math.max(0, ph - 1);
+
+    for (
+      let i = start;
+      i < disp;
+      i++
+    ) {
+
+      const x =
+        i * w / disp;
+
+      const y =
+        h / 2 -
+        timeSignal[i] *
+        sc;
+
+      if (i === start) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    ctx.stroke();
+  }
+
+  /* Playhead */
+
+  ctx.strokeStyle =
+    'rgba(245,166,35,.85)';
+
+  ctx.lineWidth = 1.5;
+
+  ctx.setLineDash([3,3]);
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    hx,
+    0
+  );
+
+  ctx.lineTo(
+    hx,
+    h
+  );
+
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  /* Dot */
+
+  if (
+    ph > 0 &&
+    ph < disp
+  ) {
+
+    const cy =
+      h / 2 -
+      timeSignal[ph] *
+      sc;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      hx,
+      cy,
+      4,
+      0,
+      2 * Math.PI
+    );
+
+    ctx.fillStyle =
+      '#f5a623';
+
+    ctx.fill();
+  }
+
+  /* Glow */
+
+  const grd =
+    ctx.createLinearGradient(
+      Math.max(0, hx - 40),
+      0,
+      hx,
+      0
+    );
+
+  grd.addColorStop(
+    0,
+    'rgba(245,166,35,0)'
+  );
+
+  grd.addColorStop(
+    1,
+    'rgba(245,166,35,0.04)'
+  );
+
+  ctx.fillStyle = grd;
+
+  ctx.fillRect(
+    Math.max(0, hx - 40),
+    0,
+    40,
+    h
+  );
+
+  timeAxisLabels(
+    ctx,
+    w,
+    h,
+    fs,
+    disp
+  );
+}
+
+
+/* =========================================================
+   LIVE FFT
+   ========================================================= */
+
+function drawFFTLive(ph) {
+
+  if (!components.length) {
+    return;
+  }
+
+  const fs =
+    parseInt(
+      document.getElementById(
+        'srSelect'
+      ).value
+    );
+
+  const slice =
+    new Float32Array(N);
+
+  for (
+    let i = 0;
+    i < Math.min(ph, N);
+    i++
+  ) {
+
+    slice[i] =
+      timeSignal[i];
+  }
+
+  const lm =
+    new Float32Array(N / 2);
+
+  const lp =
+    new Float32Array(N / 2);
+
+  runFFT(
+    slice,
+    document.getElementById(
+      'windowSelect'
+    ).value,
+    lm,
+    lp
+  );
+
+  _drawFFT(
+    lm,
+    lp
+  );
+}
+
+
+/* =========================================================
+   FFT DRAW
+   ========================================================= */
+
+function drawFFT() {
+
+  _drawFFT(
+    fftMag,
+    fftPhase
+  );
+}
+
+
+/* =========================================================
+   FFT PLOT
+   ========================================================= */
+
+function _drawFFT(
+  mag,
+  phase
+) {
+
+  const cv =
+    document.getElementById(
+      'freqDomainCanvas'
+    );
+
+  const w = cv.width;
+  const h = cv.height;
+
+  const ctx =
+    cv.getContext('2d');
+
+  const fs =
+    parseInt(
+      document.getElementById(
+        'srSelect'
+      ).value
+    );
+
+  const useLog =
+    document.getElementById(
+      'logToggle'
+    ).checked;
+
+  const showPh =
+    document.getElementById(
+      'phaseToggle'
+    ).checked;
+
+  ctx.clearRect(
+    0,
+    0,
+    w,
+    h
+  );
+
+  drawGrid(
+    ctx,
+    w,
+    h
+  );
+
+  if (!components.length) {
+
+    ctx.fillStyle =
+      'rgba(255,255,255,.13)';
+
+    ctx.font =
+      '12px Space Mono,monospace';
+
+    ctx.textAlign =
+      'center';
+
+    ctx.fillText(
+      'No signal — add a component',
+      w / 2,
+      h / 2
+    );
+
+    return;
+  }
+
+  const ny =
+    fs / 2;
+
+  const bins =
+    N / 2;
+
+  const bHz =
+    fs / N;
+
+  function f2x(f) {
+
+    if (useLog) {
+
+      const mn = .5;
+
+      return Math.max(
+        0,
+        (
+          Math.log(
+            Math.max(f, mn) / mn
+          ) /
+          Math.log(ny / mn)
+        ) *
+        w
+      );
+    }
+
+    return (
+      f / ny
+    ) * w;
+  }
+
+  /* Bars */
+
+  for (
+    let k = 1;
+    k < bins;
+    k++
+  ) {
+
+    const f =
+      k * bHz;
+
+    const x =
+      f2x(f);
+
+    const nx =
+      f2x(
+        (k + 1) * bHz
+      );
+
+    const bw =
+      Math.max(
+        1,
+        nx - x
+      );
+
+    const bh =
+      mag[k] *
+      (h - 28);
+
+    if (bh < .5) {
+      continue;
+    }
+
+    const g =
+      ctx.createLinearGradient(
+        0,
+        h - bh,
+        0,
+        h
+      );
+
+    g.addColorStop(
+      0,
+      'rgba(245,166,35,.9)'
+    );
+
+    g.addColorStop(
+      1,
+      'rgba(245,166,35,.07)'
+    );
+
+    ctx.fillStyle = g;
+
+    ctx.fillRect(
+      x,
+      h - bh,
+      bw,
+      bh
+    );
+  }
+
+  /* Phase */
+
+  if (showPh) {
+
+    ctx.strokeStyle =
+      'rgba(123,143,255,.55)';
+
+    ctx.lineWidth = 1.2;
+
+    ctx.setLineDash([3,3]);
+
+    ctx.beginPath();
+
+    let first = true;
+
+    for (
+      let k = 1;
+      k < bins;
+      k++
+    ) {
+
+      const x =
+        f2x(
+          k * bHz
+        );
+
+      const y =
+        h / 2 -
+        (
+          phase[k] /
+          Math.PI
+        ) *
+        (
+          h / 2 - 20
+        );
+
+      if (first) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+        first = false;
+
+      } else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+      }
+    }
+
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+  }
+
+  /* Component markers */
+
+  for (
+    let ci = 0;
+    ci < components.length;
+    ci++
+  ) {
+
+    const c =
+      components[ci];
+
+    const tb =
+      Math.round(
+        c.freq / bHz
+      );
+
+    if (
+      tb <= 0 ||
+      tb >= bins
+    ) {
+      continue;
+    }
+
+    const bh =
+      mag[tb] *
+      (h - 28);
+
+    const fx =
+      f2x(c.freq);
+
+    ctx.beginPath();
+
+    ctx.arc(
+      fx,
+      h - bh - 5,
+      5,
+      0,
+      2 * Math.PI
+    );
+
+    ctx.fillStyle =
+      c.color;
+
+    ctx.fill();
+
+    ctx.fillStyle =
+      c.color;
+
+    ctx.font =
+      '9px Space Mono,monospace';
+
+    ctx.textAlign =
+      'center';
+
+    ctx.fillText(
+      c.freq.toFixed(1) + 'Hz',
+      fx,
+      Math.max(
+        13,
+        h - bh - 15
+      )
+    );
+  }
+
+  /* X-axis */
+
+  ctx.fillStyle =
+    'rgba(92,100,128,.85)';
+
+  ctx.font =
+    '9px Space Mono,monospace';
+
+  ctx.textAlign =
+    'center';
+
+  let ticks;
+
+  if (useLog) {
+
+    ticks = [
+      1,
+      2,
+      5,
+      10,
+      20,
+      50,
+      100,
+      200,
+      500
+    ].filter(function(f) {
+      return f < ny;
+    });
+
+  } else {
+
+    ticks = [
+      .1,
+      .2,
+      .3,
+      .4,
+      .5,
+      .6,
+      .7,
+      .8,
+      .9,
+      1
+    ].map(function(r) {
+      return Math.round(
+        r * ny
+      );
+    });
+  }
+
+  ticks.forEach(function(f) {
+
+    if (!f) {
+      return;
+    }
+
+    ctx.fillText(
+      f < 1000
+        ? f + 'Hz'
+        : (f / 1000).toFixed(1) + 'k',
+      f2x(f),
+      h - 4
+    );
+
+  });
+
+  /* Y-axis */
+
+  ctx.textAlign =
+    'right';
+
+  ctx.fillText(
+    '1.0',
+    w - 6,
+    13
+  );
+
+  ctx.fillText(
+    '0.5',
+    w - 6,
+    h / 2 + 4
+  );
+}
+
+
+/* =========================================================
+   ADD COMPONENT
+   ========================================================= */
+
+function addComponent(opts) {
+
+  opts = opts || {};
+
+  if (components.length >= 6) {
+    return;
+  }
+
+  const id =
+    ++compIdCounter;
+
+  const idx =
+    components.length;
+
+  components.push({
+
+    id:id,
+
+    freq:
+      opts.freq ||
+      (3 + idx * 3),
+
+    amp:
+      opts.amp !== undefined
+        ? opts.amp
+        : .8,
+
+    phase:
+      opts.phase ||
+      0,
+
+    color:
+      COMP_COLORS[
+        idx % 6
+      ]
+
+  });
+
+  renderSidebar();
+
+  updateFFT();
+}
+
+
+/* =========================================================
+   REMOVE COMPONENT
+   ========================================================= */
+
+function removeComponent(id) {
+
+  components =
+    components.filter(
+      function(c) {
+        return c.id !== id;
+      }
+    );
+
+  components.forEach(
+    function(c, i) {
+
+      c.color =
+        COMP_COLORS[
+          i % 6
+        ];
+    }
+  );
+
+  renderSidebar();
+
+  updateFFT();
+}
+
+
+/* =========================================================
+   UPDATE COMPONENT
+   ========================================================= */
+
+function updateComponent(
+  id,
+  field,
+  val
+) {
+
+  const c =
+    components.find(
+      function(c) {
+        return c.id === id;
+      }
+    );
+
+  if (!c) {
+    return;
+  }
+
+  c[field] =
+    parseFloat(val);
+
+  const el =
+    document.getElementById(
+      'val-' +
+      field +
+      '-' +
+      id
+    );
+
+  if (el) {
+
+    if (field === 'freq') {
+
+      el.textContent =
+        parseFloat(val)
+          .toFixed(1) +
+        'Hz';
+
+    }
+
+    else if (field === 'amp') {
+
+      el.textContent =
+        parseFloat(val)
+          .toFixed(2);
+
+    }
+
+    else {
+
+      el.textContent =
+        Math.round(val) +
+        '°';
+    }
+  }
+
+  updateFFT();
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+function renderSidebar() {
+
+  const list =
+    document.getElementById(
+      'comp-list'
+    );
+
+  if (!components.length) {
+
+    list.innerHTML =
+      '<div style="' +
+      'font-size:11px;' +
+      'color:var(--txt2);' +
+      'text-align:center;' +
+      'padding:10px 0">' +
+      'No components. Add one below.' +
+      '</div>';
+
+    return;
+  }
+
+  list.innerHTML =
+    components.map(
+      function(c) {
+
+        return (
+
+          '<div class="comp-card">' +
+
+            '<div class="comp-header">' +
+
+              '<div class="comp-title">' +
+
+                '<span ' +
+                'class="comp-swatch" ' +
+                'style="background:' +
+                c.color +
+                '"></span>' +
+
+                c.freq.toFixed(1) +
+                ' Hz' +
+
+              '</div>' +
+
+              '<button ' +
+              'class="comp-remove" ' +
+              'onclick="removeComponent(' +
+              c.id +
+              ')">' +
+              '×' +
+              '</button>' +
+
+            '</div>' +
+
+            '<div class="comp-row">' +
+
+              '<label>Freq</label>' +
+
+              '<input ' +
+              'type="range" ' +
+              'min="1" ' +
+              'max="200" ' +
+              'step="0.5" ' +
+              'value="' +
+              c.freq +
+              '" ' +
+              'oninput="updateComponent(' +
+              c.id +
+              ',\'freq\',this.value)">' +
+
+              '<span ' +
+              'class="val" ' +
+              'id="val-freq-' +
+              c.id +
+              '">' +
+              c.freq.toFixed(1) +
+              'Hz' +
+              '</span>' +
+
+            '</div>' +
+
+            '<div class="comp-row">' +
+
+              '<label>Amp</label>' +
+
+              '<input ' +
+              'type="range" ' +
+              'min="0" ' +
+              'max="1" ' +
+              'step="0.01" ' +
+              'value="' +
+              c.amp +
+              '" ' +
+              'oninput="updateComponent(' +
+              c.id +
+              ',\'amp\',this.value)">' +
+
+              '<span ' +
+              'class="val" ' +
+              'id="val-amp-' +
+              c.id +
+              '">' +
+              c.amp.toFixed(2) +
+              '</span>' +
+
+            '</div>' +
+
+            '<div class="comp-row">' +
+
+              '<label>Phase</label>' +
+
+              '<input ' +
+              'type="range" ' +
+              'min="0" ' +
+              'max="360" ' +
+              'step="1" ' +
+              'value="' +
+              c.phase +
+              '" ' +
+              'oninput="updateComponent(' +
+              c.id +
+              ',\'phase\',this.value)">' +
+
+              '<span ' +
+              'class="val" ' +
+              'id="val-phase-' +
+              c.id +
+              '">' +
+              c.phase +
+              '°' +
+              '</span>' +
+
+            '</div>' +
+
+          '</div>'
+
+        );
+      }
+    ).join('');
+}
+
+
+/* =========================================================
+   PRESETS
+   ========================================================= */
+
+function loadPreset(name) {
+
+  if (isPlaying) {
+    togglePlay();
+  }
+
+  components = [];
+
+  compIdCounter = 0;
+
+  const P = {
+
+    sine: [
+      {
+        freq:10,
+        amp:.9,
+        phase:0
+      }
+    ],
+
+    square: [
+      {
+        freq:10,
+        amp:1,
+        phase:0
+      },
+      {
+        freq:30,
+        amp:1/3,
+        phase:0
+      },
+      {
+        freq:50,
+        amp:.2,
+        phase:0
+      },
+      {
+        freq:70,
+        amp:1/7,
+        phase:0
+      }
+    ],
+
+    sawtooth: [
+      {
+        freq:10,
+        amp:1,
+        phase:0
+      },
+      {
+        freq:20,
+        amp:.5,
+        phase:0
+      },
+      {
+        freq:30,
+        amp:1/3,
+        phase:0
+      },
+      {
+        freq:40,
+        amp:.25,
+        phase:0
+      }
+    ],
+
+    triangle: [
+      {
+        freq:10,
+        amp:1,
+        phase:0
+      },
+      {
+        freq:30,
+        amp:1/9,
+        phase:180
+      },
+      {
+        freq:50,
+        amp:.04,
+        phase:0
+      },
+      {
+        freq:70,
+        amp:1/49,
+        phase:180
+      }
+    ],
+
+    am: [
+      {
+        freq:40,
+        amp:.7,
+        phase:0
+      },
+      {
+        freq:35,
+        amp:.35,
+        phase:0
+      },
+      {
+        freq:45,
+        amp:.35,
+        phase:0
+      }
+    ],
+
+    chord: [
+      {
+        freq:16,
+        amp:.7,
+        phase:0
+      },
+      {
+        freq:20,
+        amp:.6,
+        phase:20
+      },
+      {
+        freq:24,
+        amp:.5,
+        phase:45
+      }
+    ]
+  };
+
+  (
+    P[name] || []
+  ).forEach(
+    function(p) {
+      addComponent(p);
+    }
+  );
+}
+
+
+/* =========================================================
+   RESIZE CANVASES
+   ========================================================= */
+
+function resizeCanvases() {
+
+  [
+    'timeDomainCanvas',
+    'freqDomainCanvas'
+  ].forEach(function(id) {
+
+    const c =
+      document.getElementById(id);
+
+    const r =
+      c.parentElement
+       .getBoundingClientRect();
+
+    c.width =
+      Math.floor(r.width);
+
+    c.height =
+      Math.floor(r.height);
+
+  });
+
+  if (
+    components.length &&
+    !isPlaying
+  ) {
+
+    const fs =
+      parseInt(
+        document.getElementById(
+          'srSelect'
+        ).value
+      );
+
+    drawTime(fs);
+
+    drawFFT();
+  }
+}
+
+
+/* =========================================================
+   TAB SWITCHING
+   ========================================================= */
+
+document
+  .querySelectorAll('.tab')
+  .forEach(function(t) {
+
+    t.addEventListener(
+      'click',
+      function() {
+
+        document
+          .querySelectorAll('.tab')
+          .forEach(
+            function(x) {
+              x.classList.remove(
+                'active'
+              );
+            }
+          );
+
+        document
+          .querySelectorAll('.panel')
+          .forEach(
+            function(x) {
+              x.classList.remove(
+                'active'
+              );
+            }
+          );
+
+        t.classList.add(
+          'active'
+        );
+
+        document
+          .getElementById(
+            'tab-' +
+            t.dataset.tab
+          )
+          .classList.add(
+            'active'
+          );
+
+        if (
+          t.dataset.tab ===
+          'simulation'
+        ) {
+
+          setTimeout(
+            resizeCanvases,
+            50
+          );
+        }
+
+        /* Re-typeset MathJax if needed */
+
+        if (
+          window.MathJax &&
+          MathJax.typesetPromise
+        ) {
+
+          MathJax.typesetPromise();
+        }
+
+      }
+    );
+  });
+
+
+/* =========================================================
+   WINDOW RESIZE
+   ========================================================= */
+
+window.addEventListener(
+  'resize',
+  resizeCanvases
+);
+
+
+/* =========================================================
+   PAGE LOAD
+   ========================================================= */
+
+window.addEventListener(
+  'load',
+  function() {
+
+    setTimeout(
+      function() {
+
+        resizeCanvases();
+
+        loadPreset(
+          'square'
+        );
+
+        /* MathJax typesetting */
+
+        if (
+          window.MathJax &&
+          MathJax.typesetPromise
+        ) {
+
+          MathJax.typesetPromise();
+
+        }
+
+      },
+      150
+    );
+
+  }
+);
+
+</script>
+
+</body>
+</html> 

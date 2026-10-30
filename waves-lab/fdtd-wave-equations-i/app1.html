@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Equation — Numerical Physics Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+onload="renderMathInElement(document.body);"></script>
+<style>
+:root {
+  --bg:        #020814;
+  --panel:     #060d1f;
+  --surface:   #0a1428;
+  --border:    #0d2040;
+  --border2:   #162844;
+  --cyan:      #00e5cc;
+  --cyan-dim:  #00e5cc55;
+  --orange:    #ff6b2b;
+  --purple:    #a855f7;
+  --red:       #ef4444;
+  --blue:      #3b82f6;
+  --text:      #7a9cc0;
+  --text-hi:   #cce0ff;
+  --grid-line: #071020;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;gap:16px;
+  padding:8px 20px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  user-select:none;
+}
+.logo{
+  font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;
+  color:var(--cyan);letter-spacing:5px;text-transform:uppercase;
+  text-shadow:0 0 20px var(--cyan-dim);
+}
+.badge{
+  font-size:8px;letter-spacing:2px;color:var(--cyan);
+  border:1px solid var(--cyan-dim);padding:2px 8px;
+}
+.badge.org{color:var(--orange);border-color:#ff6b2b44;}
+header span.right{margin-left:auto;font-size:9px;color:var(--text);letter-spacing:1px;}
+
+/* ── TABS ── */
+nav{
+  display:flex;padding:0 20px;
+  background:var(--panel);border-bottom:1px solid var(--border);
+}
+.tab{
+  padding:9px 22px;
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:600;
+  letter-spacing:2.5px;color:var(--text);text-transform:uppercase;
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;white-space:nowrap;
+}
+.tab:hover:not(.active){color:var(--text-hi);}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);background:#00e5cc09;}
+
+/* ── LAYOUT ── */
+.page{display:none;height:calc(100vh - 68px);overflow:hidden;}
+.page.active{display:flex;}
+.sim-layout{display:flex;flex:1;overflow:hidden;}
+
+/* ── VIZ PANEL ── */
+.viz{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  border-right:1px solid var(--border);background:#010610;
+}
+.viz-header{
+  display:flex;align-items:center;gap:12px;padding:6px 14px;
+  border-bottom:1px solid var(--border);background:var(--panel);
+  flex-shrink:0;
+}
+.run-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--cyan);
+  box-shadow:0 0 6px var(--cyan);animation:blink 1.5s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.viz-title{
+  font-family:'Orbitron',sans-serif;font-size:9px;font-weight:600;
+  color:var(--cyan);letter-spacing:2.5px;text-transform:uppercase;
+}
+.viz-time{margin-left:auto;font-size:9px;color:var(--text);}
+.canvas-wrap{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+canvas{display:block;}
+
+/* 3D slice grid */
+.slices{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;flex:1;overflow:hidden;}
+.slab{position:relative;overflow:hidden;background:#010610;}
+.slab-lbl{
+  position:absolute;top:7px;left:10px;
+  font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;
+  color:var(--cyan);z-index:2;pointer-events:none;
+  text-shadow:0 0 8px var(--cyan);
+}
+.slab-info{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;padding:20px;gap:10px;
+}
+.eq-display{
+  font-size:12px;color:var(--text-hi);line-height:2.2;text-align:center;
+}
+.small-stats{font-size:9px;color:var(--text);line-height:1.9;text-align:center;}
+.small-stats span{color:var(--cyan);}
+
+/* ── CONTROLS ── */
+.ctrl{width:260px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--panel);}::-webkit-scrollbar-thumb{background:var(--border2);}
+
+.card{border:1px solid var(--border);padding:10px 12px;}
+.card-title{
+  font-family:'Orbitron',sans-serif;font-size:7px;font-weight:700;
+  letter-spacing:3px;color:var(--cyan);text-transform:uppercase;
+  padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid var(--border);
+}
+.row{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+.lbl{font-size:8px;letter-spacing:.5px;color:var(--text);display:flex;justify-content:space-between;}
+.lbl em{color:var(--cyan);font-style:normal;font-weight:600;}
+
+input[type=range]{
+  width:100%;height:2px;-webkit-appearance:none;
+  background:var(--border2);outline:none;cursor:pointer;
+  border-radius:2px;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;
+  background:var(--cyan);cursor:pointer;border-radius:0;
+  box-shadow:0 0 6px var(--cyan-dim);
+}
+select{
+  width:100%;background:var(--surface);border:1px solid var(--border2);
+  color:var(--text-hi);padding:5px 8px;font-family:'JetBrains Mono',monospace;
+  font-size:9px;cursor:pointer;outline:none;
+}
+select:focus{border-color:var(--cyan);}
+
+.btn-row{display:flex;gap:6px;}
+button{
+  flex:1;background:var(--surface);border:1px solid var(--border2);
+  color:var(--text);padding:6px 4px;font-family:'JetBrains Mono',monospace;
+  font-size:9px;cursor:pointer;letter-spacing:1px;transition:all .15s;
+}
+button:hover{background:var(--border2);color:var(--text-hi);}
+button.primary{border-color:var(--cyan);color:var(--cyan);}
+button.primary:hover{background:var(--cyan);color:var(--bg);}
+button.active{background:var(--cyan);color:var(--bg);}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:2px;}
+.stat{background:var(--grid-line);border:1px solid var(--border);padding:5px 7px;}
+.stat-n{font-size:7px;letter-spacing:1.5px;color:var(--text);text-transform:uppercase;}
+.stat-v{font-size:11px;font-weight:600;color:var(--cyan);margin-top:1px;}
+
+.warn{
+  font-size:9px;color:var(--orange);border:1px solid #ff6b2b55;
+  padding:6px 8px;margin-top:6px;display:none;
+}
+
+/* colorbar */
+.colorbar{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  pointer-events:none;
+}
+.colorbar canvas{width:14px;height:120px;image-rendering:pixelated;}
+.cb-lbl{font-size:8px;color:var(--text-hi);}
+
+/* ── PHYSICS PAGE ── */
+.phys-page{flex:1;overflow-y:auto;padding:28px 32px;display:flex;flex-direction:column;gap:24px;}
+.phys-section{border:1px solid var(--border);padding:22px 26px;}
+.phys-h{
+  font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:4px;color:var(--cyan);text-transform:uppercase;
+  padding-bottom:12px;margin-bottom:18px;border-bottom:1px solid var(--border);
+}
+.phys-p{font-size:10px;line-height:1.9;color:var(--text);margin-bottom:12px;}
+.phys-p strong{color:var(--cyan);}
+.eq{
+  background:var(--grid-line);border:1px solid var(--border);
+  border-left:3px solid var(--cyan);padding:14px 20px;
+  margin:12px 0;font-size:12px;color:var(--text-hi);
+  text-align:center;letter-spacing:.5px;line-height:2.0;
+}
+.eq-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.eq-row .eq{font-size:10px;}
+table{width:100%;border-collapse:collapse;font-size:9px;margin-top:10px;}
+th,td{border:1px solid var(--border);padding:7px 12px;text-align:left;}
+th{background:var(--surface);color:var(--cyan);font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:2px;text-transform:uppercase;}
+tr:nth-child(even) td{background:var(--grid-line);}
+td{color:var(--text);}td:first-child{color:var(--text-hi);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Wave Solver</div>
+  <div class="badge">FDTD · FDM</div>
+  <div class="badge org">NUMERICAL PDE</div>
+  <span class="right">EXPLICIT FINITE DIFFERENCE · CFL STABILITY · 1D / 2D / 3D</span>
+</header>
+
+<nav>
+  <div class="tab active" onclick="switchTab('1d',this)">1D WAVE</div>
+  <div class="tab" onclick="switchTab('2d',this)">2D WAVE</div>
+  <div class="tab" onclick="switchTab('3d',this)">3D WAVE</div>
+  <div class="tab" onclick="switchTab('phys',this)">PHYSICS</div>
+</nav>
+
+<!-- ═══════════ 1D PAGE ═══════════ -->
+<div class="page active" id="pg-1d">
+<div class="sim-layout">
+<div class="viz">
+  <div class="viz-header">
+    <div class="run-dot" id="dot-1d"></div>
+    <span class="viz-title">1D Wave · String / Rod / Acoustic</span>
+    <span class="viz-time" id="t1d-hdr">t = 0.000 s</span>
+  </div>
+  <div class="canvas-wrap"><canvas id="c1d"></canvas></div>
+</div>
+<div class="ctrl">
+  <div class="card">
+    <div class="card-title">Medium</div>
+    <div class="row"><div class="lbl">Type</div>
+      <select id="med1d" onchange="medChg1d()">
+        <option value="1.0">String (transverse)</option>
+        <option value="2.2">Elastic Rod (longitudinal)</option>
+        <option value="1.8">Acoustic (pressure)</option>
+        <option value="0.5">Slow medium</option>
+      </select>
+    </div>
+    <div class="row"><div class="lbl">Wave speed c <em id="v-c1d">1.00</em></div>
+      <input type="range" id="c1d-s" min=".1" max="3" step=".05" value="1" oninput="upd1d()">
+    </div>
+    <div class="row"><div class="lbl">Damping γ <em id="v-d1d">0.005</em></div>
+      <input type="range" id="d1d-s" min="0" max=".06" step=".001" value=".005" oninput="upd1d()">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Boundary Conditions</div>
+    <div class="row"><div class="lbl">Left</div>
+      <select id="bcL1d"><option value="D">Dirichlet (u=0)</option><option value="N">Neumann (∂u/∂x=0)</option><option value="A">Absorbing</option></select>
+    </div>
+    <div class="row"><div class="lbl">Right</div>
+      <select id="bcR1d"><option value="D">Dirichlet (u=0)</option><option value="N">Neumann (∂u/∂x=0)</option><option value="A">Absorbing</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Source</div>
+    <div class="row">
+      <div class="btn-row" id="srcbtns1d">
+        <button class="active" onclick="setSrc1d('P',this)">PULSE</button>
+        <button onclick="setSrc1d('S',this)">SINE</button>
+        <button onclick="setSrc1d('C',this)">CHIRP</button>
+      </div>
+    </div>
+    <div class="row"><div class="lbl">Frequency <em id="v-f1d">2.0</em> Hz</div>
+      <input type="range" id="f1d-s" min=".5" max="10" step=".5" value="2" oninput="upd1d()">
+    </div>
+    <div class="row"><div class="lbl">Amplitude <em id="v-a1d">1.0</em></div>
+      <input type="range" id="a1d-s" min=".1" max="2" step=".1" value="1" oninput="upd1d()">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Diagnostics</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-n">CFL №</div><div class="stat-v" id="s-cfl1d">—</div></div>
+      <div class="stat"><div class="stat-n">Energy</div><div class="stat-v" id="s-e1d">0.00</div></div>
+      <div class="stat"><div class="stat-n">Max |u|</div><div class="stat-v" id="s-m1d">0.00</div></div>
+      <div class="stat"><div class="stat-n">Grid N</div><div class="stat-v">300</div></div>
+    </div>
+    <div class="warn" id="w1d">⚠ CFL &gt; 1 — UNSTABLE</div>
+  </div>
+  <div class="btn-row">
+    <button class="primary" onclick="rst1d()">RESET</button>
+    <button onclick="pse1d()" id="pbtn1d">PAUSE</button>
+  </div>
+  <button onclick="addPulse1d()">ADD PULSE</button>
+</div>
+</div>
+</div>
+
+<!-- ═══════════ 2D PAGE ═══════════ -->
+<div class="page" id="pg-2d">
+<div class="sim-layout">
+<div class="viz">
+  <div class="viz-header">
+    <div class="run-dot" id="dot-2d"></div>
+    <span class="viz-title">2D Wave · Membrane / Acoustic Sheet</span>
+    <span class="viz-time" id="t2d-hdr">t = 0.000 s</span>
+  </div>
+  <div class="canvas-wrap" style="position:relative">
+    <canvas id="c2d"></canvas>
+    <div class="colorbar" id="cb2d">
+      <span class="cb-lbl">+</span>
+      <canvas id="cb-canvas" width="14" height="120"></canvas>
+      <span class="cb-lbl">−</span>
+    </div>
+  </div>
+</div>
+<div class="ctrl">
+  <div class="card">
+    <div class="card-title">Medium</div>
+    <div class="row"><div class="lbl">Type</div>
+      <select id="med2d" onchange="medChg2d()">
+        <option value="1.0">Elastic Membrane</option>
+        <option value="1.8">Acoustic (2D)</option>
+        <option value="0.7">Water Surface</option>
+        <option value="2.5">Stiff Plate</option>
+      </select>
+    </div>
+    <div class="row"><div class="lbl">Wave speed c <em id="v-c2d">1.00</em></div>
+      <input type="range" id="c2d-s" min=".1" max="3" step=".05" value="1" oninput="upd2d()">
+    </div>
+    <div class="row"><div class="lbl">Damping γ <em id="v-d2d">0.003</em></div>
+      <input type="range" id="d2d-s" min="0" max=".06" step=".001" value=".003" oninput="upd2d()">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Boundary Conditions</div>
+    <div class="row">
+      <select id="bc2d"><option value="D">Dirichlet (u=0 on ∂Ω)</option><option value="N">Neumann (∂u/∂n=0)</option><option value="P">Periodic</option><option value="A">Absorbing (1st-order)</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Source</div>
+    <div class="row">
+      <div class="btn-row" id="srcbtns2d">
+        <button class="active" onclick="setSrc2d('point',this)">POINT</button>
+        <button onclick="setSrc2d('line',this)">LINE</button>
+        <button onclick="setSrc2d('plane',this)">PLANE</button>
+      </div>
+    </div>
+    <div class="row"><div class="lbl">Frequency <em id="v-f2d">2.0</em> Hz</div>
+      <input type="range" id="f2d-s" min=".5" max="8" step=".5" value="2" oninput="upd2d()">
+    </div>
+    <div class="row"><div class="lbl">Colormap</div>
+      <select id="cmap2d">
+        <option value="div">Seismic (Blue↔Red)</option>
+        <option value="pla">Plasma</option>
+        <option value="vir">Viridis</option>
+        <option value="glow">Glow (Cyan↔Orange)</option>
+      </select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Diagnostics</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-n">CFL ×√2</div><div class="stat-v" id="s-cfl2d">—</div></div>
+      <div class="stat"><div class="stat-n">Energy</div><div class="stat-v" id="s-e2d">0.00</div></div>
+      <div class="stat"><div class="stat-n">Grid</div><div class="stat-v">120²</div></div>
+      <div class="stat"><div class="stat-n">Time</div><div class="stat-v" id="s-t2d">0.00</div></div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="primary" onclick="rst2d()">RESET</button>
+    <button onclick="pse2d()" id="pbtn2d">PAUSE</button>
+  </div>
+  <button onclick="addPulse2d()">ADD PULSE AT CENTER</button>
+  <button onclick="addTwoPulses2d()">TWO-SOURCE INTERFERENCE</button>
+</div>
+</div>
+</div>
+
+<!-- ═══════════ 3D PAGE ═══════════ -->
+<div class="page" id="pg-3d">
+<div class="sim-layout">
+<div class="viz">
+  <div class="viz-header">
+    <div class="run-dot" id="dot-3d"></div>
+    <span class="viz-title">3D Wave · Orthogonal Cross-sections</span>
+    <span class="viz-time" id="t3d-hdr">t = 0.000 s</span>
+  </div>
+  <div class="slices">
+    <div class="slab"><div class="slab-lbl">XY · z-slice</div><canvas id="c3d-xy"></canvas></div>
+    <div class="slab"><div class="slab-lbl">XZ · y-slice</div><canvas id="c3d-xz"></canvas></div>
+    <div class="slab"><div class="slab-lbl">YZ · x-slice</div><canvas id="c3d-yz"></canvas></div>
+    <div class="slab">
+      <div class="slab-info">
+        <div style="font-family:Orbitron,sans-serif;font-size:8px;color:var(--cyan);letter-spacing:3px;">3D WAVE EQ.</div>
+        <div class="eq-display">∂²u/∂t² = c²∇²u<br>
+          <span style="font-size:9px;color:var(--text)">c²(∂²/∂x²+∂²/∂y²+∂²/∂z²)u</span>
+        </div>
+        <div class="small-stats" id="info3d">
+          <span id="e3d-v">Energy: —</span><br>
+          <span id="cfl3d-v">CFL: —</span><br>
+          <span id="t3d-v">t = 0.000 s</span><br>
+          Grid: 40³
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="ctrl">
+  <div class="card">
+    <div class="card-title">Medium</div>
+    <div class="row"><div class="lbl">Type</div>
+      <select id="med3d" onchange="medChg3d()">
+        <option value="1.0">Acoustic (3D)</option>
+        <option value="2.0">Elastic Solid</option>
+        <option value="1.4">Seismic P-wave</option>
+        <option value="0.6">Slow medium</option>
+      </select>
+    </div>
+    <div class="row"><div class="lbl">Wave speed c <em id="v-c3d">1.00</em></div>
+      <input type="range" id="c3d-s" min=".1" max="2" step=".05" value="1" oninput="upd3d()">
+    </div>
+    <div class="row"><div class="lbl">Damping γ <em id="v-d3d">0.002</em></div>
+      <input type="range" id="d3d-s" min="0" max=".06" step=".001" value=".002" oninput="upd3d()">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Boundary Conditions</div>
+    <div class="row">
+      <select id="bc3d"><option value="D">Dirichlet (u=0)</option><option value="N">Neumann (∂u/∂n=0)</option><option value="P">Periodic</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Source</div>
+    <div class="row">
+      <div class="btn-row" id="srcbtns3d">
+        <button class="active" onclick="setSrc3d('point',this)">POINT</button>
+        <button onclick="setSrc3d('plane',this)">PLANE</button>
+      </div>
+    </div>
+    <div class="row"><div class="lbl">Frequency <em id="v-f3d">2.0</em> Hz</div>
+      <input type="range" id="f3d-s" min=".5" max="6" step=".5" value="2" oninput="upd3d()">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Slice Position</div>
+    <div class="row"><div class="lbl">z <em id="v-sz">50</em>%</div>
+      <input type="range" id="sz" min="0" max="100" value="50" oninput="updSlice()">
+    </div>
+    <div class="row"><div class="lbl">y <em id="v-sy">50</em>%</div>
+      <input type="range" id="sy" min="0" max="100" value="50" oninput="updSlice()">
+    </div>
+    <div class="row"><div class="lbl">x <em id="v-sx">50</em>%</div>
+      <input type="range" id="sx" min="0" max="100" value="50" oninput="updSlice()">
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="primary" onclick="rst3d()">RESET</button>
+    <button onclick="pse3d()" id="pbtn3d">PAUSE</button>
+  </div>
+  <button onclick="addPulse3d()">ADD PULSE</button>
+</div>
+</div>
+</div>
+
+<!-- ═══════════ PHYSICS PAGE ═══════════ -->
+<div class="page" id="pg-phys">
+<div class="phys-page">
+
+<div class="phys-section">
+  <div class="phys-h">The Wave Equation</div>
+  <p class="phys-p">The <strong>wave equation</strong> is a second-order linear hyperbolic PDE governing the propagation of disturbances through a medium at finite speed c. It appears in acoustics, elasticity, electromagnetism, seismology, and quantum mechanics.</p>
+  <div class="eq">∂²u/∂t² = c² ∇²u</div>
+  <p class="phys-p">u is the field variable (displacement, pressure, field strength), c is the phase velocity, and ∇² is the Laplace operator. In each dimension:</p>
+  <div class="eq-row">
+    <div class="eq"><strong>1D</strong><br>∂²u/∂t² = c² ∂²u/∂x²</div>
+    <div class="eq"><strong>2D</strong><br>∂²u/∂t² = c²(∂²u/∂x² + ∂²u/∂y²)</div>
+    <div class="eq"><strong>3D</strong><br>∂²u/∂t² = c²(∂²u/∂x² + ∂²u/∂y² + ∂²u/∂z²)</div>
+  </div>
+  <p class="phys-p" style="margin-top:12px">With viscous damping (dissipative medium), the equation becomes:</p>
+  <div class="eq">∂²u/∂t² + 2γ ∂u/∂t = c² ∇²u</div>
+  <p class="phys-p">where γ is the damping coefficient. The general solution is a superposition of plane waves: u = A·exp[i(k·r − ωt)], with dispersion relation ω² = c²k² (in the undamped case).</p>
+</div>
+
+<div class="phys-section">
+  <div class="phys-h">Finite Difference Time-Domain (FDTD) Method</div>
+  <p class="phys-p">FDTD uses second-order central differences for both time and space derivatives, achieving O(Δt²,Δx²) accuracy. Discretising: xᵢ = i·Δx, tⁿ = n·Δt, uᵢⁿ ≈ u(xᵢ,tⁿ).</p>
+  <div class="eq">∂²u/∂t² ≈ (uᵢⁿ⁺¹ − 2uᵢⁿ + uᵢⁿ⁻¹) / Δt²</div>
+  <div class="eq">∂²u/∂x² ≈ (uᵢ₊₁ⁿ − 2uᵢⁿ + uᵢ₋₁ⁿ) / Δx²</div>
+  <p class="phys-p">Combining (r = cΔt/Δx = Courant number), the <strong>explicit update stencil</strong>:</p>
+  <div class="eq"><strong>1D stencil:</strong>  uᵢⁿ⁺¹ = (2−2γ)uᵢⁿ − (1−2γ)uᵢⁿ⁻¹ + r²(uᵢ₊₁ⁿ − 2uᵢⁿ + uᵢ₋₁ⁿ)</div>
+  <div class="eq"><strong>2D stencil (5-point):</strong>  uᵢⱼⁿ⁺¹ = (2−2γ)uᵢⱼⁿ − (1−2γ)uᵢⱼⁿ⁻¹ + r²(uᵢ₊₁ⱼ + uᵢ₋₁ⱼ + uᵢⱼ₊₁ + uᵢⱼ₋₁ − 4uᵢⱼ)ⁿ</div>
+  <div class="eq"><strong>3D stencil (7-point):</strong>  uᵢⱼₖⁿ⁺¹ = (2−2γ)uᵢⱼₖⁿ − (1−2γ)uᵢⱼₖⁿ⁻¹ + r²(Σ±1-neighbors − 6uᵢⱼₖ)ⁿ</div>
+  <p class="phys-p">Explicit schemes require only values from the two previous time levels — no matrix inversion needed. Each time step costs O(N^d) operations for d-dimensional N-point grid.</p>
+</div>
+
+<div class="phys-section">
+  <div class="phys-h">CFL Stability Analysis</div>
+  <p class="phys-p">The <strong>Courant–Friedrichs–Lewy (CFL)</strong> condition is a necessary stability requirement for explicit time-stepping schemes. It states that the numerical domain of dependence must contain the physical domain of dependence.</p>
+  <div class="eq-row">
+    <div class="eq"><strong>1D</strong><br>r = cΔt/Δx ≤ 1</div>
+    <div class="eq"><strong>2D</strong><br>r·√2 ≤ 1<br>r ≤ 1/√2 ≈ 0.707</div>
+    <div class="eq"><strong>3D</strong><br>r·√3 ≤ 1<br>r ≤ 1/√3 ≈ 0.577</div>
+  </div>
+  <p class="phys-p">Violation causes exponential growth of round-off errors (numerical instability). This simulator uses <strong>adaptive Δt</strong>: dt = CFL_target · dx / (c · √d), keeping the simulation always stable regardless of wave speed setting.</p>
+  <p class="phys-p">Von Neumann stability analysis: substitute uᵢⁿ = ξⁿ·exp(ikᵢΔx) and require |ξ| ≤ 1 (amplification factor). This yields exactly the CFL condition above.</p>
+</div>
+
+<div class="phys-section">
+  <div class="phys-h">Boundary Conditions</div>
+  <table>
+    <thead><tr><th>Type</th><th>Condition</th><th>Implementation (FDTD)</th><th>Physical Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Dirichlet (fixed)</td><td>u|∂Ω = 0</td><td>Set boundary nodes to 0 each step</td><td>Fixed string end; rigid wall; grounded conductor. Standing waves form with nodes at boundary. Phase reversal on reflection.</td></tr>
+      <tr><td>Neumann (free)</td><td>∂u/∂n|∂Ω = 0</td><td>Ghost cell: u[−1] = u[1]</td><td>Free string end; pressure-release wall. Reflection without phase inversion. Anti-nodes at boundary.</td></tr>
+      <tr><td>Periodic</td><td>u(x=0) = u(x=L)</td><td>u[0]=u[N−2], u[N−1]=u[1]</td><td>Infinite periodic medium; toroidal topology. No reflections.</td></tr>
+      <tr><td>Absorbing (1st-order)</td><td>∂u/∂t + c·∂u/∂n = 0</td><td>u_boundary = u_inner (prev. step)</td><td>Sommerfeld radiation condition. Outgoing waves not reflected. Approximates infinite domain.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="phys-section">
+  <div class="phys-h">Wave Speed in Physical Media</div>
+  <table>
+    <thead><tr><th>Medium</th><th>Wave Type</th><th>Formula</th><th>Speed</th><th>Parameters</th></tr></thead>
+    <tbody>
+      <tr><td>String</td><td>Transverse mechanical</td><td>c = √(T/μ)</td><td>10–200 m/s</td><td>T=tension, μ=linear density</td></tr>
+      <tr><td>Elastic rod</td><td>Longitudinal</td><td>c = √(E/ρ)</td><td>~5000 m/s (steel)</td><td>E=Young modulus, ρ=density</td></tr>
+      <tr><td>Air</td><td>Acoustic pressure</td><td>c = √(γP₀/ρ)</td><td>343 m/s (20°C)</td><td>γ=1.4, adiabatic</td></tr>
+      <tr><td>Water</td><td>Acoustic pressure</td><td>c = √(B/ρ)</td><td>1480 m/s</td><td>B=bulk modulus</td></tr>
+      <tr><td>Steel</td><td>Seismic P-wave</td><td>c = √((λ+2μ)/ρ)</td><td>5960 m/s</td><td>Lamé constants</td></tr>
+      <tr><td>Vacuum</td><td>Electromagnetic</td><td>c = 1/√(ε₀μ₀)</td><td>3×10⁸ m/s</td><td>Maxwell's equations</td></tr>
+      <tr><td>Glass (optical)</td><td>EM (refracted)</td><td>c = c₀/n</td><td>~2×10⁸ m/s</td><td>n≈1.5 refractive index</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="phys-section">
+  <div class="phys-h">Energy and Conservation Laws</div>
+  <p class="phys-p">Total wave energy (kinetic + potential) for a 1D string:</p>
+  <div class="eq">E(t) = ½ ∫₀ᴸ [ ρ(∂u/∂t)² + T(∂u/∂x)² ] dx</div>
+  <p class="phys-p">For lossless media (γ=0) with Dirichlet or Neumann BCs, dE/dt = 0 — energy is conserved. The discrete FDTD scheme preserves a modified energy exactly when r=1 in 1D, providing long-time stability.</p>
+  <p class="phys-p">With damping: dE/dt = −2γ ∫ρ(∂u/∂t)² dx ≤ 0. Energy decays exponentially at rate 2γ for all modes. The simulator tracks discrete energy Eⁿ = Δx Σᵢ [(uᵢⁿ⁺¹−uᵢⁿ)²/Δt² + c²(uᵢ₊₁ⁿ−uᵢⁿ)²/Δx²].</p>
+</div>
+
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  TAB ROUTING
+// ═══════════════════════════════════════════════════════════════
+let curTab = '1d';
+function switchTab(name, el) {
+  curTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('pg-' + name).classList.add('active');
+  setTimeout(() => { resizeAll(); }, 20);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COLOR MAPS
+// ═══════════════════════════════════════════════════════════════
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function toRGB(r,g,b){return [clamp(r,0,255)|0, clamp(g,0,255)|0, clamp(b,0,255)|0];}
+
+function colorDiv(v, mx) {
+  const t = clamp(v/mx, -1, 1);
+  if (t < 0) { const s=-t; return toRGB(10+s*20, 20+s*50, 80+s*175); }
+  else        { const s= t; return toRGB(80+s*175, 20+s*20, 10+s*10); }
+}
+function colorGlow(v, mx) {
+  const t = clamp(v/mx, -1, 1);
+  if (t < 0) { const s=-t; return toRGB(0, 150*s+20, 200*s+55); }  // cyan
+  else        { const s= t; return toRGB(200*s+55, 80*s, 0); }       // orange
+}
+function colorPlasma(t) {
+  t = clamp(t,0,1);
+  return toRGB(
+    255*(0.05 + t*(2.9 - t*(3.4 - t*1.5))),
+    255*(t*(2.1 - t*2.5 + t*t*1.4)),
+    255*(0.53 + t*(0.8 - t*2.2))
+  );
+}
+function colorViridis(t) {
+  t = clamp(t,0,1);
+  return toRGB(
+    255*(0.267 + t*(-0.003 + t*(1.785 - t*1.048))),
+    255*(0.005 + t*(1.424 - t*0.425)),
+    255*(0.33  + t*(1.101 - t*1.43))
+  );
+}
+function applyColor(v, mx, cmap) {
+  if (!cmap || cmap==='div')  return colorDiv(v, mx);
+  if (cmap==='glow') return colorGlow(v, mx);
+  const t = (v/mx + 1) * 0.5;
+  if (cmap==='pla')  return colorPlasma(t);
+  if (cmap==='vir')  return colorViridis(t);
+  return colorDiv(v, mx);
+}
+
+// Draw colorbar
+function drawColorbar(id, cmap) {
+  const cb = document.getElementById(id);
+  if (!cb) return;
+  const ctx = cb.getContext('2d');
+  const h = cb.height;
+  const imgd = ctx.createImageData(14, h);
+  for (let py = 0; py < h; py++) {
+    const t = 1 - py/h; // top = positive
+    const v = (t-0.5)*2; // -1 to 1
+    const [r,g,b] = applyColor(v, 1, cmap);
+    const p = py*14*4;
+    for(let x=0;x<14;x++){imgd.data[p+x*4]=r;imgd.data[p+x*4+1]=g;imgd.data[p+x*4+2]=b;imgd.data[p+x*4+3]=255;}
+  }
+  ctx.putImageData(imgd,0,0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  1D SOLVER
+// ═══════════════════════════════════════════════════════════════
+const N1=300, L1=1.0, dx1=L1/N1;
+let c1=1.0, d1=0.005, f1=2.0, a1=1.0;
+let bcL1='D', bcR1='D', src1='P';
+let paused1=false, t1=0;
+// Use adaptive dt to satisfy CFL
+function dt_1d(){return 0.45*dx1/Math.max(c1,0.01);}
+
+let u1a=new Float64Array(N1), u1b=new Float64Array(N1), u1c=new Float64Array(N1);
+// a=prev, b=curr, c=next
+
+const cv1d=document.getElementById('c1d');
+const cx1d=cv1d.getContext('2d');
+
+function rst1d(){u1a.fill(0);u1b.fill(0);u1c.fill(0);t1=0;addPulse1d();}
+function addPulse1d(){
+  const pos=0.15+Math.random()*0.15, w=0.025;
+  for(let i=0;i<N1;i++){const x=i*dx1;u1b[i]+=a1*Math.exp(-0.5*((x-pos)/w)**2);}
+  u1a.set(u1b);
+}
+function setSrc1d(t,el){src1=t;document.querySelectorAll('#srcbtns1d button').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function pse1d(){paused1=!paused1;document.getElementById('pbtn1d').textContent=paused1?'RESUME':'PAUSE';}
+function medChg1d(){c1=parseFloat(document.getElementById('med1d').value);document.getElementById('c1d-s').value=c1;upd1d();}
+function upd1d(){
+  c1=+document.getElementById('c1d-s').value;
+  d1=+document.getElementById('d1d-s').value;
+  f1=+document.getElementById('f1d-s').value;
+  a1=+document.getElementById('a1d-s').value;
+  bcL1=document.getElementById('bcL1d').value;
+  bcR1=document.getElementById('bcR1d').value;
+  document.getElementById('v-c1d').textContent=c1.toFixed(2);
+  document.getElementById('v-d1d').textContent=d1.toFixed(3);
+  document.getElementById('v-f1d').textContent=f1.toFixed(1);
+  document.getElementById('v-a1d').textContent=a1.toFixed(1);
+  const dt=dt_1d(), r=c1*dt/dx1;
+  document.getElementById('s-cfl1d').textContent=r.toFixed(3);
+  document.getElementById('w1d').style.display=r>1.01?'block':'none';
+}
+
+function step1d(){
+  const dt=dt_1d(), r=c1*dt/dx1, r2=r*r, g=d1;
+  // Inject source
+  const si=10;
+  if(src1==='S') u1b[si]=a1*Math.sin(2*Math.PI*f1*t1);
+  else if(src1==='C'){const chirp=0.3;u1b[si]=a1*Math.sin(2*Math.PI*(f1+chirp*t1)*t1)*Math.exp(-t1*0.03);}
+
+  for(let i=1;i<N1-1;i++){
+    u1c[i]=(2-2*g)*u1b[i]-(1-2*g)*u1a[i]+r2*(u1b[i+1]-2*u1b[i]+u1b[i-1]);
+  }
+  // BCs
+  applyBC1d(u1c, u1b, bcL1, 0, 1);
+  applyBC1d(u1c, u1b, bcR1, N1-1, N1-2);
+  // Swap
+  let tmp=u1a; u1a=u1b; u1b=u1c; u1c=tmp;
+  t1+=dt;
+}
+function applyBC1d(un,u,bc,idx,inner){
+  if(bc==='D') un[idx]=0;
+  else if(bc==='N') un[idx]=un[inner];
+  else if(bc==='A') un[idx]=u[inner]; // 1st-order absorbing
+}
+
+function draw1d(){
+  const W=cv1d.width, H=cv1d.height;
+  if(!W||!H)return;
+  cx1d.fillStyle='#010610'; cx1d.fillRect(0,0,W,H);
+
+  // Grid
+  cx1d.strokeStyle='#071020'; cx1d.lineWidth=1;
+  for(let i=1;i<10;i++){
+    cx1d.beginPath();cx1d.moveTo(i*W/10,0);cx1d.lineTo(i*W/10,H);cx1d.stroke();
+    cx1d.beginPath();cx1d.moveTo(0,i*H/10);cx1d.lineTo(W,i*H/10);cx1d.stroke();
+  }
+  // Zero line
+  cx1d.strokeStyle='#1a2840'; cx1d.lineWidth=1;
+  cx1d.beginPath();cx1d.moveTo(0,H*0.5);cx1d.lineTo(W,H*0.5);cx1d.stroke();
+
+  const sc=H*0.38;
+
+  // Gradient fill
+  const g=cx1d.createLinearGradient(0,H*0.1,0,H*0.9);
+  g.addColorStop(0,'#00e5cc2a');g.addColorStop(0.5,'#00e5cc08');g.addColorStop(1,'#00000000');
+  cx1d.beginPath();cx1d.moveTo(0,H*0.5);
+  for(let i=0;i<N1;i++){cx1d.lineTo(i*W/N1, H*0.5-u1b[i]*sc);}
+  cx1d.lineTo(W,H*0.5);cx1d.fillStyle=g;cx1d.fill();
+
+  // Wave curve
+  cx1d.beginPath();cx1d.strokeStyle='#00e5cc';cx1d.lineWidth=2;
+  cx1d.shadowBlur=10;cx1d.shadowColor='#00e5cc';
+  for(let i=0;i<N1;i++){
+    const x=i*W/N1, y=H*0.5-u1b[i]*sc;
+    i===0?cx1d.moveTo(x,y):cx1d.lineTo(x,y);
+  }
+  cx1d.stroke();cx1d.shadowBlur=0;
+
+  // BC markers
+  const bcLabels={D:'|D|',N:'|N|',A:'|A|'};
+  cx1d.fillStyle='#00e5cc66';cx1d.font='9px Orbitron,monospace';
+  cx1d.fillText(bcLabels[bcL1],4,H-8);cx1d.fillText(bcLabels[bcR1],W-28,H-8);
+
+  // Stats
+  let e=0,mx=0;
+  for(let i=0;i<N1;i++){e+=u1b[i]*u1b[i];mx=Math.max(mx,Math.abs(u1b[i]));}
+  document.getElementById('s-e1d').textContent=(e*dx1).toFixed(4);
+  document.getElementById('s-m1d').textContent=mx.toFixed(3);
+  document.getElementById('t1d-hdr').textContent='t = '+t1.toFixed(3)+' s';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  2D SOLVER
+// ═══════════════════════════════════════════════════════════════
+const N2=120, L2=1.0, dx2=L2/N2;
+let c2=1.0, d2=0.003, f2=2.0;
+let bc2='D', src2type='point';
+let paused2=false, t2=0;
+function dt_2d(){return 0.40*dx2/(Math.max(c2,0.01)*Math.SQRT2);}
+
+const u2a=new Float32Array(N2*N2), u2b=new Float32Array(N2*N2), u2c=new Float32Array(N2*N2);
+function I2(i,j){return i*N2+j;}
+const cv2d=document.getElementById('c2d');
+const cx2d=cv2d.getContext('2d');
+let imgd2=null;
+
+function rst2d(){u2a.fill(0);u2b.fill(0);u2c.fill(0);t2=0;addPulse2d();}
+function addPulse2d(){
+  const cx=N2/2,cy=N2/2,w=N2*0.04;
+  for(let i=0;i<N2;i++)for(let j=0;j<N2;j++)u2b[I2(i,j)]+=Math.exp(-0.5*((i-cx)**2+(j-cy)**2)/w**2);
+  u2a.set(u2b);
+}
+function addTwoPulses2d(){
+  const w=N2*0.03;
+  const pts=[[N2*0.35,N2*0.5],[N2*0.65,N2*0.5]];
+  pts.forEach(([px,py])=>{
+    for(let i=0;i<N2;i++)for(let j=0;j<N2;j++)u2b[I2(i,j)]+=Math.exp(-0.5*((i-px)**2+(j-py)**2)/w**2);
+  });
+  u2a.set(u2b);
+}
+function setSrc2d(t,el){src2type=t;document.querySelectorAll('#srcbtns2d button').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function pse2d(){paused2=!paused2;document.getElementById('pbtn2d').textContent=paused2?'RESUME':'PAUSE';}
+function medChg2d(){c2=parseFloat(document.getElementById('med2d').value);document.getElementById('c2d-s').value=c2;upd2d();}
+function upd2d(){
+  c2=+document.getElementById('c2d-s').value;
+  d2=+document.getElementById('d2d-s').value;
+  f2=+document.getElementById('f2d-s').value;
+  bc2=document.getElementById('bc2d').value;
+  document.getElementById('v-c2d').textContent=c2.toFixed(2);
+  document.getElementById('v-d2d').textContent=d2.toFixed(3);
+  document.getElementById('v-f2d').textContent=f2.toFixed(1);
+  const dt=dt_2d(),r=c2*dt/dx2;
+  document.getElementById('s-cfl2d').textContent=(r*Math.SQRT2).toFixed(3);
+  drawColorbar('cb-canvas', document.getElementById('cmap2d').value);
+}
+
+function step2d(){
+  const dt=dt_2d(),r=c2*dt/dx2,r2=r*r,g=d2;
+  // Sources
+  const sc=N2>>1, sl=5;
+  if(src2type==='point'){u2b[I2(sc,sc)]=Math.sin(2*Math.PI*f2*t2)*0.9;}
+  else if(src2type==='line'){for(let j=0;j<N2;j++)u2b[I2(sc,j)]=Math.sin(2*Math.PI*f2*t2)*0.7;}
+  else if(src2type==='plane'){for(let i=0;i<N2;i++)u2b[I2(i,sl)]=Math.sin(2*Math.PI*f2*t2)*0.7;}
+
+  for(let i=1;i<N2-1;i++){
+    for(let j=1;j<N2-1;j++){
+      u2c[I2(i,j)]=(2-2*g)*u2b[I2(i,j)]-(1-2*g)*u2a[I2(i,j)]
+        +r2*(u2b[I2(i+1,j)]+u2b[I2(i-1,j)]+u2b[I2(i,j+1)]+u2b[I2(i,j-1)]-4*u2b[I2(i,j)]);
+    }
+  }
+  applyBC2d(u2c, u2b, bc2);
+  // Swap
+  u2a.set(u2b); u2b.set(u2c);
+  t2+=dt;
+}
+function applyBC2d(un, u, bc){
+  if(bc==='D'){
+    for(let i=0;i<N2;i++){un[I2(0,i)]=0;un[I2(N2-1,i)]=0;un[I2(i,0)]=0;un[I2(i,N2-1)]=0;}
+  }else if(bc==='N'){
+    for(let i=0;i<N2;i++){
+      un[I2(0,i)]=un[I2(1,i)];un[I2(N2-1,i)]=un[I2(N2-2,i)];
+      un[I2(i,0)]=un[I2(i,1)];un[I2(i,N2-1)]=un[I2(i,N2-2)];
+    }
+  }else if(bc==='P'){
+    for(let i=0;i<N2;i++){
+      un[I2(0,i)]=un[I2(N2-2,i)];un[I2(N2-1,i)]=un[I2(1,i)];
+      un[I2(i,0)]=un[I2(i,N2-2)];un[I2(i,N2-1)]=un[I2(i,1)];
+    }
+  }else if(bc==='A'){
+    for(let i=0;i<N2;i++){
+      un[I2(0,i)]=u[I2(1,i)];un[I2(N2-1,i)]=u[I2(N2-2,i)];
+      un[I2(i,0)]=u[I2(i,1)];un[I2(i,N2-1)]=u[I2(i,N2-2)];
+    }
+  }
+}
+
+function draw2d(){
+  const W=cv2d.width, H=cv2d.height;
+  if(!W||!H)return;
+  let mx=0.05;
+  for(let k=0;k<u2b.length;k++)if(Math.abs(u2b[k])>mx)mx=Math.abs(u2b[k]);
+  const cmap=document.getElementById('cmap2d').value;
+  if(!imgd2||imgd2.width!==W||imgd2.height!==H) imgd2=cx2d.createImageData(W,H);
+  const data=imgd2.data;
+  for(let py=0;py<H;py++){
+    for(let px=0;px<W;px++){
+      const i=Math.min((py*N2/H)|0,N2-1), j=Math.min((px*N2/W)|0,N2-1);
+      const v=u2b[I2(i,j)];
+      const [r,g,b]=applyColor(v,mx,cmap);
+      const p=(py*W+px)*4;
+      data[p]=r;data[p+1]=g;data[p+2]=b;data[p+3]=255;
+    }
+  }
+  cx2d.putImageData(imgd2,0,0);
+
+  let e=0;for(let k=0;k<u2b.length;k++)e+=u2b[k]*u2b[k];
+  document.getElementById('s-e2d').textContent=(e*dx2*dx2).toFixed(4);
+  document.getElementById('s-t2d').textContent=t2.toFixed(3);
+  document.getElementById('t2d-hdr').textContent='t = '+t2.toFixed(3)+' s';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  3D SOLVER
+// ═══════════════════════════════════════════════════════════════
+const N3=40, L3=1.0, dx3=L3/N3;
+let c3=1.0, d3=0.002, f3=2.0;
+let bc3='D', src3type='point';
+let paused3=false, t3=0;
+let sz3=20, sy3=20, sx3=20;
+function dt_3d(){return 0.38*dx3/(Math.max(c3,0.01)*Math.sqrt(3));}
+
+const u3a=new Float32Array(N3*N3*N3), u3b=new Float32Array(N3*N3*N3), u3c=new Float32Array(N3*N3*N3);
+function I3(i,j,k){return(i*N3+j)*N3+k;}
+const cvXY=document.getElementById('c3d-xy'),cxXY=cvXY.getContext('2d');
+const cvXZ=document.getElementById('c3d-xz'),cxXZ=cvXZ.getContext('2d');
+const cvYZ=document.getElementById('c3d-yz'),cxYZ=cvYZ.getContext('2d');
+
+function rst3d(){u3a.fill(0);u3b.fill(0);u3c.fill(0);t3=0;addPulse3d();}
+function addPulse3d(){
+  const cx=N3/2,cy=N3/2,cz=N3/2,w=N3*0.1;
+  for(let i=1;i<N3-1;i++)for(let j=1;j<N3-1;j++)for(let k=1;k<N3-1;k++){
+    u3b[I3(i,j,k)]+=Math.exp(-0.5*((i-cx)**2+(j-cy)**2+(k-cz)**2)/w**2);
+  }
+  u3a.set(u3b);
+}
+function setSrc3d(t,el){src3type=t;document.querySelectorAll('#srcbtns3d button').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function pse3d(){paused3=!paused3;document.getElementById('pbtn3d').textContent=paused3?'RESUME':'PAUSE';}
+function medChg3d(){c3=parseFloat(document.getElementById('med3d').value);document.getElementById('c3d-s').value=c3;upd3d();}
+function upd3d(){
+  c3=+document.getElementById('c3d-s').value;
+  d3=+document.getElementById('d3d-s').value;
+  f3=+document.getElementById('f3d-s').value;
+  bc3=document.getElementById('bc3d').value;
+  document.getElementById('v-c3d').textContent=c3.toFixed(2);
+  document.getElementById('v-d3d').textContent=d3.toFixed(3);
+  document.getElementById('v-f3d').textContent=f3.toFixed(1);
+}
+function updSlice(){
+  sz3=Math.min((+document.getElementById('sz').value/100*(N3-1))|0,N3-1);
+  sy3=Math.min((+document.getElementById('sy').value/100*(N3-1))|0,N3-1);
+  sx3=Math.min((+document.getElementById('sx').value/100*(N3-1))|0,N3-1);
+  document.getElementById('v-sz').textContent=Math.round(sz3*100/(N3-1));
+  document.getElementById('v-sy').textContent=Math.round(sy3*100/(N3-1));
+  document.getElementById('v-sx').textContent=Math.round(sx3*100/(N3-1));
+}
+
+function step3d(){
+  const dt=dt_3d(),r=c3*dt/dx3,r2=r*r,g=d3;
+  const sc=N3>>1;
+  if(src3type==='point'){u3b[I3(sc,sc,sc)]=Math.sin(2*Math.PI*f3*t3)*0.8;}
+  else if(src3type==='plane'){
+    for(let i=1;i<N3-1;i++)for(let j=1;j<N3-1;j++)u3b[I3(i,j,2)]=Math.sin(2*Math.PI*f3*t3)*0.5;
+  }
+  for(let i=1;i<N3-1;i++)for(let j=1;j<N3-1;j++)for(let k=1;k<N3-1;k++){
+    u3c[I3(i,j,k)]=(2-2*g)*u3b[I3(i,j,k)]-(1-2*g)*u3a[I3(i,j,k)]
+      +r2*(u3b[I3(i+1,j,k)]+u3b[I3(i-1,j,k)]
+          +u3b[I3(i,j+1,k)]+u3b[I3(i,j-1,k)]
+          +u3b[I3(i,j,k+1)]+u3b[I3(i,j,k-1)]-6*u3b[I3(i,j,k)]);
+  }
+  applyBC3d(u3c, u3b, bc3);
+  u3a.set(u3b); u3b.set(u3c);
+  t3+=dt;
+}
+function applyBC3d(un, u, bc){
+  for(let i=0;i<N3;i++) for(let j=0;j<N3;j++){
+    if(bc==='D'){
+      un[I3(0,i,j)]=0;un[I3(N3-1,i,j)]=0;
+      un[I3(i,0,j)]=0;un[I3(i,N3-1,j)]=0;
+      un[I3(i,j,0)]=0;un[I3(i,j,N3-1)]=0;
+    }else if(bc==='N'){
+      un[I3(0,i,j)]=un[I3(1,i,j)];un[I3(N3-1,i,j)]=un[I3(N3-2,i,j)];
+      un[I3(i,0,j)]=un[I3(i,1,j)];un[I3(i,N3-1,j)]=un[I3(i,N3-2,j)];
+      un[I3(i,j,0)]=un[I3(i,j,1)];un[I3(i,j,N3-1)]=un[I3(i,j,N3-2)];
+    }else if(bc==='P'){
+      un[I3(0,i,j)]=un[I3(N3-2,i,j)];un[I3(N3-1,i,j)]=un[I3(1,i,j)];
+      un[I3(i,0,j)]=un[I3(i,N3-2,j)];un[I3(i,N3-1,j)]=un[I3(i,1,j)];
+      un[I3(i,j,0)]=un[I3(i,j,N3-2)];un[I3(i,j,N3-1)]=un[I3(i,j,1)];
+    }
+  }
+}
+
+function drawSlice3d(ctx, cv, vals, nRow, nCol){
+  const W=cv.width,H=cv.height;
+  if(!W||!H)return;
+  let mx=0.02;for(let v of vals)if(Math.abs(v)>mx)mx=Math.abs(v);
+  const imgd=ctx.createImageData(W,H);
+  const data=imgd.data;
+  for(let py=0;py<H;py++){
+    for(let px=0;px<W;px++){
+      const i=Math.min((py*nRow/H)|0,nRow-1);
+      const j=Math.min((px*nCol/W)|0,nCol-1);
+      const v=vals[i*nCol+j];
+      const [r,g,b]=colorGlow(v,mx);
+      const p=(py*W+px)*4;
+      data[p]=r;data[p+1]=g;data[p+2]=b;data[p+3]=255;
+    }
+  }
+  ctx.putImageData(imgd,0,0);
+}
+
+function draw3d(){
+  const sz=clamp(sz3,0,N3-1), sy=clamp(sy3,0,N3-1), sx3c=clamp(sx3,0,N3-1);
+  // XY slice at z=sz
+  const xy=new Float32Array(N3*N3);
+  for(let i=0;i<N3;i++)for(let j=0;j<N3;j++) xy[i*N3+j]=u3b[I3(i,j,sz)];
+  // XZ slice at y=sy
+  const xz=new Float32Array(N3*N3);
+  for(let i=0;i<N3;i++)for(let k=0;k<N3;k++) xz[i*N3+k]=u3b[I3(i,sy,k)];
+  // YZ slice at x=sx
+  const yz=new Float32Array(N3*N3);
+  for(let j=0;j<N3;j++)for(let k=0;k<N3;k++) yz[j*N3+k]=u3b[I3(sx3c,j,k)];
+
+  drawSlice3d(cxXY,cvXY,xy,N3,N3);
+  drawSlice3d(cxXZ,cvXZ,xz,N3,N3);
+  drawSlice3d(cxYZ,cvYZ,yz,N3,N3);
+
+  const dt=dt_3d(), r=c3*dt/dx3;
+  let e=0;for(let k=0;k<u3b.length;k++)e+=u3b[k]*u3b[k];
+  document.getElementById('e3d-v').textContent='Energy: '+(e*dx3**3).toFixed(5);
+  document.getElementById('cfl3d-v').textContent='CFL ×√3: '+(r*Math.sqrt(3)).toFixed(3);
+  document.getElementById('t3d-v').textContent='t = '+t3.toFixed(3)+' s';
+  document.getElementById('t3d-hdr').textContent='t = '+t3.toFixed(3)+' s';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CANVAS RESIZE
+// ═══════════════════════════════════════════════════════════════
+function resizeAll(){
+  // 1D
+  const wrap1=cv1d.parentElement;
+  cv1d.width=wrap1.clientWidth; cv1d.height=wrap1.clientHeight;
+
+  // 2D
+  const wrap2=cv2d.parentElement;
+  cv2d.width=wrap2.clientWidth; cv2d.height=wrap2.clientHeight;
+  imgd2=null;
+
+  // 3D slices
+  [cvXY,cvXZ,cvYZ].forEach(cv=>{
+    const p=cv.parentElement;
+    cv.width=p.clientWidth; cv.height=p.clientHeight;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+const STEPS={
+  '1d':{spf:8,step:step1d,draw:draw1d,paused:()=>paused1},
+  '2d':{spf:3,step:step2d,draw:draw2d,paused:()=>paused2},
+  '3d':{spf:1,step:step3d,draw:draw3d,paused:()=>paused3},
+};
+
+function loop(){
+  const s=STEPS[curTab];
+  if(s&&!s.paused()){
+    for(let i=0;i<s.spf;i++) s.step();
+    s.draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('load',()=>{
+  resizeAll();
+  upd1d(); upd2d(); upd3d(); updSlice();
+  drawColorbar('cb-canvas','div');
+  rst1d(); rst2d(); rst3d();
+  loop();
+});
+window.addEventListener('resize',resizeAll);
+document.getElementById('cmap2d').addEventListener('change',()=>{
+  drawColorbar('cb-canvas',document.getElementById('cmap2d').value);
+});
+</script>
+</body>
+</html> 
