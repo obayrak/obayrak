@@ -1,4 +1,14 @@
 (function(){
+  /*headtools: Full screen + Open in new tab on the title line*/
+  (function(){
+    var head=document.querySelector('.pagehead'), fr=document.querySelectorAll('.frame');
+    if(!head || fr.length!==1) return;
+    var bar=fr[0].querySelector('.bar'); if(!bar) return;
+    var box=document.createElement('div'); box.className='headtools';
+    Array.prototype.slice.call(bar.querySelectorAll('[data-fs], a[target=_blank]')).forEach(function(el){ box.appendChild(el); });
+    head.appendChild(box);
+    if(!bar.children.length) bar.classList.add('empty');
+  })();
   var btn=document.getElementById('menu-btn');
   if(btn){btn.addEventListener('click',function(e){e.stopPropagation();document.body.classList.toggle('menu');});}
   var mn=document.querySelector('main'); if(mn){mn.addEventListener('click',function(){document.body.classList.remove('menu');});}
@@ -28,7 +38,7 @@
     n.type=d.type='button'; n.className='th-n'; d.className='th-d';
     n.innerHTML='&#9790; Night'; d.innerHTML='&#9728; Day'; n.title='Night mode'; d.title='Day mode';
     n.onclick=function(){ w.__siteTheme.set('night'); }; d.onclick=function(){ w.__siteTheme.set('day'); };
-    bar.insertBefore(d,bar.firstChild); bar.insertBefore(n,d);
+    bar.insertBefore(d,bar.firstChild); bar.insertBefore(n,d); bar.classList.remove('empty');
     window.__siteThemeSync(w.__siteTheme.mode());
   }
   window.__siteThemeSync=function(m){
