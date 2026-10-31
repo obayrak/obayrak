@@ -20,8 +20,22 @@
       try{ new (window.ResizeObserver||function(){this.observe=function(){}})(fit).observe(d.body||d.documentElement); }catch(e){}
     }
   }
-  document.querySelectorAll('.frame iframe').forEach(function(f){
-    f.addEventListener('load',function(){wire(f);}); if(f.contentDocument&&f.contentDocument.readyState==='complete') wire(f);
+  function themeBar(f){
+    var w; try{ w=f.contentWindow; }catch(e){ return; }
+    if(!w || !w.__siteTheme) return;
+    var bar=f.parentNode.querySelector('.bar'); if(!bar || bar.querySelector('.th-n')) return;
+    var n=document.createElement('button'), d=document.createElement('button');
+    n.type=d.type='button'; n.className='th-n'; d.className='th-d';
+    n.innerHTML='&#9790; Night'; d.innerHTML='&#9728; Day'; n.title='Night mode'; d.title='Day mode';
+    n.onclick=function(){ w.__siteTheme.set('night'); }; d.onclick=function(){ w.__siteTheme.set('day'); };
+    bar.insertBefore(d,bar.firstChild); bar.insertBefore(n,d);
+    window.__siteThemeSync(w.__siteTheme.mode());
+  }
+  window.__siteThemeSync=function(m){
+    document.querySelectorAll('.frame .bar .th-n').forEach(function(b){ b.classList.toggle('on',m==='night'); });
+    document.querySelectorAll('.frame .bar .th-d').forEach(function(b){ b.classList.toggle('on',m==='day'); });
+  };  document.querySelectorAll('.frame iframe').forEach(function(f){
+    f.addEventListener('load',function(){wire(f); themeBar(f);}); if(f.contentDocument&&f.contentDocument.readyState==='complete'){ wire(f); themeBar(f); }
   });
   document.querySelectorAll('[data-fs]').forEach(function(b){
     b.addEventListener('click',function(){var f=document.getElementById(b.getAttribute('data-fs')); if(f.requestFullscreen) f.requestFullscreen();});
