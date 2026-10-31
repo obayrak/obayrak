@@ -34,7 +34,8 @@
   window.__siteThemeSync=function(m){
     document.querySelectorAll('.frame .bar .th-n').forEach(function(b){ b.classList.toggle('on',m==='night'); });
     document.querySelectorAll('.frame .bar .th-d').forEach(function(b){ b.classList.toggle('on',m==='day'); });
-  };  document.querySelectorAll('.frame iframe').forEach(function(f){
+  };
+  document.querySelectorAll('.frame iframe').forEach(function(f){
     f.addEventListener('load',function(){wire(f); themeBar(f);}); if(f.contentDocument&&f.contentDocument.readyState==='complete'){ wire(f); themeBar(f); }
   });
   document.querySelectorAll('[data-fs]').forEach(function(b){
