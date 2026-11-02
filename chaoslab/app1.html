@@ -109,17 +109,34 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
   font-size:12px;overflow-x:auto}
 .hl{color:var(--cyan)}
 .hl2{color:var(--amber)}
-.hlogo{font-family:'Georgia',serif;font-size:1.5rem;color:var(--g);text-shadow:0 0 12px rgba(0,255,136,.4);letter-spacing:-1px}
+.hlogo{font-family:'Georgia',serif;font-size:1.05rem;line-height:1;color:#00ff88;text-shadow:0 0 12px rgba(0,255,136,.4);letter-spacing:-.5px;white-space:nowrap}
+#hdr .hleft{display:flex;align-items:center;gap:14px;min-width:0}
 .theory-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px;max-width:1400px;margin:0 auto}
 @media(max-width:900px){.theory-grid{grid-template-columns:1fr}}
 .tcard{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:16px}
 .tcard .sg{font-size:10px;margin-bottom:10px}
+@media(max-width:760px){
+  html,body{height:auto;overflow:auto}
+  #hdr{height:auto;min-height:38px;padding:6px 10px;gap:8px}
+  #hdr .sub{display:none}
+  #hdr h1{font-size:10px;letter-spacing:2px}
+  .tnav{overflow-x:auto;padding:0 4px}
+  .tbtn{white-space:nowrap;padding:0 10px}
+  .tab.active{display:block;height:auto}
+  .tab.theory.active{overflow:visible}
+  .lpanel{border-right:0;border-bottom:1px solid var(--border);overflow:visible}
+  .vpanel{overflow:visible}
+  .vrow{flex-direction:column;flex:none!important}
+  .vrow > div,.vrow .cwrap{flex:none!important}
+  .cwrap{height:240px}
+  .theory-grid{padding:10px}
+}
 </style>
 </head>
-<div class="hlogo" style="color:#00ff88;">⊛ CHAOS LAB</div>
 <body>
 <div id="hdr">
-<h1 style="color:#00aaff;">  &#x27E8; DETERMINISTIC CHAOS SIMULATOR &#x27E9;</h1>
+<div class="hleft"><div class="hlogo">⊛ CHAOS LAB</div>
+<h1 style="color:#00aaff;">&#x27E8; DETERMINISTIC CHAOS SIMULATOR &#x27E9;</h1></div>
   <div class="hgrp">
     <div class="sub">RK4 &middot; LYAPUNOV &middot; STRANGE ATTRACTORS &middot; BIFURCATION</div>
     <div class="thtoggle">
@@ -142,7 +159,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
     <div class="cg">
       <div class="sg">&#9658; Playback</div>
       <div class="brow">
-        <button class="btn on" id="lm-pb" onclick="LM.togglePlay()">&#9654; Play</button>
+        <button class="btn" id="lm-pb" onclick="LM.togglePlay()">&#9654; Play</button>
         <button class="btn" onclick="LM.reset()">&#8635; Reset</button>
         <button class="btn a" onclick="LM.perturb()">&#9889; Perturb</button>
       </div>
@@ -211,7 +228,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
     <div class="cg">
       <div class="sg">&#9658; Playback</div>
       <div class="brow">
-        <button class="btn on" id="lz-pb" onclick="LZ.togglePlay()">&#9654; Play</button>
+        <button class="btn" id="lz-pb" onclick="LZ.togglePlay()">&#9654; Play</button>
         <button class="btn" onclick="LZ.reset()">&#8635; Reset</button>
         <button class="btn a" onclick="LZ.perturb()">&#9889; Perturb</button>
       </div>
@@ -290,7 +307,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
     <div class="cg">
       <div class="sg">&#9658; Playback</div>
       <div class="brow">
-        <button class="btn on" id="dp-pb" onclick="DP.togglePlay()">&#9654; Play</button>
+        <button class="btn" id="dp-pb" onclick="DP.togglePlay()">&#9654; Play</button>
         <button class="btn" onclick="DP.reset()">&#8635; Reset</button>
         <button class="btn a" onclick="DP.perturb()">&#9889; Perturb dTheta</button>
       </div>
@@ -370,7 +387,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
     <div class="cg">
       <div class="sg">&#9658; Playback</div>
       <div class="brow">
-        <button class="btn on" id="dr-pb" onclick="DR.togglePlay()">&#9654; Play</button>
+        <button class="btn" id="dr-pb" onclick="DR.togglePlay()">&#9654; Play</button>
         <button class="btn" onclick="DR.reset()">&#8635; Reset</button>
         <button class="btn a" onclick="DR.perturb()">&#9889; Perturb</button>
       </div>
@@ -564,7 +581,13 @@ function switchTab(id,btn){
   document.querySelectorAll('.tbtn').forEach(function(b){b.classList.remove('active');});
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
+  var sims={lm:LM,lz:LZ,dp:DP,dr:DR};
+  Object.keys(sims).forEach(function(k){
+    var S=sims[k];
+    if(k!==id && S.playing) S.togglePlay();
+  });
   setTimeout(function(){
+    if(sims[id] && !sims[id].playing) sims[id].togglePlay();
     if(id==='lm')LM.redraw();
     if(id==='lz')LZ.redraw();
     if(id==='dp')DP.redraw();
@@ -576,7 +599,7 @@ function switchTab(id,btn){
    LOGISTIC MAP
 ================================================================ */
 var LM=(function(){
-  var r=3.7,x0=0.5,N=250,speed=1,playing=true,animId=null;
+  var r=3.7,x0=0.5,N=250,speed=1,playing=false,animId=null;
   var xs=[],xs2=[],lyapAcc=[],divLog=[];
   var D0=1e-6;
 
@@ -652,7 +675,9 @@ var LM=(function(){
     ctx.fillStyle='#ffb300';ctx.beginPath();ctx.arc(tx(lx),ty(r*lx*(1-lx)),3.5,0,Math.PI*2);ctx.fill();
   }
 
+  var bifDone=false;
   function computeBif(){
+    bifDone=true;
     var g=gc('lm-c3');if(!g)return;
     var ctx=g.ctx,w=g.w,h=g.h;
     ctx.clearRect(0,0,w,h);
@@ -743,6 +768,7 @@ var LM=(function(){
   return{
     get speed(){return speed;},set speed(v){speed=v;},
     get N(){return N;},set N(v){N=v;},
+    get playing(){return playing;},
     togglePlay:function(){
       playing=!playing;
       var b=document.getElementById('lm-pb');
@@ -750,7 +776,7 @@ var LM=(function(){
       else{b.textContent='\u25b6 Play';b.classList.remove('on');cancelAnimationFrame(animId);}
     },
     reset:function(){doReset();},
-    redraw:function(){drawAll();},
+    redraw:function(){drawAll();if(bifDone)computeBif();},
     setR:function(v){r=v;document.getElementById('lm-rv').textContent=v.toFixed(3);doReset();},
     setX0:function(v){x0=v;document.getElementById('lm-x0v').textContent=v.toFixed(3);doReset();},
     perturb:function(){x0=Math.min(0.999,x0+0.001);document.getElementById('lm-x0sl').value=x0;document.getElementById('lm-x0v').textContent=x0.toFixed(3);doReset();},
@@ -912,15 +938,17 @@ var LZ=(function(){
 
   function setupDrag(){
     var c=document.getElementById('lz-c1');if(!c)return;
-    c.addEventListener('mousedown',function(e){dragging=true;lmx=e.clientX;lmy=e.clientY;});
-    window.addEventListener('mousemove',function(e){
+    c.style.touchAction='none';
+    c.addEventListener('pointerdown',function(e){dragging=true;lmx=e.clientX;lmy=e.clientY;});
+    window.addEventListener('pointermove',function(e){
       if(!dragging)return;
       rotY+=(e.clientX-lmx)*0.012;rotX+=(e.clientY-lmy)*0.012;
       rotX=Math.max(-Math.PI/2,Math.min(Math.PI/2,rotX));
       lmx=e.clientX;lmy=e.clientY;
       if(!playing)draw3D();
     });
-    window.addEventListener('mouseup',function(){dragging=false;});
+    window.addEventListener('pointerup',function(){dragging=false;});
+    window.addEventListener('pointercancel',function(){dragging=false;});
   }
   setTimeout(setupDrag,500);
 
@@ -930,6 +958,7 @@ var LZ=(function(){
     get speed(){return speed;},set speed(v){speed=v;},
     get dt(){return dt;},set dt(v){dt=v;},
     toggle2:function(){show2=!show2;document.getElementById('lz-t2').classList.toggle('on');},
+    get playing(){return playing;},
     togglePlay:function(){
       playing=!playing;var b=document.getElementById('lz-pb');
       if(playing){b.textContent='\u23f8 Pause';b.classList.add('on');loop();}
@@ -1142,6 +1171,7 @@ var DP=(function(){
 
   return{
     get speed(){return speed;},set speed(v){speed=v;},
+    get playing(){return playing;},
     togglePlay:function(){
       playing=!playing;var b=document.getElementById('dp-pb');
       if(playing){b.textContent='\u23f8 Pause';b.classList.add('on');loop();}
@@ -1319,6 +1349,7 @@ var DR=(function(){
 
   return{
     get speed(){return speed;},set speed(v){speed=v;},
+    get playing(){return playing;},
     togglePlay:function(){
       playing=!playing;var b=document.getElementById('dr-pb');
       if(playing){b.textContent='\u23f8 Pause';b.classList.add('on');loop();}
@@ -1345,6 +1376,7 @@ window.addEventListener('load',function(){
   setTimeout(function(){
     LM.reset();LZ.reset();DP.reset();DR.reset();
     LM.togglePlay();
+    LM.computeBif();
     if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise();
   },300);
 });
