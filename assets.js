@@ -25,9 +25,25 @@
       if(u.origin!==location.origin){ ev.preventDefault(); window.open(u.href,'_blank','noopener'); }
     },true);
     if(f.classList.contains('auto')){
-      var fit=function(){ try{ var h=Math.max(d.documentElement.scrollHeight,d.body?d.body.scrollHeight:0); if(h>f.clientHeight+4) f.style.height=h+'px'; }catch(e){} };
+      /* Grow the frame to fit its content. If the content uses 100vh / innerHeight,
+         every resize makes the content taller by the same amount (feedback loop).
+         Detect that and fall back to a fixed-height frame that scrolls internally. */
+      var ro=null, added=0, strikes=0, stopped=false;
+      var stop=function(){ stopped=true; f.classList.remove('auto'); f.style.height=''; try{ if(ro&&ro.disconnect) ro.disconnect(); }catch(e){} };
+      var fit=function(){
+        if(stopped) return;
+        try{
+          var h=Math.max(d.documentElement.scrollHeight,d.body?d.body.scrollHeight:0), cur=f.clientHeight;
+          if(h>cur+4){
+            var inc=h-cur;
+            if(added>0 && inc>=added*0.5){ if(++strikes>=3) return stop(); } else strikes=0;
+            added=inc; f.style.height=h+'px';
+            if(h>50000) stop();
+          }
+        }catch(e){}
+      };
       fit(); setTimeout(fit,500); setTimeout(fit,2000);
-      try{ new (window.ResizeObserver||function(){this.observe=function(){}})(fit).observe(d.body||d.documentElement); }catch(e){}
+      try{ if(window.ResizeObserver){ ro=new ResizeObserver(fit); ro.observe(d.body||d.documentElement); } }catch(e){}
     }
   }
   function themeBar(f){
