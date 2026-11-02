@@ -33,7 +33,7 @@
     '.st-box{position:fixed;top:10px;right:10px;z-index:2147483647;display:flex;gap:4px;padding:3px;border-radius:10px;background:rgba(20,26,38,.82);box-shadow:0 2px 8px rgba(0,0,0,.3);font-family:system-ui,Segoe UI,Arial,sans-serif}'+
     '.st-box button{font-size:16px;line-height:1;min-width:34px;height:30px;border:0;border-radius:7px;background:transparent;color:#e8edf6;cursor:pointer;padding:0 8px}'+
     '.st-box button:hover{background:rgba(255,255,255,.16)}'+
-    '.st-box button.on{background:#f5c542;color:#111}';
+    '.st-box button.on{background:#8ab4f8;color:#16181d}';
   function mode(){ var m=get(); if(m!=='day'&&m!=='night') m=nativeDark?'night':'day'; return m; }
   function apply(){
     if(nativeDark===null) return;

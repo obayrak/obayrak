@@ -525,6 +525,12 @@ html[data-theme="light"] .itertbl tbody tr.hl td{background:rgba(0,137,184,.09)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 }
+/*readable: sharper text colours and minimum text sizes (13 px labels, 14-15 px values and reading text)*/
+:root{--text:#d6e4f4;--text2:#a8c2e0;--text3:#8eaad0}
+html[data-theme="light"]{--text:#16223a;--text2:#2c4466;--text3:#4a6385}
+.hdr-sub,.hdr-time,.tnb,.sech,.fl,.preset-btn,.pill,.btn,.btn-sm,.reslabel,.rescard-label,.warn,.info,.itertbl,.itertbl thead th,.itertbl tbody td,.statbar,.stab,.dcard-hdr,.dcard-label,.eiglabel,.compare-chip,.order-table,.order-table th,.th-chip,.th-chip-label,.order-badge,.th-title .badge,#loader .l-sub{font-size:13px}
+.fi,.dcard-num,.dcard-exact,.dcard-err,.th-title{font-size:14px}
+.th-text,.theory-header p{font-size:15px}
 
 </style>
 <base target="_blank">
@@ -1500,27 +1506,51 @@ function setFormula(id,latex){
 function DL(title,xl,yl,extra){
   const light=(typeof currentTheme!=='undefined')&&currentTheme==='light';
   const paper=light?'#ffffff':'#05070f', plotbg=light?'#f3f6fb':'#080d1a';
-  const grid=light?'#d6e0ee':'#19294a', zero=light?'#bccce3':'#223561';
-  const font=light?'#3f597e':'#6a90bb', titleFont=light?'#16223a':'#adc8e8';
-  const legendBg=light?'rgba(255,255,255,.88)':'rgba(8,13,26,.85)';
+  const grid=light?'#c9d5e6':'#26395f', zero=light?'#8ea2bf':'#3d5788';
+  const font=light?'#16223a':'#d6e4f4', titleFont=light?'#0f1a2e':'#eaf2fb';
+  const legendBg=light?'rgba(255,255,255,.92)':'rgba(8,13,26,.9)';
   const hoverBg=light?'#eef2f8':'#111930';
   return Object.assign({
-    title:{text:title,font:{family:'Orbitron',size:12,color:titleFont},x:0.04},
+    title:{text:title,font:{family:'Orbitron',size:15,color:titleFont},x:0.04},
     paper_bgcolor:paper,plot_bgcolor:plotbg,
-    font:{family:'JetBrains Mono',color:font,size:9},
-    xaxis:{title:{text:xl,font:{size:10}},gridcolor:grid,linecolor:grid,zerolinecolor:zero,tickfont:{size:9},showgrid:true},
-    yaxis:{title:{text:yl,font:{size:10}},gridcolor:grid,linecolor:grid,zerolinecolor:zero,tickfont:{size:9},showgrid:true},
-    legend:{bgcolor:legendBg,bordercolor:grid,borderwidth:1,font:{size:9}},
-    margin:{l:54,r:16,t:36,b:44},
+    font:{family:'JetBrains Mono',color:font,size:13},
+    xaxis:{title:{text:xl,font:{size:14}},gridcolor:grid,linecolor:grid,zerolinecolor:zero,tickfont:{size:13},showgrid:true},
+    yaxis:{title:{text:yl,font:{size:14}},gridcolor:grid,linecolor:grid,zerolinecolor:zero,tickfont:{size:13},showgrid:true},
+    legend:{bgcolor:legendBg,bordercolor:grid,borderwidth:1,font:{size:13}},
+    margin:{l:64,r:18,t:42,b:54},
     hovermode:'closest',
-    hoverlabel:{bgcolor:hoverBg,bordercolor:grid,font:{family:'JetBrains Mono',size:9}},
-  },extra||{});
+    hoverlabel:{bgcolor:hoverBg,bordercolor:grid,font:{family:'JetBrains Mono',size:13}},
+  },extra||{}, mergeAxes(extra));
+  function mergeAxes(ex){
+    const out={}; if(!ex) return out;
+    ['xaxis','yaxis'].forEach(k=>{
+      if(ex[k]){
+        const base={title:{text:k==='xaxis'?xl:yl,font:{size:14}},gridcolor:grid,linecolor:grid,zerolinecolor:zero,tickfont:{size:13},showgrid:true};
+        const a=Object.assign({},base,ex[k]);
+        if(a.gridcolor==='#19294a') a.gridcolor=grid;
+        out[k]=a;
+      }
+    });
+    return out;
+  }
+}
+/* curve colours: bright neon on the dark background, darker versions of the same colours on the light background */
+const LIGHT_LINE={'#adc8e8':'#16223a','#00cfff':'#0070a0','#ffc107':'#9a5a00','#00e5a0':'#007a52','#b388ff':'#6a3fd0','#ff4566':'#c41e3f','#ff6ec7':'#a8287a','#6a90bb':'#3f597e','#223561':'#8ea2bf',
+  'rgba(0,207,255,0.3)':'rgba(0,112,160,0.45)','rgba(255,193,7,0.5)':'rgba(154,90,0,0.6)','rgba(255,193,7,0.3)':'rgba(154,90,0,0.45)'};
+function themeTraces(traces){
+  const light=(typeof currentTheme!=='undefined')&&currentTheme==='light';
+  (traces||[]).forEach(tr=>{
+    if(tr.line&&typeof tr.line.color==='string'){ if(tr._lc===undefined) tr._lc=tr.line.color; tr.line.color=light?(LIGHT_LINE[tr._lc.toLowerCase()]||tr._lc):tr._lc; }
+    if(tr.marker&&typeof tr.marker.color==='string'){ if(tr._mc===undefined) tr._mc=tr.marker.color; tr.marker.color=light?(LIGHT_LINE[tr._mc.toLowerCase()]||tr._mc):tr._mc; }
+    if(tr.line&&typeof tr.line.width==='number'&&tr.line.width<2&&!tr.line.dash) tr.line.width=2;
+  });
+  return traces;
 }
 const PC={displayModeBar:true,displaylogo:false,responsive:true,modeBarButtonsToRemove:['lasso2d','select2d','toImage']};
 function plot(id,traces,layout){
   if(!plotlyReady())return;
   const el=document.getElementById(id); if(!el)return;
-  try{Plotly.react(id,traces,layout,PC);}catch(e){console.error(e);}
+  try{Plotly.react(id,themeTraces(traces),layout,PC);}catch(e){console.error(e);}
 }
 function ST(name,btn){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
@@ -2693,9 +2723,10 @@ function plotEigen(V,evals,a,b,n,COLS){
     traces.push({x,y:pn.map(v=>v*0.7+E),name:`ψ${i} E=${fmt(E,3)}`,mode:'lines',line:{color:COLS[i],width:2},yaxis:'y2'});
     traces.push({x:[a,b],y:[E,E],mode:'lines',line:{color:COLS[i],width:.8,dash:'dot'},showlegend:false,yaxis:'y2'});
   });
-  plot('plt-ode-main',traces,Object.assign(DL('Schrödinger Eigenfunctions','x','E / ψ'),{
-    yaxis:{title:{text:'E / ψ'},gridcolor:'#19294a',linecolor:'#19294a',zerolinecolor:'#223561'},
-    yaxis2:{overlaying:'y',side:'right',title:{text:'V(x)'},showgrid:false,linecolor:'#19294a'},
+  const eL=DL('Schrödinger Eigenfunctions','x','E / ψ');
+  plot('plt-ode-main',traces,Object.assign(eL,{
+    yaxis:Object.assign({},eL.yaxis,{title:{text:'E / ψ',font:{size:14}}}),
+    yaxis2:{overlaying:'y',side:'right',title:{text:'V(x)',font:{size:14}},showgrid:false,linecolor:eL.yaxis.linecolor,tickfont:{size:13}},
   }));
   const densTraces=evals.map((E,i)=>{
     const{x,psi}=numerov(V,E,a,b,n);
@@ -2716,7 +2747,14 @@ setInterval(updateClock,1000); updateClock();
 // ════════════════════════════════════════════════════════
 //  DAY / NIGHT THEME TOGGLE
 // ════════════════════════════════════════════════════════
-let currentTheme='dark';
+let currentTheme=(function(){ try{ return localStorage.getItem('siteTheme')==='day'?'light':'dark'; }catch(e){ return 'dark'; } })();
+/* follow the site's Night/Day choice (localStorage "siteTheme") */
+window.__siteTheme={
+  set:function(m){ try{ localStorage.setItem('siteTheme',m); }catch(e){} setTheme(m==='day'?'light':'dark');
+    try{ if(window.parent!==window && window.parent.__siteThemeSync) window.parent.__siteThemeSync(m); }catch(e){} },
+  mode:function(){ return currentTheme==='light'?'day':'night'; }
+};
+window.addEventListener('storage',function(e){ if(e.key==='siteTheme' && (e.newValue==='day'||e.newValue==='night')) setTheme(e.newValue==='day'?'light':'dark'); });
 function setTheme(theme){
   currentTheme=theme==='light'?'light':'dark';
   document.documentElement.setAttribute('data-theme',currentTheme==='light'?'light':'');
@@ -2731,12 +2769,13 @@ function refreshAllPlotThemes(){
   const ids=['plt-r-func','plt-r-conv','plt-r-err','plt-d-func','plt-d-err','plt-d-hconv','plt-i-area','plt-i-parts','plt-i-conv','plt-ode-main','plt-ode-err','plt-ode-aux'];
   const light=currentTheme==='light';
   const paper=light?'#ffffff':'#05070f', plotbg=light?'#f3f6fb':'#080d1a';
-  const grid=light?'#d6e0ee':'#19294a', line=light?'#d6e0ee':'#19294a', zero=light?'#bccce3':'#223561';
-  const font=light?'#3f597e':'#6a90bb', titleFont=light?'#16223a':'#adc8e8';
+  const grid=light?'#c9d5e6':'#26395f', line=light?'#c9d5e6':'#26395f', zero=light?'#8ea2bf':'#3d5788';
+  const font=light?'#16223a':'#d6e4f4', titleFont=light?'#0f1a2e':'#eaf2fb';
   ids.forEach(id=>{
     const el=document.getElementById(id);
     if(!el||!el._fullLayout)return;
     try{
+      if(el.data){ themeTraces(el.data); Plotly.redraw(el); }
       Plotly.relayout(id,{
         'paper_bgcolor':paper,'plot_bgcolor':plotbg,
         'font.color':font,'title.font.color':titleFont,
