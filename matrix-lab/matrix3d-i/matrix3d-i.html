@@ -2,766 +2,1164 @@
 <html lang="en" data-theme="night">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>3D Matrix Transform Simulator</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Matrix3D Lab · 3D Homogeneous Transformations</title>
+<meta name="description" content="Interactive laboratory for 3D rotation, scaling and translation matrices in homogeneous coordinates: composition order, inverse, determinant, axis–angle, quaternions and gimbal lock.">
 <script>
-try{var _t=localStorage.getItem('mat3d-theme');if(_t==='day'||_t==='night')document.documentElement.setAttribute('data-theme',_t);}catch(_){}
-</script>
-<script>
-window.MathJax={
-  tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']],processEscapes:true},
-  svg:{fontCache:'global'},
-  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']},
-  startup:{pageReady:()=>MathJax.startup.defaultPageReady().then(()=>{window.__mjReady=true;flushTypeset();})}
-};
+try{var _t=localStorage.getItem('mat3d-theme');if(_t==='day'||_t==='night')document.documentElement.setAttribute('data-theme',_t);
+else if(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.setAttribute('data-theme','day');}catch(_){}
+window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'},
+  options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}};
 </script>
 <script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --mono:'JetBrains Mono','Consolas','Menlo',monospace;
+  --mono:'JetBrains Mono',Consolas,Menlo,monospace;
   --ui:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
   color-scheme:dark;
-  --bg:#0a0f15;--surf:#121a24;--panel:#0f1620;--border:#2a3a4c;--border2:#3c5068;
-  --ax:#ff6676;--ay:#4ae890;--az:#6bb0ff;
-  --cyan:#35d6ff;--ora:#ff7d4d;--mag:#d98aff;--yel:#ffd23f;--grn:#86ff75;
-  --muted:#93a9ba;--text:#dfe9f1;--dim:#7f97a9;--code:#0a1019;--hover:rgba(255,255,255,.06);--sel:rgba(53,214,255,.35);
-  --glow:0 0 14px rgba(53,214,255,.35);
+  --bg:#0b1017;--surf:#121a25;--panel:#0f1620;--raise:#172231;--border:#253446;--border2:#36495f;
+  --ax:#ff6b7a;--ay:#4fe08f;--az:#6cb2ff;--sc:#35d2f5;--tr:#ffa24a;
+  --accent:#35d2f5;--accent-ink:#04141b;--warn:#ffb547;--bad:#ff6b7a;--ok:#4fe08f;
+  --text:#e3ebf3;--muted:#94a8bb;--dim:#6f8599;--hover:rgba(255,255,255,.05);--code:#0a1019;
+  --shadow:0 6px 22px rgba(0,0,0,.3);
 }
 :root[data-theme="day"]{
   color-scheme:light;
-  --bg:#e9eef5;--surf:#ffffff;--panel:#f5f8fb;--border:#cdd7e3;--border2:#a9b8ca;
-  --ax:#d62839;--ay:#16874a;--az:#1f6fd1;
-  --cyan:#0a62b0;--ora:#d4480d;--mag:#8a2bc9;--yel:#a56e00;--grn:#168c3e;
-  --muted:#506378;--text:#17222e;--dim:#5a6c80;--code:#e8eef6;--hover:rgba(10,98,176,.08);--sel:rgba(10,98,176,.25);
-  --glow:none;
+  --bg:#eef2f7;--surf:#ffffff;--panel:#f7f9fc;--raise:#ffffff;--border:#d4dde8;--border2:#b3c1d1;
+  --ax:#cf2a3b;--ay:#17884b;--az:#1f6bd0;--sc:#0a78a8;--tr:#c25a06;
+  --accent:#0a6fb0;--accent-ink:#ffffff;--warn:#a96300;--bad:#c62838;--ok:#17884b;
+  --text:#152130;--muted:#4f6377;--dim:#6b7d90;--hover:rgba(10,111,176,.07);--code:#eef3f9;
+  --shadow:0 6px 20px rgba(16,24,40,.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-::selection{background:var(--sel);color:var(--text)}
-:focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
-body{font-family:var(--ui);font-size:15px;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;transition:background .2s,color .2s}
-header{padding:12px 26px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;background:var(--surf);flex-shrink:0;flex-wrap:wrap}
-.logo{font-family:'Orbitron',var(--ui);font-size:1.35rem;font-weight:900;color:var(--cyan);letter-spacing:3px}
-.logo span{color:var(--ora)}
-.sub{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:1.2px;margin-top:3px}
-.themebtns{margin-left:auto;display:flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}
-.thbtn{padding:8px 15px;background:var(--panel);border:none;color:var(--text);cursor:pointer;font-family:var(--ui);font-size:14px;font-weight:600;transition:all .15s}
-.thbtn+.thbtn{border-left:1px solid var(--border2)}
-.thbtn:hover{background:var(--hover)}
-.thbtn.active{background:var(--cyan);color:var(--surf)}
-.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 26px;background:var(--surf);flex-shrink:0}
-.tab{padding:13px 24px;font-size:13.5px;letter-spacing:1px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;text-transform:uppercase}
-.tab:hover{color:var(--text);background:var(--hover)}.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-.tc{display:none;flex:1;min-height:0;overflow:auto}.tc.active{display:block}
-.sim{display:grid;grid-template-columns:310px minmax(0,1fr) 370px;height:100%}
-.lpanel,.rpanel{background:var(--panel);overflow-y:auto;padding:18px}
-.lpanel{border-right:1px solid var(--border)}
-.rpanel{border-left:1px solid var(--border)}
-.center{display:flex;flex-direction:column;align-items:center;background:var(--bg);padding:14px;gap:10px;overflow-y:auto}
-.sec{font-size:12.5px;font-weight:700;letter-spacing:1.8px;color:var(--cyan);text-transform:uppercase;margin-bottom:11px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-top:18px}
+html,body{height:100%}
+body{font-family:var(--ui);font-size:14.5px;line-height:1.5;background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+sub{font-size:.72em}
+
+/* header + tabs */
+header{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--surf);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.brand b{font-size:1.15rem;font-weight:700;letter-spacing:.2px}
+.brand b span{color:var(--accent)}
+.brand small{display:block;color:var(--muted);font-size:12px;letter-spacing:.3px}
+.hdr-r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.pill{border:1px solid var(--border2);background:var(--panel);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer}
+.pill:hover{border-color:var(--accent)}
+.tabs{display:flex;gap:2px;padding:0 20px;background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:11px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none;flex:1;min-height:0;overflow:auto}
+.view.active{display:block}
+
+/* simulator grid */
+.sim{display:grid;grid-template-columns:300px minmax(0,1fr) 370px;height:100%}
+.lp,.rp{background:var(--panel);overflow-y:auto;padding:14px 16px 24px}
+.lp{border-right:1px solid var(--border)}
+.rp{border-left:1px solid var(--border)}
+.center{display:flex;flex-direction:column;gap:10px;padding:12px;overflow-y:auto;min-width:0}
+@media(max-width:1240px){
+  body{overflow:auto;height:auto}
+  .view{overflow:visible}
+  .sim{grid-template-columns:290px minmax(0,1fr);height:auto}
+  .rp{grid-column:1/-1;border-left:0;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 24px}
+  .lp,.rp{overflow:visible}
+}
+@media(max-width:780px){
+  .sim{grid-template-columns:1fr}
+  .lp{border-right:0;border-bottom:1px solid var(--border);order:2}
+  .center{order:1}
+  .rp{order:3}
+  header{padding:10px 14px}.tabs{padding:0 10px}
+}
+
+/* control widgets */
+.sec{font-size:11.5px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;display:flex;justify-content:space-between;align-items:center}
 .sec:first-child{margin-top:0}
-.cgrp{margin-bottom:14px}
-.srow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
-.srow label{font-size:14px;width:26px;text-align:center;font-weight:600}
-.srow label.rx{color:var(--ax)}.srow label.ry{color:var(--ay)}.srow label.rz{color:var(--az)}
-.srow label.tx{color:var(--ora)}.srow label.ty{color:var(--yel)}.srow label.tz{color:var(--mag)}
-input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:5px;background:var(--border2);border-radius:3px;outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid var(--surf)}
-input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;cursor:pointer;border:2px solid var(--surf)}
-.srow.rx-row input::-webkit-slider-thumb{background:var(--ax)}
-.srow.ry-row input::-webkit-slider-thumb{background:var(--ay)}
-.srow.rz-row input::-webkit-slider-thumb{background:var(--az)}
-.srow.tx-row input::-webkit-slider-thumb{background:var(--ora)}
-.srow.ty-row input::-webkit-slider-thumb{background:var(--yel)}
-.srow.tz-row input::-webkit-slider-thumb{background:var(--mag)}
-.srow.sc-row input::-webkit-slider-thumb{background:var(--cyan)}
-.vd{font-size:13.5px;width:58px;text-align:right;font-family:var(--mono);font-weight:500}
-.shbts{display:flex;gap:6px;flex-wrap:wrap}
-.shbt{padding:7px 11px;font-size:13.5px;font-weight:500;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s}
-.shbt:hover{background:var(--hover)}
-.shbt.active{border-color:var(--ora);color:var(--ora);font-weight:700}
-.brow{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
-.btn{flex:1;padding:9px 10px;font-family:var(--ui);font-size:13px;font-weight:700;letter-spacing:.6px;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;text-transform:uppercase;transition:all .2s;white-space:nowrap}
-.btn:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glow)}
-.btn.c{border-color:var(--cyan);color:var(--cyan)}.btn.o{border-color:var(--ora);color:var(--ora)}
-.btn.g{border-color:var(--grn);color:var(--grn)}.btn:active{transform:scale(.97)}
-.ord-bts{display:flex;gap:6px}
-.ord-bt{flex:1;padding:8px 6px;font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--surf);color:var(--text);cursor:pointer;border-radius:5px;transition:all .2s;text-align:center}
-.ord-bt:hover{background:var(--hover)}
-.ord-bt.active{border-color:var(--cyan);color:var(--cyan);font-weight:700}
-canvas#c3d{border:1px solid var(--border2);cursor:grab;border-radius:6px;max-width:100%;height:auto}
-canvas#c3d:active{cursor:grabbing}
-.timeline{display:flex;align-items:center;width:100%}
-.tnode{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
-.tdot{width:12px;height:12px;border-radius:50%;background:var(--border2);border:2px solid var(--border2);transition:all .3s}
-.tdot.done{background:var(--grn);border-color:var(--grn)}
-.tdot.active{background:var(--cyan);border-color:var(--cyan);transform:scale(1.35)}
-.tlbl{font-size:12.5px;font-weight:600;letter-spacing:.8px;color:var(--muted);text-align:center}
-.tlbl.active{color:var(--cyan)}.tlbl.done{color:var(--grn)}
-.tline{height:2px;flex:1;background:var(--border2);max-width:40px;transition:background .3s}
-.tline.done{background:var(--grn)}
-.pbar{width:100%;height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
-.pfill{height:100%;background:var(--cyan);border-radius:2px;transition:width .05s}
-.astatus{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:1.2px;text-align:center}
-.amat-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
-.amat-title{font-size:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;text-align:center}
-.mat-eq{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
-.m44{position:relative;display:inline-flex;flex-direction:column;gap:4px;padding:10px 8px}
-.m44::before,.m44::after{content:'';position:absolute;top:0;bottom:0;width:5px;border:2px solid currentColor}
-.m44::before{left:0;border-right:none;border-radius:3px 0 0 3px}
-.m44::after{right:0;border-left:none;border-radius:0 3px 3px 0}
-.m44.cyan{color:var(--cyan)}.m44.ora{color:var(--ora)}.m44.grn{color:var(--grn)}
-.m44.mag{color:var(--mag)}.m44.ax{color:var(--ax)}.m44.ay{color:var(--ay)}.m44.az{color:var(--az)}.m44.dim{color:var(--muted)}
-.mrow{display:flex;gap:8px}
-.mc{width:52px;text-align:right;font-family:var(--mono);font-size:13.5px;font-weight:500;color:var(--text)}
-.mc.hx{color:var(--ax)}.mc.hy{color:var(--ay)}.mc.hz{color:var(--az)}
-.opsym{font-size:1.4rem;color:var(--muted);align-self:center}
-.mlabel{font-size:14px;font-weight:600;text-align:center;margin-bottom:3px;color:var(--text)}
-.mtabs{display:flex;margin-bottom:12px;border:1px solid var(--border2);border-radius:5px;overflow:hidden}
-.mtab{flex:1;padding:9px 4px;font-size:14px;font-weight:600;text-align:center;cursor:pointer;background:var(--surf);color:var(--muted);border-right:1px solid var(--border2);transition:all .2s}
-.mtab:hover{background:var(--hover)}
-.mtab:last-child{border-right:none}
-.mtab.active{background:var(--panel);color:var(--cyan);box-shadow:inset 0 -3px 0 currentColor}
-.mtab.rx.active{color:var(--ax)}.mtab.ry.active{color:var(--ay)}.mtab.rz.active{color:var(--az)}
-.mtab.tt.active{color:var(--ora)}.mtab.mm.active{color:var(--cyan)}
-.vread{background:var(--surf);border:1px solid var(--border);border-radius:5px;padding:10px 12px;margin-bottom:9px}
-.vread .vl{color:var(--muted);font-size:12px;font-weight:600;letter-spacing:1.2px;margin-bottom:5px}
-.vread .vc{color:var(--cyan);margin:2px 0;font-size:13.5px;font-family:var(--mono);font-weight:500}
-.vread.ax .vc{color:var(--ax)}.vread.ay .vc{color:var(--ay)}.vread.az .vc{color:var(--az)}
-.vread.ora .vc{color:var(--ora)}.vread.grn .vc{color:var(--grn)}
-.proprow{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin:5px 0;padding:5px 11px;background:var(--surf);border:1px solid var(--border);border-radius:5px}
-.proprow .pk{color:var(--muted)}.proprow .pv{color:var(--grn);font-family:var(--mono);font-weight:700}
-.hint{font-size:12.5px;color:var(--muted);margin-top:8px}
-.doc{max-width:900px;margin:0 auto;padding:36px 30px 60px;line-height:1.8}
-.dh{font-size:1.1rem;font-weight:700;color:var(--cyan);letter-spacing:1.5px;margin:34px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border2);text-transform:uppercase}
-.dh:first-child{margin-top:0}
-.dp{font-size:16px;color:var(--text);margin-bottom:14px}
-.dp strong{font-weight:700}
-.dcode{background:var(--code);border:1px solid var(--border);border-left:4px solid var(--cyan);padding:12px 18px;margin:14px 0;font-size:15.5px;color:var(--text);line-height:1.8;border-radius:0 6px 6px 0;overflow-x:auto}
-.dcode.mono{font-family:var(--mono);font-size:14.5px;white-space:pre;color:var(--grn)}
-.dcode .cm{color:var(--muted);font-family:var(--ui);font-size:14.5px}
-.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
-.dcard{background:var(--surf);border:1px solid var(--border);border-radius:6px;padding:16px}
-.dcard h3{font-size:13.5px;font-weight:700;letter-spacing:1.5px;color:var(--ora);margin-bottom:8px;text-transform:uppercase}
-.dcard p{font-size:15px;color:var(--text);line-height:1.7}
-.step-m{display:flex;gap:16px;margin:14px 0;align-items:flex-start}
-.snum{width:34px;height:34px;border-radius:50%;border:2px solid var(--cyan);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}
-.stxt{font-size:15.5px;padding-top:4px;line-height:1.7}.stxt strong{color:var(--ora)}
-.ktag{display:inline-block;background:var(--surf);border:1px solid var(--border2);padding:1px 8px;border-radius:4px;font-size:13.5px;color:var(--cyan);font-family:var(--mono)}
-.ax-legend{display:flex;gap:22px;margin:12px 0;font-size:15px;flex-wrap:wrap}
-.ax-legend span{display:flex;align-items:center;gap:8px}
-.ax-legend .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-mjx-container{color:inherit}
-mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;margin:.5em 0 !important}
-.dcode mjx-container[display="true"]{margin:.3em 0 !important}
+.sec .x{font-size:11px;letter-spacing:0;text-transform:none;font-weight:500}
+.row{display:grid;grid-template-columns:30px 1fr 64px;gap:8px;align-items:center;margin-bottom:6px}
+.row label{font-family:var(--mono);font-weight:700;font-size:13px;text-align:center}
+.row input[type=number]{width:100%;padding:3px 5px;border:1px solid var(--border);background:var(--surf);border-radius:5px;font-family:var(--mono);font-size:12.5px;text-align:right}
+input[type=range]{width:100%;height:20px;accent-color:var(--accent);cursor:pointer}
+.c-x{color:var(--ax)}.c-y{color:var(--ay)}.c-z{color:var(--az)}.c-s{color:var(--sc)}.c-t{color:var(--tr)}
+.row.x input[type=range]{accent-color:var(--ax)}.row.y input[type=range]{accent-color:var(--ay)}.row.z input[type=range]{accent-color:var(--az)}
+.row.t input[type=range]{accent-color:var(--tr)}.row.s input[type=range]{accent-color:var(--sc)}
+select.full{width:100%;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;background:var(--surf);font-size:13px}
+.seg{display:grid;gap:4px}
+.seg.c3{grid-template-columns:repeat(3,1fr)}.seg.c4{grid-template-columns:repeat(4,1fr)}
+.seg button{padding:6px 4px;border:1px solid var(--border2);background:var(--surf);border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer}
+.seg button:hover{background:var(--hover)}
+.seg button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700;background:color-mix(in srgb,var(--accent) 10%,var(--surf))}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.btn{flex:1;padding:7px 8px;border:1px solid var(--border2);background:var(--surf);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+.chkgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
+.hint{font-size:12px;color:var(--dim);margin-top:6px}
+.xyz{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px}
+.xyz label{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.xyz input{width:100%;padding:3px 5px;border:1px solid var(--border);background:var(--surf);border-radius:5px;font-family:var(--mono);font-size:12.5px}
+
+/* canvas + pipeline */
+.stage{position:relative;background:var(--surf);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+#c3d{display:block;width:100%;aspect-ratio:16/10;max-height:62vh;touch-action:none;cursor:grab}
+#c3d.drag{cursor:grabbing}
+.badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
+.badge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--surf) 85%,transparent);border:1px solid var(--border2);color:var(--muted)}
+.badge.warn{color:var(--warn);border-color:var(--warn)}
+.badge.bad{color:var(--bad);border-color:var(--bad)}
+.zoomctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:4px}
+.zoomctl button{width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--panel);font-weight:700;cursor:pointer}
+.pipe{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center}
+.pnode{border:1px solid var(--border2);background:var(--surf);border-radius:999px;padding:4px 12px;font-family:var(--mono);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted)}
+.pnode:hover{border-color:var(--accent)}
+.pnode.done{color:var(--text);border-color:var(--ok)}
+.pnode.cur{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.parrow{color:var(--dim);font-size:12px}
+.pbar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.pfill{height:100%;width:0;background:var(--accent)}
+.formula{text-align:center;font-family:var(--mono);font-size:13px;color:var(--muted)}
+.formula b{color:var(--text)}
+.eqbox{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px}
+.eqhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.eqhead h3{font-size:13px;font-weight:700}
+.eqhead .sub{font-size:12px;color:var(--muted)}
+.mateq{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;overflow-x:auto}
+.mlab{font-size:12px;font-weight:600;text-align:center;margin-bottom:2px;color:var(--muted)}
+.opsym{font-size:1.2rem;color:var(--dim)}
+
+/* matrices */
+.mx{position:relative;display:inline-grid;gap:2px 10px;padding:6px 10px;font-family:var(--mono);font-size:12.5px}
+.mx::before,.mx::after{content:"";position:absolute;top:0;bottom:0;width:6px;border:1.5px solid var(--border2)}
+.mx::before{left:0;border-right:0;border-radius:3px 0 0 3px}
+.mx::after{right:0;border-left:0;border-radius:0 3px 3px 0}
+.mx.c4{grid-template-columns:repeat(4,auto)}.mx.c1{grid-template-columns:auto}
+.mx span{text-align:right;min-width:3.6em}
+.mx .lin{color:var(--text)}.mx .tcol{color:var(--tr)}.mx .hom{color:var(--dim)}
+.mx .zero{opacity:.45}
+.mx.vec span{color:var(--text)}
+.mx.out span{color:var(--ok);font-weight:600}
+
+/* right panel */
+.mtabs{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:10px}
+.mtabs button{flex:1;min-width:42px;padding:5px 4px;border:1px solid var(--border2);background:var(--surf);border-radius:5px;font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.mtabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent)}
+.insp{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.insp .ttl{font-family:var(--mono);font-weight:700;font-size:13px;margin-bottom:6px}
+.insp .desc{font-size:12.5px;color:var(--muted);margin-top:6px;text-align:left}
+.copyrow{display:flex;gap:5px;margin-top:8px}
+.copyrow button{flex:1;padding:4px;border:1px solid var(--border);background:var(--panel);border-radius:5px;font-size:11.5px;cursor:pointer;color:var(--muted)}
+.copyrow button:hover{color:var(--accent);border-color:var(--accent)}
+.pts{display:flex;flex-direction:column;gap:4px}
+.pt{display:grid;grid-template-columns:70px 1fr;gap:8px;align-items:center;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surf);font-size:12.5px}
+.pt .n{font-weight:600;color:var(--muted)}
+.pt .v{font-family:var(--mono);text-align:right}
+.pt.cur{border-color:var(--accent)}
+.pt.cur .n{color:var(--accent)}
+.props{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.prop{padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surf);font-size:12px}
+.prop.w{grid-column:1/-1}
+.prop .k{color:var(--muted);display:block;font-size:11.5px}
+.prop .v{font-family:var(--mono);font-weight:600}
+.prop .v.ok{color:var(--ok)}.prop .v.warn{color:var(--warn)}
+
+/* docs */
+.doc{max-width:900px;margin:0 auto;padding:30px 24px 70px;line-height:1.75}
+.doc h2{font-size:1.5rem;margin:0 0 6px}
+.doc .lead{color:var(--muted);margin-bottom:20px}
+.doc h3{font-size:1.08rem;font-weight:700;color:var(--accent);margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.doc p{margin-bottom:12px}
+.doc ul,.doc ol{margin:0 0 12px 1.3rem}
+.doc li{margin:3px 0}
+.box{background:var(--surf);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 16px;margin:12px 0;overflow-x:auto}
+.box.warn{border-left-color:var(--warn)}
+.box .cap{font-size:12.5px;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.card{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.card h4{font-size:13.5px;margin-bottom:4px}
+.card p{font-size:13.5px;margin:0;color:var(--muted)}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+table.t th,table.t td{border-bottom:1px solid var(--border);padding:7px 10px;text-align:left;vertical-align:top}
+table.t th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--border2);border-bottom-width:2px;border-radius:4px;padding:0 6px;background:var(--surf)}
+.ex{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:12px 0}
+.ex h4{font-size:14.5px;margin-bottom:4px}
+.ex .tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ex details{margin-top:8px;border-top:1px dashed var(--border);padding-top:8px}
+.ex summary{cursor:pointer;font-weight:600;color:var(--accent);font-size:13.5px}
+mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%}
+.doc h4.sub3{font-size:1rem;font-weight:700;margin:24px 0 8px}
+.btn.try{flex:none;display:inline-block;margin:2px 0 10px;padding:7px 14px}
+.pnote{margin-top:8px;font-size:12.5px;line-height:1.5;color:var(--text);background:color-mix(in srgb,var(--accent) 8%,var(--surf));border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));border-radius:6px;padding:8px 10px}
+.pnote b{color:var(--accent)}
+.invs{display:flex;flex-direction:column;gap:4px}
+.inv{display:grid;grid-template-columns:1fr auto 22px;gap:8px;align-items:center;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surf);font-size:12.5px}
+.inv .k{color:var(--muted)}
+.inv .v{font-family:var(--mono);font-size:12px;text-align:right}
+.inv .s{font-weight:700;text-align:center}
+.inv.yes .s{color:var(--ok)}.inv.no .s{color:var(--bad)}
+.inv.no{border-color:color-mix(in srgb,var(--bad) 45%,var(--border))}
+.invsum{font-size:12px;color:var(--muted);margin-top:4px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:7px 14px;border-radius:6px;font-size:13px;opacity:0;transition:all .2s;pointer-events:none;z-index:99}
+.toast.show{opacity:1;transform:translateX(-50%)}
 </style>
 </head>
 <body>
+
 <header>
-  <div>
-    <div class="logo">MAT<span>3D</span> · SIM</div>
-    <div class="sub">3D HOMOGENEOUS TRANSFORMS · \(R_x\) · \(R_y\) · \(R_z\) · \(T\) · 4×4 MATRICES</div>
-  </div>
-  <div class="themebtns" role="group" aria-label="Theme">
-    <button class="thbtn" id="btn-night" onclick="setTheme('night')">☾ Night</button>
-    <button class="thbtn" id="btn-day" onclick="setTheme('day')">★ Day</button>
+  <div class="brand"><b>Matrix<span>3D</span> Lab</b><small>3D homogeneous transformations · rotation · scaling · translation · 4×4 matrices</small></div>
+  <div class="hdr-r">
+    <button class="pill" id="themeBtn" type="button" aria-pressed="false">Light mode</button>
   </div>
 </header>
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('sim')">⬡ Simulator</div>
-  <div class="tab" onclick="switchTab('phys')">∇ Physics</div>
-  <div class="tab" onclick="switchTab('man')">≡ Manual</div>
+
+<div class="tabs" role="tablist" aria-label="Sections">
+  <button class="tab" role="tab" id="t-sim" aria-controls="v-sim" aria-selected="true">Simulator</button>
+  <button class="tab" role="tab" id="t-theory" aria-controls="v-theory" aria-selected="false">Theory</button>
+  <button class="tab" role="tab" id="t-ex" aria-controls="v-ex" aria-selected="false">Exercises</button>
+  <button class="tab" role="tab" id="t-guide" aria-controls="v-guide" aria-selected="false">User guide</button>
 </div>
 
-<!-- SIMULATOR -->
-<div id="tab-sim" class="tc active">
+<!-- ═════════════ SIMULATOR ═════════════ -->
+<main id="v-sim" class="view active" role="tabpanel" aria-labelledby="t-sim">
 <div class="sim">
-<div class="lpanel">
-  <div class="sec">Rotation Angles</div>
-  <div class="cgrp">
-    <div class="srow rx-row"><label class="rx">\(\theta_x\)</label>
-      <input type="range" id="s-rx" min="-180" max="180" value="30" oninput="uc()">
-      <span class="vd" id="v-rx">30°</span></div>
-    <div class="srow ry-row"><label class="ry">\(\theta_y\)</label>
-      <input type="range" id="s-ry" min="-180" max="180" value="45" oninput="uc()">
-      <span class="vd" id="v-ry">45°</span></div>
-    <div class="srow rz-row"><label class="rz">\(\theta_z\)</label>
-      <input type="range" id="s-rz" min="-180" max="180" value="20" oninput="uc()">
-      <span class="vd" id="v-rz">20°</span></div>
-  </div>
-  <div class="sec">Translation Vector</div>
-  <div class="cgrp">
-    <div class="srow tx-row"><label class="tx">\(t_x\)</label>
-      <input type="range" id="s-tx" min="-2" max="2" step="0.05" value="1" oninput="uc()">
-      <span class="vd" id="v-tx">1.00</span></div>
-    <div class="srow ty-row"><label class="ty">\(t_y\)</label>
-      <input type="range" id="s-ty" min="-2" max="2" step="0.05" value="0.5" oninput="uc()">
-      <span class="vd" id="v-ty">0.50</span></div>
-    <div class="srow tz-row"><label class="tz">\(t_z\)</label>
-      <input type="range" id="s-tz" min="-2" max="2" step="0.05" value="0.3" oninput="uc()">
-      <span class="vd" id="v-tz">0.30</span></div>
-  </div>
-  <div class="sec">Scale</div>
-  <div class="cgrp">
-    <div class="srow sc-row"><label style="color:var(--cyan)">\(s\)</label>
-      <input type="range" id="s-sc" min="0.2" max="2" step="0.05" value="1" oninput="uc()">
-      <span class="vd" id="v-sc">1.00×</span></div>
-  </div>
-  <div class="sec">Shape</div>
-  <div class="cgrp">
-    <div class="shbts">
-      <div class="shbt active" onclick="setShape('cube')">⬛ Cube</div>
-      <div class="shbt" onclick="setShape('tetra')">△ Tetra</div>
-      <div class="shbt" onclick="setShape('octa')">◇ Octa</div>
-      <div class="shbt" onclick="setShape('prism')">▱ Prism</div>
-    </div>
-  </div>
-  <div class="sec">Rotation Order</div>
-  <div class="cgrp">
-    <div class="ord-bts">
-      <div class="ord-bt active" id="ord-xyz" onclick="setOrd('xyz')">X→Y→Z</div>
-      <div class="ord-bt" id="ord-zyx" onclick="setOrd('zyx')">Z→Y→X</div>
-      <div class="ord-bt" id="ord-yxz" onclick="setOrd('yxz')">Y→X→Z</div>
-    </div>
-  </div>
-  <div class="sec">Animation</div>
-  <div class="cgrp">
-    <div class="brow">
-      <button class="btn c" onclick="runAnim()">▶ Animate</button>
-      <button class="btn o" onclick="resetAnim()">↺ Reset</button>
-      <button class="btn g" onclick="stepAnim()">⊳ Step</button>
-    </div>
-    <div class="srow sc-row" style="margin-top:10px">
-      <label style="color:var(--muted);font-size:13px;width:40px">Spd</label>
-      <input type="range" id="s-spd" min="0.3" max="3" step="0.1" value="1" oninput="document.getElementById('v-spd').textContent=parseFloat(this.value).toFixed(1)+'×'">
-      <span class="vd" id="v-spd">1.0×</span></div>
-  </div>
-  <div class="sec">View</div>
-  <div class="cgrp">
-    <div class="brow">
-      <button class="btn" onclick="resetView()">↻ Reset View</button>
-      <button class="btn" id="btn-wire" onclick="toggleWire()">⬡ Wireframe</button>
-    </div>
-    <div class="hint">Drag canvas to orbit · Scroll to zoom</div>
-  </div>
-</div>
+  <div class="lp">
+    <div class="sec">Preset</div>
+    <select class="full" id="preset" aria-label="Load a preset">
+      <option value="">Choose a preset…</option>
+      <option value="default">Default example</option>
+      <option value="identity">Identity (no transform)</option>
+      <option value="rz90">Rotate 90° about Z</option>
+      <option value="order">Order matters: Rx(90°), Ry(90°)</option>
+      <option value="gimbal">Gimbal lock (θy = 90°)</option>
+      <option value="axis111">120° about (1,1,1)</option>
+      <option value="nonuni">Non-uniform scale</option>
+      <optgroup label="Invariance demonstrations">
+        <option value="inv-rot">Rotational invariance: |P| is conserved</option>
+        <option value="inv-axis">Invariant axis: points on the axis stay fixed</option>
+        <option value="inv-cube4">Symmetry: cube under Rz(90°)</option>
+        <option value="inv-cube3">Symmetry: cube under 120° about (1,1,1)</option>
+        <option value="inv-tetra">Symmetry: tetrahedron under 120° about (1,1,1)</option>
+        <option value="inv-octa">Symmetry: octahedron under Rx(90°)</option>
+        <option value="inv-tr">Translational invariance: distances and angles</option>
+        <option value="inv-rigid">Rigid motion: rotation + translation</option>
+        <option value="inv-break-s">Broken invariance: non-uniform scale</option>
+        <option value="inv-break-t">Broken invariance: |P| under translation</option>
+      </optgroup>
+    </select>
+    <div class="pnote" id="presetNote" hidden></div>
 
-<div class="center">
-  <canvas id="c3d" width="560" height="370"></canvas>
-  <div class="timeline">
-    <div class="tnode"><div class="tdot active" id="td0"></div><div class="tlbl active" id="tl0">ORIGIN</div></div>
-    <div class="tline" id="tln0"></div>
-    <div class="tnode"><div class="tdot" id="td1"></div><div class="tlbl" id="tl1">\(R_x\)</div></div>
-    <div class="tline" id="tln1"></div>
-    <div class="tnode"><div class="tdot" id="td2"></div><div class="tlbl" id="tl2">\(R_y\)</div></div>
-    <div class="tline" id="tln2"></div>
-    <div class="tnode"><div class="tdot" id="td3"></div><div class="tlbl" id="tl3">\(R_z\)</div></div>
-    <div class="tline" id="tln3"></div>
-    <div class="tnode"><div class="tdot" id="td4"></div><div class="tlbl" id="tl4">\(T\)</div></div>
-  </div>
-  <div class="pbar"><div class="pfill" id="pfill" style="width:0%"></div></div>
-  <div class="astatus" id="astatus">IDLE — Drag canvas to orbit · Press ANIMATE</div>
-  <div class="amat-wrap" id="amat-wrap"></div>
-</div>
+    <div class="sec">Rotation angles <span class="x">degrees</span></div>
+    <div id="g-rot"></div>
 
-<div class="rpanel">
-  <div class="sec">Matrix Inspector</div>
-  <div class="mtabs">
-    <div class="mtab rx active" id="mt-rx" onclick="setMTab('rx')">\(R_x\)</div>
-    <div class="mtab ry" id="mt-ry" onclick="setMTab('ry')">\(R_y\)</div>
-    <div class="mtab rz" id="mt-rz" onclick="setMTab('rz')">\(R_z\)</div>
-    <div class="mtab tt" id="mt-t" onclick="setMTab('t')">\(T\)</div>
-    <div class="mtab mm" id="mt-m" onclick="setMTab('m')">\(M\)</div>
-  </div>
-  <div id="mat-inspector"></div>
-  <div class="sec" style="margin-top:16px">Vertex Readout (\(V_0\))</div>
-  <div id="vread-wrap"></div>
-  <div class="sec">Properties</div>
-  <div id="prop-wrap"></div>
-</div>
-</div>
-</div>
+    <div class="sec">Rotation order <span class="x">first → last</span></div>
+    <div class="seg c3" id="g-order" role="group" aria-label="Rotation order"></div>
 
-<!-- PHYSICS -->
-<div id="tab-phys" class="tc">
+    <div class="sec">Translation <span class="x">scene units</span></div>
+    <div id="g-tr"></div>
+
+    <div class="sec">Scale <label class="chk x" style="padding:0"><input type="checkbox" id="lock" checked> uniform</label></div>
+    <div id="g-sc"></div>
+
+    <div class="sec">Shape</div>
+    <div class="seg c4" id="g-shape" role="group" aria-label="Shape"></div>
+
+    <div class="sec">Probe point P</div>
+    <select class="full" id="probe" aria-label="Probe point"></select>
+    <div class="xyz" id="customP" hidden>
+      <div><label for="px">x</label><input id="px" type="number" step="0.1" value="1"></div>
+      <div><label for="py">y</label><input id="py" type="number" step="0.1" value="0"></div>
+      <div><label for="pz">z</label><input id="pz" type="number" step="0.1" value="0"></div>
+    </div>
+
+    <div class="sec">Animation</div>
+    <div class="btns">
+      <button class="btn pri" id="play" type="button">▶ Play</button>
+      <button class="btn" id="back" type="button" aria-label="Previous step">◀ Step</button>
+      <button class="btn" id="fwd" type="button" aria-label="Next step">Step ▶</button>
+    </div>
+    <div class="row" style="margin-top:8px"><label class="c-s" for="spd" style="font-size:11px">speed</label><input type="range" id="spd" min="0.25" max="3" step="0.25" value="1"><output id="o-spd" style="font-family:var(--mono);font-size:12.5px;text-align:right">1.00×</output></div>
+
+    <div class="sec">Display</div>
+    <div class="chkgrid">
+      <label class="chk"><input type="checkbox" id="d-ghost" checked> Ghosts</label>
+      <label class="chk"><input type="checkbox" id="d-trace" checked> Point path</label>
+      <label class="chk"><input type="checkbox" id="d-body" checked> Body axes</label>
+      <label class="chk"><input type="checkbox" id="d-axis"> Rotation axis</label>
+      <label class="chk"><input type="checkbox" id="d-wire"> Wireframe</label>
+      <label class="chk"><input type="checkbox" id="d-grid" checked> Floor grid</label>
+      <label class="chk"><input type="checkbox" id="d-sphere"> Sphere |P|</label>
+    </div>
+    <div class="btns" style="margin-top:8px"><button class="btn" id="resetView" type="button">Reset view</button><button class="btn" id="resetAll" type="button">Reset all</button></div>
+    <p class="hint">Drag to orbit · wheel or +/− to zoom · press <kbd>?</kbd> for shortcuts</p>
+  </div>
+
+  <div class="center">
+    <div class="stage">
+      <canvas id="c3d" role="img" aria-label="3D view of the shape being transformed"></canvas>
+      <div class="badges" id="badges"></div>
+      <div class="zoomctl"><button type="button" id="zin" aria-label="Zoom in">+</button><button type="button" id="zout" aria-label="Zoom out">−</button></div>
+    </div>
+    <div class="pipe" id="pipe" aria-label="Transformation pipeline"></div>
+    <div class="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="formula" id="formula"></div>
+    <div class="eqbox">
+      <div class="eqhead"><h3 id="eq-title">Combined transformation</h3><span class="sub" id="eq-sub"></span></div>
+      <div class="mateq" id="eq"></div>
+    </div>
+  </div>
+
+  <div class="rp">
+    <div>
+      <div class="sec">Matrix inspector</div>
+      <div class="mtabs" role="tablist" id="mtabs" aria-label="Matrix to inspect"></div>
+      <div class="insp" id="insp"></div>
+    </div>
+    <div>
+      <div class="sec">Probe point through the pipeline</div>
+      <div class="pts" id="pts"></div>
+    </div>
+    <div>
+      <div class="sec">Invariants <span class="x">original → current</span></div>
+      <div class="invs" id="invs"></div>
+    </div>
+    <div>
+      <div class="sec">Properties</div>
+      <div class="props" id="props"></div>
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- ═════════════ THEORY ═════════════ -->
+<section id="v-theory" class="view" role="tabpanel" aria-labelledby="t-theory">
 <div class="doc">
-  <div class="dh">3D Rotation Matrices — \(R_x, R_y, R_z\)</div>
-  <p class="dp">Every rotation in 3D around a principal axis is encoded as a 4×4 homogeneous matrix. Points are represented as column vectors \([x,y,z,1]^{\mathsf T}\) and transformed by left-multiplication: <strong style="color:var(--cyan)">\(P'=M\,P\)</strong>.</p>
-  <div class="dcode">
-<span class="cm">Rotation around X-axis by angle θ</span>
-\[R_x(\theta)=\begin{bmatrix}1&amp;0&amp;0&amp;0\\0&amp;\cos\theta&amp;-\sin\theta&amp;0\\0&amp;\sin\theta&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-<span class="cm">Rotation around Y-axis by angle θ</span>
-\[R_y(\theta)=\begin{bmatrix}\cos\theta&amp;0&amp;\sin\theta&amp;0\\0&amp;1&amp;0&amp;0\\-\sin\theta&amp;0&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-<span class="cm">Rotation around Z-axis by angle θ</span>
-\[R_z(\theta)=\begin{bmatrix}\cos\theta&amp;-\sin\theta&amp;0&amp;0\\\sin\theta&amp;\cos\theta&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-  </div>
-  <p class="dp"><strong style="color:var(--ora)">Key property:</strong> All rotation matrices satisfy \(\det R=1\) and \(R^{-1}=R^{\mathsf T}\) (orthogonal matrices). They are length-preserving isometries — no stretching or shearing occurs.</p>
+  <h2>3D transformations with 4×4 matrices</h2>
+  <p class="lead">This section covers the mathematics behind the simulator: homogeneous coordinates, elementary rotations, how transformations compose, inverse matrices, the rotation group SO(3), axis–angle and quaternion representations, gimbal lock, and (in section 10) invariance, symmetry groups and Noether's theorem.</p>
 
-  <div class="dh">3D Translation — Homogeneous 4×4</div>
-  <p class="dp">Translation is an affine operation — it cannot be represented as a 3×3 linear transform. By lifting to 4D homogeneous coordinates (adding \(w=1\)), translation becomes purely linear:</p>
-  <div class="dcode">
-\[T(t_x,t_y,t_z)=\begin{bmatrix}1&amp;0&amp;0&amp;t_x\\0&amp;1&amp;0&amp;t_y\\0&amp;0&amp;1&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-\[T\,[x,y,z,1]^{\mathsf T}=[x+t_x,\;y+t_y,\;z+t_z,\;1]^{\mathsf T}\quad\checkmark\]
-\[\det T=1\ \ \Rightarrow\ \text{volume-preserving rigid body motion}\]
-  </div>
+  <h3>1. Conventions used in this lab</h3>
+  <ul>
+    <li>Right-handed coordinate system: \(x\) red, \(y\) green, \(z\) blue.</li>
+    <li>Points are <b>column vectors</b> \(P=[x,\,y,\,z,\,1]^{\mathsf T}\), transformed by left-multiplication: \(P'=M\,P\).</li>
+    <li>A positive angle is a <b>counter-clockwise</b> rotation when you look down the axis toward the origin (right-hand rule).</li>
+    <li>All rotations are about the fixed <b>world</b> axes (extrinsic rotations).</li>
+  </ul>
 
-  <div class="dh">Combined Transform — Order Matters!</div>
-  <div class="dcode">
-<span class="cm">Full pipeline: Scale → Rx → Ry → Rz → Translate</span>
-\[M=T\,R_z\,R_y\,R_x\,S\]
-<span class="cm">Applied sequentially to a point P:</span>
-\[\begin{aligned}P_1&amp;=R_x\,P&amp;&amp;\text{(rotate around world X)}\\P_2&amp;=R_y\,P_1&amp;&amp;\text{(rotate around world Y)}\\P_3&amp;=R_z\,P_2&amp;&amp;\text{(rotate around world Z)}\\P_4&amp;=T\,P_3&amp;&amp;\text{(translate to final position)}\end{aligned}\]
-<span class="cm">Single combined matrix — same result:</span>
-\[P_4=M\,P\]
-<span class="cm">WARNING: order is critical!</span>
-\[T\,R\neq R\,T\]
-  </div>
+  <h3>2. Homogeneous coordinates: why 4×4?</h3>
+  <p>A 3×3 matrix can represent rotation, scaling and shear, but not translation, because \(A\mathbf 0=\mathbf 0\) for any linear map. Adding a fourth coordinate \(w=1\) turns translation into a matrix product, so a whole chain of transformations collapses into a single matrix:</p>
+  <div class="box">\[M=\begin{bmatrix}A_{3\times3}&amp;\mathbf t\\ \mathbf 0^{\mathsf T}&amp;1\end{bmatrix}=\begin{bmatrix}a_{11}&amp;a_{12}&amp;a_{13}&amp;t_x\\a_{21}&amp;a_{22}&amp;a_{23}&amp;t_y\\a_{31}&amp;a_{32}&amp;a_{33}&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix},\qquad M\begin{bmatrix}\mathbf p\\1\end{bmatrix}=\begin{bmatrix}A\mathbf p+\mathbf t\\1\end{bmatrix}\]
+  <div class="cap">The upper-left block \(A\) holds rotation and scale; the fourth column holds translation. Directions use \(w=0\), so translation does not affect them.</div></div>
 
-  <div class="dh">Gimbal Lock — The Euler Angle Problem</div>
-  <p class="dp">When \(\theta_y=\pm90^\circ\), the \(R_y\) matrix aligns the X and Z rotation axes — they become parallel, and the system loses one degree of freedom. This is <strong style="color:var(--ora)">gimbal lock</strong>, a fundamental limitation of Euler angle representation.</p>
-  <div class="dcode">
-\[R_y(90^\circ)=\begin{bmatrix}0&amp;0&amp;1&amp;0\\0&amp;1&amp;0&amp;0\\-1&amp;0&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-\[R_x(a)\,R_y(90^\circ)\,R_z(b)=R_x(a-b)\,R_y(90^\circ)\quad\text{for any } b\]
-<span class="cm">→ Rx and Rz are equivalent: one DOF lost!</span>
-<br><span class="cm">Solution: use unit quaternions</span> \(q=[w,x,y,z],\ |q|=1\)
-<span class="cm">or Rodrigues axis-angle representation (no singularities)</span>
-  </div>
+  <h3>3. Elementary matrices</h3>
+  <div class="box">\[R_x(\theta)=\begin{bmatrix}1&amp;0&amp;0&amp;0\\0&amp;\cos\theta&amp;-\sin\theta&amp;0\\0&amp;\sin\theta&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\quad
+  R_y(\theta)=\begin{bmatrix}\cos\theta&amp;0&amp;\sin\theta&amp;0\\0&amp;1&amp;0&amp;0\\-\sin\theta&amp;0&amp;\cos\theta&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+  \[R_z(\theta)=\begin{bmatrix}\cos\theta&amp;-\sin\theta&amp;0&amp;0\\\sin\theta&amp;\cos\theta&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\quad
+  S=\begin{bmatrix}s_x&amp;0&amp;0&amp;0\\0&amp;s_y&amp;0&amp;0\\0&amp;0&amp;s_z&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\quad
+  T=\begin{bmatrix}1&amp;0&amp;0&amp;t_x\\0&amp;1&amp;0&amp;t_y\\0&amp;0&amp;1&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
+  <div class="cap">Note the sign pattern in \(R_y\): the \(-\sin\theta\) is in the bottom-left. This follows from the cyclic order \(z\to x\), which keeps the rotation right-handed.</div></div>
 
-  <div class="dh">Rodrigues Rotation Formula</div>
-  <p class="dp">To rotate by angle \(\theta\) around an arbitrary unit axis \(\mathbf k=[k_x,k_y,k_z]\):</p>
-  <div class="dcode">
-\[R=I\cos\theta+(1-\cos\theta)\,(\mathbf k\otimes\mathbf k)+\sin\theta\,[\mathbf k]_\times\]
-\[[\mathbf k]_\times=\begin{bmatrix}0&amp;-k_z&amp;k_y\\k_z&amp;0&amp;-k_x\\-k_y&amp;k_x&amp;0\end{bmatrix}\quad\text{(skew-symmetric cross-product matrix)}\]
-\[\mathbf v'=\mathbf v\cos\theta+(\mathbf k\times\mathbf v)\sin\theta+\mathbf k\,(\mathbf k\cdot\mathbf v)(1-\cos\theta)\]
-  </div>
+  <h3>4. Composition: order matters</h3>
+  <p>The simulator applies scale first, then the three rotations in the chosen order, then translation. With the order X→Y→Z:</p>
+  <div class="box">\[M=T\,R_z(\theta_z)\,R_y(\theta_y)\,R_x(\theta_x)\,S,\qquad P'=M\,P\]
+  <div class="cap">Read the product from <b>right to left</b>: the matrix nearest to \(P\) acts first.</div></div>
+  <p>Matrix multiplication is not commutative, so in general \(R_xR_y\neq R_yR_x\) and \(TR\neq RT\). Rotating then translating moves the object to \(\mathbf t\). Translating then rotating swings the translated object around the origin. Try the <i>“Order matters”</i> preset and switch between the X→Y→Z and Y→X→Z orders.</p>
+  <div class="box"><b>Extrinsic vs. intrinsic.</b> Rotating about the fixed world axes in the order X→Y→Z gives the same final orientation as rotating about the object's own (body) axes in the reverse order Z→Y′→X″. Both are written \(R_zR_yR_x\). Turn on <i>Body axes</i> to see the object's local frame.</div>
 
-  <div class="dh">SO(3) — The 3D Rotation Group</div>
-  <div class="dgrid">
-    <div class="dcard"><h3>Orthogonality</h3><p>\(R\,R^{\mathsf T}=I\) always. This means \(R^{-1}=R^{\mathsf T}\) — inverting a rotation is trivially free (just transpose). Columns and rows form orthonormal bases.</p></div>
-    <div class="dcard"><h3>det(R) = +1</h3><p>Positive determinant = orientation-preserving. Reflections have \(\det=-1\) (belong to O(3)). The sign of det encodes chirality (handedness).</p></div>
-    <div class="dcard"><h3>Eigenvalues</h3><p>\(R\) has eigenvalues \(\{1,\,e^{i\theta},\,e^{-i\theta}\}\). The real unit eigenvalue gives the rotation axis. Complex eigenvalues lie on the unit circle — confirming zero stretching.</p></div>
-    <div class="dcard"><h3>Applications</h3><p>Robotics: DH-parameter kinematic chains. Graphics: Model/View/Projection pipeline. Physics: Angular momentum operators in quantum mechanics (\(\mathfrak{su}(2)\) Lie algebra).</p></div>
+  <h3>5. Determinant and volume</h3>
+  <p>\(\det M=\det A\) is the factor by which the transformation scales volume. Here</p>
+  <div class="box">\[\det R=1,\qquad \det T=1,\qquad \det M=s_x\,s_y\,s_z .\]</div>
+  <p>A negative determinant would mean a reflection, which reverses handedness. A transformation with \(\det M=1\) preserves volume but is not necessarily rigid: try \(s=(2,1,0.5)\).</p>
+
+  <h3>6. The inverse transformation</h3>
+  <p>Using \((AB)^{-1}=B^{-1}A^{-1}\) together with \(R^{-1}=R^{\mathsf T}\):</p>
+  <div class="box">\[M^{-1}=S^{-1}R^{\mathsf T}\,T^{-1},\qquad
+  \begin{bmatrix}A&amp;\mathbf t\\\mathbf 0^{\mathsf T}&amp;1\end{bmatrix}^{-1}=\begin{bmatrix}A^{-1}&amp;-A^{-1}\mathbf t\\\mathbf 0^{\mathsf T}&amp;1\end{bmatrix}\]
+  <div class="cap">For a rigid motion (\(S=I\)): \(M^{-1}=\begin{bmatrix}R^{\mathsf T}&amp;-R^{\mathsf T}\mathbf t\\\mathbf 0^{\mathsf T}&amp;1\end{bmatrix}\). This is how a camera's “view matrix” is obtained from its pose.</div></div>
+
+  <h3>7. The rotation group SO(3)</h3>
+  <div class="cards">
+    <div class="card"><h4>Orthogonality</h4><p>\(R^{\mathsf T}R=I\). The columns are orthonormal: they are the images of the unit vectors \(\hat x,\hat y,\hat z\). Lengths and angles are preserved.</p></div>
+    <div class="card"><h4>\(\det R=+1\)</h4><p>Rotations preserve orientation. Orthogonal matrices with \(\det=-1\) are reflections (the rest of O(3)).</p></div>
+    <div class="card"><h4>Eigenvalues</h4><p>\(\{1,\,e^{i\theta},\,e^{-i\theta}\}\). The eigenvector with eigenvalue 1 is the rotation axis.</p></div>
+    <div class="card"><h4>Trace</h4><p>\(\operatorname{tr}R=1+2\cos\theta\), so the rotation angle is \(\theta=\arccos\frac{\operatorname{tr}R-1}{2}\).</p></div>
   </div>
 
-  <div class="dh">Why 4×4? Homogeneous Coordinates</div>
-  <div class="dcode">
-<span class="cm">Full 3D affine transform matrix structure:</span>
-\[M=\begin{bmatrix}r_{00}&amp;r_{01}&amp;r_{02}&amp;t_x\\r_{10}&amp;r_{11}&amp;r_{12}&amp;t_y\\r_{20}&amp;r_{21}&amp;r_{22}&amp;t_z\\0&amp;0&amp;0&amp;1\end{bmatrix}\]
-<span class="cm">upper 3×3 block = rotation/scale · 4th column = translation · bottom row = homogeneous row (affine case)</span>
-<br><span class="cm">Perspective camera replaces the bottom row with</span> \([0\ \ 0\ \ 1/d\ \ 0]\) <span class="cm">→ \(w\neq1\) after transform → divide by \(w\).</span>
-<br><span class="cm">This unifies rotation, translation, scale, shear, projection into a SINGLE matrix multiply — the GPU's fundamental op.</span>
+  <h3>8. Axis–angle (Rodrigues) and quaternions</h3>
+  <p>By Euler's rotation theorem, every rotation, however it was built, is a single rotation by an angle \(\theta\) about a unit axis \(\hat{\mathbf k}\):</p>
+  <div class="box">\[R=I+\sin\theta\,K+(1-\cos\theta)\,K^2,\qquad K=[\hat{\mathbf k}]_\times=\begin{bmatrix}0&amp;-k_z&amp;k_y\\k_z&amp;0&amp;-k_x\\-k_y&amp;k_x&amp;0\end{bmatrix}\]
+  \[\mathbf v'=\mathbf v\cos\theta+(\hat{\mathbf k}\times\mathbf v)\sin\theta+\hat{\mathbf k}(\hat{\mathbf k}\cdot\mathbf v)(1-\cos\theta)\]
+  \[\hat{\mathbf k}=\frac{1}{2\sin\theta}\begin{bmatrix}r_{32}-r_{23}\\r_{13}-r_{31}\\r_{21}-r_{12}\end{bmatrix},\qquad q=\Big(\cos\tfrac{\theta}{2},\ \hat{\mathbf k}\sin\tfrac{\theta}{2}\Big),\ |q|=1\]
+  <div class="cap">The simulator computes \(\theta\), \(\hat{\mathbf k}\) and \(q\) live under <i>Properties</i>. Turn on <i>Rotation axis</i> to draw \(\hat{\mathbf k}\).</div></div>
+
+  <h3>9. Gimbal lock</h3>
+  <p>Euler angles have a singularity. With the order X→Y→Z and \(\theta_y=90^\circ\):</p>
+  <div class="box warn">\[R_z(\gamma)\,R_y(90^\circ)\,R_x(\alpha)=R_y(90^\circ)\,R_x(\alpha-\gamma)\]
+  <div class="cap">Only the difference \(\alpha-\gamma\) matters, so the first and third rotations act about the same effective axis and one degree of freedom is lost. In general, gimbal lock occurs when the <b>middle</b> rotation of the sequence is \(\pm90^\circ\). Quaternions and axis–angle have no such singularity, which is why they are used in spacecraft attitude control, robotics and animation.</div></div>
+
+  <h3>10. Invariance and symmetry</h3>
+  <p>A quantity is <b>invariant</b> under a transformation if it has the same value before and after the transformation. Asking <i>what stays the same</i> is one of the most powerful ideas in physics. It classifies geometries, identifies the symmetries of objects and, through Noether's theorem, explains why momentum, angular momentum and energy are conserved. Each subsection below corresponds to one of the <i>Invariance demonstrations</i> presets. Use the <b>Try it</b> buttons to run them.</p>
+
+  <table class="t">
+    <tr><th>Quantity</th><th>Rotation R</th><th>Translation T</th><th>Uniform scale</th><th>Non-uniform scale</th></tr>
+    <tr><td>Distance to origin \(|P|\)</td><td>✓</td><td>✗</td><td>✗</td><td>✗</td></tr>
+    <tr><td>Distance \(|P-Q|\)</td><td>✓</td><td>✓</td><td>✗</td><td>✗</td></tr>
+    <tr><td>Difference vector \(P-Q\)</td><td>✗ (rotated)</td><td>✓</td><td>✗</td><td>✗</td></tr>
+    <tr><td>Angles</td><td>✓</td><td>✓</td><td>✓</td><td>✗</td></tr>
+    <tr><td>Volume \(\det\)</td><td>✓</td><td>✓</td><td>\(s^3\)</td><td>\(s_xs_ys_z\)</td></tr>
+    <tr><td>Handedness</td><td>✓</td><td>✓</td><td>✓</td><td>✓ (if all \(s_i&gt;0\))</td></tr>
+  </table>
+
+  <h4 class="sub3">10.1 Rotational invariance: lengths, angles and the sphere</h4>
+  <p>The defining property of a rotation is \(R^{\mathsf T}R=I\). It follows that the <b>dot product</b> of any two vectors is unchanged:</p>
+  <div class="box">\[(R\mathbf a)\cdot(R\mathbf b)=(R\mathbf a)^{\mathsf T}(R\mathbf b)=\mathbf a^{\mathsf T}R^{\mathsf T}R\,\mathbf b=\mathbf a^{\mathsf T}\mathbf b=\mathbf a\cdot\mathbf b .\]
+  <div class="cap">Setting \(\mathbf a=\mathbf b=\mathbf p\) gives \(|R\mathbf p|=|\mathbf p|\). Since \(\cos\varphi=\mathbf a\cdot\mathbf b/(|\mathbf a||\mathbf b|)\), angles are preserved too. Because \(\det R=+1\), volumes and handedness are preserved, and so is the cross product: \((R\mathbf a)\times(R\mathbf b)=R(\mathbf a\times\mathbf b)\).</div></div>
+  <p>The converse is also true: a linear map that preserves every length must satisfy \(A^{\mathsf T}A=I\). Rotations are therefore <i>exactly</i> the length-preserving linear maps with \(\det=+1\). Geometrically, the set of all images \(R\mathbf p\) of one point (its <b>orbit</b> under SO(3)) is the sphere of radius \(|\mathbf p|\). In the preset, \(P_0=(1,1,1)\) stays on the sphere \(|P|=\sqrt3\approx1.732\) through all three rotations, even though its coordinates change at every step.</p>
+  <button class="btn try" data-load="inv-rot" type="button">▶ Try it: rotational invariance</button>
+
+  <h4 class="sub3">10.2 The invariant axis: Euler's rotation theorem</h4>
+  <p>A rotation moves every point except those on its axis. A point on the axis is an <b>eigenvector with eigenvalue 1</b>:</p>
+  <div class="box">\[R\,\hat{\mathbf k}=\hat{\mathbf k},\qquad\text{e.g.}\quad R_z(\theta)\begin{bmatrix}0\\0\\1.5\end{bmatrix}=\begin{bmatrix}0\\0\\1.5\end{bmatrix}\ \ \text{for every }\theta .\]
+  <div class="cap">The characteristic polynomial factorises as \(\det(R-\lambda I)=(1-\lambda)(\lambda^2-2\lambda\cos\theta+1)\). The two complex roots \(e^{\pm i\theta}\) describe the turning in the plane perpendicular to the axis.</div></div>
+  <p><b>Why every rotation has an axis.</b> For a \(3\times3\) rotation:</p>
+  <div class="box">\[\det(R-I)=\det\!\big(R-RR^{\mathsf T}\big)=\det R\,\det(I-R^{\mathsf T})=\det(I-R)=(-1)^3\det(R-I)\ \Rightarrow\ \det(R-I)=0 .\]
+  <div class="cap">So \(\lambda=1\) is always an eigenvalue. This is Euler's theorem: any orientation, however it was reached, is a single rotation about one fixed axis. It is why the simulator can always show an equivalent axis–angle.</div></div>
+  <button class="btn try" data-load="inv-axis" type="button">▶ Try it: invariant axis</button>
+
+  <h4 class="sub3">10.3 Symmetry operations: the cube under \(R_z(90^\circ)\)</h4>
+  <p>A <b>symmetry operation</b> of an object \(X\) is a transformation \(g\) with \(g(X)=X\). The object as a whole is invariant even though its individual points move. For \(R_z(90^\circ)\):</p>
+  <div class="box">\[R_z(90^\circ)=\begin{bmatrix}0&amp;-1&amp;0\\1&amp;0&amp;0\\0&amp;0&amp;1\end{bmatrix}:\ (x,y,z)\mapsto(-y,\,x,\,z).\]
+  <div class="cap">The cube's vertices are all sign combinations \((\pm1,\pm1,\pm1)\). Swapping \(x,y\) and changing one sign gives another sign combination, so the vertex set is mapped onto itself. Four applications return to the start, \(R_z(90^\circ)^4=I\), so this operation generates the cyclic group \(C_4\).</div></div>
+  <p>The symmetries of an object form a <b>group</b>: composing two symmetries gives a symmetry, the identity is a symmetry, and every symmetry has an inverse. The rotation group of the cube, the octahedral group \(O\), has 24 elements:</p>
+  <table class="t">
+    <tr><th>Axis type</th><th>Number of axes</th><th>Rotations</th><th>Elements</th></tr>
+    <tr><td>Identity</td><td>–</td><td>0°</td><td>1</td></tr>
+    <tr><td>Through opposite face centres</td><td>3</td><td>90°, 180°, 270°</td><td>9</td></tr>
+    <tr><td>Through opposite vertices (body diagonals)</td><td>4</td><td>120°, 240°</td><td>8</td></tr>
+    <tr><td>Through midpoints of opposite edges</td><td>6</td><td>180°</td><td>6</td></tr>
+    <tr><td colspan="3"><b>Total</b></td><td><b>24</b></td></tr>
+  </table>
+  <button class="btn try" data-load="inv-cube4" type="button">▶ Try it: cube under Rz(90°)</button>
+
+  <h4 class="sub3">10.4 The cube under 120° about the body diagonal</h4>
+  <p>Composing \(R_x(90^\circ)\) and then \(R_z(90^\circ)\) gives a <b>permutation matrix</b>:</p>
+  <div class="box">\[R=R_z(90^\circ)R_x(90^\circ)=\begin{bmatrix}0&amp;0&amp;1\\1&amp;0&amp;0\\0&amp;1&amp;0\end{bmatrix}:\ (x,y,z)\mapsto(z,\,x,\,y),\qquad \operatorname{tr}R=0\ \Rightarrow\ \theta=120^\circ .\]
+  <div class="cap">It sends \(\hat x\to\hat y\to\hat z\to\hat x\), so \(R^3=I\) (the group \(C_3\)). The axis \((1,1,1)/\sqrt3\) is unchanged because permuting equal coordinates does nothing.</div></div>
+  <p>The vertex \((1,1,1)\) and its opposite \((-1,-1,-1)\) are fixed points. The other six vertices fall into two <b>orbits</b> of three, for example \((-1,1,1)\to(1,-1,1)\to(1,1,-1)\to(-1,1,1)\). This illustrates the <b>orbit–stabiliser theorem</b>: \(|O|=|\text{orbit}|\times|\text{stabiliser}|\). A vertex can be sent to any of the 8 vertices, and the rotations fixing it are exactly the 3 rotations about this axis: \(24=8\times3\).</p>
+  <button class="btn try" data-load="inv-cube3" type="button">▶ Try it: cube, 120° about (1,1,1)</button>
+
+  <h4 class="sub3">10.5 The tetrahedron: a smaller symmetry group</h4>
+  <p>The regular tetrahedron used here has vertices \((1,1,1),(-1,-1,1),(-1,1,-1),(1,-1,-1)\): exactly the cube vertices whose coordinate product is \(xyz=+1\). A cyclic permutation \((x,y,z)\mapsto(z,x,y)\) does not change the product \(xyz\), so it maps the set onto itself:</p>
+  <div class="box">\[(1,1,1)\ \text{fixed},\qquad(-1,-1,1)\to(1,-1,-1)\to(-1,1,-1)\to(-1,-1,1).\]
+  <div class="cap">The tetrahedral rotation group \(T\) has 12 elements: the identity, 8 rotations of ±120° about the 4 vertex-to-face axes, and 3 rotations of 180° about the axes through opposite edge midpoints.</div></div>
+  <div class="box warn"><b>Not every cube symmetry is a tetrahedron symmetry.</b> \(R_z(90^\circ)\) sends \((1,1,1)\to(-1,1,1)\), whose coordinate product is \(-1\), so the image is the <i>other</i> tetrahedron inscribed in the cube. \(T\) is a subgroup of \(O\) of index 2. Check it: load <i>Rotate 90° about Z</i>, choose <i>Tetra</i>, and look at “Shape maps onto itself”.</div>
+  <button class="btn try" data-load="inv-tetra" type="button">▶ Try it: tetrahedron, 120° about (1,1,1)</button>
+
+  <h4 class="sub3">10.6 The octahedron and duality</h4>
+  <div class="box">\[R_x(90^\circ):\ (x,y,z)\mapsto(x,\,-z,\,y):\qquad \pm\hat y\to\pm\hat z,\quad \pm\hat z\to\mp\hat y,\quad \pm\hat x\ \text{fixed}.\]
+  <div class="cap">The octahedron's vertices \(\pm\hat x,\pm\hat y,\pm\hat z\) are the centres of the cube's faces: the two solids are <b>dual</b>. Any rotation that maps the cube onto itself also maps its face centres onto themselves, so the octahedron has the same 24-element symmetry group \(O\), which is where the group's name comes from.</div></div>
+  <p>In crystallography and solid-state physics, these point groups determine which crystal properties are allowed. For example, a crystal with cubic symmetry must have an isotropic conductivity tensor \(\sigma_{ij}=\sigma\,\delta_{ij}\).</p>
+  <button class="btn try" data-load="inv-octa" type="button">▶ Try it: octahedron under Rx(90°)</button>
+
+  <h4 class="sub3">10.7 Translational invariance</h4>
+  <p>A translation adds the same vector to every point, \(P\mapsto P+\mathbf t\). Every quantity built from <b>differences</b> of points is therefore invariant:</p>
+  <div class="box">\[(P+\mathbf t)-(Q+\mathbf t)=P-Q\ \ \Rightarrow\ \ |P-Q|,\ \text{angles},\ \text{volume},\ \text{handedness unchanged};\qquad \det T=1 .\]
+  <div class="cap">Homogeneous coordinates make the point/vector distinction exact. Points carry \(w=1\) and are moved by \(T\); vectors (differences of points) carry \(w=0\) and are not: \(T\,[\mathbf v,0]^{\mathsf T}=[\mathbf v,0]^{\mathsf T}\).</div></div>
+  <p>The distance to the origin is <b>not</b> invariant. In the preset, \(P_0=(1,1,1)\) moves to \((3,2,0)\) and \(|P|\) changes from \(\sqrt3\approx1.732\) to \(\sqrt{13}\approx3.606\). The quantity \(|P|\) refers to a special point, the origin, and translation invariance means that no point of space is special. This property of space is called <b>homogeneity</b>. Translations also commute, \(T(\mathbf a)T(\mathbf b)=T(\mathbf a+\mathbf b)=T(\mathbf b)T(\mathbf a)\), unlike rotations.</p>
+  <button class="btn try" data-load="inv-tr" type="button">▶ Try it: translational invariance</button>
+
+  <h4 class="sub3">10.8 Rigid motions: the Euclidean group</h4>
+  <p>Combining rotations and translations gives the <b>rigid motions</b> \(g(\mathbf p)=R\mathbf p+\mathbf t\), which form the special Euclidean group SE(3). They preserve exactly the invariants shared by R and T: distances, angles, volume and handedness. The composition rule shows that the group is not commutative:</p>
+  <div class="box">\[(R_1,\mathbf t_1)\circ(R_2,\mathbf t_2)=(R_1R_2,\ R_1\mathbf t_2+\mathbf t_1),\qquad R\,T(\mathbf t)=T(R\mathbf t)\,R .\]
+  <div class="cap">Rotating after translating is the same as translating by the <i>rotated</i> vector after rotating. A rigid body has 6 degrees of freedom: 3 for rotation and 3 for translation.</div></div>
+  <p><b>Chasles' theorem:</b> every rigid motion is a <b>screw motion</b>, a rotation about some axis combined with a translation along that same axis. In mechanics this underlies the decomposition of a rigid body's motion into translation of the centre of mass plus rotation about it.</p>
+  <button class="btn try" data-load="inv-rigid" type="button">▶ Try it: rigid motion</button>
+
+  <h4 class="sub3">10.9 Broken invariance: non-uniform scaling</h4>
+  <p>For a general linear map \(A\), the squared length becomes \(|A\mathbf p|^2=\mathbf p^{\mathsf T}(A^{\mathsf T}A)\,\mathbf p\). The matrix \(G=A^{\mathsf T}A\) is the <b>metric</b> the transformation induces. Lengths are invariant only if \(G=I\). For \(S=\operatorname{diag}(2,1,0.5)\), \(G=\operatorname{diag}(4,1,0.25)\neq I\):</p>
+  <div class="box">\[|S(1,1,1)|=\sqrt{4+1+0.25}=2.291\neq\sqrt3,\qquad \text{edge }(-2,0,0)\to(-4,0,0)\ \ (\text{length }2\to4).\]
+  \[\angle(\text{edge},\text{diagonal}):\ \ \arccos\tfrac{1}{\sqrt3}=54.74^\circ\ \longrightarrow\ \arccos\tfrac{4}{\sqrt{21}}=29.21^\circ .\]
+  <div class="cap">The angle changes, so the shape is distorted: the cube becomes a box, and a sphere becomes an ellipsoid with semi-axes 2, 1 and 0.5. Since \(\det S=1\), the volume is still preserved (the group SL(3)), which shows that preserving volume is a much weaker condition than being rigid. A <i>uniform</i> scale \(sI\) preserves angles but not lengths: these are the similarity transformations.</div></div>
+  <button class="btn try" data-load="inv-break-s" type="button">▶ Try it: non-uniform scale</button>
+
+  <h4 class="sub3">10.10 Invariance depends on the reference point</h4>
+  <p>In the last preset, \(R_z(45^\circ)\) keeps \(P_0=(1,1,1)\) on the sphere: \(P_4=(0,\,1.414,\,1)\) with \(|P|=\sqrt3\). Then \(T(1.5,0,0)\) moves it to \((1.5,\,1.414,\,1)\) with \(|P|=\sqrt{5.25}=2.291\). The shape is unchanged throughout, but its distance from the origin is not.</p>
+  <p>The rotation preserves \(|P|\) only because its axis passes through the origin. A rotation about a different centre \(\mathbf c\) is obtained by <b>conjugation</b>: move \(\mathbf c\) to the origin, rotate, and move back. It preserves \(|P-\mathbf c|\) instead:</p>
+  <div class="box">\[R_{\mathbf c}=T(\mathbf c)\,R\,T(-\mathbf c),\qquad R_{\mathbf c}\,\mathbf p=\mathbf c+R(\mathbf p-\mathbf c),\qquad |R_{\mathbf c}\mathbf p-\mathbf c|=|\mathbf p-\mathbf c| .\]
+  <div class="cap">The same idea, \(g\,h\,g^{-1}\), appears throughout physics, for example in changes of basis \(A'=PAP^{-1}\) and in transforming the inertia tensor \(I_w=R\,I_b\,R^{\mathsf T}\).</div></div>
+  <button class="btn try" data-load="inv-break-t" type="button">▶ Try it: |P| under translation</button>
+
+  <h4 class="sub3">10.11 The hierarchy of geometries (Klein's Erlangen programme)</h4>
+  <p>Felix Klein (1872) defined a geometry by its group of transformations and its invariants. The larger the group, the fewer quantities stay invariant:</p>
+  <table class="t">
+    <tr><th>Geometry</th><th>Transformations</th><th>Invariants</th></tr>
+    <tr><td>Euclidean (rigid)</td><td>\(R\mathbf p+\mathbf t\), \(\det R=1\)</td><td>distances, angles, volume, handedness</td></tr>
+    <tr><td>Similarity</td><td>\(sR\mathbf p+\mathbf t\)</td><td>angles, ratios of lengths, shape</td></tr>
+    <tr><td>Equi-affine</td><td>\(A\mathbf p+\mathbf t\), \(\det A=1\)</td><td>volume, parallelism, ratios along a line</td></tr>
+    <tr><td>Affine</td><td>\(A\mathbf p+\mathbf t\), \(\det A\neq0\)</td><td>parallelism, straight lines, ratios along a line</td></tr>
+    <tr><td>Projective</td><td>full \(4\times4\) with division by \(w\)</td><td>straight lines, cross-ratio</td></tr>
+  </table>
+
+  <h4 class="sub3">10.12 From symmetry to conservation: Noether's theorem</h4>
+  <p>The invariances in this lab are not only geometric. If the laws of physics are unchanged by a continuous transformation, some quantity is conserved. Consider a system of particles with Lagrangian \(L(\mathbf r_i,\dot{\mathbf r}_i)\) and an infinitesimal change \(\delta\mathbf r_i\). Using the Euler–Lagrange equations \(\partial L/\partial\mathbf r_i=\dot{\mathbf p}_i\):</p>
+  <div class="box">\[\delta L=\sum_i\Big(\frac{\partial L}{\partial\mathbf r_i}\cdot\delta\mathbf r_i+\mathbf p_i\cdot\delta\dot{\mathbf r}_i\Big)=\frac{d}{dt}\sum_i\mathbf p_i\cdot\delta\mathbf r_i .\]
+  \[\textbf{Translation: }\ \delta\mathbf r_i=\vec\epsilon\ \Rightarrow\ 0=\vec\epsilon\cdot\frac{d}{dt}\sum_i\mathbf p_i\ \Rightarrow\ \mathbf P=\sum_i\mathbf p_i=\text{const}.\]
+  \[\textbf{Rotation: }\ \delta\mathbf r_i=\epsilon\,\hat{\mathbf n}\times\mathbf r_i\ \Rightarrow\ \sum_i\mathbf p_i\cdot(\hat{\mathbf n}\times\mathbf r_i)=\hat{\mathbf n}\cdot\sum_i\mathbf r_i\times\mathbf p_i\ \Rightarrow\ \mathbf L=\text{const}.\]
+  <div class="cap">If \(L\) is invariant (\(\delta L=0\)), the bracketed quantity cannot change in time. Homogeneity of space gives conservation of linear momentum, isotropy of space gives conservation of angular momentum, and homogeneity of time gives conservation of energy.</div></div>
+  <table class="t">
+    <tr><th>Symmetry (invariance)</th><th>Transformation</th><th>Conserved quantity</th><th>Quantum form</th></tr>
+    <tr><td>Homogeneity of space</td><td>\(\mathbf r\to\mathbf r+\mathbf t\)</td><td>linear momentum \(\mathbf P\)</td><td>\([\hat H,\hat{\mathbf P}]=0\)</td></tr>
+    <tr><td>Isotropy of space</td><td>\(\mathbf r\to R\mathbf r\)</td><td>angular momentum \(\mathbf L\)</td><td>\([\hat H,\hat{\mathbf L}]=0\)</td></tr>
+    <tr><td>Homogeneity of time</td><td>\(t\to t+\tau\)</td><td>energy \(E\)</td><td>\(\partial\hat H/\partial t=0\)</td></tr>
+  </table>
+  <p>A symmetry can also be <b>partial</b>. In a uniform gravitational field along \(-y\), space is homogeneous only in \(x\) and \(z\), so only \(P_x\) and \(P_z\) are conserved. Near a central force, space is isotropic about the force centre, so \(\mathbf L\) about that centre is conserved, which is why planetary orbits are planar (Kepler's second law). The symmetry axes you see in the simulator are, in physics, the directions along which a conservation law holds.</p>
+
+  <h4 class="sub3">10.13 Check your understanding</h4>
+  <div class="ex"><p><b>Q1.</b> A transformation preserves all distances \(|P-Q|\) but not \(|P|\). What kind of transformation can it be?</p>
+    <details><summary>Show answer</summary><p>A rigid motion that includes a nonzero translation, \(\mathbf p\mapsto R\mathbf p+\mathbf t\) with \(\mathbf t\neq\mathbf 0\), or possibly a reflection. Preserving distances means it is an isometry; changing \(|P|\) means the origin is moved.</p></details></div>
+  <div class="ex"><p><b>Q2.</b> Is \(R_y(180^\circ)\) a symmetry of the tetrahedron used here?</p>
+    <details><summary>Show answer</summary><p>Yes. \(R_y(180^\circ):(x,y,z)\mapsto(-x,\,y,\,-z)\) flips two signs, so the product \(xyz\) is unchanged and the vertex set is mapped onto itself. It is one of the 3 rotations of 180° about axes through opposite edge midpoints. Check it in the simulator by setting θy = 180° with the Tetra shape.</p></details></div>
+  <div class="ex"><p><b>Q3.</b> Show that a rotation about the point \(\mathbf c=(1,0,0)\) by \(90^\circ\) about \(z\) maps the origin to \((1,-1,0)\).</p>
+    <details><summary>Show answer</summary><p>\(R_{\mathbf c}\mathbf 0=\mathbf c+R_z(90^\circ)(\mathbf 0-\mathbf c)=(1,0,0)+R_z(90^\circ)(-1,0,0)=(1,0,0)+(0,-1,0)=(1,-1,0)\). Check: \(|R_{\mathbf c}\mathbf 0-\mathbf c|=|(0,-1,0)|=1=|\mathbf 0-\mathbf c|\).</p></details></div>
+  <div class="ex"><p><b>Q4.</b> A particle moves in the potential \(U=k\,(x^2+y^2)\). Which components of \(\mathbf P\) and \(\mathbf L\) are conserved?</p>
+    <details><summary>Show answer</summary><p>\(U\) does not change under translation along \(z\) or under rotation about the \(z\)-axis, so \(P_z\) and \(L_z\) are conserved. It is not invariant under translations in \(x\) or \(y\), or under rotations about the \(x\) or \(y\) axes, so the other components are not conserved.</p></details></div>
+
+  <h3>11. Where these matrices are used</h3>
+  <div class="cards">
+    <div class="card"><h4>Rigid-body mechanics</h4><p>Orientation \(R(t)\), angular velocity \(\dot R R^{\mathsf T}=[\vec\omega]_\times\), inertia tensor in the world frame \(I_w=R\,I_b\,R^{\mathsf T}\).</p></div>
+    <div class="card"><h4>Quantum mechanics</h4><p>Rotation operators \(e^{-i\theta\,\hat{\mathbf k}\cdot\mathbf J/\hbar}\). The generators \(J_x,J_y,J_z\) satisfy the \(\mathfrak{so}(3)\cong\mathfrak{su}(2)\) algebra.</p></div>
+    <div class="card"><h4>Robotics</h4><p>Forward kinematics as a product of link transforms \(M=M_1M_2\cdots M_n\) (Denavit–Hartenberg).</p></div>
+    <div class="card"><h4>Computer graphics</h4><p>The model → view → projection pipeline. A perspective matrix changes the bottom row, so \(w\neq1\) and the result is divided by \(w\).</p></div>
   </div>
 </div>
-</div>
+</section>
 
-<!-- MANUAL -->
-<div id="tab-man" class="tc">
+<!-- ═════════════ EXERCISES ═════════════ -->
+<section id="v-ex" class="view" role="tabpanel" aria-labelledby="t-ex">
 <div class="doc">
-  <div class="dh">Quick Start</div>
-  <div class="step-m"><div class="snum">1</div><div class="stxt"><strong>Set rotation angles</strong> — \(\theta_x\) tilts the shape forward/backward (red axis), \(\theta_y\) spins left/right (green axis), \(\theta_z\) rolls (blue axis). Range: −180° to +180°.</div></div>
-  <div class="step-m"><div class="snum">2</div><div class="stxt"><strong>Set translation</strong> — \(t_x,t_y,t_z\) move the final shape along each world axis. Applied after rotation (by default). Range: −2 to +2 scene units.</div></div>
-  <div class="step-m"><div class="snum">3</div><div class="stxt"><strong>Choose rotation order</strong> — <span class="ktag">X→Y→Z</span>, <span class="ktag">Z→Y→X</span>, or <span class="ktag">Y→X→Z</span>. Because matrix multiplication is non-commutative, different orders produce different final orientations. This is the Euler angle convention.</div></div>
-  <div class="step-m"><div class="snum">4</div><div class="stxt"><strong>Orbit the 3D view</strong> — <strong>Click and drag</strong> on the canvas to rotate the camera. <strong>Scroll wheel</strong> to zoom in/out. <span class="ktag">↻ Reset View</span> returns to default perspective (az=−30°, el=20°).</div></div>
-  <div class="step-m"><div class="snum">5</div><div class="stxt"><strong>Animate step by step</strong> — Click <span class="ktag">▶ Animate</span> to watch the 4-stage transform: Original (grey) → \(R_x\) (orange) → \(R_y\) (yellow) → \(R_z\) (magenta) → \(T\) (green). Each stage interpolates smoothly.</div></div>
-  <div class="step-m"><div class="snum">6</div><div class="stxt"><strong>Inspect matrices</strong> — The right panel's tabs show the live 4×4 matrix for each operation. The <span class="ktag">M</span> tab shows the fully combined matrix \(T R_z R_y R_x S\) with all values computed from current sliders.</div></div>
-  <div class="step-m"><div class="snum">7</div><div class="stxt"><strong>Read the equation panel</strong> — Below the canvas, the active step's matrix equation is shown: [4×4 Matrix] × [input 4×1 vector] = [output 4×1 vector], computed from the first vertex of the shape.</div></div>
+  <h2>Exercises</h2>
+  <p class="lead">Work each problem on paper first. Then press <b>Load in simulator</b> and check your result in the matrix inspector and the probe-point readout.</p>
 
-  <div class="dh">Canvas Legend</div>
-  <div class="ax-legend">
-    <span><div class="dot" style="background:var(--ax)"></div> X-axis (red)</span>
-    <span><div class="dot" style="background:var(--ay)"></div> Y-axis (green)</span>
-    <span><div class="dot" style="background:var(--az)"></div> Z-axis (blue)</span>
-    <span><div class="dot" style="background:var(--muted);opacity:.6"></div> Original (dim)</span>
-    <span><div class="dot" style="background:var(--ora)"></div> After \(R_x\)</span>
-    <span><div class="dot" style="background:var(--yel)"></div> After \(R_y\)</span>
-    <span><div class="dot" style="background:var(--mag)"></div> After \(R_z\)</span>
-    <span><div class="dot" style="background:var(--grn)"></div> Final (\(T\) applied)</span>
-  </div>
+  <div class="ex"><h4>1. A single rotation</h4>
+    <p>Apply \(R_z(90^\circ)\) to \(P=(1,0,0)\).</p>
+    <div class="tools"><button class="btn" data-load="ex1" type="button">Load in simulator</button></div>
+    <details><summary>Show answer</summary><p>\(\cos90^\circ=0,\ \sin90^\circ=1\), so \(P'=(0,\,1,\,0)\): the \(x\)-axis turns into the \(y\)-axis (counter-clockwise when viewed from \(+z\)).</p></details></div>
 
-  <div class="dh">Keyboard Shortcuts</div>
-  <div class="dcode mono">Space              — Toggle animate / pause
-R                  — Reset animation
-S                  — Step one stage forward
-X  /  Shift+X      — θx  +5° / −5°
-Y  /  Shift+Y      — θy  +5° / −5°
-Z  /  Shift+Z      — θz  +5° / −5°
-+  /  −            — Zoom in / out</div>
+  <div class="ex"><h4>2. Rotation order</h4>
+    <p>Take \(\theta_x=\theta_y=90^\circ\), \(\theta_z=0\) and \(P=(0,1,0)\). Compute \(P'\) for the order X→Y→Z and for Y→X→Z.</p>
+    <div class="tools"><button class="btn" data-load="ex2a" type="button">Load X→Y→Z</button><button class="btn" data-load="ex2b" type="button">Load Y→X→Z</button></div>
+    <details><summary>Show answer</summary><p>X→Y→Z: \(R_x\) takes \((0,1,0)\to(0,0,1)\), then \(R_y\) takes it to \((1,0,0)\).<br>Y→X→Z: \(R_y\) leaves \((0,1,0)\) unchanged, then \(R_x\) takes it to \((0,0,1)\).<br>Different results show that \(R_yR_x\neq R_xR_y\).</p></details></div>
 
-  <div class="dh">Matrix Equation Format</div>
-  <div class="dcode">
-\[\begin{aligned}
-\text{Step 1 }(R_x):&amp;\quad R_x(\theta_x)\,P_0=P_1 &amp;&amp;\text{rotate around world X}\\
-\text{Step 2 }(R_y):&amp;\quad R_y(\theta_y)\,P_1=P_2 &amp;&amp;\text{rotate around world Y}\\
-\text{Step 3 }(R_z):&amp;\quad R_z(\theta_z)\,P_2=P_3 &amp;&amp;\text{rotate around world Z}\\
-\text{Step 4 }(T):&amp;\quad T(\mathbf t)\,P_3=P_4 &amp;&amp;\text{translate to final pos.}
-\end{aligned}\]
-\[\text{Combined:}\quad M=T\,R_z\,R_y\,R_x\,S,\qquad P_4=M\,P_0\ \text{(identical result, one multiply)}\]
-<span class="cm">Note:</span> \(\det R_x=\det R_y=\det R_z=\det T=1\) always. \(\ \det M=s^3\) (volume scaling factor).
-  </div>
+  <div class="ex"><h4>3. Build the full matrix</h4>
+    <p>Write \(M\) for \(\theta_z=90^\circ\) (other angles 0), \(s=1\), \(\mathbf t=(2,0,0)\). Where does \(P=(1,0,0)\) go?</p>
+    <div class="tools"><button class="btn" data-load="ex3" type="button">Load in simulator</button></div>
+    <details><summary>Show answer</summary>
+      \[M=\begin{bmatrix}0&amp;-1&amp;0&amp;2\\1&amp;0&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix},\qquad P'=(2,\,1,\,0).\]</details></div>
+
+  <div class="ex"><h4>4. The inverse</h4>
+    <p>For the matrix of Exercise 3, find \(M^{-1}\) and verify \(M^{-1}P'=P\).</p>
+    <div class="tools"><button class="btn" data-load="ex3" data-tab="Minv" type="button">Load and show M⁻¹</button></div>
+    <details><summary>Show answer</summary>
+      \[M^{-1}=\begin{bmatrix}R^{\mathsf T}&amp;-R^{\mathsf T}\mathbf t\\\mathbf 0&amp;1\end{bmatrix}=\begin{bmatrix}0&amp;1&amp;0&amp;0\\-1&amp;0&amp;0&amp;2\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix},\qquad M^{-1}(2,1,0,1)^{\mathsf T}=(1,0,0,1)^{\mathsf T}.\]</details></div>
+
+  <div class="ex"><h4>5. Determinant and volume</h4>
+    <p>Set \(s=(2,\,1,\,0.5)\) with any rotation. What is \(\det M\)? Is \(M\) a rigid motion?</p>
+    <div class="tools"><button class="btn" data-load="nonuni" type="button">Load in simulator</button></div>
+    <details><summary>Show answer</summary><p>\(\det M=2\cdot1\cdot0.5=1\), so volume is preserved. But \(A^{\mathsf T}A\neq I\): lengths and angles change, so the motion is <b>not</b> rigid. A transformation is rigid only if \(A\) is orthogonal.</p></details></div>
+
+  <div class="ex"><h4>6. Gimbal lock</h4>
+    <p>Order X→Y→Z with \(\theta_y=90^\circ\). Compare \((\theta_x,\theta_z)=(40^\circ,20^\circ)\) with \((30^\circ,10^\circ)\).</p>
+    <div class="tools"><button class="btn" data-load="ex6a" type="button">Load (40°, 90°, 20°)</button><button class="btn" data-load="ex6b" type="button">Load (30°, 90°, 10°)</button></div>
+    <details><summary>Show answer</summary><p>Both give the same matrix, because only \(\theta_x-\theta_z=20^\circ\) matters: \(R_z(\gamma)R_y(90^\circ)R_x(\alpha)=R_y(90^\circ)R_x(\alpha-\gamma)\). One degree of freedom has been lost.</p></details></div>
+
+  <div class="ex"><h4>7. Euler's rotation theorem</h4>
+    <p>With order X→Y→Z, \(\theta_x=90^\circ\), \(\theta_z=90^\circ\), \(\theta_y=0\): find the single equivalent axis and angle. What is \(R^3\)?</p>
+    <div class="tools"><button class="btn" data-load="axis111" type="button">Load in simulator</button></div>
+    <details><summary>Show answer</summary><p>\(\operatorname{tr}R=0\Rightarrow\cos\theta=-\tfrac12\Rightarrow\theta=120^\circ\), with axis \(\hat{\mathbf k}=(1,1,1)/\sqrt3\). Three 120° turns make a full turn, so \(R^3=I\): the rotation cycles \(x\to y\to z\to x\).</p></details></div>
 </div>
+</section>
+
+<!-- ═════════════ GUIDE ═════════════ -->
+<section id="v-guide" class="view" role="tabpanel" aria-labelledby="t-guide">
+<div class="doc">
+  <h2>User guide</h2>
+  <p class="lead">The simulator applies \(M = T\,R_3\,R_2\,R_1\,S\) to a shape and to a probe point \(P\). It shows every intermediate matrix and result, so you can follow the calculation step by step.</p>
+
+  <h3>Quick start</h3>
+  <ol>
+    <li>Choose a <b>preset</b> or set the angles, translation and scale. Type exact values in the number boxes.</li>
+    <li>Choose the <b>rotation order</b>. The pipeline and the formula below the canvas update to match.</li>
+    <li>Press <b>Play</b> to watch each stage (S, the three rotations, T) applied in turn, or use <b>Step</b> to go one stage at a time. You can also click any stage in the pipeline.</li>
+    <li>Read the <b>equation panel</b>: the current matrix × input point = output point.</li>
+    <li>Use the <b>matrix inspector</b> to view S, each R, T, the combined M and M⁻¹. Copy any matrix as LaTeX, NumPy or CSV.</li>
+    <li>Check the <b>properties</b>: determinants, orthogonality error, the equivalent axis–angle, the quaternion and a gimbal-lock warning.</li>
+  </ol>
+
+  <h3>Display options</h3>
+  <table class="t">
+    <tr><th>Option</th><th>Shows</th></tr>
+    <tr><td>Ghosts</td><td>The original shape (grey) and the previous stage (faint)</td></tr>
+    <tr><td>Point path</td><td>Where the probe point is after every stage, P₀ → P₅</td></tr>
+    <tr><td>Body axes</td><td>The object's local frame x′, y′, z′, i.e. the columns of the current matrix</td></tr>
+    <tr><td>Sphere |P|</td><td>The sphere of radius |P₀| about the origin. A point that stays on it shows that |P| is invariant</td></tr>
+    <tr><td>Rotation axis</td><td>The single equivalent rotation axis \(\hat{\mathbf k}\) of \(R_3R_2R_1\)</td></tr>
+  </table>
+
+  <h3>Keyboard shortcuts</h3>
+  <table class="t">
+    <tr><th>Key</th><th>Action</th></tr>
+    <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next stage</td></tr>
+    <tr><td><kbd>Home</kbd> <kbd>End</kbd></td><td>Show original / final</td></tr>
+    <tr><td><kbd>X</kbd> <kbd>Y</kbd> <kbd>Z</kbd> (with <kbd>Shift</kbd>)</td><td>Rotation angle +5° (−5°)</td></tr>
+    <tr><td><kbd>+</kbd> <kbd>−</kbd></td><td>Zoom in / out</td></tr>
+    <tr><td><kbd>W</kbd></td><td>Toggle wireframe</td></tr>
+    <tr><td><kbd>V</kbd></td><td>Reset view</td></tr>
+  </table>
+
+  <h3>Colour code</h3>
+  <table class="t">
+    <tr><th>Colour</th><th>Meaning</th></tr>
+    <tr><td class="c-x">Red</td><td>X-axis, \(R_x\)</td></tr>
+    <tr><td class="c-y">Green</td><td>Y-axis, \(R_y\)</td></tr>
+    <tr><td class="c-z">Blue</td><td>Z-axis, \(R_z\)</td></tr>
+    <tr><td class="c-s">Cyan</td><td>Scale \(S\)</td></tr>
+    <tr><td class="c-t">Orange</td><td>Translation \(T\), final shape; translation column in matrices</td></tr>
+  </table>
+  <p style="color:var(--muted);font-size:13px;margin-top:24px">Matrix3D Lab · Interactive Physics Laboratories · Prof. Dr. Orhan Bayrak, Department of Physics, Akdeniz University</p>
 </div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-// === MATHJAX HELPERS ===
-const pendingTypeset=new Set();let typesetScheduled=false,mjQueue=Promise.resolve();
-function flushTypeset(){
-  typesetScheduled=false;
-  if(!window.__mjReady||!window.MathJax||!MathJax.typesetPromise)return;
-  const els=Array.from(pendingTypeset);pendingTypeset.clear();
-  if(!els.length)return;
-  mjQueue=mjQueue.then(()=>MathJax.typesetPromise(els)).catch(()=>{});
-}
-const HTML_CACHE={};
-function setHTML(id,html){
-  if(HTML_CACHE[id]===html)return;
-  HTML_CACHE[id]=html;
-  const el=document.getElementById(id);if(!el)return;
-  try{if(window.MathJax&&MathJax.typesetClear)MathJax.typesetClear([el]);}catch(_){}
-  el.innerHTML=html;
-  pendingTypeset.add(el);
-  if(!typesetScheduled){typesetScheduled=true;requestAnimationFrame(flushTypeset);}
-}
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const D2R=Math.PI/180;
 
-// === 4x4 MATRIX MATH (ROW-MAJOR, COLUMN VECTORS) ===
+/* ───────── 4×4 math (row-major storage, column vectors) ───────── */
 const I4=()=>[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
-function mMul(A,B){const R=new Array(16).fill(0);for(let r=0;r<4;r++)for(let c=0;c<4;c++)for(let k=0;k<4;k++)R[r*4+c]+=A[r*4+k]*B[k*4+c];return R;}
-function mVec(M,v){return[M[0]*v[0]+M[1]*v[1]+M[2]*v[2]+M[3]*v[3],M[4]*v[0]+M[5]*v[1]+M[6]*v[2]+M[7]*v[3],M[8]*v[0]+M[9]*v[1]+M[10]*v[2]+M[11]*v[3],M[12]*v[0]+M[13]*v[1]+M[14]*v[2]+M[15]*v[3]];}
-function mRx(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[1,0,0,0,0,c,-s,0,0,s,c,0,0,0,0,1];}
-function mRy(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[c,0,s,0,0,1,0,0,-s,0,c,0,0,0,0,1];}
-function mRz(d){const t=d*Math.PI/180,c=Math.cos(t),s=Math.sin(t);return[c,-s,0,0,s,c,0,0,0,0,1,0,0,0,0,1];}
-function mT(x,y,z){return[1,0,0,x,0,1,0,y,0,0,1,z,0,0,0,1];}
-function mS(s){return[s,0,0,0,0,s,0,0,0,0,s,0,0,0,0,1];}
+function mul(A,B){const R=new Array(16).fill(0);for(let r=0;r<4;r++)for(let c=0;c<4;c++){let s=0;for(let k=0;k<4;k++)s+=A[r*4+k]*B[k*4+c];R[r*4+c]=s;}return R;}
+function apply(M,v){return[0,1,2,3].map(r=>M[r*4]*v[0]+M[r*4+1]*v[1]+M[r*4+2]*v[2]+M[r*4+3]*v[3]);}
+function rot(ax,deg){const t=deg*D2R,c=Math.cos(t),s=Math.sin(t);
+  if(ax==='x')return[1,0,0,0, 0,c,-s,0, 0,s,c,0, 0,0,0,1];
+  if(ax==='y')return[c,0,s,0, 0,1,0,0, -s,0,c,0, 0,0,0,1];
+  return[c,-s,0,0, s,c,0,0, 0,0,1,0, 0,0,0,1];}
+const trans=(x,y,z)=>[1,0,0,x, 0,1,0,y, 0,0,1,z, 0,0,0,1];
+const scale=(x,y,z)=>[x,0,0,0, 0,y,0,0, 0,0,z,0, 0,0,0,1];
 function det3(M){return M[0]*(M[5]*M[10]-M[6]*M[9])-M[1]*(M[4]*M[10]-M[6]*M[8])+M[2]*(M[4]*M[9]-M[5]*M[8]);}
-function f3(v){return v.toFixed(3);}
+function inv(M){
+  const a=M[0],b=M[1],c=M[2],d=M[4],e=M[5],f=M[6],g=M[8],h=M[9],i=M[10];
+  const det=det3(M);if(Math.abs(det)<1e-12)return null;
+  const A=[(e*i-f*h)/det,-(b*i-c*h)/det,(b*f-c*e)/det,
+           -(d*i-f*g)/det,(a*i-c*g)/det,-(a*f-c*d)/det,
+           (d*h-e*g)/det,-(a*h-b*g)/det,(a*e-b*d)/det];
+  const t=[M[3],M[7],M[11]];
+  const nt=[0,1,2].map(r=>-(A[r*3]*t[0]+A[r*3+1]*t[1]+A[r*3+2]*t[2]));
+  return[A[0],A[1],A[2],nt[0], A[3],A[4],A[5],nt[1], A[6],A[7],A[8],nt[2], 0,0,0,1];
+}
+function orthoErr(R){let s=0;for(let r=0;r<3;r++)for(let c=0;c<3;c++){let d=0;for(let k=0;k<3;k++)d+=R[r*4+k]*R[c*4+k];d-=(r===c?1:0);s+=d*d;}return Math.sqrt(s);}
+function axisAngle(R){
+  const tr=R[0]+R[5]+R[10];const ct=Math.max(-1,Math.min(1,(tr-1)/2));const th=Math.acos(ct);
+  if(th<1e-6)return{th:0,k:null};
+  let k;
+  if(Math.PI-th<1e-4){
+    k=[Math.sqrt(Math.max(0,(R[0]+1)/2)),Math.sqrt(Math.max(0,(R[5]+1)/2)),Math.sqrt(Math.max(0,(R[10]+1)/2))];
+    const m=k.indexOf(Math.max(...k));
+    const off=[[0,R[1]+R[4],R[2]+R[8]],[R[1]+R[4],0,R[6]+R[9]],[R[2]+R[8],R[6]+R[9],0]];
+    for(let j=0;j<3;j++)if(j!==m&&off[m][j]<0)k[j]=-k[j];
+  }else{const s=2*Math.sin(th);k=[(R[9]-R[6])/s,(R[2]-R[8])/s,(R[4]-R[1])/s];}
+  const n=Math.hypot(...k)||1;return{th,k:k.map(v=>v/n)};
+}
 
-// === SHAPES ===
-const SHP={
-  cube:{v:[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],
-       e:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]],
-       f:[[0,1,2,3],[7,6,5,4],[0,1,5,4],[2,3,7,6],[0,3,7,4],[1,2,6,5]]},
-  tetra:{v:[[0,1.3,0],[-1,-0.65,-0.75],[1,-0.65,-0.75],[0,-0.65,1.1]],
-        e:[[0,1],[0,2],[0,3],[1,2],[2,3],[3,1]],
-        f:[[0,2,1],[0,1,3],[0,3,2],[1,2,3]]},
-  octa:{v:[[0,1.2,0],[0,-1.2,0],[1.1,0,0],[-1.1,0,0],[0,0,1.1],[0,0,-1.1]],
-       e:[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]],
-       f:[[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,3,4],[1,5,3],[1,2,5]]},
-  prism:{v:[[-0.9,-1,-0.5],[0.9,-1,-0.5],[0,-1,1.0],[-0.9,1,-0.5],[0.9,1,-0.5],[0,1,1.0]],
-        e:[[0,1],[1,2],[2,0],[3,4],[4,5],[5,3],[0,3],[1,4],[2,5]],
-        f:[[0,2,1],[3,4,5],[0,1,4,3],[1,2,5,4],[2,0,3,5]]}
+/* ───────── shapes ───────── */
+const SHAPES={
+  cube:{name:'Cube',v:[[1,1,1],[-1,1,1],[-1,-1,1],[1,-1,1],[1,1,-1],[-1,1,-1],[-1,-1,-1],[1,-1,-1]],
+    e:[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]],
+    f:[[0,1,2,3],[4,7,6,5],[0,3,7,4],[1,5,6,2],[0,4,5,1],[3,2,6,7]]},
+  tetra:{name:'Tetra',v:[[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]],
+    e:[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]],f:[[0,1,2],[0,3,1],[0,2,3],[1,3,2]]},
+  octa:{name:'Octa',v:[[1.3,0,0],[-1.3,0,0],[0,1.3,0],[0,-1.3,0],[0,0,1.3],[0,0,-1.3]],
+    e:[[0,2],[0,3],[0,4],[0,5],[1,2],[1,3],[1,4],[1,5],[2,4],[4,3],[3,5],[5,2]],
+    f:[[0,2,4],[0,4,3],[0,3,5],[0,5,2],[1,4,2],[1,3,4],[1,5,3],[1,2,5]]},
+  arrow:{name:'L-block',v:[[0,0,0],[1.6,0,0],[1.6,0.6,0],[0.6,0.6,0],[0.6,1.6,0],[0,1.6,0],[0,0,0.6],[1.6,0,0.6],[1.6,0.6,0.6],[0.6,0.6,0.6],[0.6,1.6,0.6],[0,1.6,0.6]],
+    e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[6,7],[7,8],[8,9],[9,10],[10,11],[11,6],[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]],
+    f:[[0,5,4,3,2,1],[6,7,8,9,10,11],[0,1,7,6],[1,2,8,7],[2,3,9,8],[3,4,10,9],[4,5,11,10],[5,0,6,11]]}
 };
 
-// === THEME (canvas palette) ===
-const THEMES={
-  night:{bg:'#0a0f15',floor:'rgba(70,100,125,0.55)',orig:'190,208,222',s1:'255,125,77',s2:'255,210,63',s3:'217,138,255',s4:'134,255,117',
-         X:'255,102,118',Y:'74,232,144',Z:'107,176,255',origin:'rgba(53,214,255,0.95)',fillMul:1,dimEdge:0.2,dimFill:0.3,lbl:'#dfe9f1'},
-  day:  {bg:'#f7f9fc',floor:'rgba(110,130,155,0.45)',orig:'70,90,112',s1:'212,72,13',s2:'165,110,0',s3:'138,43,201',s4:'22,140,62',
-         X:'214,40,57',Y:'22,135,74',Z:'31,111,209',origin:'rgba(10,98,176,0.95)',fillMul:1.5,dimEdge:0.4,dimFill:0.45,lbl:'#17222e'}
+/* ───────── state ───────── */
+const ORDERS={xyz:'xyz',xzy:'xzy',yxz:'yxz',yzx:'yzx',zxy:'zxy',zyx:'zyx'};
+const DEF={ang:{x:30,y:45,z:20},t:[1,0.5,0.3],s:[1,1,1],order:'xyz',shape:'cube',probe:0,custom:[1,0,0]};
+const st=JSON.parse(JSON.stringify(DEF));
+st.view={az:-35,el:22,zoom:1};
+st.show={ghost:true,trace:true,body:true,axis:false,wire:false,grid:true,sphere:false};
+const anim={k:5,t:0,playing:false,last:null};
+let inspTab='M';
+
+/* stages: S, R1, R2, R3, T */
+function stages(){
+  const L=[{id:'S',lab:'S',name:'Scale',col:'sc',M:t=>scale(1+(st.s[0]-1)*t,1+(st.s[1]-1)*t,1+(st.s[2]-1)*t)}];
+  for(const a of st.order)L.push({id:'R'+a,lab:'R'+a,name:'Rotate about '+a.toUpperCase(),col:'a'+a,axis:a,M:t=>rot(a,st.ang[a]*t)});
+  L.push({id:'T',lab:'T',name:'Translate',col:'tr',M:t=>trans(st.t[0]*t,st.t[1]*t,st.t[2]*t)});
+  return L;
+}
+function cumul(L){const C=[I4()];for(let i=0;i<L.length;i++)C.push(mul(L[i].M(1),C[i]));return C;}
+function rotOnly(){let R=I4();for(const a of st.order)R=mul(rot(a,st.ang[a]),R);return R;}
+function probeP(){if(st.probe==='custom')return[...st.custom,1];const v=SHAPES[st.shape].v[st.probe]||[0,0,0];return[v[0],v[1],v[2],1];}
+
+/* ───────── theme ───────── */
+const PAL={
+  night:{bg:'#121a25',grid:'rgba(110,140,170,.22)',orig:'160,178,196',sc:'53,210,245',ax:'255,107,122',ay:'79,224,143',az:'108,178,255',tr:'255,162,74',text:'#e3ebf3',dim:'#6f8599',kax:'255,181,71',fillA:.32},
+  day:{bg:'#ffffff',grid:'rgba(80,100,130,.18)',orig:'110,125,145',sc:'10,120,168',ax:'207,42,59',ay:'23,136,75',az:'31,107,208',tr:'194,90,6',text:'#152130',dim:'#6b7d90',kax:'169,99,0',fillA:.42}
 };
 let theme=document.documentElement.getAttribute('data-theme')==='day'?'day':'night';
-let TH=THEMES[theme];
-function setTheme(t){
-  theme=t==='day'?'day':'night';TH=THEMES[theme];
-  document.documentElement.setAttribute('data-theme',theme);
-  try{localStorage.setItem('mat3d-theme',theme);}catch(_){}
-  document.getElementById('btn-night').classList.toggle('active',theme==='night');
-  document.getElementById('btn-day').classList.toggle('active',theme==='day');
-  renderScene();
+function setTheme(t){theme=t;document.documentElement.setAttribute('data-theme',t);
+  try{localStorage.setItem('mat3d-theme',t);}catch(_){}
+  $('themeBtn').textContent=t==='day'?'Dark mode':'Light mode';$('themeBtn').setAttribute('aria-pressed',String(t==='day'));render();}
+$('themeBtn').addEventListener('click',()=>setTheme(theme==='day'?'night':'day'));
+
+/* ───────── build controls ───────── */
+function slider(parent,{id,lab,cls,min,max,step,val,fmt}){
+  const r=document.createElement('div');r.className='row '+cls;
+  r.innerHTML=`<label class="c-${cls}" for="s-${id}">${lab}</label><input type="range" id="s-${id}" min="${min}" max="${max}" step="${step}" value="${val}"><input type="number" id="n-${id}" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${lab} value">`;
+  parent.appendChild(r);
+}
+['x','y','z'].forEach(a=>slider($('g-rot'),{id:'r'+a,lab:'θ'+a,cls:a,min:-180,max:180,step:1,val:st.ang[a]}));
+['x','y','z'].forEach((a,i)=>slider($('g-tr'),{id:'t'+a,lab:'t'+a,cls:'t',min:-3,max:3,step:0.05,val:st.t[i]}));
+['x','y','z'].forEach((a,i)=>slider($('g-sc'),{id:'s'+a,lab:'s'+a,cls:'s',min:0.2,max:2.5,step:0.05,val:st.s[i]}));
+Object.keys(ORDERS).forEach(o=>{const b=document.createElement('button');b.type='button';b.dataset.o=o;
+  b.textContent=o.toUpperCase().split('').join('→');b.addEventListener('click',()=>{st.order=o;changed(true);});$('g-order').appendChild(b);});
+Object.keys(SHAPES).forEach(s=>{const b=document.createElement('button');b.type='button';b.dataset.s=s;b.textContent=SHAPES[s].name;
+  b.addEventListener('click',()=>{st.shape=s;if(st.probe!=='custom')st.probe=0;buildProbe();changed(true);});$('g-shape').appendChild(b);});
+
+function bindPair(id,get,set){
+  const r=$('s-'+id),n=$('n-'+id);
+  r.addEventListener('input',()=>{set(+r.value);changed();});
+  n.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();n.dispatchEvent(new Event('change'));}});
+  n.addEventListener('change',()=>{let v=parseFloat(n.value);if(isNaN(v))v=get();v=Math.max(+n.min,Math.min(+n.max,v));set(v);changed();});
+}
+['x','y','z'].forEach((a,i)=>{
+  bindPair('r'+a,()=>st.ang[a],v=>st.ang[a]=v);
+  bindPair('t'+a,()=>st.t[i],v=>st.t[i]=v);
+  bindPair('s'+a,()=>st.s[i],v=>{if($('lock').checked)st.s=[v,v,v];else st.s[i]=v;});
+});
+$('lock').addEventListener('change',()=>{if($('lock').checked){st.s=[st.s[0],st.s[0],st.s[0]];changed();}});
+
+function buildProbe(){
+  const sel=$('probe');const n=SHAPES[st.shape].v.length;let h='';
+  for(let i=0;i<n;i++){const v=SHAPES[st.shape].v[i];h+=`<option value="${i}">Vertex V${i}  (${v.map(x=>+x.toFixed(2)).join(', ')})</option>`;}
+  h+='<option value="custom">Custom point…</option>';sel.innerHTML=h;sel.value=String(st.probe);
+  $('customP').hidden=st.probe!=='custom';
+}
+$('probe').addEventListener('change',e=>{st.probe=e.target.value==='custom'?'custom':+e.target.value;$('customP').hidden=st.probe!=='custom';changed();});
+['px','py','pz'].forEach((id,i)=>$(id).addEventListener('input',()=>{const v=parseFloat($(id).value);if(!isNaN(v)){st.custom[i]=v;changed();}}));
+
+['ghost','trace','body','axis','wire','grid','sphere'].forEach(k=>$('d-'+k).addEventListener('change',e=>{st.show[k]=e.target.checked;render();}));
+$('spd').addEventListener('input',()=>$('o-spd').textContent=(+$('spd').value).toFixed(2)+'×');
+
+function syncInputs(){
+  ['x','y','z'].forEach((a,i)=>{
+    $('s-r'+a).value=$('n-r'+a).value=st.ang[a];
+    $('s-t'+a).value=st.t[i];$('n-t'+a).value=(+st.t[i]).toFixed(2);
+    $('s-s'+a).value=st.s[i];$('n-s'+a).value=(+st.s[i]).toFixed(2);
+  });
+  document.querySelectorAll('#g-order button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.o===st.order)));
+  document.querySelectorAll('#g-shape button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.s===st.shape)));
+  $('px').value=st.custom[0];$('py').value=st.custom[1];$('pz').value=st.custom[2];
 }
 
-// === STATE ===
-let rx=30,ry=45,rz=20,tx=1,ty=0.5,tz=0.3,sc=1;
-let rotOrd='xyz',shape='cube',wireframe=false;
-let viewAz=-30,viewEl=20,viewZoom=1;
-let animState='idle',animStep=0,stepT=0,animRAF=null,lastTs=null;
-const STEP_DUR=1.1;
-let isDragging=false,dragX=0,dragY=0;
-let matTabSel='rx';
-
-const CAN=document.getElementById('c3d');
-const CTX=CAN.getContext('2d');
-const CW=CAN.width,CH=CAN.height,CX=CW/2,CY=CH/2;
-const FOCAL=370,CAMD=7;
-
-function viewMat(){return mMul(mRx(-viewEl),mRy(-viewAz));}
-
-function project(x,y,z){
-  const V=viewMat(),vp=mVec(V,[x,y,z,1]);
-  const dz=(CAMD-vp[2])*viewZoom;
-  if(dz<0.01)return null;
-  return{sx:CX+(vp[0]*FOCAL)/dz,sy:CY-(vp[1]*FOCAL)/dz,depth:dz,vz:vp[2]};
+/* presets */
+const PRESETS={
+  default:{...DEF},
+  identity:{ang:{x:0,y:0,z:0},t:[0,0,0],s:[1,1,1],order:'xyz'},
+  rz90:{ang:{x:0,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',probe:'custom',custom:[1,0,0]},
+  order:{ang:{x:90,y:90,z:0},t:[0,0,0],s:[1,1,1],order:'xyz',probe:'custom',custom:[0,1,0]},
+  gimbal:{ang:{x:40,y:90,z:20},t:[0,0,0],s:[1,1,1],order:'xyz'},
+  axis111:{ang:{x:90,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',show:{axis:true}},
+  nonuni:{ang:{x:0,y:30,z:0},t:[0,0,0],s:[2,1,0.5],order:'xyz',lock:false},
+  'inv-rot':{ang:{x:35,y:50,z:25},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'cube',probe:0,play:true,show:{sphere:true,trace:true,axis:false},
+    note:'<b>Rotational invariance.</b> Every rotation keeps the distance from the origin fixed, so the probe point moves on the sphere |P| = √3. Lengths, angles and volume are also unchanged. Watch the Invariants panel: every row stays ✓ during all three rotations.'},
+  'inv-axis':{ang:{x:0,y:0,z:70},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'cube',probe:'custom',custom:[0,0,1.5],play:true,show:{axis:true,sphere:false},
+    note:'<b>Invariant axis.</b> P = (0, 0, 1.5) lies on the rotation axis z, so Rz leaves it fixed: it is an eigenvector with eigenvalue 1. Every point of the cube moves except those on the axis.'},
+  'inv-cube4':{ang:{x:0,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'cube',probe:0,play:true,show:{axis:true,sphere:false},
+    note:'<b>Symmetry operation.</b> A 90° turn about a face axis maps the cube onto itself. Each vertex moves (P₀ → P₅ differ), but the set of vertices is unchanged. The cube has 24 rotational symmetries in all (the group O).'},
+  'inv-cube3':{ang:{x:90,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'cube',probe:1,play:true,show:{axis:true,sphere:false},
+    note:'<b>Body-diagonal symmetry.</b> Rx(90°) followed by Rz(90°) equals one 120° rotation about (1,1,1). It permutes x → y → z and maps the cube onto itself. The vertices on the diagonal, (1,1,1) and (−1,−1,−1), are fixed points.'},
+  'inv-tetra':{ang:{x:90,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'tetra',probe:1,play:true,show:{axis:true,sphere:false},
+    note:'<b>Tetrahedral symmetry.</b> The same 120° rotation about (1,1,1) maps the tetrahedron onto itself. V0 = (1,1,1) is on the axis and stays fixed; the other three vertices swap places cyclically.'},
+  'inv-octa':{ang:{x:90,y:0,z:0},t:[0,0,0],s:[1,1,1],order:'xyz',shape:'octa',probe:2,play:true,show:{axis:true,sphere:false},
+    note:'<b>Octahedral symmetry.</b> Rx(90°) maps the octahedron onto itself: the ±y vertices go to ±z, and the ±x vertices lie on the axis and stay fixed.'},
+  'inv-tr':{ang:{x:0,y:0,z:0},t:[2,1,-1],s:[1,1,1],order:'xyz',shape:'cube',probe:0,play:true,show:{sphere:false,trace:true},
+    note:'<b>Translational invariance.</b> T moves every point by the same vector t, so differences of points, P − Q, are unchanged. Distances, angles, orientation and volume are preserved. Only the absolute position |P| changes: it depends on where the origin is, so it is not an invariant of translation.'},
+  'inv-rigid':{ang:{x:20,y:-35,z:60},t:[1.5,-0.5,1],s:[1,1,1],order:'xyz',shape:'arrow',probe:4,play:true,show:{sphere:false,body:true},
+    note:'<b>Rigid motion (Euclidean group).</b> Any combination of rotations and translations preserves distances, angles, volume and handedness. These are the invariants of a rigid body. |P| stays fixed during the rotations and changes only at the T step.'},
+  'inv-break-s':{ang:{x:0,y:30,z:0},t:[0,0,0],s:[2,1,0.5],order:'xyz',shape:'cube',probe:0,lock:false,play:true,show:{sphere:true},
+    note:'<b>Broken invariance.</b> A non-uniform scale changes lengths and angles, so the point leaves the sphere at the S step. The volume is preserved here only by coincidence, since det = 2 · 1 · 0.5 = 1. The later rotation is still length-preserving: the |P| it starts from stays fixed.'},
+  'inv-break-t':{ang:{x:0,y:0,z:45},t:[1.5,0,0],s:[1,1,1],order:'xyz',shape:'cube',probe:0,play:true,show:{sphere:true},
+    note:'<b>What translation does not preserve.</b> The rotation keeps P on the sphere. The translation then pushes it off, because |P| is measured from a fixed origin. Edge lengths and angles (shape invariants) are still preserved.'},
+  ex1:{ang:{x:0,y:0,z:90},t:[0,0,0],s:[1,1,1],order:'xyz',probe:'custom',custom:[1,0,0]},
+  ex2a:{ang:{x:90,y:90,z:0},t:[0,0,0],s:[1,1,1],order:'xyz',probe:'custom',custom:[0,1,0]},
+  ex2b:{ang:{x:90,y:90,z:0},t:[0,0,0],s:[1,1,1],order:'yxz',probe:'custom',custom:[0,1,0]},
+  ex3:{ang:{x:0,y:0,z:90},t:[2,0,0],s:[1,1,1],order:'xyz',probe:'custom',custom:[1,0,0]},
+  ex6a:{ang:{x:40,y:90,z:20},t:[0,0,0],s:[1,1,1],order:'xyz'},
+  ex6b:{ang:{x:30,y:90,z:10},t:[0,0,0],s:[1,1,1],order:'xyz'}
+};
+function loadPreset(name){
+  const p=PRESETS[name];if(!p)return;
+  st.ang={...p.ang};st.t=[...p.t];st.s=[...p.s];st.order=p.order;
+  if(p.shape)st.shape=p.shape;
+  st.probe=p.probe!==undefined?p.probe:0;if(p.custom)st.custom=[...p.custom];
+  $('lock').checked=p.lock!==false&&st.s[0]===st.s[1]&&st.s[1]===st.s[2];
+  if(p.show)for(const k in p.show){st.show[k]=p.show[k];const el=$('d-'+k);if(el)el.checked=p.show[k];}
+  const pn=$('presetNote');if(p.note){pn.innerHTML=p.note;pn.hidden=false;}else{pn.hidden=true;}
+  buildProbe();changed(true);
 }
+$('preset').addEventListener('change',e=>{const v=e.target.value;loadPreset(v);e.target.value='';if(PRESETS[v]&&PRESETS[v].play){stop();anim.k=0;play();}});
+document.querySelectorAll('[data-load]').forEach(b=>b.addEventListener('click',()=>{
+  loadPreset(b.dataset.load);if(b.dataset.tab)inspTab=b.dataset.tab;showTab('sim');changed();toast('Loaded in simulator');
+  const pr=PRESETS[b.dataset.load];if(pr&&pr.play){stop();anim.k=0;play();}}));
 
-function xfVerts(verts,M){return verts.map(v=>{const r=mVec(M,[v[0],v[1],v[2],1]);return[r[0],r[1],r[2]];});}
-
-function getMs(){
-  const S=mS(sc);
-  let M1,M2,M3;
-  if(rotOrd==='xyz'){M1=mMul(mRx(rx),S);M2=mMul(mRy(ry),M1);M3=mMul(mRz(rz),M2);}
-  else if(rotOrd==='zyx'){M1=mMul(mRz(rz),S);M2=mMul(mRy(ry),M1);M3=mMul(mRx(rx),M2);}
-  else{M1=mMul(mRy(ry),S);M2=mMul(mRx(rx),M1);M3=mMul(mRz(rz),M2);}
-  const M4=mMul(mT(tx,ty,tz),M3);
-  return{M0:S,M1,M2,M3,M4};
+/* ───────── animation ───────── */
+function stop(){anim.playing=false;anim.last=null;$('play').textContent='▶ Play';}
+function play(){
+  if(anim.playing){stop();updateAll();return;}
+  if(anim.k>=5){anim.k=0;}
+  anim.t=0;anim.playing=true;anim.last=null;$('play').textContent='❚❚ Pause';requestAnimationFrame(tick);
 }
-
-function lerp3(A,B,t){return A.map(([ax,ay,az],i)=>[ax+(B[i][0]-ax)*t,ay+(B[i][1]-ay)*t,az+(B[i][2]-az)*t]);}
-
-function faceNorm(verts,face){
-  const A=verts[face[0]],B=verts[face[1]],C=verts[face[2]];
-  const u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],v=[C[0]-A[0],C[1]-A[1],C[2]-A[2]];
-  const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
-  const l=Math.hypot(...n)||1;return n.map(x=>x/l);
+function tick(ts){
+  if(!anim.playing)return;
+  if(anim.last===null)anim.last=ts;
+  const dt=Math.min(0.05,(ts-anim.last)/1000);anim.last=ts;
+  anim.t+=dt*(+$('spd').value)/1.1;
+  if(anim.t>=1){anim.k++;anim.t=0;if(anim.k>=5){anim.k=5;stop();}}
+  updateAll();
+  if(anim.playing)requestAnimationFrame(tick);
 }
+function goto(k){stop();anim.k=Math.max(0,Math.min(5,k));anim.t=0;updateAll();}
+$('play').addEventListener('click',play);
+$('fwd').addEventListener('click',()=>goto(anim.k+1));
+$('back').addEventListener('click',()=>goto(anim.k-1));
 
-function faceDepth(proj,face){return face.reduce((s,i)=>s+(proj[i]?proj[i].depth:0),0)/face.length;}
-
-const LIGHT=[0.5,0.8,0.5];const LL=Math.hypot(...LIGHT);const LN=LIGHT.map(v=>v/LL);
-
-function drawMesh(verts,colRgb,alpha,shp,dim){
-  const s=SHP[shp];if(!s)return;
-  const proj=verts.map(([x,y,z])=>project(x,y,z));
-  if(!wireframe){
-    const fs=[...s.f].sort((a,b)=>faceDepth(proj,b)-faceDepth(proj,a));
-    for(const face of fs){
-      const pts=face.map(i=>proj[i]).filter(Boolean);if(pts.length<3)continue;
-      const n=faceNorm(verts,face);
-      const V=viewMat();const lv=mVec(V,[LN[0],LN[1],LN[2],0]);
-      const d=Math.max(0.05,n[0]*lv[0]+n[1]*lv[1]+n[2]*lv[2]);
-      const br=(0.12+0.5*d)*(dim?0.5:1);
-      const fa=Math.min(0.85,alpha*br*(dim?TH.dimFill:0.4)*TH.fillMul);
-      CTX.fillStyle=`rgba(${colRgb},${fa})`;
-      CTX.beginPath();CTX.moveTo(pts[0].sx,pts[0].sy);
-      for(let i=1;i<pts.length;i++)CTX.lineTo(pts[i].sx,pts[i].sy);
-      CTX.closePath();CTX.fill();
+/* ───────── projection & rendering ───────── */
+const CV=$('c3d'),CTX=CV.getContext('2d');
+let W=800,H=500,FOC=500;
+function resize(){
+  const r=CV.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  W=r.width;H=r.height;CV.width=Math.round(W*d);CV.height=Math.round(H*d);
+  CTX.setTransform(d,0,0,d,0,0);FOC=Math.min(H*1.05,W*0.7);
+}
+const CAMD=9;
+let VIEW=I4();
+function viewMat(){VIEW=mul(rot('x',st.view.el),rot('y',-st.view.az));}
+function proj(p){
+  const v=apply(VIEW,[p[0],p[1],p[2],1]);const dz=CAMD-v[2];if(dz<0.2)return null;
+  const f=FOC*st.view.zoom/dz;return{x:W/2+v[0]*f,y:H/2+H*0.04-v[1]*f,z:dz};
+}
+function rgba(c,a){return`rgba(${PAL[theme][c]||c},${a})`;}
+function line(a,b,col,w,dash){const p=proj(a),q=proj(b);if(!p||!q)return;CTX.strokeStyle=col;CTX.lineWidth=w;CTX.setLineDash(dash||[]);CTX.beginPath();CTX.moveTo(p.x,p.y);CTX.lineTo(q.x,q.y);CTX.stroke();CTX.setLineDash([]);}
+function arrow(a,b,col,w,label){
+  const p=proj(a),q=proj(b);if(!p||!q)return;
+  CTX.strokeStyle=CTX.fillStyle=col;CTX.lineWidth=w;CTX.beginPath();CTX.moveTo(p.x,p.y);CTX.lineTo(q.x,q.y);CTX.stroke();
+  const an=Math.atan2(q.y-p.y,q.x-p.x);CTX.beginPath();CTX.moveTo(q.x,q.y);
+  CTX.lineTo(q.x-9*Math.cos(an-.38),q.y-9*Math.sin(an-.38));CTX.lineTo(q.x-9*Math.cos(an+.38),q.y-9*Math.sin(an+.38));CTX.closePath();CTX.fill();
+  if(label){CTX.font='600 13px JetBrains Mono, monospace';CTX.fillText(label,q.x+6,q.y-6);}
+}
+const LIGHT=(()=>{const l=[0.4,0.8,0.6],n=Math.hypot(...l);return l.map(v=>v/n);})();
+function mesh(M,col,mode){ // mode: 'main' | 'ghost' | 'faint'
+  const S=SHAPES[st.shape];const vs=S.v.map(v=>apply(M,[v[0],v[1],v[2],1]));const ps=vs.map(proj);
+  const P=PAL[theme];
+  if(!st.show.wire&&mode==='main'){
+    const fs=S.f.map(f=>({f,z:f.reduce((s,i)=>s+(ps[i]?ps[i].z:0),0)/f.length})).sort((a,b)=>b.z-a.z);
+    for(const {f} of fs){
+      if(f.some(i=>!ps[i]))continue;
+      const A=vs[f[0]],B=vs[f[1]],C=vs[f[2]];
+      const u=[B[0]-A[0],B[1]-A[1],B[2]-A[2]],w=[C[0]-A[0],C[1]-A[1],C[2]-A[2]];
+      const n=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];const nl=Math.hypot(...n)||1;
+      const lam=Math.abs((n[0]*LIGHT[0]+n[1]*LIGHT[1]+n[2]*LIGHT[2])/nl);
+      CTX.fillStyle=rgba(col,P.fillA*(0.35+0.65*lam));
+      CTX.beginPath();CTX.moveTo(ps[f[0]].x,ps[f[0]].y);for(let i=1;i<f.length;i++)CTX.lineTo(ps[f[i]].x,ps[f[i]].y);CTX.closePath();CTX.fill();
     }
   }
-  for(const[a,b]of s.e){
-    const pa=proj[a],pb=proj[b];if(!pa||!pb)continue;
-    CTX.strokeStyle=`rgba(${colRgb},${dim?alpha*TH.dimEdge:alpha*0.95})`;
-    CTX.lineWidth=dim?0.9:2;
-    CTX.beginPath();CTX.moveTo(pa.sx,pa.sy);CTX.lineTo(pb.sx,pb.sy);CTX.stroke();
+  const ea=mode==='main'?0.95:mode==='ghost'?0.45:0.25;
+  CTX.strokeStyle=rgba(col,ea);CTX.lineWidth=mode==='main'?1.8:1;CTX.setLineDash(mode==='main'?[]:[4,4]);
+  for(const[a,b]of S.e){const p=ps[a],q=ps[b];if(!p||!q)continue;CTX.beginPath();CTX.moveTo(p.x,p.y);CTX.lineTo(q.x,q.y);CTX.stroke();}
+  CTX.setLineDash([]);
+  if(mode==='main'){CTX.fillStyle=rgba(col,1);for(const p of ps)if(p){CTX.beginPath();CTX.arc(p.x,p.y,2.4,0,7);CTX.fill();}}
+}
+function currentMatrix(L,C){return anim.k>=5?C[5]:mul(L[anim.k].M(anim.t),C[anim.k]);}
+function colorFor(L){ // colour of the most recently applied stage
+  const idx=anim.playing?anim.k:anim.k-1;if(idx<0)return'orig';return L[Math.min(idx,4)].col;
+}
+function render(){
+  if(!W)return;viewMat();const P=PAL[theme];
+  CTX.fillStyle=P.bg;CTX.fillRect(0,0,W,H);
+  const L=stages(),C=cumul(L),M=currentMatrix(L,C);
+  if(st.show.grid){CTX.lineWidth=1;for(let i=-4;i<=4;i++){line([i,-2.2,-4],[i,-2.2,4],P.grid,1);line([-4,-2.2,i],[4,-2.2,i],P.grid,1);}}
+  // world axes
+  [['x',[2.6,0,0]],['y',[0,2.6,0]],['z',[0,0,2.6]]].forEach(([a,e])=>{line([0,0,0],e.map(v=>-v*0.35),rgba('a'+a,.35),1.5,[3,4]);arrow([0,0,0],e,rgba('a'+a,1),2.2,a.toUpperCase());});
+  // equivalent axis
+  const aa=axisAngle(rotOnly());
+  if(st.show.axis&&aa.k){const k=aa.k;line(k.map(v=>-v*2.8),k.map(v=>v*2.8),rgba('kax',.9),1.6,[7,5]);
+    const q=proj(k.map(v=>v*2.8));if(q){CTX.fillStyle=rgba('kax',1);CTX.font='600 12px Inter, sans-serif';CTX.fillText('k̂  θ = '+(aa.th/D2R).toFixed(1)+'°',q.x+6,q.y+14);}}
+  // ghosts
+  if(st.show.ghost){
+    mesh(I4(),'orig','ghost');
+    const prevIdx=anim.playing?anim.k:anim.k-1;
+    if(prevIdx>=1){mesh(C[prevIdx],L[prevIdx-1].col,'faint');}
   }
-  if(!dim)for(const[x,y,z]of verts){
-    const p=project(x,y,z);if(!p)continue;
-    CTX.beginPath();CTX.arc(p.sx,p.sy,2.6,0,Math.PI*2);
-    CTX.fillStyle=`rgba(${colRgb},${alpha*0.95})`;CTX.fill();
+  mesh(M,colorFor(L),'main');
+  // body axes
+  if(st.show.body){
+    const o=apply(M,[0,0,0,1]);
+    [['x',[1.4,0,0]],['y',[0,1.4,0]],['z',[0,0,1.4]]].forEach(([a,e])=>{const p=apply(M,[...e,1]);arrow(o,p,rgba('a'+a,.85),1.4,a+'′');});
   }
+  // invariant sphere |P| = const (three great circles + current-radius circle)
+  if(st.show.sphere){
+    const r=Math.hypot(...probeP().slice(0,3));
+    if(r>1e-6){const N=64;
+      [[1,0,0,0,1,0],[1,0,0,0,0,1],[0,1,0,0,0,1]].forEach(b=>{
+        CTX.strokeStyle=rgba('tr',.28);CTX.lineWidth=1;CTX.setLineDash([3,4]);CTX.beginPath();
+        for(let i=0;i<=N;i++){const a=i/N*2*Math.PI,c=Math.cos(a)*r,s=Math.sin(a)*r;
+          const q=proj([b[0]*c+b[3]*s,b[1]*c+b[4]*s,b[2]*c+b[5]*s]);if(!q)continue;i?CTX.lineTo(q.x,q.y):CTX.moveTo(q.x,q.y);}
+        CTX.stroke();CTX.setLineDash([]);});
+      const q=proj([0,r,0]);if(q){CTX.fillStyle=rgba('tr',.9);CTX.font='600 11px JetBrains Mono, monospace';CTX.fillText('|P₀| = '+r.toFixed(3),q.x+6,q.y-6);}
+    }
+  }
+  // probe path
+  const P0=probeP();
+  if(st.show.trace){
+    const pts=[];for(let i=0;i<=Math.min(anim.k,5);i++)pts.push(apply(C[i],P0));
+    if(anim.k<5&&anim.playing)pts.push(apply(M,P0));
+    CTX.strokeStyle=rgba('tr',.8);CTX.lineWidth=1.4;CTX.setLineDash([4,3]);CTX.beginPath();
+    pts.forEach((p,i)=>{const q=proj(p);if(!q)return;i?CTX.lineTo(q.x,q.y):CTX.moveTo(q.x,q.y);});CTX.stroke();CTX.setLineDash([]);
+    CTX.font='600 11px JetBrains Mono, monospace';
+    const placed=[];
+    for(let i=0;i<=Math.min(anim.k,5);i++){const q=proj(apply(C[i],P0));if(!q)continue;
+      const hit=placed.find(o=>Math.hypot(o.x-q.x,o.y-q.y)<6);
+      if(hit){hit.lab+=','+i;continue;}placed.push({x:q.x,y:q.y,lab:'P'+i});}
+    CTX.fillStyle=P.text;placed.forEach(o=>CTX.fillText(o.lab,o.x+7,o.y+12));
+  }
+  const pc=proj(apply(M,P0));if(pc){CTX.fillStyle=rgba('tr',1);CTX.strokeStyle=P.bg;CTX.lineWidth=2;CTX.beginPath();CTX.arc(pc.x,pc.y,5.5,0,7);CTX.fill();CTX.stroke();}
+  const o=proj([0,0,0]);if(o){CTX.fillStyle=P.text;CTX.beginPath();CTX.arc(o.x,o.y,3,0,7);CTX.fill();}
+  // HUD
+  CTX.fillStyle=P.dim;CTX.font='12px JetBrains Mono, monospace';
+  CTX.fillText(`view az ${st.view.az.toFixed(0)}°  el ${st.view.el.toFixed(0)}°  zoom ${st.view.zoom.toFixed(2)}×`,12,H-12);
 }
 
-function drawAxes(){
-  const axes=[[1.8,0,0,TH.X,'X'],[0,1.8,0,TH.Y,'Y'],[0,0,1.8,TH.Z,'Z']];
-  for(const[ax,ay,az,col,lbl]of axes){
-    const p0=project(0,0,0),p1=project(ax,ay,az);if(!p0||!p1)continue;
-    CTX.strokeStyle=`rgb(${col})`;CTX.lineWidth=2.4;
-    CTX.beginPath();CTX.moveTo(p0.sx,p0.sy);CTX.lineTo(p1.sx,p1.sy);CTX.stroke();
-    const dx=p1.sx-p0.sx,dy=p1.sy-p0.sy,dl=Math.hypot(dx,dy)||1;
-    const ux=dx/dl,uy=dy/dl;
-    CTX.fillStyle=`rgb(${col})`;CTX.beginPath();
-    CTX.moveTo(p1.sx,p1.sy);CTX.lineTo(p1.sx-ux*9+uy*4.5,p1.sy-uy*9-ux*4.5);CTX.lineTo(p1.sx-ux*9-uy*4.5,p1.sy-uy*9+ux*4.5);
-    CTX.closePath();CTX.fill();
-    CTX.font='bold 15px JetBrains Mono, monospace';CTX.fillStyle=`rgb(${col})`;CTX.fillText(lbl,p1.sx+6,p1.sy-6);
-  }
-}
-
-function drawFloor(){
-  CTX.strokeStyle=TH.floor;CTX.lineWidth=0.9;
-  for(let i=-3;i<=3;i++){
-    const pa=project(i,-1.6,-3),pb=project(i,-1.6,3),pc=project(-3,-1.6,i),pd=project(3,-1.6,i);
-    if(pa&&pb){CTX.beginPath();CTX.moveTo(pa.sx,pa.sy);CTX.lineTo(pb.sx,pb.sy);CTX.stroke();}
-    if(pc&&pd){CTX.beginPath();CTX.moveTo(pc.sx,pc.sy);CTX.lineTo(pd.sx,pd.sy);CTX.stroke();}
-  }
-}
-
-function renderScene(){
-  const COL=TH;
-  CTX.clearRect(0,0,CW,CH);CTX.fillStyle=TH.bg;CTX.fillRect(0,0,CW,CH);
-  drawFloor();drawAxes();
-  const{M0,M1,M2,M3,M4}=getMs();const s=SHP[shape];
-  const v0=xfVerts(s.v,M0),v1=xfVerts(s.v,M1),v2=xfVerts(s.v,M2),v3=xfVerts(s.v,M3),v4=xfVerts(s.v,M4);
-  drawMesh(v0,COL.orig,1,shape,true);
-  if(animStep===0){drawMesh(v0,COL.orig,1,shape,false);}
-  else if(animStep===1){drawMesh(lerp3(v0,v1,stepT),COL.s1,1,shape,false);}
-  else if(animStep===2){drawMesh(v1,COL.s1,1,shape,true);drawMesh(lerp3(v1,v2,stepT),COL.s2,1,shape,false);}
-  else if(animStep===3){drawMesh(v2,COL.s2,1,shape,true);drawMesh(lerp3(v2,v3,stepT),COL.s3,1,shape,false);}
-  else if(animStep===4){drawMesh(v3,COL.s3,1,shape,true);drawMesh(lerp3(v3,v4,stepT),COL.s4,1,shape,false);}
-  else{drawMesh(v4,COL.s4,1,shape,false);}
-  const op=project(0,0,0);if(op){CTX.beginPath();CTX.arc(op.sx,op.sy,4.5,0,Math.PI*2);CTX.fillStyle=TH.origin;CTX.fill();}
-}
-
-// === ANIMATION ===
-function animLoop(ts){
-  if(!lastTs)lastTs=ts;
-  const dt=(ts-lastTs)/1000;lastTs=ts;
-  const spd=parseFloat(document.getElementById('s-spd').value);
-  stepT+=dt*spd/STEP_DUR;
-  if(stepT>=1){stepT=0;animStep++;if(animStep>4){animStep=5;stepT=1;animState='done';
-    document.getElementById('astatus').textContent='COMPLETE';document.getElementById('pfill').style.width='100%';
-    updateTL(5);renderScene();updateAmat();updateReadouts();return;}}
-  const prog=((animStep-1+stepT)/4)*100;
-  document.getElementById('pfill').style.width=Math.min(100,Math.max(0,prog))+'%';
-  const labs=['ORIGINAL','APPLYING Rx…','APPLYING Ry…','APPLYING Rz…','APPLYING T…','COMPLETE'];
-  document.getElementById('astatus').textContent=labs[Math.min(animStep,5)];
-  updateTL(animStep);renderScene();updateAmat();updateReadouts();
-  animRAF=requestAnimationFrame(animLoop);
-}
-function runAnim(){if(animState==='running')return;if(animState==='done'){resetAnim();return;}
-  animState='running';animStep=1;stepT=0;lastTs=null;animRAF=requestAnimationFrame(animLoop);}
-function resetAnim(){if(animRAF)cancelAnimationFrame(animRAF);animRAF=null;
-  animState='idle';animStep=0;stepT=0;lastTs=null;
-  document.getElementById('pfill').style.width='0%';
-  document.getElementById('astatus').textContent='IDLE — Drag canvas to orbit · Press ANIMATE';
-  updateTL(0);renderScene();updateAmat();updateReadouts();}
-function stepAnim(){if(animRAF){cancelAnimationFrame(animRAF);animRAF=null;}
-  animState='paused';if(animStep<5){animStep++;stepT=1;}
-  const labs=['ORIGINAL','Rx APPLIED','Ry APPLIED','Rz APPLIED','T APPLIED','COMPLETE'];
-  document.getElementById('astatus').textContent=labs[Math.min(animStep,5)];
-  document.getElementById('pfill').style.width=(Math.min(animStep,4)/4*100)+'%';
-  updateTL(animStep);renderScene();updateAmat();updateReadouts();}
-function updateTL(step){
-  for(let i=0;i<=4;i++){
-    const d=document.getElementById('td'+i),l=document.getElementById('tl'+i);
-    if(i<step){d.className='tdot done';l.className='tlbl done';}
-    else if(i===step){d.className='tdot active';l.className='tlbl active';}
-    else{d.className='tdot';l.className='tlbl';}
-    if(i<4)document.getElementById('tln'+i).className=i<step?'tline done':'tline';
-  }
-}
-
-// === MATRIX DISPLAY ===
-function m44html(M,cls){
-  const axMap={0:'hx',1:'hy',2:'hz'};
-  let h=`<div class="m44 ${cls}">`;
-  for(let r=0;r<4;r++){h+='<div class="mrow">';
-    for(let c=0;c<4;c++){const v=M[r*4+c];const ax=r<3&&c<3?axMap[r]:'';h+=`<span class="mc ${ax}">${f3(v)}</span>`;}
-    h+='</div>';}
+/* ───────── panels ───────── */
+const fmt=v=>{const x=Math.abs(v)<5e-4?0:v;return x.toFixed(3);};
+function mx(M,kind){ // kind: 'm' full 4×4 | 'v' vector | 'o' output vector
+  if(kind!=='m'){return`<div class="mx c1 vec ${kind==='o'?'out':''}">${M.map(v=>`<span>${fmt(v)}</span>`).join('')}</div>`;}
+  let h='<div class="mx c4">';
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){const v=M[r*4+c];const cl=r===3?'hom':c===3?'tcol':'lin';h+=`<span class="${cl}${Math.abs(v)<5e-4?' zero':''}">${fmt(v)}</span>`;}
   return h+'</div>';
 }
-function v4html(v,cls){
-  let h=`<div class="m44 ${cls}">`;
-  for(let i=0;i<4;i++)h+=`<div class="mrow"><span class="mc">${f3(v[i])}</span></div>`;
-  return h+'</div>';
+const SUB={x:'<sub>x</sub>',y:'<sub>y</sub>',z:'<sub>z</sub>'};
+function stageTitle(s){if(s.id==='S')return`S(${st.s.map(v=>(+v).toFixed(2)).join(', ')})`;
+  if(s.id==='T')return`T(${st.t.map(v=>(+v).toFixed(2)).join(', ')})`;
+  return`R${SUB[s.axis]}(${st.ang[s.axis]}°)`;}
+function formulaHTML(L){
+  const parts=L.slice().reverse().map((s,i)=>{const idx=4-i;const lab=s.id==='S'?'S':s.id==='T'?'T':'R'+SUB[s.axis];
+    const cls=idx<anim.k?'':'style="opacity:.55"';return`<b ${cls}>${lab}</b>`;});
+  return`M = ${parts.join(' · ')} &nbsp;·&nbsp; P′ = M·P`;
 }
 
-function updateAmat(){
-  const s=SHP[shape];if(!s||!s.v.length)return;
-  const p0=s.v[0];
-  const{M1,M2,M3,M4}=getMs();
-  const v0=mVec(mS(sc),[p0[0],p0[1],p0[2],1]);
-  const v2=mVec(M2,[p0[0],p0[1],p0[2],1]);
-  const v3=mVec(M3,[p0[0],p0[1],p0[2],1]);
-  const v4=mVec(M4,[p0[0],p0[1],p0[2],1]);
-  let M_,pin,pout,cls,lbl,op;
-  if(animStep===1){M_=mRx(rx);pin=v0;pout=mVec(mRx(rx),v0);cls='ax';lbl='R_x(\\theta_x)';op='Step 1 — Rotate X';}
-  else if(animStep===2){M_=mRy(ry);pin=mVec(mRx(rx),v0);pout=v2;cls='ay';lbl='R_y(\\theta_y)';op='Step 2 — Rotate Y';}
-  else if(animStep===3){M_=mRz(rz);pin=v2;pout=v3;cls='az';lbl='R_z(\\theta_z)';op='Step 3 — Rotate Z';}
-  else if(animStep===4||animStep===5){M_=mT(tx,ty,tz);pin=v3;pout=v4;cls='ora';lbl='T(t_x,t_y,t_z)';op='Step 4 — Translate';}
-  else{const Mc=mMul(mT(tx,ty,tz),mMul(mRz(rz),mMul(mRy(ry),M1)));M_=Mc;pin=[p0[0],p0[1],p0[2],1];pout=v4;cls='cyan';lbl='M=T\\,R_z R_y R_x S';op='Combined Matrix';}
-  const cc=cls==='ax'?'var(--ax)':cls==='ay'?'var(--ay)':cls==='az'?'var(--az)':cls==='ora'?'var(--ora)':'var(--cyan)';
-  setHTML('amat-wrap',`
-    <div class="amat-title" style="color:${cc}">${op}</div>
-    <div class="mat-eq">
-      <div><div class="mlabel">\\(${lbl}\\)</div>${m44html(M_,cls)}</div>
-      <div class="opsym">×</div>
-      <div><div class="mlabel">\\(P_{\\mathrm{in}}\\)</div>${v4html(pin,'dim')}</div>
-      <div class="opsym">=</div>
-      <div><div class="mlabel">\\(P_{\\mathrm{out}}\\)</div>${v4html(pout,'grn')}</div>
-    </div>`);
+function updatePipe(L){
+  let h=`<button type="button" class="pnode ${anim.k===0?'cur':'done'}" data-k="0">P₀</button>`;
+  L.forEach((s,i)=>{const k=i+1;const cls=(anim.playing&&anim.k===i)?'cur':(!anim.playing&&anim.k===k)?'cur':k<=anim.k?'done':'';
+    const lab=s.id==='S'?'S':s.id==='T'?'T':'R'+SUB[s.axis];
+    h+=`<span class="parrow">→</span><button type="button" class="pnode ${cls}" data-k="${k}" title="${s.name}">${lab}</button>`;});
+  $('pipe').innerHTML=h;
+  $('pipe').querySelectorAll('.pnode').forEach(b=>b.addEventListener('click',()=>goto(+b.dataset.k)));
+  $('pfill').style.width=((anim.k+anim.t)/5*100)+'%';
+  $('formula').innerHTML=formulaHTML(L);
 }
+function updateEq(L,C){
+  const P0=probeP();let title,sub,html;
+  if(anim.playing||(anim.k>=1&&anim.k<5)){
+    const i=anim.playing?anim.k:anim.k-1;const t=anim.playing?anim.t:1;const s=L[i];
+    const Ms=s.M(t),pin=apply(C[i],P0),pout=apply(Ms,pin);
+    title=`Step ${i+1} of 5: ${s.name}`;sub=anim.playing?`${Math.round(t*100)} %`:`P${i+1} = ${s.id==='S'?'S':s.id==='T'?'T':'R'+s.axis} · P${i}`;
+    html=`<div><div class="mlab">${stageTitle(s)}</div>${mx(Ms,'m')}</div><div class="opsym">×</div><div><div class="mlab">P${i}</div>${mx(pin,'v')}</div><div class="opsym">=</div><div><div class="mlab">P${i+1}</div>${mx(pout,'o')}</div>`;
+  }else if(anim.k===0){
+    title='Original point';sub='Press Play or Step ▶ to start';
+    html=`<div><div class="mlab">I (identity)</div>${mx(I4(),'m')}</div><div class="opsym">×</div><div><div class="mlab">P₀</div>${mx(P0,'v')}</div><div class="opsym">=</div><div><div class="mlab">P₀</div>${mx(P0,'o')}</div>`;
+  }else{
+    title='Combined transformation';sub='one multiplication gives the same result as five';
+    html=`<div><div class="mlab">M</div>${mx(C[5],'m')}</div><div class="opsym">×</div><div><div class="mlab">P₀</div>${mx(P0,'v')}</div><div class="opsym">=</div><div><div class="mlab">P₅</div>${mx(apply(C[5],P0),'o')}</div>`;
+  }
+  $('eq-title').textContent=title;$('eq-sub').textContent=sub;$('eq').innerHTML=html;
+}
+function inspMatrices(L,C){
+  const o={S:{M:L[0].M(1),t:stageTitle(L[0]),d:'Scaling. det S = s<sub>x</sub>s<sub>y</sub>s<sub>z</sub>. Uniform when s<sub>x</sub> = s<sub>y</sub> = s<sub>z</sub>.'}};
+  [1,2,3].forEach(i=>{const s=L[i];o['R'+i]={M:s.M(1),t:stageTitle(s),lab:'R'+SUB[s.axis],d:`Rotation about the world ${s.axis.toUpperCase()}-axis, applied ${['first','second','third'][i-1]}. Orthogonal: R<sup>T</sup>R = I, det = 1, inverse = transpose.`};});
+  o.T={M:L[4].M(1),t:stageTitle(L[4]),d:'Translation. Only the 4th column changes; directions (w = 0) are unaffected.'};
+  o.M={M:C[5],t:'M = T·R·S',d:'Combined matrix. Upper-left 3×3 block = R·S (rotation and scale); 4th column = translation t.'};
+  const Mi=inv(C[5]);o.Minv={M:Mi||I4(),t:'M⁻¹ = S⁻¹·Rᵀ·T⁻¹',d:Mi?'Inverse transformation: maps P′ back to P. Check: M⁻¹·M = I.':'Matrix is singular.'};
+  return o;
+}
+let lastInsp=null;
+function updateInspector(L,C){
+  const tabs=[['S','S'],['R1','R'+SUB[st.order[0]]],['R2','R'+SUB[st.order[1]]],['R3','R'+SUB[st.order[2]]],['T','T'],['M','M'],['Minv','M⁻¹']];
+  const key=st.order+inspTab;
+  if(lastInsp!==key){
+    $('mtabs').innerHTML=tabs.map(([id,l])=>`<button type="button" role="tab" data-id="${id}" aria-selected="${id===inspTab}">${l}</button>`).join('');
+    $('mtabs').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{inspTab=b.dataset.id;lastInsp=null;updateAll();}));
+    lastInsp=key;
+  }
+  const m=inspMatrices(L,C)[inspTab];
+  $('insp').innerHTML=`<div class="ttl">${m.t}</div>${mx(m.M,'m')}<div class="desc">${m.d}</div>
+   <div class="copyrow"><button type="button" data-f="tex">Copy LaTeX</button><button type="button" data-f="np">Copy NumPy</button><button type="button" data-f="csv">Copy CSV</button></div>`;
+  $('insp').querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>copyMatrix(m.M,b.dataset.f)));
+}
+function updatePoints(L,C){
+  const P0=probeP();const names=['original','after S',...[0,1,2].map(i=>'after R'+st.order[i]),'after T'];
+  let h='';for(let i=0;i<=5;i++){const p=apply(C[i],P0);
+    h+=`<div class="pt ${i===anim.k&&!anim.playing?'cur':''}"><span class="n">P${i} <small style="font-weight:400">${names[i]}</small></span><span class="v">(${fmt(p[0])}, ${fmt(p[1])}, ${fmt(p[2])})</span></div>`;}
+  $('pts').innerHTML=h;
+}
+function updateProps(C){
+  const R=rotOnly(),M=C[5],aa=axisAngle(R);
+  const dM=det3(M),oe=orthoErr(R);
+  const P0=probeP(),r0=Math.hypot(P0[0],P0[1],P0[2]),pr=apply(R,P0),r1=Math.hypot(pr[0],pr[1],pr[2]);
+  const mid=st.order[1],ma=st.ang[mid],gd=Math.abs(Math.abs(ma)-90);
+  const gim=gd<0.5?['warn','LOCKED']:gd<10?['warn','near lock']:['ok','none'];
+  const q=aa.k?[Math.cos(aa.th/2),...aa.k.map(v=>v*Math.sin(aa.th/2))]:[1,0,0,0];
+  const MiM=inv(M)?mul(inv(M),M):null;let ie=0;if(MiM)for(let i=0;i<16;i++)ie=Math.max(ie,Math.abs(MiM[i]-I4()[i]));
+  const p=(k,v,cls,w)=>`<div class="prop ${w?'w':''}"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`;
+  $('props').innerHTML=
+    p('det R (rotation part)',det3(R).toFixed(4),'ok')+
+    p('det M = s<sub>x</sub>s<sub>y</sub>s<sub>z</sub>',dM.toFixed(4))+
+    p('‖RᵀR − I‖',oe.toExponential(1),'ok')+
+    p('max |M⁻¹M − I|',MiM?ie.toExponential(1):'singular','ok')+
+    p('|P| before R',r0.toFixed(4))+
+    p('|R·P| after R',r1.toFixed(4),Math.abs(r0-r1)<1e-9?'ok':'')+
+    p('Equivalent rotation (axis–angle)',aa.k?`θ = ${(aa.th/D2R).toFixed(2)}°,  k̂ = (${aa.k.map(v=>fmt(v)).join(', ')})`:'θ = 0° (identity)','',true)+
+    p('Unit quaternion q = (w, x, y, z)',`(${q.map(v=>fmt(v)).join(', ')})`,'',true)+
+    p(`Gimbal lock (middle angle θ${mid} = ${ma}°)`,gim[1],gim[0],true);
+  const b=[];
+  if(gd<0.5)b.push('<span class="badge bad">Gimbal lock: θ'+mid+' = '+ma+'°</span>');
+  else if(gd<10)b.push('<span class="badge warn">Near gimbal lock</span>');
+  const sname=anim.k===0?'Original':anim.k===5?'Final':'After step '+anim.k;
+  b.unshift(`<span class="badge">${anim.playing?'Animating':sname}</span>`);
+  $('badges').innerHTML=b.join('');
+}
+let frameN=0;
+function updateInvariants(L,C){
+  const M=currentMatrix(L,C),S=SHAPES[st.shape],V=S.v.map(v=>[v[0],v[1],v[2],1]);
+  const tf=v=>apply(M,v),sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],len=a=>Math.hypot(a[0],a[1],a[2]);
+  const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const ang=(a,b)=>Math.acos(Math.max(-1,Math.min(1,dot(a,b)/(len(a)*len(b)||1))))/D2R;
+  const P=probeP(),Pm=tf(P);
+  // a second point Q: neighbour of the probe vertex along an edge (or V0 for a custom point)
+  let qi=0;if(st.probe!=='custom'){const e=S.e.find(e=>e.includes(st.probe));qi=e?(e[0]===st.probe?e[1]:e[0]):0;}
+  const Q=V[qi],Qm=tf(Q);
+  // angle between the two first edges meeting at V0
+  const e0=S.e.find(e=>e.includes(0));let far=0,fd=-1;V.forEach((v,i)=>{const dd=len(sub(v,V[0]));if(dd>fd){fd=dd;far=i;}});
+  const es=[e0[0]===0?e0[1]:e0[0],far];
+  const a0=ang(sub(V[es[0]],V[0]),sub(V[es[1]],V[0])),a1=ang(sub(tf(V[es[0]]),tf(V[0])),sub(tf(V[es[1]]),tf(V[0])));
+  const d=det3(M);
+  const tv=V.map(tf);const setSame=tv.every(p=>V.some(v=>len(sub(p,v))<1e-3));
+  const moved=len(sub(Pm,P));
+  const cen=v=>{const c=[0,0,0];v.forEach(p=>{c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];});return c.map(x=>x/v.length);};
+  const c0=cen(V),c1=cen(tv);
+  const eq=(a,b,tol)=>Math.abs(a-b)<(tol||1e-6);
+  const rows=[
+    ['|P| distance to origin',len(P),len(Pm),eq(len(P),len(Pm)),3],
+    [`|P − Q| distance (Q = V${qi})`,len(sub(P,Q)),len(sub(Pm,Qm)),eq(len(sub(P,Q)),len(sub(Pm,Qm))),3],
+    ['P − Q vector',null,null,len(sub(sub(Pm,Qm),sub(P,Q)))<1e-6,'vec',sub(P,Q),sub(Pm,Qm)],
+    [`Angle ∠(edge V0V${es[0]}, diagonal V0V${es[1]})`,a0,a1,eq(a0,a1,1e-4),2,'°'],
+    ['Volume factor det M',1,d,eq(d,1),3],
+    ['Handedness (sign of det)',1,Math.sign(d),Math.sign(d)>0,0],
+    ['Centroid of shape',null,null,len(sub(c1,c0))<1e-6,'vec',c0,c1],
+    ['P fixed point (M·P = P)',null,null,moved<1e-6,'txt',moved<1e-6?'yes':'moved '+moved.toFixed(3)],
+    ['Shape maps onto itself',null,null,setSame,'txt',setSame?'yes: symmetry':'no']
+  ];
+  const f=(v,n)=>(Math.abs(v)<5e-4?0:v).toFixed(n);
+  const fv=v=>'('+v.map(x=>f(x,2)).join(', ')+')';
+  $('invs').innerHTML=rows.map(r=>{
+    let val;if(r[4]==='vec')val=fv(r[5])+' → '+fv(r[6]);else if(r[4]==='txt')val=r[5];else val=f(r[1],r[4])+(r[5]||'')+' → '+f(r[2],r[4])+(r[5]||'');
+    return`<div class="inv ${r[3]?'yes':'no'}"><span class="k">${r[0]}</span><span class="v">${val}</span><span class="s" aria-label="${r[3]?'preserved':'changed'}">${r[3]?'✓':'✗'}</span></div>`;}).join('')+
+    '<div class="invsum">✓ = unchanged by the transformation so far. Step through the pipeline to see which stage breaks each invariant.</div>';
+}
+function updateAll(){
+  const L=stages(),C=cumul(L);
+  render();updatePipe(L);updateEq(L,C);
+  frameN++;if(!anim.playing||frameN%4===0){updateInspector(L,C);updatePoints(L,C);updateProps(C);updateInvariants(L,C);}
+}
+function changed(resetStage){syncInputs();if(resetStage&&!anim.playing){anim.k=5;}updateAll();}
 
-// === RIGHT PANEL ===
-function setMTab(t){
-  matTabSel=t;
-  ['rx','ry','rz','t','m'].forEach(id=>document.getElementById('mt-'+id).classList.toggle('active',id===t));
-  buildInspector();
+/* ───────── copy ───────── */
+function copyMatrix(M,f){
+  const r=[0,1,2,3].map(i=>M.slice(i*4,i*4+4).map(v=>fmt(v)));
+  let s;
+  if(f==='tex')s='\\begin{bmatrix}\n'+r.map(x=>x.join(' & ')).join(' \\\\\n')+'\n\\end{bmatrix}';
+  else if(f==='np')s='np.array([\n'+r.map(x=>'  ['+x.join(', ')+']').join(',\n')+'\n])';
+  else s=r.map(x=>x.join(',')).join('\n');
+  const done=()=>toast('Matrix copied ('+({tex:'LaTeX',np:'NumPy',csv:'CSV'})[f]+')');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(s).then(done,()=>fallback(s,done));else fallback(s,done);
 }
-function buildInspector(){
-  const t=matTabSel;let M,cls,lbl;
-  if(t==='rx'){M=mRx(rx);cls='ax';lbl='R_x('+rx.toFixed(1)+'^\\circ)';}
-  else if(t==='ry'){M=mRy(ry);cls='ay';lbl='R_y('+ry.toFixed(1)+'^\\circ)';}
-  else if(t==='rz'){M=mRz(rz);cls='az';lbl='R_z('+rz.toFixed(1)+'^\\circ)';}
-  else if(t==='t'){M=mT(tx,ty,tz);cls='ora';lbl='T('+tx.toFixed(2)+',\\,'+ty.toFixed(2)+',\\,'+tz.toFixed(2)+')';}
-  else{const{M4}=getMs();M=M4;cls='cyan';lbl='M=T\\,R_z R_y R_x S';}
-  setHTML('mat-inspector',`<div class="mlabel" style="margin-bottom:8px">\\(${lbl}\\)</div>${m44html(M,cls)}`);
-}
-function updateReadouts(){
-  const s=SHP[shape];if(!s||!s.v.length)return;
-  const p0=s.v[0];const{M1,M2,M3,M4}=getMs();
-  const v0=[p0[0]*sc,p0[1]*sc,p0[2]*sc,1];
-  const v1=mVec(M1,[p0[0],p0[1],p0[2],1]);
-  const v2=mVec(M2,[p0[0],p0[1],p0[2],1]);
-  const v3=mVec(M3,[p0[0],p0[1],p0[2],1]);
-  const v4=mVec(M4,[p0[0],p0[1],p0[2],1]);
-  const fv=v=>`x=${v[0].toFixed(2)} y=${v[1].toFixed(2)} z=${v[2].toFixed(2)}`;
-  setHTML('vread-wrap',`
-    <div class="vread"><div class="vl">\\(P_0\\) · ORIGINAL</div><div class="vc">${fv(v0)}</div></div>
-    <div class="vread ax"><div class="vl">\\(P_1\\) · AFTER \\(R_x\\)</div><div class="vc">${fv(v1)}</div></div>
-    <div class="vread ay"><div class="vl">\\(P_2\\) · AFTER \\(R_y\\)</div><div class="vc">${fv(v2)}</div></div>
-    <div class="vread az"><div class="vl">\\(P_3\\) · AFTER \\(R_z\\)</div><div class="vc">${fv(v3)}</div></div>
-    <div class="vread grn"><div class="vl">\\(P_4\\) · FINAL (after \\(T\\))</div><div class="vc">${fv(v4)}</div></div>`);
-  const Rx_=mRx(rx),Ry_=mRy(ry),Rz_=mRz(rz);
-  const row=(k,v)=>`<div class="proprow"><span class="pk">\\(${k}\\)</span><span class="pv">${v}</span></div>`;
-  setHTML('prop-wrap',
-    row('\\det R_x',det3(Rx_).toFixed(4))+row('\\det R_y',det3(Ry_).toFixed(4))+row('\\det R_z',det3(Rz_).toFixed(4))+
-    row('\\det T','1.0000')+row('\\det M',det3(M4).toFixed(4))+
-    row('|P_0|',Math.hypot(v0[0],v0[1],v0[2]).toFixed(3))+row('|P_4|',Math.hypot(v4[0],v4[1],v4[2]).toFixed(3))+
-    row('\\theta_x\\ \\mathrm{(rad)}',(rx*Math.PI/180).toFixed(4))+row('\\theta_y\\ \\mathrm{(rad)}',(ry*Math.PI/180).toFixed(4))+
-    row('\\theta_z\\ \\mathrm{(rad)}',(rz*Math.PI/180).toFixed(4))+row('s^3',(sc*sc*sc).toFixed(4)));
-  buildInspector();
-}
+function fallback(s,done){const t=document.createElement('textarea');t.value=s;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(_){toast('Copy failed');}t.remove();}
+let toastT;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600);}
 
-// === CONTROLS ===
-function uc(){
-  rx=parseFloat(document.getElementById('s-rx').value);
-  ry=parseFloat(document.getElementById('s-ry').value);
-  rz=parseFloat(document.getElementById('s-rz').value);
-  tx=parseFloat(document.getElementById('s-tx').value);
-  ty=parseFloat(document.getElementById('s-ty').value);
-  tz=parseFloat(document.getElementById('s-tz').value);
-  sc=parseFloat(document.getElementById('s-sc').value);
-  document.getElementById('v-rx').textContent=rx.toFixed(0)+'°';
-  document.getElementById('v-ry').textContent=ry.toFixed(0)+'°';
-  document.getElementById('v-rz').textContent=rz.toFixed(0)+'°';
-  document.getElementById('v-tx').textContent=tx.toFixed(2);
-  document.getElementById('v-ty').textContent=ty.toFixed(2);
-  document.getElementById('v-tz').textContent=tz.toFixed(2);
-  document.getElementById('v-sc').textContent=sc.toFixed(2)+'×';
-  renderScene();updateAmat();updateReadouts();
-}
-function setShape(s){shape=s;document.querySelectorAll('.shbt').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(s)));resetAnim();}
-function setOrd(o){rotOrd=o;['xyz','zyx','yxz'].forEach(id=>document.getElementById('ord-'+id).classList.toggle('active',id===o));resetAnim();}
-function resetView(){viewAz=-30;viewEl=20;viewZoom=1;renderScene();}
-function toggleWire(){wireframe=!wireframe;document.getElementById('btn-wire').classList.toggle('c',wireframe);renderScene();}
+/* ───────── orbit / zoom ───────── */
+let drag=null;
+CV.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};CV.setPointerCapture(e.pointerId);CV.classList.add('drag');});
+CV.addEventListener('pointermove',e=>{if(!drag)return;st.view.az+=(e.clientX-drag.x)*0.4;st.view.el=Math.max(-85,Math.min(85,st.view.el+(e.clientY-drag.y)*0.4));drag={x:e.clientX,y:e.clientY};render();});
+const endDrag=()=>{drag=null;CV.classList.remove('drag');};
+CV.addEventListener('pointerup',endDrag);CV.addEventListener('pointercancel',endDrag);
+function zoom(f){st.view.zoom=Math.max(0.4,Math.min(3,st.view.zoom*f));render();}
+CV.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.08:1/1.08);},{passive:false});
+$('zin').addEventListener('click',()=>zoom(1.15));$('zout').addEventListener('click',()=>zoom(1/1.15));
+$('resetView').addEventListener('click',()=>{st.view={az:-35,el:22,zoom:1};render();});
+$('resetAll').addEventListener('click',()=>{loadPreset('default');st.view={az:-35,el:22,zoom:1};render();});
 
-// === ORBIT ===
-CAN.addEventListener('mousedown',e=>{isDragging=true;dragX=e.clientX;dragY=e.clientY;});
-window.addEventListener('mousemove',e=>{if(!isDragging)return;viewAz+=(e.clientX-dragX)*0.4;viewEl=Math.max(-80,Math.min(80,viewEl+(e.clientY-dragY)*0.4));dragX=e.clientX;dragY=e.clientY;renderScene();});
-window.addEventListener('mouseup',()=>isDragging=false);
-CAN.addEventListener('wheel',e=>{e.preventDefault();viewZoom=Math.max(0.3,Math.min(3,viewZoom*(e.deltaY>0?1.08:0.93)));renderScene();},{passive:false});
-let tPrev=null;
-CAN.addEventListener('touchstart',e=>{tPrev=e.touches[0];},{passive:true});
-CAN.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];if(tPrev){viewAz+=(t.clientX-tPrev.clientX)*0.4;viewEl=Math.max(-80,Math.min(80,viewEl+(t.clientY-tPrev.clientY)*0.4));renderScene();}tPrev=t;},{passive:false});
-CAN.addEventListener('touchend',()=>tPrev=null);
-
-// === KEYBOARD ===
+/* ───────── keyboard ───────── */
 document.addEventListener('keydown',e=>{
-  if(document.activeElement.tagName==='INPUT')return;
-  const d=e.shiftKey?-5:5;
-  if(e.code==='Space'){e.preventDefault();animState==='running'?resetAnim():runAnim();}
-  if(e.code==='KeyR')resetAnim();
-  if(e.code==='KeyS')stepAnim();
-  if(e.code==='KeyX'){const s=document.getElementById('s-rx');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
-  if(e.code==='KeyY'){const s=document.getElementById('s-ry');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
-  if(e.code==='KeyZ'){const s=document.getElementById('s-rz');s.value=Math.max(-180,Math.min(180,+s.value+d));uc();}
-  if(e.code==='Equal'||e.code==='NumpadAdd'){viewZoom=Math.min(3,viewZoom*1.1);renderScene();}
-  if(e.code==='Minus'||e.code==='NumpadSubtract'){viewZoom=Math.max(0.3,viewZoom*0.9);renderScene();}
+  const tg=e.target.tagName;if(tg==='INPUT'||tg==='SELECT'||tg==='TEXTAREA'||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(!$('v-sim').classList.contains('active'))return;
+  const d=e.shiftKey?-5:5;const wrap=v=>Math.max(-180,Math.min(180,v));
+  switch(e.code){
+    case'Space':e.preventDefault();play();break;
+    case'ArrowRight':e.preventDefault();goto(anim.k+1);break;
+    case'ArrowLeft':e.preventDefault();goto(anim.k-1);break;
+    case'Home':goto(0);break;case'End':goto(5);break;
+    case'KeyX':st.ang.x=wrap(st.ang.x+d);changed();break;
+    case'KeyY':st.ang.y=wrap(st.ang.y+d);changed();break;
+    case'KeyZ':st.ang.z=wrap(st.ang.z+d);changed();break;
+    case'Equal':case'NumpadAdd':zoom(1.12);break;
+    case'Minus':case'NumpadSubtract':zoom(1/1.12);break;
+    case'KeyW':st.show.wire=!st.show.wire;$('d-wire').checked=st.show.wire;render();break;
+    case'KeyV':st.view={az:-35,el:22,zoom:1};render();break;
+    case'Slash':if(e.shiftKey){showTab('guide');}break;
+  }
 });
-function switchTab(id){
-  document.querySelectorAll('.tab').forEach((t,i)=>{const ids=['sim','phys','man'];t.classList.toggle('active',ids[i]===id);});
-  document.querySelectorAll('.tc').forEach(c=>c.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
+
+/* ───────── tabs ───────── */
+const TABS=['sim','theory','ex','guide'];
+function showTab(id){
+  TABS.forEach(t=>{$('t-'+t).setAttribute('aria-selected',String(t===id));$('v-'+t).classList.toggle('active',t===id);});
+  if(id==='sim')requestAnimationFrame(()=>{resize();render();});
+  else if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([$('v-'+id)]).catch(()=>{});
 }
-document.getElementById('btn-night').classList.toggle('active',theme==='night');
-document.getElementById('btn-day').classList.toggle('active',theme==='day');
-uc();
+TABS.forEach((t,i)=>{const b=$('t-'+t);b.addEventListener('click',()=>showTab(t));
+  b.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const n=TABS[(i+(e.key==='ArrowRight'?1:TABS.length-1))%TABS.length];showTab(n);$('t-'+n).focus();}});});
+
+/* ───────── init ───────── */
+setTheme(theme);
+buildProbe();syncInputs();
+if('ResizeObserver' in window)new ResizeObserver(()=>{resize();render();}).observe(CV);
+window.addEventListener('resize',()=>{resize();render();});
+resize();updateAll();
+})();
 </script>
 </body>
 </html>
