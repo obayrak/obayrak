@@ -119,7 +119,8 @@ input[type=number]{font-family:var(--font-num)}
 .plot-tools label.inline{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-2)}
 .plot-tools input[type=range]{width:120px;accent-color:var(--accent)}
 .canvas-box{position:relative;width:100%;border-radius:8px;overflow:hidden;background:var(--plot-bg);border:1px solid var(--line)}
-.canvas-box canvas{display:block;width:100%;height:100%}
+.canvas-box canvas,.canvas-box .plot{display:block;width:100%;height:100%}
+.plot-empty{display:grid;place-items:center;height:100%;padding:20px;text-align:center;color:var(--muted);font-size:1rem}
 .readout{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-family:var(--font-num);font-size:.84rem;color:var(--muted)}
 .readout b{color:var(--text);font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:var(--text-2);margin-top:8px}
@@ -222,6 +223,7 @@ input:disabled{opacity:.55}
   apply();
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js" crossorigin="anonymous"></script>
 <script src="../../theme.js"></script>
 </head>
 <body>
@@ -302,8 +304,8 @@ input:disabled{opacity:.55}
           <label class="check"><input type="checkbox" id="show-comp"> Show individual potentials</label>
           <label class="check"><input type="checkbox" id="show-forbid" checked> Shade forbidden region of selected state</label>
         </div>
-        <div class="canvas-box" style="height:480px"><canvas id="plot" aria-label="Effective potential with energy levels and wavefunctions"></canvas></div>
-        <div class="readout" id="readout"><span>Move the pointer over the plot to read r and V<sub>eff</sub>(r).</span></div>
+        <div class="canvas-box" style="height:500px"><div id="plot" class="plot" role="img" aria-label="Effective potential with energy levels and wavefunctions"></div></div>
+        <div class="readout" id="readout"><span>Point at a curve to read r, V<sub>eff</sub>(r) and u(r).</span></div>
         <div class="legend" id="legend"></div>
         <div class="status" id="status"></div>
       </div>
@@ -397,14 +399,14 @@ input:disabled{opacity:.55}
       <div class="shell-grid">
         <div class="card">
           <h2>Single-particle levels <span class="hint">click a level</span></h2>
-          <div class="canvas-box" style="height:620px"><canvas id="levels" aria-label="Single-particle level scheme"></canvas></div>
+          <div class="canvas-box" style="height:640px"><div id="levels" class="plot" role="img" aria-label="Single-particle level scheme"></div></div>
           <div class="legend"><span><i style="background:var(--accent)"></i>Occupied</span><span><i style="background:var(--muted)"></i>Empty</span><span><i style="background:var(--warn)"></i>Shell gap (number = nucleons below it)</span></div>
         </div>
         <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
           <div class="card jp-card" id="jp-card" aria-live="polite"></div>
           <div class="card">
             <h2 id="sh-wf-title">Radial wavefunction</h2>
-            <div class="canvas-box" style="height:320px"><canvas id="sh-plot" aria-label="Potential and wavefunction of the selected level"></canvas></div>
+            <div class="canvas-box" style="height:340px"><div id="sh-plot" class="plot" role="img" aria-label="Potential and wavefunction of the selected level"></div></div>
             <div class="readout" id="sh-readout"></div>
           </div>
           <div class="card">
@@ -930,36 +932,38 @@ const Solver = (() => {
 
 
 /* ════════════════════════════════════════════════════════════════
-   SMALL PLOTTING TOOLKIT
+   PLOTLY HELPERS (colours follow the Night / Day theme)
    ════════════════════════════════════════════════════════════════ */
-function prep(cv){
-  const box=cv.parentElement, dpr=window.devicePixelRatio||1, w=box.clientWidth, h=box.clientHeight;
-  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
-  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h};
+const PCFG={responsive:true,displaylogo:false,scrollZoom:false,modeBarButtonsToRemove:['select2d','lasso2d','toggleSpikelines'],toImageButtonOptions:{format:'png',scale:2,filename:'quantum-potential-simulator-ii'}};
+const hasPlotly=()=>typeof Plotly!=='undefined';
+function noPlotly(el){ el.innerHTML='<div class="plot-empty">The plotting library (Plotly) could not be loaded. Check the internet connection and reload the page.</div>'; }
+function emptyPlot(el,msg){ if(hasPlotly()) Plotly.purge(el); el.innerHTML=`<div class="plot-empty">${msg}</div>`; }
+function baseLayout(xt,yt){
+  const ax=t=>({title:{text:t,font:{size:13}},gridcolor:cssv('--plot-grid'),zerolinecolor:cssv('--plot-axis'),linecolor:cssv('--plot-axis'),showline:true,ticks:'outside',tickcolor:cssv('--plot-axis'),tickfont:{family:cssv('--font-num'),size:11},automargin:true});
+  return {paper_bgcolor:cssv('--plot-bg'),plot_bgcolor:cssv('--plot-bg'),font:{family:cssv('--font-ui'),size:13,color:cssv('--plot-text')},
+    margin:{l:62,r:14,t:12,b:46},xaxis:ax(xt),yaxis:ax(yt),showlegend:false,hovermode:'closest',dragmode:'zoom',
+    hoverlabel:{bgcolor:cssv('--surface'),bordercolor:cssv('--line-strong'),font:{family:cssv('--font-num'),size:12,color:cssv('--text')}},
+    modebar:{bgcolor:'rgba(0,0,0,0)',color:cssv('--muted'),activecolor:cssv('--accent')}};
 }
-function ticks(a,b,n){
-  const span=b-a; if(!(span>0)) return [a];
-  const raw=span/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/mag, step=(f<1.5?1:f<3?2:f<7?5:10)*mag, out=[];
-  for(let v=Math.ceil(a/step)*step; v<=b+1e-9*step; v+=step) out.push(Math.abs(v)<1e-12?0:v);
-  return out;
+const supL = s => s.replace(/(\d+)\/2/,'<sub>$1/2</sub>');   // 1f7/2 → 1f<sub>7/2</sub>
+/* Cut a curve where it leaves [lo, hi], adding the exact crossing point, so that
+   autoscaling follows the physics instead of 1/r singularities or hard walls. */
+function clip(xs,ys,lo,hi){
+  const X=[],Y=[]; let prevIn=false;
+  for(let i=0;i<ys.length;i++){
+    const y=ys[i], inW=y!==null&&Number.isFinite(y)&&y>=lo&&y<=hi;
+    if(i>0){ const y0=ys[i-1];
+      if(inW!==prevIn && y0!==null && y!==null && Number.isFinite(y0) && Number.isFinite(y)){
+        const b=(inW?(y0>hi?hi:lo):(y>hi?hi:lo)), t=(b-y0)/(y-y0); if(t>=0&&t<=1){ X.push(xs[i-1]+t*(xs[i]-xs[i-1])); Y.push(b); }
+        if(!inW){ X.push(null); Y.push(null); }
+      }
+    }
+    if(inW){ X.push(xs[i]); Y.push(y); }
+    prevIn=inW;
+  }
+  return {x:X,y:Y};
 }
-function frame(ctx,w,h,xr,yr,xl,yl,pad){
-  const P=pad||{l:58,r:16,t:14,b:44}, pw=w-P.l-P.r, ph=h-P.t-P.b;
-  const X=x=>P.l+(x-xr[0])/(xr[1]-xr[0])*pw, Y=y=>P.t+ph-(y-yr[0])/(yr[1]-yr[0])*ph;
-  ctx.font='12px '+cssv('--font-num'); ctx.fillStyle=cssv('--plot-text'); ctx.strokeStyle=cssv('--plot-grid'); ctx.lineWidth=1;
-  ticks(xr[0],xr[1],8).forEach(t=>{ const x=X(t); ctx.beginPath(); ctx.moveTo(x,P.t); ctx.lineTo(x,P.t+ph); ctx.stroke(); ctx.textAlign='center'; ctx.fillText(+t.toPrecision(6)+'',x,P.t+ph+17); });
-  ticks(yr[0],yr[1],7).forEach(t=>{ const y=Y(t); ctx.beginPath(); ctx.moveTo(P.l,y); ctx.lineTo(P.l+pw,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText(+t.toPrecision(6)+'',P.l-7,y+4); });
-  ctx.strokeStyle=cssv('--plot-axis'); ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(P.l,P.t); ctx.lineTo(P.l,P.t+ph); ctx.lineTo(P.l+pw,P.t+ph); ctx.stroke();
-  ctx.font='13px '+cssv('--font-ui'); ctx.fillStyle=cssv('--plot-text'); ctx.textAlign='center';
-  ctx.fillText(xl,P.l+pw/2,h-8);
-  ctx.save(); ctx.translate(15,P.t+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(yl,0,0); ctx.restore();
-  return {X,Y,P,pw,ph};
-}
-function polyline(ctx,X,Y,xs,ys,i0,i1,yr){
-  ctx.beginPath(); let pen=false; const lo=yr[0]-(yr[1]-yr[0])*2, hi=yr[1]+(yr[1]-yr[0])*2;
-  for(let i=i0;i<i1;i++){ const v=ys[i]; if(!Number.isFinite(v)){pen=false;continue;} const y=Y(Math.max(lo,Math.min(hi,v))); if(pen)ctx.lineTo(X(xs[i]),y); else {ctx.moveTo(X(xs[i]),y); pen=true;} }
-  ctx.stroke();
-}
+function once(el,ev,fn){ if(!el['_on_'+ev]){ el.on(ev,fn); el['_on_'+ev]=true; } }
 
 /* ════════════════════════════════════════════════════════════════
    MODE 1 — BOUND STATES OF THE SELECTED POTENTIALS
@@ -1001,6 +1005,7 @@ function compute(){
     return {...s,...o,nr:k,label:(k+1)+LNAME[l]+jlab,wkb:w,exact:ex,repTail:(!confining&&vEnd>0&&vPrev>vEnd&&s.E>0)};
   });
   R={on,any,zz,vcoul,h,r,N,Vs,Veff,comps,cent,states,thr,cut,confining,vEnd};
+  $('readout').innerHTML='<span>Point at a curve to read r, V<sub>eff</sub>(r) and u(r).</span>';
   if(G.sel>=states.length) G.sel=Math.max(0,states.length-1);
   renderTable(); renderPlot(); renderStatus();
 }
@@ -1043,58 +1048,63 @@ function viewRanges(){
     const sc=Math.max(span,Math.abs(e0));
     y0 = vmin > e0-30*sc ? vmin : e0-4*sc;   // show the whole well unless it is singular (1/r)
     y0-=0.04*(e1-y0+span); y1=e1+0.4*span;
-    if(Number.isFinite(R.thr) && R.thr<e1+1.5*span) y1=Math.max(y1,R.thr+0.15*span);
+    /* keep the threshold and the outer barrier in view (but not a wall that rises forever) */
+    if(Number.isFinite(R.thr) && R.thr<e1+2*sc) y1=Math.max(y1,R.thr+0.3*sc);
+    let tail=-Infinity; for(let i=Math.floor(iv/4);i<iv;i++) if(Number.isFinite(Veff[i])&&Veff[i]>tail) tail=Veff[i];
+    if(tail>e1) y1=Math.max(y1,Math.min(tail,e1+0.6*sc)+0.05*sc);
   }else{ y0=Math.max(vmin,-200); y1=Math.min(vmax,Math.max(G.Ecut,y0+10)); if(y1<=y0) y1=y0+10; }
   return {xr:[0,rv],yr:[y0,y1],iv};
 }
 
 function renderPlot(){
-  const cv=$('plot'), {ctx,w,h}=prep(cv); if(!R) return;
-  if(!R.any){ ctx.fillStyle=cssv('--muted'); ctx.font='15px '+cssv('--font-ui'); ctx.textAlign='center'; ctx.fillText('Tick a potential in the library to begin',w/2,h/2); $('legend').innerHTML=''; return; }
-  const {xr,yr,iv}=viewRanges(), eu=eUnit(yr[1]-yr[0]), ru=rUnit(xr[1]), F=frame(ctx,w,h,[xr[0]*ru.k,xr[1]*ru.k],[yr[0]*eu.k,yr[1]*eu.k],'r ('+ru.u+')','Energy ('+eu.u+')'), {P,pw,ph}=F, X=x=>F.X(x*ru.k), Y=y=>F.Y(y*eu.k), {r,Veff,states}=R;
-  ctx.save(); ctx.beginPath(); ctx.rect(P.l,P.t,pw,ph); ctx.clip();
-  const S=states[G.sel];
-  if(S && G.showForbid){ ctx.fillStyle=cssv('--forbid'); let st=-1; for(let i=0;i<=iv;i++){ const f=i<iv&&Veff[i]>S.E; if(f&&st<0)st=i; if(!f&&st>=0){ ctx.fillRect(X(r[st]),P.t,X(r[i-1])-X(r[st]),ph); st=-1; } } }
-  if(Number.isFinite(R.thr)&&R.thr>yr[0]&&R.thr<yr[1]){ ctx.strokeStyle=cssv('--plot-axis'); ctx.setLineDash([6,5]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(P.l,Y(R.thr)); ctx.lineTo(P.l+pw,Y(R.thr)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=cssv('--plot-text'); ctx.font='12px '+cssv('--font-ui'); ctx.textAlign='left'; ctx.fillText('threshold V(∞)',P.l+6,Y(R.thr)-5); }
+  const el=$('plot'); if(!R) return;
+  if(!hasPlotly()) return noPlotly(el);
+  if(!R.any){ emptyPlot(el,'Tick a potential in the library, or give both particles a charge, to begin.'); $('legend').innerHTML=''; return; }
+  const empty=el.querySelector('.plot-empty'); if(empty) empty.remove();
+  const {xr,yr,iv}=viewRanges(), eu=eUnit(yr[1]-yr[0]), ru=rUnit(xr[1]), {r,Veff,states}=R;
+  const st=Math.max(1,Math.ceil(iv/900)), idx=[]; for(let i=0;i<iv;i+=st) idx.push(i); if(idx[idx.length-1]!==iv-1) idx.push(iv-1);
+  const xs=idx.map(i=>r[i]*ru.k), Ys=a=>idx.map(i=>Number.isFinite(a[i])?a[i]*eu.k:null);
+  const ylo=yr[0]*eu.k, yhi=yr[1]*eu.k, C=ys=>clip(xs,ys,ylo,yhi);
+  const U=' '+eu.u, RU=' '+ru.u, T=[], shapes=[], ann=[], S=states[G.sel];
   const leg=[`<span><i style="background:${cssv('--veff')}"></i>V<sub>eff</sub>(r) = V(r) + centrifugal</span>`];
+  if(S && G.showForbid){ let a=-1; for(let i=0;i<=iv;i++){ const f=i<iv&&Veff[i]>S.E; if(f&&a<0)a=i; if(!f&&a>=0){ shapes.push({type:'rect',xref:'x',yref:'paper',x0:r[a]*ru.k,x1:r[i-1]*ru.k,y0:0,y1:1,fillcolor:cssv('--forbid'),line:{width:0},layer:'below'}); a=-1; } } }
+  if(Number.isFinite(R.thr)&&R.thr>yr[0]&&R.thr<yr[1]){ shapes.push({type:'line',xref:'paper',x0:0,x1:1,y0:R.thr*eu.k,y1:R.thr*eu.k,line:{color:cssv('--plot-axis'),width:1,dash:'dash'}}); ann.push({xref:'paper',x:0.01,y:R.thr*eu.k,yshift:9,xanchor:'left',text:'threshold V(∞)',showarrow:false,font:{size:12,color:cssv('--plot-text')}}); }
   if(G.showComp){
-    R.on.forEach((p,k)=>{ ctx.strokeStyle=p.defaultColor; ctx.lineWidth=1.4; ctx.setLineDash([5,4]); polyline(ctx,X,Y,r,R.comps[k],0,iv,yr); leg.push(`<span><i style="background:${p.defaultColor}"></i>${p.name}</span>`); });
-    if(R.zz!==0){ ctx.strokeStyle=cssv('--bad'); polyline(ctx,X,Y,r,R.vcoul,0,iv,yr); leg.push(`<span><i style="background:${cssv('--bad')}"></i>Coulomb Z₁Z₂e²/r (Z₁Z₂ = ${R.zz})</span>`); }
-    if(G.l>0){ ctx.strokeStyle=cssv('--warn'); polyline(ctx,X,Y,r,R.cent,0,iv,yr); leg.push(`<span><i style="background:${cssv('--warn')}"></i>Centrifugal ℏ²ℓ(ℓ+1)/2mr²</span>`); }
-    ctx.setLineDash([]);
+    R.on.forEach((p,k)=>{ T.push({...C(Ys(R.comps[k])),mode:'lines',line:{color:p.defaultColor,width:1.6,dash:'dash'},name:p.name,hovertemplate:p.name+'<br>r = %{x:.4g}'+RU+'<br>V = %{y:.5g}'+U+'<extra></extra>'}); leg.push(`<span><i style="background:${p.defaultColor}"></i>${p.name}</span>`); });
+    if(R.zz!==0){ T.push({...C(Ys(R.vcoul)),mode:'lines',line:{color:cssv('--bad'),width:1.6,dash:'dash'},hovertemplate:'Coulomb<br>r = %{x:.4g}'+RU+'<br>V = %{y:.5g}'+U+'<extra></extra>'}); leg.push(`<span><i style="background:${cssv('--bad')}"></i>Coulomb Z₁Z₂e²/r (Z₁Z₂ = ${R.zz})</span>`); }
+    if(G.l>0){ T.push({...C(Ys(R.cent)),mode:'lines',line:{color:cssv('--warn'),width:1.6,dash:'dash'},hovertemplate:'Centrifugal<br>r = %{x:.4g}'+RU+'<br>V = %{y:.5g}'+U+'<extra></extra>'}); leg.push(`<span><i style="background:${cssv('--warn')}"></i>Centrifugal ℏ²ℓ(ℓ+1)/2μr²</span>`); }
   }
-  ctx.strokeStyle=cssv('--veff'); ctx.lineWidth=2.4; polyline(ctx,X,Y,r,Veff,0,iv,yr);
-  const span=(yr[1]-yr[0]), gap=states.length>1?Math.min(...states.slice(1).map((s,i)=>s.E-states[i].E)):span*0.25;
+  T.push({...C(Ys(Veff)),mode:'lines',line:{color:cssv('--veff'),width:2.6},hovertemplate:'r = %{x:.4g}'+RU+'<br>V<sub>eff</sub> = %{y:.5g}'+U+'<extra></extra>'});
+  const span=yr[1]-yr[0], gap=states.length>1?Math.min(...states.slice(1).map((s,i)=>s.E-states[i].E)):span*0.25;
   states.forEach((s,i)=>{
-    const col=pal(i), selS=i===G.sel; let a=-1,b=-1; for(let k=0;k<iv;k++){ if(Veff[k]<=s.E){ if(a<0)a=k; b=k; } }
-    if(a<0){ a=0; b=iv-1; }
-    ctx.strokeStyle=col; ctx.globalAlpha=selS?1:0.75; ctx.lineWidth=selS?2.2:1.3; ctx.setLineDash(selS?[]:[2,3]);
-    ctx.beginPath(); ctx.moveTo(X(r[a]),Y(s.E)); ctx.lineTo(X(r[b]),Y(s.E)); ctx.stroke(); ctx.setLineDash([]);
+    const c=pal(i), sel=i===G.sel; let a=-1,b=-1; for(let k=0;k<iv;k++){ if(Veff[k]<=s.E){ if(a<0)a=k; b=k; } } if(a<0){ a=0; b=iv-1; }
+    const E=s.E*eu.k, info=`<b>${supL(s.label)}</b><br>E = ${fmtE(s.E)}<br>⟨r⟩ = ${fmtR(s.rMean)}`;
+    T.push({x:[r[a]*ru.k,(r[a]+r[b])/2*ru.k,r[b]*ru.k],y:[E,E,E],mode:'lines',line:{color:c,width:sel?3:1.6,dash:sel?'solid':'dot'},opacity:sel?1:0.8,meta:i,hovertemplate:info+'<extra>click to select</extra>'});
     if(G.wf!=='off'){
       let amax=0; for(let k=0;k<iv;k++){ const v=G.wf==='u'?Math.abs(s.u[k]):s.u[k]*s.u[k]; if(v>amax)amax=v; }
-      const sc=(Math.min(0.45*gap,0.22*span)*G.wfScale)/(amax||1), ys=new Float64Array(iv);
-      for(let k=0;k<iv;k++) ys[k]=s.E+sc*(G.wf==='u'?s.u[k]:s.u[k]*s.u[k]);
-      ctx.lineWidth=selS?2.2:1.5; polyline(ctx,X,Y,r,ys,0,iv,yr);
+      const sc=(Math.min(0.45*gap,0.22*span)*G.wfScale)/(amax||1);
+      T.push({x:xs,y:idx.map(k=>(s.E+sc*(G.wf==='u'?s.u[k]:s.u[k]*s.u[k]))*eu.k),mode:'lines',line:{color:c,width:sel?2.6:1.6},opacity:sel?1:0.85,meta:i,customdata:idx.map(k=>G.wf==='u'?s.u[k]:s.u[k]*s.u[k]),
+        hovertemplate:info+'<br>r = %{x:.4g}'+RU+'<br>'+(G.wf==='u'?'u(r)':'|u(r)|²')+' = %{customdata:.4g}<extra>click to select</extra>'});
     }
-    ctx.globalAlpha=1;
-    if(selS){ ctx.fillStyle=col; if(a>0){ ctx.beginPath(); ctx.arc(X(r[a]),Y(s.E),4.5,0,7); ctx.fill(); } if(b<iv-1){ ctx.beginPath(); ctx.arc(X(r[b]),Y(s.E),4.5,0,7); ctx.fill(); } }  // classical turning points
-    ctx.font=(selS?'600 ':'')+'12px '+cssv('--font-ui'); ctx.fillStyle=col; ctx.textAlign='right';
-    ctx.fillText(s.label+'  '+fmtE(s.E,2),P.l+pw-6,Y(s.E)-4);
+    if(sel){ const tp=[]; if(a>0)tp.push(r[a]); if(b<iv-1)tp.push(r[b]); if(tp.length) T.push({x:tp.map(v=>v*ru.k),y:tp.map(()=>E),mode:'markers',marker:{color:c,size:9,line:{color:cssv('--plot-bg'),width:1.5}},hovertemplate:'Classical turning point<br>r = %{x:.4g}'+RU+'<extra></extra>'}); }
+    ann.push({xref:'paper',x:1,xanchor:'right',y:E,yshift:9,showarrow:false,text:(sel?'<b>':'')+supL(s.label)+'  '+fmtE(s.E,2)+(sel?'</b>':''),font:{size:12,color:c}});
   });
-  ctx.restore();
-  leg.push(`<span><i style="background:${pal(0)}"></i>Energy levels${G.wf==='off'?'':G.wf==='u'?' with u(r)':' with |u(r)|²'}</span>`);
+  const L=baseLayout('r ('+ru.u+')','Energy ('+eu.u+')');
+  L.xaxis.autorange=true; L.yaxis.autorange=true; L.xaxis.rangemode='tozero'; L.shapes=shapes; L.annotations=ann;
+  L.uirevision=[G.p1,G.p2,G.l,ALL.filter(p=>ST[p.id].on).map(p=>p.id).join()].join('|');   // keep the zoom while sliders move
+  Plotly.react(el,T,L,PCFG);
+  R.view={ru,eu};
+  once(el,'plotly_click',d=>{ const p=d.points&&d.points[0]; if(p&&Number.isInteger(p.data.meta)){ G.sel=p.data.meta; renderTable(); renderPlot(); } });
+  once(el,'plotly_hover',d=>{ const p=d.points&&d.points[0]; if(!p||!R.view) return; showReadout(p.x/R.view.ru.k); });
+  leg.push(`<span><i style="background:${pal(0)}"></i>Energy levels${G.wf==='off'?'':G.wf==='u'?' with u(r)':' with |u(r)|²'} (click one to select it)</span>`);
   if(S&&G.showForbid) leg.push(`<span><i style="background:${cssv('--bad')};opacity:.5"></i>Forbidden region of ${S.label}</span>`);
+  leg.push('<span style="color:var(--muted)">Axes scale automatically. Drag to zoom; double-click or the Autoscale button to fit again; camera icon to save a PNG.</span>');
   $('legend').innerHTML=leg.join('');
-  cv._map={X,Y,P,pw,ph,xr,yr};
 }
-
-$('plot').addEventListener('mousemove',e=>{
-  const cv=$('plot'), m=cv._map; if(!m||!R) return; const b=cv.getBoundingClientRect(), x=e.clientX-b.left;
-  if(x<m.P.l||x>m.P.l+m.pw) return;
-  const rr=m.xr[0]+(x-m.P.l)/m.pw*(m.xr[1]-m.xr[0]), i=Math.max(0,Math.min(R.N-1,Math.round(rr/R.h)-1));
-  const S=R.states[G.sel];
-  $('readout').innerHTML=`<span>r = <b>${fmtR(R.r[i])}</b></span><span>V(r) = <b>${fmtE(R.Vs[i],3)}</b></span><span>V<sub>eff</sub>(r) = <b>${fmtE(R.Veff[i],3)}</b></span>`+(S?`<span>${sub(S.label)}: u(r) = <b>${S.u[i].toFixed(4)} fm<sup>−1/2</sup></b>, ${R.Veff[i]>S.E?'classically forbidden':'classically allowed'}</span>`:'');
-});
+function showReadout(rr){
+  const i=Math.max(0,Math.min(R.N-1,Math.round(rr/R.h)-1)), S=R.states[G.sel];
+  $('readout').innerHTML=`<span>r = <b>${fmtR(R.r[i])}</b></span><span>V(r) = <b>${fmtE(R.Vs[i],3)}</b></span><span>V<sub>eff</sub>(r) = <b>${fmtE(R.Veff[i],3)}</b></span>`+(S?`<span>${sub(S.label)}: u(r) = <b>${S.u[i].toPrecision(4)} fm<sup>−1/2</sup></b>, ${R.Veff[i]>S.E?'classically forbidden':'classically allowed'}</span>`:'');
+}
 
 /* ── Library UI ── */
 function buildLibrary(){
@@ -1311,46 +1321,47 @@ function shJP(){
 }
 function shRender(){ shLevels(); shPlot(); shTable(); shMagic(); shJP(); }
 function shLevels(){
-  const cv=$('levels'), {ctx,w,h}=prep(cv), lv=SH.levels; if(!lv.length) return;
-  const e0=lv[0].E, e1=0, pad={l:64,r:16,t:16,b:30}, ph=h-pad.t-pad.b, Y=E=>pad.t+(e1-E)/(e1-e0+2)*ph;
-  ctx.font='12px '+cssv('--font-num'); ctx.fillStyle=cssv('--plot-text'); ctx.strokeStyle=cssv('--plot-grid');
-  ticks(e0-1,e1,8).forEach(t=>{ const y=Y(t); ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText(t+'',pad.l-8,y+4); });
-  ctx.save(); ctx.translate(14,pad.t+ph/2); ctx.rotate(-Math.PI/2); ctx.font='13px '+cssv('--font-ui'); ctx.textAlign='center'; ctx.fillText('Energy (MeV)',0,0); ctx.restore();
-  const x0=pad.l+46, x1=x0+Math.min(140,(w-pad.l)*0.32), lx=x1+16;
+  const el=$('levels'), lv=SH.levels; if(!lv.length) return; if(!hasPlotly()) return noPlotly(el);
+  const top=Math.max(0.8,lv[lv.length-1].E+1), y0=lv[0].E-1.5, H=el.clientHeight||620, ph=H-16-40, perPx=(top-y0)/ph, gap=15*perPx;
+  const x0=0.16, x1=0.44, lx=0.50, T=[], shapes=[], ann=[];
   // labels pushed apart so they never overlap
-  const want=lv.map(x=>Y(x.E)), pos=want.slice(), gapPx=15;
-  for(let i=1;i<pos.length;i++) if(pos[i-1]-pos[i]<gapPx) pos[i]=pos[i-1]-gapPx;
-  const minTop=pad.t+6; if(pos[pos.length-1]<minTop){ pos[pos.length-1]=minTop; for(let i=pos.length-2;i>=0;i--) if(pos[i]-pos[i+1]<gapPx) pos[i]=pos[i+1]+gapPx; }
-  SH.hit=[];
-  SH.magic.forEach(m=>{ const y=Y(m.E); ctx.strokeStyle=cssv('--warn'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(x0-10,y); ctx.lineTo(x1+4,y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=cssv('--warn'); ctx.font='700 13px '+cssv('--font-num'); ctx.textAlign='right'; ctx.fillText(m.n,x0-12,y+4); });
+  const pos=lv.map(x=>x.E); for(let i=1;i<pos.length;i++) if(pos[i]-pos[i-1]<gap) pos[i]=pos[i-1]+gap;
+  const lim=top-0.5*gap; if(pos[pos.length-1]>lim){ pos[pos.length-1]=lim; for(let i=pos.length-2;i>=0;i--) if(pos[i+1]-pos[i]<gap) pos[i]=pos[i+1]-gap; }
+  SH.magic.forEach(m=>{ shapes.push({type:'line',x0:x0-0.05,x1:x1+0.02,y0:m.E,y1:m.E,line:{color:cssv('--warn'),width:1.3,dash:'dash'}}); ann.push({x:x0-0.06,y:m.E,xanchor:'right',showarrow:false,text:'<b>'+m.n+'</b>',font:{family:cssv('--font-num'),size:13,color:cssv('--warn')},hovertext:`Shell gap of ${m.gap.toFixed(2)} MeV after ${m.n} nucleons`}); });
   lv.forEach((x,i)=>{
-    const y=want[i], sel=i===SH.sel, col=x.occ==='empty'?cssv('--muted'):cssv('--accent');
-    ctx.strokeStyle=col; ctx.lineWidth=sel?4:2.2; ctx.setLineDash(x.occ==='empty'?[5,3]:[]);
-    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); ctx.setLineDash([]);
-    ctx.strokeStyle=cssv('--line-strong'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(lx-3,pos[i]); ctx.stroke();
-    ctx.font=(sel?'700 ':'')+'13px '+cssv('--font-ui'); ctx.fillStyle=sel?cssv('--text'):col; ctx.textAlign='left';
-    const nIn=x.occ==='part'?SH.fill-(x.cum-x.deg):0;
-    ctx.fillText(`${x.label}  (${x.occ==='part'?nIn+' of '+x.deg:x.deg})  ${x.E.toFixed(2)}`,lx,pos[i]+4);
-    SH.hit.push({y0:Math.min(y,pos[i])-7,y1:Math.max(y,pos[i])+7,i});
+    const sel=i===SH.sel, col=x.occ==='empty'?cssv('--muted'):cssv('--accent'), nIn=x.occ==='part'?SH.fill-(x.cum-x.deg):0;
+    const xsx=[]; for(let k=0;k<=8;k++) xsx.push(x0+(x1-x0)*k/8);
+    T.push({x:xsx,y:xsx.map(()=>x.E),mode:'lines',line:{color:col,width:sel?5:2.6,dash:x.occ==='empty'?'dash':'solid'},meta:i,
+      hovertemplate:`<b>${supL(x.label)}</b><br>E = ${x.E.toFixed(3)} MeV<br>2j+1 = ${x.deg}, ${x.occ==='full'?'full':x.occ==='part'?nIn+' of '+x.deg+' filled':'empty'}<br>Total up to here: ${x.cum}<extra>click to show u(r)</extra>`});
+    shapes.push({type:'line',x0:x1,x1:lx-0.01,y0:x.E,y1:pos[i],line:{color:cssv('--line-strong'),width:1}});
+    ann.push({x:lx,y:pos[i],xanchor:'left',showarrow:false,text:`${sel?'<b>':''}${supL(x.label)}  (${x.occ==='part'?nIn+' of '+x.deg:x.deg})  ${x.E.toFixed(2)}${sel?'</b>':''}`,font:{size:12.5,color:sel?cssv('--text'):col}});
   });
+  const L=baseLayout('','Energy (MeV)');
+  L.xaxis={visible:false,range:[0,1],fixedrange:true}; L.yaxis.autorange=true; L.shapes=shapes; L.annotations=ann; L.margin={l:62,r:8,t:16,b:24};
+  L.uirevision=SH.A+'|'+SH.Z+'|'+SH.type;
+  Plotly.react(el,T,L,{...PCFG,toImageButtonOptions:{format:'png',scale:2,filename:'shell-levels'}});
+  once(el,'plotly_click',d=>{ const p=d.points&&d.points[0]; if(p&&Number.isInteger(p.data.meta)){ SH.sel=p.data.meta; shRender(); } });
 }
-$('levels').addEventListener('click',e=>{ const b=$('levels').getBoundingClientRect(), y=e.clientY-b.top; let best=null,bd=1e9; (SH.hit||[]).forEach(hh=>{ const c=(hh.y0+hh.y1)/2, d=Math.abs(c-y); if(y>=hh.y0-3&&y<=hh.y1+3&&d<bd){bd=d;best=hh;} }); if(best){ SH.sel=best.i; shRender(); } });
 function shPlot(){
-  const cv=$('sh-plot'), {ctx,w,h}=prep(cv), x=SH.levels[SH.sel]; if(!x) return;
+  const el=$('sh-plot'), x=SH.levels[SH.sel]; if(!x) return; if(!hasPlotly()) return noPlotly(el);
   const {r,R}=SH.grid, iv=r.findIndex(v=>v>R+6), n=iv<0?r.length:iv;
   let vmin=Infinity; for(let i=0;i<n;i++) vmin=Math.min(vmin,x.V[i]);
-  const yr=[Math.max(vmin,-SH.V0-10)-3, 12], F=frame(ctx,w,h,[0,r[n-1]],yr,'r (fm)','Energy (MeV)'), {X,Y,P,pw,ph}=F;
-  ctx.save(); ctx.beginPath(); ctx.rect(P.l,P.t,pw,ph); ctx.clip();
-  ctx.strokeStyle=cssv('--plot-axis'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(X(R),P.t); ctx.lineTo(X(R),P.t+ph); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle=cssv('--plot-text'); ctx.font='12px '+cssv('--font-ui'); ctx.fillText('R = '+R.toFixed(2)+' fm',X(R)+5,P.t+14);
-  ctx.strokeStyle=cssv('--veff'); ctx.lineWidth=2.2; polyline(ctx,X,Y,r,x.V,0,n,yr);
-  ctx.strokeStyle=cssv('--level'); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(P.l,Y(x.E)); ctx.lineTo(P.l+pw,Y(x.E)); ctx.stroke();
-  let amax=0; for(let i=0;i<n;i++) amax=Math.max(amax,Math.abs(x.u[i])); const sc=0.28*(yr[1]-yr[0])/amax, ys=new Float64Array(n); for(let i=0;i<n;i++) ys[i]=x.E+sc*x.u[i];
-  ctx.strokeStyle=cssv('--accent'); ctx.lineWidth=2.2; polyline(ctx,X,Y,r,ys,0,n,yr);
-  ctx.restore();
+  const yr=[Math.max(vmin,-SH.V0-10)-3,12], rs=Array.from(r.slice(0,n)), V=Array.from(x.V.slice(0,n));
+  let amax=0; for(let i=0;i<n;i++) amax=Math.max(amax,Math.abs(x.u[i])); const sc=0.28*(yr[1]-yr[0])/amax;
+  const T=[
+    {...clip(rs,V,yr[0],yr[1]),mode:'lines',line:{color:cssv('--veff'),width:2.4},hovertemplate:'r = %{x:.3f} fm<br>V<sub>eff</sub> = %{y:.3f} MeV<extra></extra>'},
+    {x:[0,rs[n-1]],y:[x.E,x.E],mode:'lines',line:{color:cssv('--level'),width:1.6},hovertemplate:`E = ${x.E.toFixed(3)} MeV<extra></extra>`},
+    {x:rs,y:rs.map((_,i)=>x.E+sc*x.u[i]),customdata:Array.from(x.u.slice(0,n)),mode:'lines',line:{color:cssv('--accent'),width:2.4},hovertemplate:'r = %{x:.3f} fm<br>u(r) = %{customdata:.4f} fm<sup>−1/2</sup><extra>'+supL(x.label)+'</extra>'}
+  ];
+  const L=baseLayout('r (fm)','Energy (MeV)');
+  L.xaxis.autorange=true; L.yaxis.autorange=true; L.xaxis.rangemode='tozero';
+  L.shapes=[{type:'line',x0:R,x1:R,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1,dash:'dot'}}];
+  L.annotations=[{x:R,yref:'paper',y:1,xanchor:'left',yanchor:'top',xshift:4,showarrow:false,text:'R = '+R.toFixed(2)+' fm',font:{size:12,color:cssv('--plot-text')}}];
+  Plotly.react(el,T,L,{...PCFG,toImageButtonOptions:{format:'png',scale:2,filename:'shell-wavefunction'}});
   $('sh-wf-title').innerHTML=`Radial wavefunction of ${sub(x.label)}`;
   $('sh-readout').innerHTML=`<span>E = <b>${x.E.toFixed(3)} MeV</b></span><span>⟨r⟩ = <b>${x.rMean.toFixed(2)} fm</b></span><span>r<sub>rms</sub> = <b>${x.rRms.toFixed(2)} fm</b></span><span>2j+1 = <b>${x.deg}</b></span><span>Potential curve: V<sub>eff</sub> for ℓ = ${x.l}, j = ${2*x.j}/2</span>`;
 }
+
 function shTable(){
   const tb=$('sh-table').querySelector('tbody'); tb.innerHTML='';
   SH.levels.forEach((x,i)=>{ const tr=document.createElement('tr'); if(i===SH.sel) tr.className='sel';
@@ -1380,7 +1391,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{
   const b=e.target.closest('.tab'); if(!b) return;
   document.querySelectorAll('.tab').forEach(t=>{ const on=t===b; t.classList.toggle('on',on); t.setAttribute('aria-selected',on); });
   document.querySelectorAll('.mode').forEach(m=>m.classList.toggle('on',m.id==='mode-'+b.dataset.mode));
-  if(b.dataset.mode==='shell'){ if(!shReady){ shReady=true; shCompute(); } else shRender(); } else renderPlot();
+  if(b.dataset.mode==='shell'){ if(!shReady){ shReady=true; shCompute(); } else shRender(); } else { renderPlot(); if(hasPlotly()) Plotly.Plots.resize($('plot')); }
   try{ history.replaceState(null,'','#'+b.dataset.mode); }catch(_){}
 });
 (function(){
@@ -1390,7 +1401,8 @@ document.querySelector('.tabs').addEventListener('click',e=>{
   vis(); window.addEventListener('resize',vis); window.__siteTheme.apply();
 })();
 window.addEventListener('themechange',()=>{ if(R){ renderTable(); renderPlot(); } if(shReady) shRender(); });
-try{ new ResizeObserver(()=>{ if(R) renderPlot(); if(shReady&&$('mode-shell').classList.contains('on')) shRender(); }).observe(document.body); }catch(_){ window.addEventListener('resize',()=>{ renderPlot(); if(shReady) shRender(); }); }
+/* the level diagram places its labels in pixels, so redraw it when its size changes */
+let rsT=null; window.addEventListener('resize',()=>{ clearTimeout(rsT); rsT=setTimeout(()=>{ if(shReady&&$('mode-shell').classList.contains('on')) shLevels(); },150); });
 
 /* start */
 buildLibrary(); renderInfo(); syncJ(); setTwoBody({p1:'N',p2:'inf'});
