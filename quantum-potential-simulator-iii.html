@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum Potential Simulator III: Tunnelling, Wave Packets and Scattering</title>
+<meta name="description" content="Quantum tunnelling through barriers (transfer matrix, WKB, resonant tunnelling, field emission, α-decay half-lives), time-dependent wave packets, and 3D partial-wave scattering with phase shifts, cross-sections, scattering length and resonances.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b14; --surface:#0d1424; --surface-2:#121b30; --raised:#18233b;
+  --line:rgba(160,190,230,0.14); --line-strong:rgba(160,190,230,0.28);
+  --text:#e6eefa; --text-2:#b4c4dc; --muted:#8ea2bf;
+  --accent:#38d3f5; --accent-ink:#04131a; --accent-soft:rgba(56,211,245,0.12);
+  --warn:#fbbf24; --good:#4ade80; --bad:#f87171;
+  --plot-bg:#0a1120; --plot-grid:rgba(160,190,230,0.10); --plot-axis:rgba(160,190,230,0.45); --plot-text:#a9bad3;
+  --veff:#f5f7fb; --level:#fbbf24; --forbid:rgba(248,113,113,0.10);
+  --font-ui:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --font-read:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --font-num:'JetBrains Mono','Consolas',monospace;
+  --radius:10px;
+  color-scheme:dark;
+}
+html.day{
+  --bg:#FFFDF0; --surface:#FFFFFF; --surface-2:#FBF7E8; --raised:#F4EDD6;
+  --line:rgba(41,37,31,0.13); --line-strong:rgba(41,37,31,0.26);
+  --text:#29251F; --text-2:#4A4236; --muted:#6B6152;
+  --accent:#00707F; --accent-ink:#FFFFFF; --accent-soft:rgba(0,112,127,0.09);
+  --warn:#8A5200; --good:#1B7A3C; --bad:#B42318;
+  --plot-bg:#FFFFFF; --plot-grid:rgba(41,37,31,0.08); --plot-axis:rgba(41,37,31,0.45); --plot-text:#4A4236;
+  --veff:#29251F; --level:#9a5b00; --forbid:rgba(180,35,24,0.07);
+  --font-read:Georgia,'Times New Roman',serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);line-height:1.6;-webkit-font-smoothing:antialiased}
+html.day body{line-height:1.75}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+sub,sup{font-size:.72em}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 22px;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:22px;font-weight:700;flex-shrink:0}
+.brand h1{font-size:1.15rem;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.brand p{font-size:.85rem;color:var(--muted);line-height:1.3}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);margin-left:auto}
+.tab{border:0;background:none;padding:7px 14px;border-radius:7px;font-weight:600;font-size:.95rem;color:var(--text-2);cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.on{background:var(--accent);color:var(--accent-ink)}
+.units{font-family:var(--font-num);font-size:.78rem;color:var(--muted);white-space:nowrap}
+.theme-sw{display:none;gap:3px;padding:3px;border-radius:8px;border:1px solid var(--line)}
+.theme-sw.show{display:flex}
+.theme-sw button{min-width:32px;height:28px;border:0;border-radius:6px;background:none;color:var(--text-2);cursor:pointer;font-size:15px}
+.theme-sw button.on{background:var(--warn);color:#1b1406}
+html.day .theme-sw button.on{background:#F2C14E;color:#29251F}
+
+/* layout */
+.mode{display:none}
+.mode.on{display:block}
+.layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px;padding:20px 22px 28px;max-width:1600px;margin:0 auto;align-items:start}
+.side{display:flex;flex-direction:column;gap:16px}
+.content{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h2{font-size:1.02rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h2 .hint{font-weight:400;font-size:.85rem;color:var(--muted);margin-left:auto}
+.intro{font-family:var(--font-read);font-size:1rem;color:var(--text-2)}
+.intro b{color:var(--text)}
+
+/* form controls */
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 12px;margin:10px 0}
+.row label{font-size:.92rem;color:var(--text-2)}
+.row .val{font-family:var(--font-num);font-size:.88rem;color:var(--text);min-width:64px;text-align:right}
+.row input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.row small{grid-column:1 / -1;color:var(--muted);font-size:.82rem;line-height:1.45;margin-top:-2px}
+select,input[type=number]{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:.95rem}
+input[type=number]{font-family:var(--font-num)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{white-space:nowrap;flex:1;min-width:0;padding:6px 8px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-size:.9rem;font-weight:600}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:1.1rem;cursor:pointer}
+.stepper span{white-space:nowrap}
+.stepper output{font-family:var(--font-num);font-size:1.15rem;min-width:28px;text-align:center}
+.check{display:flex;align-items:center;gap:8px;font-size:.92rem;color:var(--text-2);cursor:pointer;margin:6px 0}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.btn{padding:7px 12px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:.9rem;font-weight:600;cursor:pointer;color:var(--text)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets .btn{font-weight:500}
+.field{margin:10px 0}
+.field > span{display:block;font-size:.92rem;color:var(--text-2);margin-bottom:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* potential library */
+.group{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.group:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.group-title{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0}
+.pot{border-radius:8px}
+.pot-head{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:8px;padding:6px 6px;border-radius:8px}
+.pot-head:hover{background:var(--surface-2)}
+.pot.on .pot-head{background:var(--accent-soft)}
+.pot-head input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+.swatch{width:12px;height:12px;border-radius:3px}
+.pot-name{font-size:.95rem;cursor:pointer;line-height:1.3}
+.pot-more{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 6px;border-radius:5px}
+.pot-more:hover{color:var(--accent)}
+.pot-body{display:none;padding:2px 8px 10px 30px}
+.pot.open .pot-body{display:block}
+.pot-body .row{margin:8px 0}
+
+/* plots */
+.plot-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-bottom:10px}
+.plot-tools .seg{flex:0 0 auto}
+.plot-tools .seg button{flex:0 0 auto;padding:5px 10px}
+.plot-tools label.inline{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-2)}
+.plot-tools input[type=range]{width:120px;accent-color:var(--accent)}
+.canvas-box{position:relative;width:100%;border-radius:8px;overflow:hidden;background:var(--plot-bg);border:1px solid var(--line)}
+.canvas-box canvas,.canvas-box .plot{display:block;width:100%;height:100%}
+.plot-empty{display:grid;place-items:center;height:100%;padding:20px;text-align:center;color:var(--muted);font-size:1rem}
+.readout{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-family:var(--font-num);font-size:.84rem;color:var(--muted)}
+.readout b{color:var(--text);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:var(--text-2);margin-top:8px}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.status{font-size:.92rem;color:var(--text-2);margin-top:8px}
+.status.warn{color:var(--warn)}
+
+/* tables */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{font-weight:600;text-align:right;color:var(--muted);font-size:.82rem;padding:8px 10px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 10px;text-align:right;font-family:var(--font-num);font-size:.88rem;border-bottom:1px solid var(--line);white-space:nowrap}
+td.lbl{font-family:var(--font-ui);font-weight:700;font-size:.95rem}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+td .flag{color:var(--warn);font-family:var(--font-ui)}
+.empty{padding:14px;color:var(--muted);font-size:.95rem}
+.note{font-size:.88rem;color:var(--muted);margin-top:10px;line-height:1.55}
+
+/* info + theory */
+.info h3{font-size:1.05rem;margin-bottom:6px}
+.formula{font-family:var(--font-num);font-size:.9rem;white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0 12px;color:var(--text)}
+.info dl{display:grid;grid-template-columns:110px 1fr;gap:6px 14px;font-family:var(--font-read)}
+.info dt{font-family:var(--font-ui);font-weight:700;color:var(--muted);font-size:.85rem;padding-top:2px}
+.info dd{white-space:pre-line;font-size:.98rem;color:var(--text-2)}
+details.theory summary{cursor:pointer;font-weight:700;font-size:1.02rem}
+details.theory .body{font-family:var(--font-read);color:var(--text-2);margin-top:10px;font-size:1rem}
+details.theory p{margin:8px 0}
+details.theory .eq{font-family:var(--font-num);font-size:.92rem;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0;color:var(--text);overflow-x:auto;white-space:nowrap}
+
+/* two-body panel */
+.pbox{border:1px solid var(--line);border-radius:9px;padding:6px 12px 2px;margin:10px 0;background:var(--surface-2)}
+.pbox .field{margin:8px 0}
+.mu-box{font-family:var(--font-num);font-size:.86rem;line-height:1.7;color:var(--text-2);background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin:8px 0}
+.mu-box b{color:var(--text);font-weight:500}
+.linkbtn{border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit;padding:0}
+input:disabled{opacity:.55}
+
+/* example drawer */
+.drawer-open{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent-soft);cursor:pointer;color:var(--text)}
+.drawer-open:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.drawer-open b{display:block;font-size:1.02rem}
+.drawer-open small{display:block;color:var(--text-2);font-size:.88rem;line-height:1.35}
+.do-icon{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:16px}
+.do-arrow{font-size:1.6rem;color:var(--accent);line-height:1}
+.drawer-back{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45)}
+.drawer{position:fixed;top:0;bottom:0;left:0;z-index:41;width:min(460px,100%);overflow-y:auto;background:var(--surface);border-right:1px solid var(--line-strong);box-shadow:12px 0 40px rgba(0,0,0,.35);padding:18px 20px 28px;transform:translateX(-100%);transition:transform .22s ease}
+.drawer.open{transform:none}
+.drawer[hidden],.drawer-back[hidden]{display:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.drawer-head h2{font-size:1.15rem}
+.drawer-close{width:34px;height:34px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface-2);cursor:pointer;font-size:15px}
+.ex-group{margin-top:16px}
+.ex-group h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.ex{display:block;width:100%;text-align:left;padding:11px 13px;margin-bottom:8px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;color:var(--text)}
+.ex:hover{border-color:var(--accent)}
+.ex.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.ex .ex-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.98rem}
+.ex .ex-desc{display:block;font-size:.9rem;color:var(--text-2);margin-top:3px;line-height:1.45}
+.ex .ex-look{display:block;font-size:.86rem;color:var(--muted);margin-top:4px;line-height:1.45}
+.tag{display:inline-block;padding:0 7px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.03em;border:1px solid var(--line-strong);color:var(--text-2)}
+.tag.exact{border-color:var(--good);color:var(--good)}
+
+/* spin–parity */
+.jp-card h2{margin-bottom:4px}
+.jp-main{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:6px 0 8px}
+.jp-big{font-family:var(--font-num);font-size:2.1rem;font-weight:500;color:var(--accent);line-height:1.1}
+.jp-meas{font-size:.98rem;color:var(--text-2)}
+.jp-meas b{font-family:var(--font-num);color:var(--text)}
+.jp-ok{color:var(--good);font-weight:700}.jp-no{color:var(--bad);font-weight:700}
+.jp-why{font-family:var(--font-read);font-size:.98rem;color:var(--text-2)}
+.jp-why b{color:var(--text)}
+
+/* shell model */
+.shell-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start}
+.magic{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-family:var(--font-num);font-size:.85rem;margin:2px 4px 2px 0}
+
+@media(max-width:1100px){.shell-grid{grid-template-columns:1fr}}
+@media(max-width:980px){.layout{grid-template-columns:1fr;padding:14px}.tabs{margin-left:0}.content{order:-1}.top{position:static}}
+@media(max-width:560px){.top{padding:10px 12px}.units{display:none}.brand p{display:none}.info dl{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+
+/* ── Simulator III additions ── */
+.pbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 22px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.pbar .lbl{font-size:.85rem;font-weight:700;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.pbar select{width:auto;min-width:220px}
+.pbar input[type=number]{width:130px}
+.pbar .chip{font-family:var(--font-num);font-size:.86rem;color:var(--text-2);background:var(--accent-soft);padding:4px 10px;border-radius:999px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.stat b{display:block;font-family:var(--font-num);font-size:1.15rem;font-weight:500;color:var(--text)}
+.stat span{font-size:.82rem;color:var(--muted)}
+.stat.hl b{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{color:var(--accent-ink);filter:brightness(1.08)}
+.progress{font-size:.88rem;color:var(--muted)}
+.halflife{border:1px solid var(--warn);border-radius:var(--radius);padding:14px 16px;background:color-mix(in srgb,var(--warn) 8%,transparent)}
+.halflife h2{color:var(--warn)}
+.formula{margin:6px 0 10px}
+@media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+@media(max-width:560px){.pbar{padding:10px 12px}.pbar select{min-width:0;width:100%}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js" crossorigin="anonymous"></script>
+<script>
+/* Night/Day: shares the site-wide choice (localStorage "siteTheme") and the
+   site's Night/Day buttons. Day mode is a cream "paper" theme with Georgia text. */
+(function(){
+  var KEY='siteTheme', de=document.documentElement;
+  function get(){ try{ return localStorage.getItem(KEY)||''; }catch(e){ return ''; } }
+  function mode(){ return get()==='day'?'day':'night'; }
+  function apply(){
+    var m=mode(); de.classList.toggle('day',m==='day');
+    document.querySelectorAll('.theme-sw button').forEach(function(b){ b.classList.toggle('on',b.dataset.m===m); });
+    try{ if(window.parent!==window && window.parent.__siteThemeSync) window.parent.__siteThemeSync(m); }catch(e){}
+    window.dispatchEvent(new CustomEvent('themechange',{detail:m}));
+  }
+  function set(m){ try{ localStorage.setItem(KEY,m); }catch(e){} apply(); }
+  window.__siteTheme={ set:set, mode:mode, apply:apply };
+  window.addEventListener('storage',function(e){ if(e.key===KEY) apply(); });
+  apply();
+})();
+</script>
+<script src="../../theme.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">T</div>
+    <div><h1>Quantum Potential Simulator III</h1><p>Tunnelling, wave packets and quantum scattering</p></div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Simulator mode">
+    <button class="tab on" role="tab" aria-selected="true" data-mode="tun">Tunnelling</button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="wp">Wave packet</button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="sc">3D scattering</button>
+  </nav>
+  <div class="theme-sw" role="group" aria-label="Colour theme"><button type="button" data-m="night" title="Night mode" aria-label="Night mode">&#9790;</button><button type="button" data-m="day" title="Day mode" aria-label="Day mode">&#9728;</button></div>
+</header>
+
+<div class="pbar" aria-label="Units and particle">
+  <span class="lbl">Units</span>
+  <div class="seg" id="units-seg" style="flex:0 0 auto"><button type="button" data-u="ev" class="on" title="Electrons, atoms, semiconductors">eV · nm</button><button type="button" data-u="mev" title="Nucleons, α particles, nuclei">MeV · fm</button></div>
+  <span class="lbl">Particle</span>
+  <select id="particle" aria-label="Particle"></select>
+  <label style="display:flex;align-items:center;gap:6px;font-size:.92rem;color:var(--text-2)">m = <input type="number" id="mass" min="1e-6" step="any" aria-label="Mass in MeV/c²"> MeV/c²</label>
+  <span class="chip" id="c-chip"></span>
+  <button type="button" class="btn" id="open-examples" aria-haspopup="dialog" aria-controls="examples-drawer" style="margin-left:auto">&#9776; Example models</button>
+</div>
+
+<!-- ═══════════════ TAB 1: TUNNELLING ═══════════════ -->
+<section class="mode on" id="mode-tun">
+  <div class="layout">
+    <aside class="side">
+      <div class="card">
+        <h2>Barrier</h2>
+        <div class="field"><span>Potential</span><select id="t-model"></select></div>
+        <div id="t-params"></div>
+        <div class="formula" id="t-formula"></div>
+      </div>
+      <div class="card">
+        <h2>Energy</h2>
+        <div class="row"><label for="t-E">Particle energy E</label><span class="val" id="t-E-v"></span><input type="range" id="t-E" min="0" max="1" step="0.0005" value="0.5"><small>Click the T(E) plot to jump to an energy.</small></div>
+        <div class="two">
+          <label class="field"><span>E from</span><input type="number" id="t-Emin" step="any"></label>
+          <label class="field"><span>E to</span><input type="number" id="t-Emax" step="any"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="t-log" checked> Logarithmic T axis</label>
+        <div class="seg" id="t-wf" role="group" aria-label="Wavefunction display" style="margin-top:8px"><button type="button" data-w="abs" class="on">|ψ(x)|²</button><button type="button" data-w="re">Re ψ(x)</button></div>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="card">
+        <h2>Transmission at E = <span id="t-Ehead"></span></h2>
+        <div class="stats" id="t-stats"></div>
+        <div class="halflife" id="t-alpha" style="margin-top:14px" hidden></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>Potential and wavefunction</h2>
+          <div class="canvas-box" style="height:400px"><div id="t-plot-x" class="plot" role="img" aria-label="Potential and wavefunction"></div></div>
+          <p class="note">An incoming wave of amplitude 1 arrives from the left. Inside the barrier the wavefunction decays; what leaves on the right is the transmitted wave.</p>
+        </div>
+        <div class="card">
+          <h2>Transmission T(E) and reflection R(E)</h2>
+          <div class="canvas-box" style="height:400px"><div id="t-plot-e" class="plot" role="img" aria-label="Transmission versus energy"></div></div>
+          <p class="note" id="t-note">Solid: exact numerical result (transfer matrix). Dotted: WKB estimate exp(−2∫κdx). Dashed: analytic formula, where one exists.</p>
+        </div>
+      </div>
+      <div class="card info" id="t-info"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TAB 2: WAVE PACKET ═══════════════ -->
+<section class="mode" id="mode-wp">
+  <div class="layout">
+    <aside class="side">
+      <div class="card">
+        <h2>Wave packet</h2>
+        <p class="note" style="margin:0 0 6px">The barrier and particle are those of the Tunnelling tab. A Gaussian packet is sent at it and the time-dependent Schrödinger equation is solved step by step (Crank–Nicolson).</p>
+        <div class="row"><label for="w-E">Mean energy E₀</label><span class="val" id="w-E-v"></span><input type="range" id="w-E" min="0" max="1" step="0.0005" value="0.5"></div>
+        <div class="row"><label for="w-s">Packet width σ</label><span class="val" id="w-s-v"></span><input type="range" id="w-s" min="0.2" max="6" step="0.05" value="1.5"><small>A wider packet has a sharper energy, so its transmission approaches T(E₀).</small></div>
+        <div class="row"><label for="w-speed">Simulation speed</label><span class="val" id="w-speed-v"></span><input type="range" id="w-speed" min="1" max="60" step="1" value="12"></div>
+        <div class="btnrow" style="margin-top:10px">
+          <button type="button" class="btn primary" id="w-play">▶ Play</button>
+          <button type="button" class="btn" id="w-reset">↺ Reset</button>
+        </div>
+        <label class="check" style="margin-top:10px"><input type="checkbox" id="w-re"> Also show Re ψ</label>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="card">
+        <h2>Probability density |ψ(x, t)|²</h2>
+        <div class="canvas-box" style="height:440px"><div id="w-plot" class="plot" role="img" aria-label="Wave packet probability density"></div></div>
+        <div class="readout" id="w-readout"></div>
+      </div>
+      <div class="card">
+        <h2>Where is the particle?</h2>
+        <div class="stats" id="w-stats"></div>
+        <p class="note">At the end, the transmitted probability should equal the transmission T(E) averaged over the energies contained in the packet, not T(E₀) itself. Probability that reaches the edges of the box is absorbed there and still counted on its side.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TAB 3: 3D SCATTERING ═══════════════ -->
+<section class="mode" id="mode-sc">
+  <div class="layout">
+    <aside class="side">
+      <div class="card">
+        <h2>Scattering potential</h2>
+        <div class="field"><span>Potential</span><select id="s-model"></select></div>
+        <div id="s-params"></div>
+        <div class="formula" id="s-formula"></div>
+      </div>
+      <div class="card">
+        <h2>Energies and partial waves</h2>
+        <div class="two">
+          <label class="field"><span>E from</span><input type="number" id="s-Emin" step="any"></label>
+          <label class="field"><span>E to</span><input type="number" id="s-Emax" step="any"></label>
+        </div>
+        <div class="row"><label for="s-E">Energy for the angular plot</label><span class="val" id="s-E-v"></span><input type="range" id="s-E" min="0" max="1" step="0.001" value="0.3"></div>
+        <div class="row"><label for="s-L">Highest ℓ</label><span class="val" id="s-L-v"></span><input type="range" id="s-L" min="0" max="25" step="1" value="4"></div>
+        <label class="check"><input type="checkbox" id="s-Lauto" checked> Choose ℓ<sub>max</sub> automatically (≈ k<sub>max</sub>·range + 2)</label>
+        <label class="check"><input type="checkbox" id="s-log"> Logarithmic σ axis</label>
+        <div class="progress" id="s-progress"></div>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="card">
+        <h2>Low-energy scattering</h2>
+        <div class="stats" id="s-low"></div>
+        <p class="note" id="s-res"></p>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Cross-section σ(E)</h2><div class="canvas-box" style="height:380px"><div id="s-plot-sig" class="plot" role="img" aria-label="Cross-section versus energy"></div></div></div>
+        <div class="card"><h2>Phase shifts δ<sub>ℓ</sub>(E)</h2><div class="canvas-box" style="height:380px"><div id="s-plot-del" class="plot" role="img" aria-label="Phase shifts versus energy"></div></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Angular distribution dσ/dΩ at <span id="s-Ehead"></span></h2><div class="canvas-box" style="height:360px"><div id="s-plot-ang" class="plot" role="img" aria-label="Differential cross-section"></div></div></div>
+        <div class="card"><h2>Partial waves at <span id="s-Ehead2"></span></h2><div class="table-wrap"><table id="s-table"><thead><tr><th>ℓ</th><th>δ<sub>ℓ</sub> (deg)</th><th>sin²δ<sub>ℓ</sub></th><th>σ<sub>ℓ</sub></th><th>Share</th></tr></thead><tbody></tbody></table></div><p class="note" id="s-optical"></p></div>
+      </div>
+      <div class="card"><h2>Potential V(r)</h2><div class="canvas-box" style="height:260px"><div id="s-plot-v" class="plot" role="img" aria-label="Scattering potential"></div></div></div>
+      <div class="card info" id="s-info"></div>
+      <div class="card">
+        <details class="theory">
+          <summary>How the scattering quantities are computed</summary>
+          <div class="body">
+            <p>For each ℓ the radial equation is integrated outwards (Numerov method) beyond the range of the potential and matched to the free solutions. Far away the wave is shifted by the phase shift δ<sub>ℓ</sub>:</p>
+            <div class="eq">u<sub>ℓ</sub>(r) → sin(kr − ℓπ/2 + δ<sub>ℓ</sub>),     k = √(2mE)/ℏ</div>
+            <div class="eq">σ = (4π/k²) Σ (2ℓ+1) sin²δ<sub>ℓ</sub>,     f(θ) = (1/k) Σ (2ℓ+1) e<sup>iδℓ</sup> sin δ<sub>ℓ</sub> P<sub>ℓ</sub>(cos θ),     dσ/dΩ = |f(θ)|²</div>
+            <p>The multiple of π in δ<sub>ℓ</sub> is fixed by counting nodes, so δ → 0 at high energy and Levinson’s theorem δ<sub>ℓ</sub>(0) = N<sub>ℓ</sub>π counts the bound states. At low energy k cot δ₀ = −1/a + r₀k²/2 defines the scattering length a and the effective range r₀. A resonance appears where δ<sub>ℓ</sub> rises through 90°; its width is Γ = 2/(dδ/dE) and its lifetime τ = ℏ/Γ.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="drawer-back" id="drawer-back" hidden></div>
+<aside class="drawer" id="examples-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer-head"><h2 id="drawer-title">Example models</h2><button type="button" class="drawer-close" id="close-examples" aria-label="Close">&#10005;</button></div>
+  <p class="note" style="margin:0 0 10px">Each example sets the units, particle, potential and energies, and opens the right tab. <span class="tag exact">Exact</span> marks models with an analytic answer drawn for comparison.</p>
+  <div id="examples"></div>
+</aside>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   PHYSICS ENGINES
+   c = ℏ²/2m in (energy unit)·(length unit)²
+   ════════════════════════════════════════════════════════════════ */
+/* minimal complex arithmetic */
+const Cx = {
+  mul:(a,b)=>({re:a.re*b.re-a.im*b.im, im:a.re*b.im+a.im*b.re}),
+  div:(a,b)=>{ const d=b.re*b.re+b.im*b.im; return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d}; },
+  add:(a,b)=>({re:a.re+b.re, im:a.im+b.im}),
+  sub:(a,b)=>({re:a.re-b.re, im:a.im-b.im}),
+  abs2:a=>a.re*a.re+a.im*a.im,
+  sqrt:(x)=> x>=0 ? {re:Math.sqrt(x),im:0} : {re:0,im:Math.sqrt(-x)},     // √ of a real number
+  cos:a=>({re:Math.cos(a.re)*Math.cosh(a.im), im:-Math.sin(a.re)*Math.sinh(a.im)}),
+  sin:a=>({re:Math.sin(a.re)*Math.cosh(a.im), im: Math.cos(a.re)*Math.sinh(a.im)}),
+};
+
+/* ── 1D TRANSMISSION BY TRANSFER OF (ψ, ψ′) ─────────────────────
+   Potential: V_L for x < x[0], constant V[j] on slice j (width h), V_R for x > end.
+   Exact for piecewise-constant potentials; smooth shapes are sliced finely. */
+const TM = (() => {
+  function solve(E, xs, h, V, VL, VR, c, keep){
+    const kR=Cx.sqrt((E-VR)/c), kL=Cx.sqrt((E-VL)/c);
+    if(kL.re===0) return {T:0,R:1};                       // no incoming wave
+    let psi={re:1,im:0}, dpsi={re:-kR.im,im:kR.re};        // ψ' = i k_R ψ (outgoing only)
+    if(kR.re===0){ dpsi={re:-kR.im,im:0}; }               // evanescent on the right: e^{−κx}
+    const N=V.length, out=keep?new Array(N+1):null; if(keep) out[N]={...psi};
+    for(let j=N-1;j>=0;j--){                               // step leftwards across slice j
+      const k=Cx.sqrt((E-V[j])/c), kd={re:k.re*h,im:k.im*h}, co=Cx.cos(kd), si=Cx.sin(kd);
+      const sk = (k.re===0&&k.im===0)?{re:h,im:0}:Cx.div(si,k);      // sin(kd)/k
+      const ks = Cx.mul(k,si);                                       // k sin(kd)
+      const p2 = Cx.sub(Cx.mul(co,psi), Cx.mul(sk,dpsi));
+      const d2 = Cx.add(Cx.mul(ks,psi), Cx.mul(co,dpsi));
+      psi=p2; dpsi=d2; if(keep) out[j]={...psi};
+    }
+    const ikL={re:-kL.im,im:kL.re}, q=Cx.div(dpsi,ikL);
+    const A={re:(psi.re+q.re)/2,im:(psi.im+q.im)/2}, B={re:(psi.re-q.re)/2,im:(psi.im-q.im)/2};
+    const a2=Cx.abs2(A), T=kR.re>0?(kR.re/kL.re)/a2:0, R=Cx.abs2(B)/a2;
+    let wf=null; if(keep){ wf=out.map(p=>Cx.div(p,A)); }  // incident amplitude normalised to 1
+    return {T,R,wf,A,B};
+  }
+  /* WKB: T ≈ exp(−2∫κ dx) over the classically forbidden part */
+  function wkb(E,V,h,c,VL,VR){
+    if(E<=VL||E<=VR) return 0; let s=0; for(const v of V) if(v>E) s+=Math.sqrt((v-E)/c)*h; return Math.exp(-2*s);
+  }
+  return {solve,wkb};
+})();
+
+/* ── CRANK–NICOLSON WAVE PACKET ───────────────────────────────── */
+function makeCN(V, W, h, c, dt){
+  /* (1 + iHdt/2) ψⁿ⁺¹ = (1 − iHdt/2) ψⁿ,  H = −c∂² + V − iW  (W ≥ 0 absorbs at the edges) */
+  const N=V.length, off=-c/(h*h), a={re:0,im:off*dt/2};          // i·off·dt/2
+  const dRe=new Float64Array(N), dIm=new Float64Array(N);          // diagonal of (1 + iHdt/2)
+  for(let i=0;i<N;i++){ const hd=2*c/(h*h)+V[i]; dRe[i]=1+W[i]*dt/2; dIm[i]=hd*dt/2; }
+  // Thomas factorisation (constant off-diagonal a)
+  const cpRe=new Float64Array(N), cpIm=new Float64Array(N), mRe=new Float64Array(N), mIm=new Float64Array(N);
+  let prev={re:0,im:0};
+  for(let i=0;i<N;i++){
+    let m={re:dRe[i],im:dIm[i]}; if(i>0) m=Cx.sub(m,Cx.mul(a,prev));
+    mRe[i]=m.re; mIm[i]=m.im; prev=Cx.div(a,m); cpRe[i]=prev.re; cpIm[i]=prev.im;
+  }
+  const rRe=new Float64Array(N), rIm=new Float64Array(N);
+  function step(pr,pi){
+    // right-hand side: (1 − iHdt/2)ψ
+    for(let i=0;i<N;i++){
+      const hd=2*c/(h*h)+V[i];
+      let sr=pr[i]*(1-W[i]*dt/2)+pi[i]*hd*dt/2, si=pi[i]*(1-W[i]*dt/2)-pr[i]*hd*dt/2;
+      const nr=(i>0?pr[i-1]:0)+(i<N-1?pr[i+1]:0), ni=(i>0?pi[i-1]:0)+(i<N-1?pi[i+1]:0);
+      // −(i off dt/2)·(neighbours)
+      sr+= off*dt/2*ni; si-= off*dt/2*nr;
+      rRe[i]=sr; rIm[i]=si;
+    }
+    // forward sweep
+    let yr=0, yi=0;
+    for(let i=0;i<N;i++){
+      let br=rRe[i], bi=rIm[i];
+      if(i>0){ br-= a.re*yr - a.im*yi; bi-= a.re*yi + a.im*yr; }
+      const d=mRe[i]*mRe[i]+mIm[i]*mIm[i]; yr=(br*mRe[i]+bi*mIm[i])/d; yi=(bi*mRe[i]-br*mIm[i])/d;
+      rRe[i]=yr; rIm[i]=yi;
+    }
+    for(let i=N-2;i>=0;i--){ rRe[i]-= cpRe[i]*rRe[i+1]-cpIm[i]*rIm[i+1]; rIm[i]-= cpRe[i]*rIm[i+1]+cpIm[i]*rRe[i+1]; }
+    pr.set(rRe); pi.set(rIm);
+  }
+  return {step};
+}
+
+/* ── PARTIAL-WAVE PHASE SHIFTS (Numerov + Riccati–Bessel matching) ── */
+const PW = (() => {
+  /* Riccati–Bessel ĵ_ℓ(x) = x j_ℓ(x) (downward recursion) and ŷ_ℓ(x) = x y_ℓ(x) (upward) */
+  function riccati(L,x){
+    const J=new Float64Array(L+1), Y=new Float64Array(L+1);
+    Y[0]=-Math.cos(x); if(L>0) Y[1]=-Math.cos(x)/x-Math.sin(x);
+    for(let l=1;l<L;l++) Y[l+1]=(2*l+1)/x*Y[l]-Y[l-1];
+    const start=Math.max(L,Math.ceil(x))+20; let jp=0, j=1e-30; const tmp=new Float64Array(start+2);
+    for(let l=start;l>=0;l--){ const jm=(2*l+1)/x*j-jp; jp=j; j=jm; if(l<=L+1) tmp[l]=jp; }
+    // tmp[l] holds unnormalised ĵ_l; normalise with ĵ_0 = sin x (or ĵ_1 when sin x ≈ 0)
+    const s=Math.abs(Math.sin(x))>0.1 ? Math.sin(x)/tmp[0] : (Math.sin(x)/x-Math.cos(x))/tmp[1];
+    for(let l=0;l<=L;l++) J[l]=tmp[l]*s;
+    return {J,Y};
+  }
+  /* phase shift δ_ℓ at wave number k for potential Vf (range up to rM) */
+  /* Absolute phase shift in the Levinson convention (δ → 0 as E → ∞, δ(0) = Nπ for N bound states).
+     u is integrated outwards with Numerov and matched to Riccati–Bessel functions; the multiple of π
+     is fixed by counting the nodes of u and of the free solution. Richardson extrapolation over two
+     grids removes the O(h) error caused by sharp edges. */
+  function delta(Vf,c,E,l,rM){
+    const k=Math.sqrt(E/c), n=Math.max(2500,Math.ceil(rM*k*40));
+    const d1=delta1(Vf,c,E,l,rM,n), d2=delta1(Vf,c,E,l,rM,2*n);
+    return Math.abs(d2-d1)<1 ? 2*d2-d1 : d2;
+  }
+  function nodesFree(c,E,l,r1,h){           // zeros of the free solution ĵ_ℓ(kr) on (0, r1]
+    const f=r=>l*(l+1)/(r*r)-E/c, h12=h*h/12, n=Math.round(r1/h);
+    let u0=Math.pow(h,l+1), u1=Math.pow(2*h,l+1), f0=f(h), f1=f(2*h), cnt=0;
+    for(let i=2;i<n;i++){ const f2=f((i+1)*h), u2=(2*u1*(1+5*h12*f1)-u0*(1-h12*f0))/(1-h12*f2); if(u2*u1<0)cnt++; u0=u1;u1=u2;f0=f1;f1=f2; if(Math.abs(u1)>1e200){u0/=1e200;u1/=1e200;} }
+    return cnt;
+  }
+  function delta1(Vf,c,E,l,rM,n){
+    /* a hard core (Vf.core = radius) is an exact wall: u = 0 there */
+    const rc=Vf.core||0, k=Math.sqrt(E/c), h=(rM-rc)/n;
+    const f=r=>l*(l+1)/(r*r)+(Vf(r)-E)/c, h12=h*h/12;
+    let r0=rc+h, r1=rc+2*h, u0=rc?h:Math.pow(r0,l+1), u1=rc?2*h*(1+h12*f(r0)):Math.pow(r1,l+1), f0=f(r0), f1=f(r1), nodes=0;
+    for(let i=2;i<n;i++){
+      const r2=rc+(i+1)*h, f2=f(r2);
+      const u2=(2*u1*(1+5*h12*f1)-u0*(1-h12*f0))/(1-h12*f2);
+      if(u2*u1<0) nodes++;
+      u0=u1;u1=u2;f0=f1;f1=f2; r0=r1; r1=r2;
+      if(Math.abs(u1)>1e200){ u0/=1e200; u1/=1e200; }
+    }
+    const a=riccati(l,k*r0), b=riccati(l,k*r1), K=u0/u1;
+    const d0=Math.atan((K*b.J[l]-a.J[l])/(K*b.Y[l]-a.Y[l]));
+    // continuous phase θ of the free wave at r1:  ĵ = M sin θ, −ŷ = M cos θ
+    const nf=nodesFree(c,E,l,r1,Math.min(h,r1/2000));
+    let th=Math.atan2(b.J[l],-b.Y[l]); while(th<nf*Math.PI) th+=2*Math.PI; while(th>=(nf+1)*Math.PI) th-=Math.PI*2;
+    if(th<nf*Math.PI) th+=Math.PI;   // sign conventions differ by π only through M; keep θ in [nfπ,(nf+1)π)
+    const m=nodes-Math.floor((th+d0)/Math.PI);
+    return d0+m*Math.PI;
+  }
+  /* Legendre polynomials P_0..P_L at x */
+  function legendre(L,x){ const P=new Float64Array(L+1); P[0]=1; if(L>0)P[1]=x; for(let l=1;l<L;l++) P[l+1]=((2*l+1)*x*P[l]-l*P[l-1])/(l+1); return P; }
+  return {delta,riccati,legendre};
+})();
+
+/* ════════════════════════════════════════════════════════════════
+   MODEL LIBRARIES
+   Parameter kinds: 'E' energy, 'L' length, 'F' field (energy/length), '' pure number.
+   r: ranges [min, max, step, default] for each unit system ('ev' = eV·nm, 'mev' = MeV·fm).
+   ════════════════════════════════════════════════════════════════ */
+const BARRIERS = [
+ {id:'rect', name:'Rectangular barrier', exact:true,
+  params:[{k:'V0',label:'Height V₀',kind:'E',r:{ev:[-3,5,0.01,1],mev:[-50,60,0.5,10]}},{k:'a',label:'Width a',kind:'L',r:{ev:[0.05,5,0.05,1],mev:[0.2,15,0.1,3]}}],
+  build:p=>({VL:0,VR:0,x0:0,x1:p.a,f:()=>p.V0}),
+  exactT:(E,p,c)=>{ const V0=p.V0,a=p.a; if(E<=0) return 0; if(Math.abs(E-V0)<1e-12) return 1/(1+V0*a*a/(4*c)); if(E<V0){ const q=Math.sqrt((V0-E)/c); return 1/(1+V0*V0*Math.sinh(q*a)**2/(4*E*(V0-E))); } const q=Math.sqrt((E-V0)/c); return 1/(1+V0*V0*Math.sin(q*a)**2/(4*E*(E-V0))); },
+  formula:'V(x) = V₀ for 0 < x < a, else 0',
+  about:'The textbook tunnelling problem. Below the top, T falls exponentially with the width; above it, T oscillates and reaches 1 whenever a whole number of half-wavelengths fits in the barrier.'},
+ {id:'double', name:'Double barrier (resonant tunnelling)',
+  params:[{k:'V0',label:'Barrier height V₀',kind:'E',r:{ev:[0.05,3,0.01,0.3],mev:[1,60,0.5,15]}},{k:'b',label:'Barrier width b',kind:'L',r:{ev:[0.2,6,0.1,2],mev:[0.2,6,0.1,1]}},{k:'w',label:'Well width w',kind:'L',r:{ev:[0.5,20,0.1,5],mev:[0.5,15,0.1,4]}}],
+  build:p=>({VL:0,VR:0,x0:0,x1:2*p.b+p.w,f:x=>(x<p.b||x>p.b+p.w)?p.V0:0}),
+  formula:'Two barriers of height V₀ and width b separated by a well of width w',
+  about:'The principle of the resonant-tunnelling diode. Although each barrier alone reflects almost everything, T = 1 at energies of the quasi-bound states of the well between them.'},
+ {id:'lattice', name:'Superlattice (N barriers)',
+  params:[{k:'V0',label:'Barrier height V₀',kind:'E',r:{ev:[0.05,3,0.01,0.3],mev:[1,60,0.5,15]}},{k:'b',label:'Barrier width b',kind:'L',r:{ev:[0.2,5,0.1,1.5],mev:[0.2,5,0.1,1]}},{k:'w',label:'Well width w',kind:'L',r:{ev:[0.5,15,0.1,4],mev:[0.5,10,0.1,3]}},{k:'N',label:'Number of barriers N',kind:'',r:{ev:[2,14,1,6],mev:[2,14,1,6]}}],
+  build:p=>({VL:0,VR:0,x0:0,x1:p.N*p.b+(p.N-1)*p.w,f:x=>{ const per=p.b+p.w, m=x%per; return m<p.b?p.V0:0; }}),
+  formula:'N barriers (height V₀, width b) with period b + w',
+  about:'A finite Kronig–Penney crystal. Transmission groups into allowed minibands separated by gaps; each band contains N − 1 resonance peaks. With many barriers this becomes the band structure of a solid.'},
+ {id:'step', name:'Potential step', exact:true,
+  params:[{k:'V0',label:'Step height V₀',kind:'E',r:{ev:[-3,5,0.01,1],mev:[-50,60,0.5,10]}}],
+  build:p=>({VL:0,VR:p.V0,x0:0,x1:0,f:()=>p.V0}),
+  exactT:(E,p,c)=>{ if(E<=Math.max(0,p.V0)) return 0; const k1=Math.sqrt(E),k2=Math.sqrt(E-p.V0); return 4*k1*k2/((k1+k2)**2); },
+  formula:'V(x) = 0 for x < 0, V₀ for x > 0',
+  about:'Even above the step some of the wave is reflected: R = ((k₁ − k₂)/(k₁ + k₂))². A classical particle would always pass. A downward step (V₀ < 0) also reflects.'},
+ {id:'gauss', name:'Gaussian barrier',
+  params:[{k:'V0',label:'Height V₀',kind:'E',r:{ev:[-3,5,0.01,1],mev:[-50,60,0.5,10]}},{k:'s',label:'Width σ',kind:'L',r:{ev:[0.05,4,0.05,0.5],mev:[0.2,10,0.1,1.5]}}],
+  build:p=>({VL:0,VR:0,x0:-5*p.s,x1:5*p.s,f:x=>p.V0*Math.exp(-x*x/(2*p.s*p.s))}),
+  formula:'V(x) = V₀ exp(−x²/2σ²)',
+  about:'A smooth barrier. Without sharp edges there is almost no reflection above the top, and WKB works much better than for a rectangular barrier.'},
+ {id:'eckart', name:'Eckart barrier (sech²)', exact:true,
+  params:[{k:'V0',label:'Height V₀',kind:'E',r:{ev:[0.01,5,0.01,0.5],mev:[0.5,60,0.5,10]}},{k:'a',label:'Width parameter a',kind:'L',r:{ev:[0.05,3,0.01,0.3],mev:[0.2,6,0.05,1]}}],
+  build:p=>({VL:0,VR:0,x0:-8*p.a,x1:8*p.a,f:x=>p.V0/Math.cosh(x/p.a)**2}),
+  exactT:(E,p,c)=>{ if(E<=0) return 0; const k=Math.sqrt(E/c), s=4*p.V0*p.a*p.a/c, A=Math.sinh(Math.PI*k*p.a)**2; const B= s>=1 ? Math.cosh(Math.PI/2*Math.sqrt(s-1))**2 : Math.cos(Math.PI/2*Math.sqrt(1-s))**2; return A/(A+B); },
+  formula:'V(x) = V₀ / cosh²(x/a)',
+  about:'One of the few barriers with an exact transmission formula. It is used for chemical reaction rates (proton and hydrogen-atom transfer).'},
+ {id:'well', name:'Square well (transmission resonances)',
+  params:[{k:'V0',label:'Depth V₀',kind:'E',r:{ev:[0.1,10,0.05,2],mev:[1,80,0.5,30]}},{k:'a',label:'Width a',kind:'L',r:{ev:[0.1,5,0.05,1],mev:[0.5,15,0.1,4]}}],
+  build:p=>({VL:0,VR:0,x0:0,x1:p.a,f:()=>-p.V0}),
+  exactT:(E,p,c)=>{ if(E<=0) return 0; const q=Math.sqrt((E+p.V0)/c); return 1/(1+p.V0*p.V0*Math.sin(q*p.a)**2/(4*E*(E+p.V0))); },
+  formula:'V(x) = −V₀ for 0 < x < a',
+  about:'An attractive well also reflects. Perfect transmission occurs when the well holds a whole number of half-wavelengths: the one-dimensional version of the Ramsauer–Townsend effect.'},
+ {id:'field', name:'Field emission (triangular barrier)',
+  params:[{k:'U0',label:'Barrier top U₀ (= E_F + W)',kind:'E',r:{ev:[1,20,0.1,10],mev:[1,60,0.5,20]}},{k:'F',label:'Applied field F',kind:'F',r:{ev:[0.5,20,0.1,5],mev:[0.5,20,0.1,4]}}],
+  build:p=>{ const xe=(p.U0+3)/p.F; return {VL:0,VR:p.U0-p.F*xe,x0:0,x1:xe,f:x=>p.U0-p.F*x}; },
+  formula:'V(x) = U₀ − F·x for x > 0 (metal at x < 0)',
+  about:'A strong electric field tilts the surface barrier of a metal into a triangle, so electrons tunnel out (Fowler–Nordheim emission, used in electron microscopes). log T is nearly proportional to −1/F.'},
+ {id:'alpha', name:'α decay (Coulomb barrier)', only:'mev',
+  params:[{k:'Z',label:'Daughter charge Z_d',kind:'',r:{mev:[10,100,1,82]}},{k:'R',label:'Nuclear radius R',kind:'L',r:{mev:[4,12,0.05,9]}},{k:'V0',label:'Well depth inside V₀',kind:'E',r:{mev:[0,100,1,35]}}],
+  build:p=>{ const b=2*p.Z*1.44, xe=25*b/8; return {VL:-p.V0,VR:b/xe,x0:p.R,x1:xe,f:x=>b/x}; },
+  formula:'V(r) = −V₀ inside (r < R),  2Z_d e²/r outside',
+  about:'Gamow’s 1928 theory of α decay: the α particle, formed inside the nucleus, escapes by tunnelling through the Coulomb barrier. The half-life t½ = ln 2 /(ν T) depends on T so steeply that half-lives range from microseconds to billions of years.'},
+];
+const RADIAL = [
+ {id:'sqwell', name:'Square well', params:[{k:'V0',label:'Depth V₀',kind:'E',r:{ev:[0,50,0.1,10],mev:[0,100,0.5,30]}},{k:'R',label:'Radius R',kind:'L',r:{ev:[0.02,1,0.005,0.15],mev:[0.5,10,0.05,2]}}],
+  fn:p=>r=>r<p.R?-p.V0:0, range:p=>p.R, formula:'V(r) = −V₀ for r < R', about:'The simplest short-range potential. Its s-wave phase shift is known exactly: tan(δ₀ + kR) = (k/K) tan(KR).'},
+ {id:'hard', name:'Hard sphere', params:[{k:'R',label:'Radius R',kind:'L',r:{ev:[0.02,1,0.005,0.1],mev:[0.2,10,0.05,1]}}],
+  fn:p=>Object.assign(r=>r<p.R?1e9:0,{core:p.R}), range:p=>p.R, formula:'V = ∞ for r < R', about:'δ₀ = −kR exactly. At low energy σ → 4πR², four times the geometric cross-section; at high energy σ → 2πR² (shadow scattering).'},
+ {id:'shell', name:'Well + barrier (shape resonances)', params:[{k:'V0',label:'Well depth V₀',kind:'E',r:{ev:[0,50,0.1,10],mev:[0,100,0.5,40]}},{k:'R',label:'Well radius R',kind:'L',r:{ev:[0.02,1,0.005,0.2],mev:[0.5,10,0.05,3]}},{k:'Vb',label:'Barrier height V_b',kind:'E',r:{ev:[0,50,0.1,8],mev:[0,100,0.5,20]}},{k:'b',label:'Barrier thickness b',kind:'L',r:{ev:[0.01,0.5,0.005,0.08],mev:[0.1,5,0.05,1]}}],
+  fn:p=>r=>r<p.R?-p.V0:(r<p.R+p.b?p.Vb:0), range:p=>p.R+p.b, formula:'V = −V₀ (r < R),  +V_b (R < r < R + b)', about:'A thin barrier traps the wave for a while: sharp resonances appear where δ rises quickly through π/2. Their width Γ gives the lifetime τ = ℏ/Γ.'},
+ {id:'ws', name:'Woods–Saxon', params:[{k:'V0',label:'Depth V₀',kind:'E',r:{ev:[0,50,0.1,10],mev:[0,100,0.5,45]}},{k:'R',label:'Radius R',kind:'L',r:{ev:[0.02,1,0.005,0.2],mev:[0.5,10,0.05,7.1]}},{k:'a',label:'Diffuseness a',kind:'L',r:{ev:[0.002,0.2,0.002,0.03],mev:[0.1,1.5,0.01,0.65]}}],
+  fn:p=>r=>-p.V0/(1+Math.exp((r-p.R)/p.a)), range:p=>p.R+12*p.a, formula:'V(r) = −V₀ / [1 + exp((r − R)/a)]', about:'The nuclear mean field. Neutron scattering on heavy nuclei shows many partial waves and diffraction minima in dσ/dΩ.'},
+ {id:'yukawa', name:'Yukawa', params:[{k:'V0',label:'Strength V₀',kind:'E',r:{ev:[0,50,0.1,5],mev:[0,200,1,50]}},{k:'mu',label:'Inverse range μ',kind:'1/L',r:{ev:[2,100,0.5,20],mev:[0.2,3,0.01,0.7]}}],
+  fn:p=>r=>-p.V0*Math.exp(-p.mu*r)/(p.mu*r), range:p=>18/p.mu, formula:'V(r) = −V₀ e^{−μr}/(μr)', about:'Exchange of a massive particle (the pion for the nuclear force). The range is 1/μ.'},
+ {id:'gauss', name:'Gaussian well', params:[{k:'V0',label:'Depth V₀',kind:'E',r:{ev:[0,50,0.1,10],mev:[0,150,0.5,40]}},{k:'b',label:'Range b',kind:'L',r:{ev:[0.02,1,0.005,0.15],mev:[0.3,8,0.05,1.5]}}],
+  fn:p=>r=>-p.V0*Math.exp(-r*r/(p.b*p.b)), range:p=>4.5*p.b, formula:'V(r) = −V₀ exp(−r²/b²)', about:'A smooth well with no sharp edges, often used for nucleon–nucleon and atom–atom models.'},
+];
+
+'use strict';
+/* ════════════════════════════════════════════════════════════════
+   UNITS, PARTICLES, SHARED STATE
+   ════════════════════════════════════════════════════════════════ */
+const HBARC = 197.327;                      // MeV·fm = eV·nm
+const UNITS = {
+  ev:  {E:'eV', L:'nm', F:'V/nm', iL:'nm⁻¹', tk:0.658212, tu:'fs', sk:100,  su:'Å²', mfac:1e6},
+  mev: {E:'MeV',L:'fm', F:'MeV/fm', iL:'fm⁻¹', tk:0.658212, tu:'zs', sk:0.01, su:'b',  mfac:1}
+};
+const PARTICLES = {
+  ev:[ {id:'e',name:'Electron e⁻',m:0.51099895},
+       {id:'gaas',name:'Electron in GaAs (m* = 0.067 mₑ)',m:0.51099895*0.067},
+       {id:'ingaas',name:'Electron in InGaAs (m* = 0.041 mₑ)',m:0.51099895*0.041},
+       {id:'si',name:'Electron in Si (m* = 0.26 mₑ)',m:0.51099895*0.26},
+       {id:'mu',name:'Muon μ⁻',m:105.658},
+       {id:'p',name:'Proton (hydrogen-bond tunnelling)',m:938.272},
+       {id:'d',name:'Deuteron (isotope effect)',m:1875.613},
+       {id:'custom',name:'Custom mass',m:NaN} ],
+  mev:[ {id:'n',name:'Neutron',m:939.565},
+       {id:'p',name:'Proton',m:938.272},
+       {id:'np',name:'n–p reduced mass (two-nucleon scattering)',m:469.459},
+       {id:'a',name:'α particle',m:3727.379},
+       {id:'aPb',name:'α + ²⁰⁸Pb, reduced mass',m:3656.98},
+       {id:'nPb',name:'Neutron + ²⁰⁸Pb, reduced mass',m:935.07},
+       {id:'custom',name:'Custom mass',m:NaN} ]
+};
+const S = { units:'ev', pid:'e', m:0.51099895, c:0.0381,
+  t:{model:'rect', E:0.5, Emin:0, Emax:3, log:true, wf:'abs', meas:null},
+  w:{E:0.7, s:2, speed:12, showRe:false},
+  s:{model:'sqwell', E:5, Emin:0.05, Emax:40, L:4, Lauto:true, log:false} };
+const PV = {ev:{},mev:{}};      // parameter values per unit system and model
+[['t',BARRIERS],['s',RADIAL]].forEach(([tab,lib])=>lib.forEach(m=>['ev','mev'].forEach(u=>{ if(m.only&&m.only!==u) return; PV[u][tab+':'+m.id]=Object.fromEntries(m.params.map(q=>[q.k,q.r[u][3]])); })));
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const isDay = () => document.documentElement.classList.contains('day');
+const PAL=['#38d3f5','#f472b6','#a3e635','#fb923c','#c084fc','#facc15','#2dd4bf','#f87171','#60a5fa'], DPAL=['#00707F','#A3124A','#4D7C0F','#B45309','#6D28D9','#8A5200','#0F766E','#B42318','#1D4ED8'];
+const pal = i => (isDay()?DPAL:PAL)[i%PAL.length];
+const U = () => UNITS[S.units];
+const unitOf = kind => ({E:U().E, L:U().L, F:U().F, '1/L':U().iL, '':''})[kind];
+const fx = (v,d=4) => !Number.isFinite(v)?'—' : (v!==0&&(Math.abs(v)<1e-3||Math.abs(v)>=1e5)) ? v.toExponential(d-1) : (+v.toPrecision(d)).toString();
+const fT = v => !Number.isFinite(v)?'—' : v===0?'0' : v<1e-3 ? v.toExponential(3) : v.toFixed(5);
+const LN = 'spdfghiklmnoqrtuvwxyz';
+function setC(){ S.c = HBARC*HBARC/(2*S.m*U().mfac); $('c-chip').textContent=`ℏ²/2m = ${fx(S.c,5)} ${U().E}·${U().L}²`; }
+function fmtTime(s){ const y=3.156e7; if(!Number.isFinite(s)) return '—'; if(s<1e-6) return (s*1e9).toPrecision(3)+' ns'; if(s<1e-3) return (s*1e6).toPrecision(3)+' μs'; if(s<1) return (s*1e3).toPrecision(3)+' ms'; if(s<120) return s.toPrecision(3)+' s'; if(s<7200) return (s/60).toPrecision(3)+' min'; if(s<2*86400) return (s/3600).toPrecision(3)+' h'; if(s<y) return (s/86400).toPrecision(3)+' days'; return (s/y).toPrecision(3)+' years'; }
+
+/* ── Plotly helpers ── */
+const PCFG={responsive:true,displaylogo:false,modeBarButtonsToRemove:['select2d','lasso2d','toggleSpikelines'],toImageButtonOptions:{format:'png',scale:2,filename:'quantum-potential-simulator-iii'}};
+const hasPlotly=()=>typeof Plotly!=='undefined';
+function noPlotly(el){ el.innerHTML='<div class="plot-empty">The plotting library (Plotly) could not be loaded. Check the internet connection and reload.</div>'; }
+function baseLayout(xt,yt){
+  const ax=t=>({title:{text:t,font:{size:13}},gridcolor:cssv('--plot-grid'),zerolinecolor:cssv('--plot-axis'),linecolor:cssv('--plot-axis'),showline:true,ticks:'outside',tickcolor:cssv('--plot-axis'),tickfont:{family:cssv('--font-num'),size:11},automargin:true,autorange:true});
+  return {paper_bgcolor:cssv('--plot-bg'),plot_bgcolor:cssv('--plot-bg'),font:{family:cssv('--font-ui'),size:13,color:cssv('--plot-text')},
+    margin:{l:62,r:14,t:12,b:46},xaxis:ax(xt),yaxis:ax(yt),showlegend:true,legend:{orientation:'h',x:0,y:1.02,yanchor:'bottom',font:{size:12},bgcolor:'rgba(0,0,0,0)'},hovermode:'closest',
+    hoverlabel:{bgcolor:cssv('--surface'),bordercolor:cssv('--line-strong'),font:{family:cssv('--font-num'),size:12,color:cssv('--text')}},
+    modebar:{bgcolor:'rgba(0,0,0,0)',color:cssv('--muted'),activecolor:cssv('--accent')}};
+}
+const HANDLERS={};
+function once(el,ev,fn){ (HANDLERS[el.id]=HANDLERS[el.id]||{})[ev]=fn; attach(el); }
+function attach(el){ const hs=HANDLERS[el.id]; if(!hs||typeof el.on!=='function') return; for(const ev in hs) if(!el['_on_'+ev]){ el.on(ev,hs[ev]); el['_on_'+ev]=true; } }
+/* Plots on a hidden tab are drawn when the tab is opened (Plotly cannot measure hidden elements). */
+const PENDING={};
+function react(id,T,L,name){ const el=$(id); if(!hasPlotly()) return noPlotly(el);
+  if(el.offsetParent===null){ PENDING[id]=[T,L,name]; return; } delete PENDING[id];
+  Plotly.react(el,T,L,{...PCFG,toImageButtonOptions:{format:'png',scale:2,filename:name||id}}); attach(el); }
+function flushPending(mode){ document.querySelectorAll('#mode-'+mode+' .plot').forEach(el=>{ const p=PENDING[el.id]; if(p) react(el.id,...p); else if(hasPlotly()&&el.layout) Plotly.Plots.resize(el); }); }
+
+/* ── parameter panels ── */
+function buildParams(tab,lib,id,box,onchange){
+  const m=lib.find(x=>x.id===id), vals=PV[S.units][tab+':'+id]; box.innerHTML='';
+  m.params.forEach(q=>{
+    const r=q.r[S.units], row=document.createElement('div'); row.className='row';
+    const u=unitOf(q.kind);
+    row.innerHTML=`<label>${q.label}</label><span class="val">${vals[q.k]} ${u}</span><input type="range" min="${r[0]}" max="${r[1]}" step="${r[2]}" value="${vals[q.k]}" aria-label="${q.label}">`;
+    const inp=row.querySelector('input'), out=row.querySelector('.val');
+    inp.addEventListener('input',()=>{ vals[q.k]=+inp.value; out.textContent=inp.value+' '+u; onchange(); });
+    box.appendChild(row);
+  });
+}
+function infoCard(el,m){ el.innerHTML=`<h2>About: ${m.name}</h2><div class="formula">${m.formula}</div><p class="intro">${m.about}</p>`; }
+function fillModels(sel,lib){ sel.innerHTML=lib.filter(m=>!m.only||m.only===S.units).map(m=>`<option value="${m.id}">${m.name}${m.exact?' (exact formula)':''}</option>`).join(''); }
+
+/* ════════════════════════════════════════════════════════════════
+   TAB 1 — TUNNELLING THROUGH A 1D BARRIER
+   ════════════════════════════════════════════════════════════════ */
+let TD=null;
+function sliceBarrier(m,p,Etop){
+  const g=m.build(p), w=g.x1-g.x0; if(w<=0) return {g,V:[],h:0,n:0};
+  let vmin=Math.min(g.VL,g.VR); const probe=200; for(let i=0;i<probe;i++) vmin=Math.min(vmin,g.f(g.x0+(i+0.5)*w/probe));
+  const kmax=Math.sqrt(Math.max(Etop-vmin,1e-12)/S.c), lam=2*Math.PI/kmax;
+  const n=Math.min(20000,Math.max(300,Math.ceil(w/Math.min(w/300,0.03*lam)))), h=w/n, V=new Array(n);
+  for(let i=0;i<n;i++) V[i]=g.f(g.x0+(i+0.5)*h);
+  return {g,V,h,n};
+}
+function tCompute(){
+  const m=BARRIERS.find(x=>x.id===S.t.model), p=PV[S.units]['t:'+m.id];
+  const Emin=S.t.Emin, Emax=Math.max(S.t.Emax,Emin+1e-9), sb=sliceBarrier(m,p,Emax), {g,V,h}=sb;
+  const NE=400, Es=[], T=[], R=[], Tw=[], Tx=[];
+  for(let i=0;i<NE;i++){
+    const E=Emin+(Emax-Emin)*(i+0.5)/NE; Es.push(E);
+    if(E<=g.VL){ T.push(null); R.push(null); Tw.push(null); Tx.push(null); continue; }
+    const r=TM.solve(E,null,h,V,g.VL,g.VR,S.c,false); T.push(r.T); R.push(r.R);
+    Tw.push(TM.wkb(E,V,h,S.c,g.VL,g.VR)); Tx.push(m.exactT?m.exactT(E,p,S.c):null);
+  }
+  TD={m,p,sb,Es,T,R,Tw,Tx};
+  tRenderSpectrum(); tRenderE(true);
+}
+function tRenderSpectrum(){
+  if(!TD) return; const {Es,T,R,Tw,Tx,m}=TD, u=U().E, log=S.t.log, tr=[];
+  tr.push({x:Es,y:T,name:'T (numerical)',mode:'lines',line:{color:pal(0),width:2.6},hovertemplate:'E = %{x:.4g} '+u+'<br>T = %{y:.4g}<extra></extra>'});
+  if(m.exactT) tr.push({x:Es,y:Tx,name:'T exact formula',mode:'lines',line:{color:cssv('--warn'),width:1.6,dash:'dash'},hovertemplate:'exact T = %{y:.4g}<extra></extra>'});
+  tr.push({x:Es,y:Tw.map(v=>v===0?null:v),name:'T WKB',mode:'lines',line:{color:pal(2),width:1.6,dash:'dot'},hovertemplate:'WKB T = %{y:.4g}<extra></extra>'});
+  if(!log) tr.push({x:Es,y:R,name:'R',mode:'lines',line:{color:pal(1),width:1.8},hovertemplate:'R = %{y:.4g}<extra></extra>'});
+  const L=baseLayout('Energy E ('+u+')', log?'Transmission T (log scale)':'Probability');
+  if(log){ L.yaxis.type='log'; L.yaxis.exponentformat='power'; } else { L.yaxis.autorange=false; L.yaxis.range=[-0.02,1.05]; }
+  L.shapes=[{type:'line',x0:S.t.E,x1:S.t.E,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1.2,dash:'dot'}}];
+  L.hovermode='x'; L.uirevision=S.units+S.t.model+log;
+  react('t-plot-e',tr,L,'transmission');
+  once($('t-plot-e'),'plotly_click',d=>{ const p=d.points&&d.points[0]; if(p){ setTE(p.x); } });
+}
+function tRenderE(fresh){
+  if(!TD) return; const {m,p,sb}=TD, {g,V,h}=sb, E=S.t.E, u=U(), c=S.c;
+  const ok=E>g.VL, r=ok?TM.solve(E,null,h,V,g.VL,g.VR,c,true):null;
+  $('t-Ehead').textContent=fx(E,4)+' '+u.E;
+  const vmax=Math.max(g.VL,g.VR,...(V.length?[Math.max(...V)]:[]));
+  const Tw=ok?TM.wkb(E,V,h,c,g.VL,g.VR):0, Tex=m.exactT&&ok?m.exactT(E,p,c):NaN;
+  const cards=[['T','Transmission',ok?fT(r.T):'0',true],['R','Reflection',ok?fT(r.R):'1'],['T + R','Check (should be 1)',ok?(r.T+r.R).toFixed(8):'—'],['T WKB','Semiclassical',fT(Tw)]];
+  if(m.exactT) cards.push(['T exact','Analytic formula',fT(Tex)]);
+  cards.push(['Classical',E>vmax?'Passes over the top':'Would be reflected',E>vmax?'1':'0']);
+  if(ok){ const k=Math.sqrt((E-g.VL)/c); cards.push(['λ','de Broglie wavelength',fx(2*Math.PI/k,4)+' '+u.L]); }
+  $('t-stats').innerHTML=cards.map(([a,b,v,hl])=>`<div class="stat${hl?' hl':''}"><b>${v}</b><span>${a}: ${b}</span></div>`).join('');
+  // α-decay half-life
+  const al=$('t-alpha'); if(m.id==='alpha'&&ok){
+    const mu=S.m, v=2.998e23*Math.sqrt(2*(E+p.V0)/mu), nu=v/(2*p.R), t=Math.log(2)/(nu*r.T), tw=Math.log(2)/(nu*Tw);
+    al.hidden=false;
+    al.innerHTML=`<h2>α-decay half-life (Gamow model)</h2><div class="stats"><div class="stat hl"><b>${fmtTime(t)}</b><span>t½ = ln 2 /(ν T)</span></div><div class="stat"><b>${fmtTime(tw)}</b><span>t½ with WKB T</span></div><div class="stat"><b>${nu.toExponential(2)} s⁻¹</b><span>Assault frequency ν = v/2R</span></div>${S.t.meas?`<div class="stat"><b>${S.t.meas}</b><span>Measured half-life</span></div>`:''}</div><p class="note">Change Q (the energy) by 1 MeV and the half-life changes by many orders of magnitude: the Geiger–Nuttall law. The model ignores the probability that an α cluster is pre-formed, so agreement within a factor of 10 is normal.</p>`;
+  } else al.hidden=true;
+  // wavefunction and potential
+  const wpad=Math.max(0.4*(g.x1-g.x0), ok?2.2*2*Math.PI/Math.sqrt((E-g.VL)/c):1);
+  let xa=g.x0-wpad, xb=g.x1+wpad;
+  if(m.id==='alpha'){ xa=0; xb=Math.min(g.x1,1.35*2*p.Z*1.44/Math.max(E,0.1)); }
+  const X=[],VV=[],P=[];
+  const kL=Math.sqrt(Math.max(E-g.VL,0)/c), rr=r?r.B:null, A=r?r.A:null, refl=r?Cx.div(r.B,r.A):{re:0,im:0};
+  const nl=200; for(let i=0;i<=nl;i++){ const x=xa+(g.x0-xa)*i/nl; X.push(x); VV.push(g.VL); if(ok){ const ph=kL*(x-g.x0), inc={re:Math.cos(ph),im:Math.sin(ph)}, re={re:Math.cos(-ph),im:Math.sin(-ph)}, ps=Cx.add(inc,Cx.mul(refl,re)); P.push(ps); } }
+  if(ok&&V.length){ const st=Math.max(1,Math.floor(V.length/1500)); for(let j=0;j<=V.length;j+=st){ const x=g.x0+j*h; if(x>xb) break; X.push(x); VV.push(j<V.length?V[j]:g.VR); P.push(r.wf[j]); } }
+  const pR=ok?(V.length?r.wf[V.length]:{re:1+refl.re,im:refl.im}):null, kRc=Cx.sqrt((E-g.VR)/c);
+  for(let i=0;i<=nl;i++){ const x=g.x1+(xb-g.x1)*i/nl; if(x<g.x1) continue; X.push(x); VV.push(g.VR); if(ok){ const d=x-g.x1, e=kRc.re>0?{re:Math.cos(kRc.re*d),im:Math.sin(kRc.re*d)}:{re:Math.exp(-kRc.im*d),im:0}; P.push(Cx.mul(pR,e)); } }
+  const tr=[{x:X,y:VV,name:'V(x)',mode:'lines',line:{color:cssv('--veff'),width:2.4,shape:'hv'},hovertemplate:'x = %{x:.4g} '+u.L+'<br>V = %{y:.4g} '+u.E+'<extra></extra>'},
+            {x:[xa,xb],y:[E,E],name:'E',mode:'lines',line:{color:cssv('--level'),width:1.6,dash:'dash'},hoverinfo:'skip'}];
+  if(ok){ const yv=S.t.wf==='abs'?P.map(z=>Cx.abs2(z)):P.map(z=>z.re);
+    tr.push({x:X.slice(-P.length),y:yv,yaxis:'y2',name:S.t.wf==='abs'?'|ψ|²':'Re ψ',mode:'lines',line:{color:pal(0),width:2},fill:S.t.wf==='abs'?'tozeroy':'none',fillcolor:'rgba(56,211,245,0.12)',hovertemplate:'x = %{x:.4g} '+u.L+'<br>'+(S.t.wf==='abs'?'|ψ|²':'Re ψ')+' = %{y:.4g}<extra></extra>'}); }
+  const L=baseLayout('x ('+u.L+')','Energy ('+u.E+')');
+  L.yaxis2={overlaying:'y',side:'right',title:{text:S.t.wf==='abs'?'|ψ|² (incident wave = 1)':'Re ψ',font:{size:13}},showgrid:false,zeroline:false,tickfont:{family:cssv('--font-num'),size:11},automargin:true,autorange:true,linecolor:cssv('--plot-axis')};
+  L.margin.r=60; L.uirevision=S.units+S.t.model;
+  if(m.id==='alpha'){ L.yaxis.autorange=false; L.yaxis.range=[-p.V0-3, 2*p.Z*1.44/p.R*1.1]; }
+  react('t-plot-x',tr,L,'barrier-wavefunction');
+  if(!fresh) tRenderSpectrumMarker();   // a fresh spectrum already carries the marker
+}
+function tRenderSpectrumMarker(){ const el=$('t-plot-e'); if(PENDING['t-plot-e']||el.offsetParent===null) return; if(hasPlotly()&&el.layout) try{ Plotly.relayout(el,{shapes:[{type:'line',x0:S.t.E,x1:S.t.E,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1.2,dash:'dot'}}]}); }catch(_){} }
+function setTE(E){ S.t.E=Math.min(S.t.Emax,Math.max(S.t.Emin,E)); const sl=$('t-E'); sl.value=(S.t.E-S.t.Emin)/(S.t.Emax-S.t.Emin); $('t-E-v').textContent=fx(S.t.E,4)+' '+U().E; tRenderE(); }
+function tSetup(){
+  fillModels($('t-model'),BARRIERS); if(!BARRIERS.some(b=>b.id===S.t.model&&(!b.only||b.only===S.units))) S.t.model='rect';
+  $('t-model').value=S.t.model; const m=BARRIERS.find(x=>x.id===S.t.model);
+  buildParams('t',BARRIERS,S.t.model,$('t-params'),()=>{ schedT(); wNeedsReset(); });
+  $('t-formula').textContent=m.formula; infoCard($('t-info'),m);
+  $('t-Emin').value=S.t.Emin; $('t-Emax').value=S.t.Emax; setTE(S.t.E); schedT();
+}
+let tT=null; const schedT=()=>{ clearTimeout(tT); tT=setTimeout(tCompute,60); };
+$('t-model').addEventListener('change',e=>{ S.t.model=e.target.value; S.t.meas=null; const m=BARRIERS.find(x=>x.id===S.t.model); const p=PV[S.units]['t:'+m.id]; const top=Math.max(...m.params.filter(q=>q.kind==='E').map(q=>Math.abs(p[q.k])),S.units==='ev'?1:10); S.t.Emin=0; S.t.Emax=+(top*(m.id==='field'?1.2:2.5)).toPrecision(2); S.t.E=S.t.Emax/4; tSetup(); wNeedsReset(); });
+$('t-E').addEventListener('input',e=>{ S.t.E=S.t.Emin+(S.t.Emax-S.t.Emin)*(+e.target.value); $('t-E-v').textContent=fx(S.t.E,4)+' '+U().E; tRenderE(); });
+['t-Emin','t-Emax'].forEach(id=>$(id).addEventListener('change',()=>{ let a=+$('t-Emin').value, b=+$('t-Emax').value; if(!(b>a)){ b=a+1; $('t-Emax').value=b; } S.t.Emin=a; S.t.Emax=b; setTE(S.t.E); schedT(); }));
+$('t-log').addEventListener('change',e=>{ S.t.log=e.target.checked; tRenderSpectrum(); });
+$('t-wf').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; S.t.wf=b.dataset.w; [...$('t-wf').children].forEach(x=>x.classList.toggle('on',x===b)); tRenderE(); });
+
+/* ════════════════════════════════════════════════════════════════
+   TAB 2 — WAVE PACKET (time-dependent Schrödinger equation)
+   ════════════════════════════════════════════════════════════════ */
+const WP={ready:false,running:false,stale:true};
+function wNeedsReset(){ WP.stale=true; if($('mode-wp').classList.contains('on')&&!WP.running) wReset(); }
+function wReset(){
+  WP.running=false; $('w-play').textContent='▶ Play';
+  const m=BARRIERS.find(x=>x.id===S.t.model), p=PV[S.units]['t:'+m.id], g=m.build(p), c=S.c;
+  if(m.id==='alpha'){ WP.ready=false; WP.msg='α-decay tunnelling probabilities are around 10⁻²⁰ or smaller, far too small to see with a wave packet. Choose another barrier in the Tunnelling tab.'; wRender(); return; }
+  const s=S.w.s, E0=S.w.E, VL=g.VL; if(E0<=VL){ WP.ready=false; WP.msg='The packet energy must be above the potential on the left.'; wRender(); return; }
+  const k0=Math.sqrt((E0-VL)/c), sk=1/(2*s), kmax=k0+5*sk, w=Math.max(g.x1-g.x0,0);
+  const cap=6*s, Lleft=14*s, Lright=Math.max(14*s,0.5*w);
+  /* grid aligned so that the barrier edges fall exactly on cell boundaries (thin barriers are very sensitive) */
+  const len=Lleft+Lright+2*cap+w; let h=Math.min(0.25/kmax, s/6);
+  if(len/h>12000) h=len/12000;
+  if(w>0){ const m=Math.max(90,Math.ceil(w/h)); h=w/m; }
+  const nl=Math.ceil((Lleft+cap)/h), nr=Math.ceil((Lright+cap)/h), N=nl+Math.round(w/h)+nr;
+  const xa=g.x0-nl*h, xb=xa+N*h;
+  const V=new Float64Array(N), W=new Float64Array(N), X=new Float64Array(N), pr=new Float64Array(N), pi=new Float64Array(N);
+  const Emax=c*kmax*kmax, W0=1.5*Emax;
+  let nrm=0, xc=g.x0-7*s;
+  for(let i=0;i<N;i++){ const x=xa+(i+0.5)*h; X[i]=x; V[i]=x<g.x0?g.VL:(x>g.x1?g.VR:g.f(x));
+    const dl=(xa+cap)-x, dr=x-(xb-cap); W[i]= dl>0?W0*(dl/cap)**2 : dr>0?W0*(dr/cap)**2 : 0;
+    const gg=Math.exp(-((x-xc)**2)/(4*s*s)); pr[i]=gg*Math.cos(k0*x); pi[i]=gg*Math.sin(k0*x); nrm+=gg*gg*h; }
+  const f=1/Math.sqrt(nrm); for(let i=0;i<N;i++){ pr[i]*=f; pi[i]*=f; }
+  const dt=0.1/Emax;
+  Object.assign(WP,{ready:true,stale:false,m,g,V,W,X,pr,pi,h,N,dt,t:0,absL:0,absR:0,cn:makeCN(V,W,h,c,dt),xa,xb,cap,k0,E0,done:false,msg:''});
+  // packet-averaged transmission ⟨T⟩ = ∫ T(E(k)) |φ(k)|² dk
+  const sb=sliceBarrier(m,p,Emax); let num=0,den=0;
+  for(let i=0;i<801;i++){ const k=k0-4*sk+8*sk*i/800; if(k<=0) continue; const wgt=Math.exp(-2*s*s*(k-k0)**2), E=VL+c*k*k; num+=wgt*TM.solve(E,null,sb.h,sb.V,g.VL,g.VR,c,false).T; den+=wgt; }
+  WP.Tavg=num/den; WP.T0=TM.solve(E0,null,sb.h,sb.V,g.VL,g.VR,c,false).T;
+  wRender();
+}
+function wParts(){ const {X,pr,pi,h,g,N}=WP; let L=0,M=0,Rr=0; for(let i=0;i<N;i++){ const q=(pr[i]*pr[i]+pi[i]*pi[i])*h; if(X[i]<g.x0)L+=q; else if(X[i]>g.x1)Rr+=q; else M+=q; } return {L:L+WP.absL,M,R:Rr+WP.absR,left:L,right:Rr}; }
+function wStep(n){
+  const {pr,pi,W,X,h,dt,N,xa,xb}=WP; const mid=(xa+xb)/2;
+  const norm=()=>{ let t=0; for(let i=0;i<N;i++) t+=pr[i]*pr[i]+pi[i]*pi[i]; return t*h; };
+  for(let s=0;s<n;s++){
+    const n0=norm(); WP.cn.step(pr,pi); WP.t+=dt; const lost=Math.max(0,n0-norm());
+    /* what disappeared was absorbed at the edges: share it by where the absorbing potential acts */
+    let aL=0,aR=0; for(let i=0;i<N;i++){ if(W[i]>0){ const q=W[i]*(pr[i]*pr[i]+pi[i]*pi[i]); if(X[i]<mid)aL+=q; else aR+=q; } }
+    if(aL+aR>0){ WP.absL+=lost*aL/(aL+aR); WP.absR+=lost*aR/(aL+aR); }
+  }
+  const P=wParts(); if(P.left+P.M+P.right<0.002||P.M<1e-4&&(P.left+P.right)<0.01){ WP.done=true; WP.running=false; $('w-play').textContent='▶ Play'; }
+}
+function wLoop(){ if(!WP.running) return; if(!$('mode-wp').classList.contains('on')){ WP.running=false; $('w-play').textContent='▶ Play'; return; } wStep(S.w.speed); wRender(); requestAnimationFrame(wLoop); }
+function wRender(){
+  const u=U();
+  $('w-E-v').textContent=fx(S.w.E,4)+' '+u.E; $('w-s-v').textContent=fx(S.w.s,3)+' '+u.L; $('w-speed-v').textContent=S.w.speed+'×';
+  if(!WP.ready){ const el=$('w-plot'); if(hasPlotly()) Plotly.purge(el); el.innerHTML=`<div class="plot-empty">${WP.msg||''}</div>`; $('w-stats').innerHTML=''; $('w-readout').innerHTML=''; return; }
+  const el=$('w-plot'); const em=el.querySelector('.plot-empty'); if(em) em.remove();
+  const {X,pr,pi,V,N,cap,xa,xb}=WP, st=Math.max(1,Math.floor(N/1400)), xs=[],ps=[],rs=[],vs=[];
+  for(let i=0;i<N;i+=st){ if(X[i]<xa+cap||X[i]>xb-cap) continue; xs.push(X[i]); ps.push(pr[i]*pr[i]+pi[i]*pi[i]); rs.push(pr[i]); vs.push(V[i]); }
+  const tr=[{x:xs,y:vs,yaxis:'y2',name:'V(x)',mode:'lines',line:{color:cssv('--veff'),width:2},hovertemplate:'V = %{y:.4g} '+u.E+'<extra></extra>'},
+            {x:[xs[0],xs[xs.length-1]],y:[WP.E0,WP.E0],yaxis:'y2',name:'E₀',mode:'lines',line:{color:cssv('--level'),width:1.4,dash:'dash'},hoverinfo:'skip'},
+            {x:xs,y:ps,name:'|ψ(x,t)|²',mode:'lines',line:{color:pal(0),width:2.2},fill:'tozeroy',fillcolor:'rgba(56,211,245,0.18)',hovertemplate:'x = %{x:.4g} '+u.L+'<br>|ψ|² = %{y:.4g}<extra></extra>'}];
+  if(S.w.showRe) tr.push({x:xs,y:rs,name:'Re ψ',mode:'lines',line:{color:pal(1),width:1.2},opacity:0.8,hoverinfo:'skip'});
+  const L=baseLayout('x ('+u.L+')','|ψ|²  ('+u.L+'⁻¹)');
+  L.yaxis2={overlaying:'y',side:'right',title:{text:'Energy ('+u.E+')',font:{size:13}},showgrid:false,zeroline:false,tickfont:{family:cssv('--font-num'),size:11},automargin:true,linecolor:cssv('--plot-axis')};
+  let pmax=0; for(const v of ps) pmax=Math.max(pmax,v); WP.pmax=Math.max(WP.pmax||0,pmax);
+  L.yaxis.autorange=false; L.yaxis.range=[S.w.showRe?-Math.sqrt(WP.pmax)*1.05:0,WP.pmax*1.1];
+  let vmn=Infinity,vmx=-Infinity; for(const v of vs){ vmn=Math.min(vmn,v); vmx=Math.max(vmx,v); } vmn=Math.min(vmn,WP.E0,0); vmx=Math.max(vmx,WP.E0)*1.15||1;
+  L.yaxis2.range=[S.w.showRe?vmn-(vmx-vmn):vmn-(vmx-vmn)*0.05, vmx]; L.yaxis2.autorange=false;
+  L.margin.r=64; L.uirevision='wp'; L.transition={duration:0};
+  react('w-plot',tr,L,'wave-packet');
+  const P=wParts(), tt=WP.t*u.tk;
+  $('w-readout').innerHTML=`<span>t = <b>${tt.toFixed(tt<10?3:1)} ${u.tu}</b></span><span>Norm = <b>${(P.L+P.M+P.R).toFixed(4)}</b></span><span>${WP.done?'<b>Finished</b>: the packet has left the barrier region.':WP.running?'Running…':'Paused'}</span>`;
+  const card=(v,t,hl)=>`<div class="stat${hl?' hl':''}"><b>${v}</b><span>${t}</span></div>`;
+  $('w-stats').innerHTML=card(P.L.toFixed(4),'Reflected (left of the barrier)')+card(P.M.toFixed(4),'Inside the barrier or well')+card(P.R.toFixed(4),'Transmitted (right of the barrier)',true)+card(fT(WP.Tavg),'⟨T⟩ averaged over the packet energies')+card(fT(WP.T0),'T(E₀) for a single energy');
+}
+$('w-play').addEventListener('click',()=>{ if(!WP.ready||WP.stale) wReset(); if(!WP.ready) return; if(WP.done) wReset(); WP.running=!WP.running; $('w-play').textContent=WP.running?'⏸ Pause':'▶ Play'; if(WP.running) requestAnimationFrame(wLoop); });
+$('w-reset').addEventListener('click',()=>{ WP.pmax=0; wReset(); });
+$('w-E').addEventListener('input',e=>{ S.w.E=wEmin()+(wEmax()-wEmin())*(+e.target.value); WP.pmax=0; wReset(); });
+$('w-s').addEventListener('input',e=>{ S.w.s=+e.target.value; WP.pmax=0; wReset(); });
+$('w-speed').addEventListener('input',e=>{ S.w.speed=+e.target.value; $('w-speed-v').textContent=S.w.speed+'×'; });
+$('w-re').addEventListener('change',e=>{ S.w.showRe=e.target.checked; wRender(); });
+const wEmin=()=>Math.max(S.t.Emin,1e-6), wEmax=()=>S.t.Emax;
+function wSetup(){
+  const u=U(), sc=S.units==='ev'?[0.2,15,0.05]:[0.3,15,0.05]; const sl=$('w-s'); sl.min=sc[0]; sl.max=sc[1]; sl.step=sc[2]; sl.value=S.w.s;
+  S.w.E=Math.min(Math.max(S.w.E,wEmin()),wEmax()); $('w-E').value=(S.w.E-wEmin())/(wEmax()-wEmin()); WP.pmax=0; wReset();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TAB 3 — PARTIAL-WAVE SCATTERING IN 3D
+   ════════════════════════════════════════════════════════════════ */
+let SC=null, scToken=0;
+function sModel(){ const m=RADIAL.find(x=>x.id===S.s.model), p=PV[S.units]['s:'+m.id]; return {m,p,Vf:m.fn(p),range:m.range(p)}; }
+function sLmax(){ const {range}=sModel(); if(!S.s.Lauto) return S.s.L; const k=Math.sqrt(S.s.Emax/S.c); return Math.min(25,Math.ceil(k*range)+2); }
+function sCompute(){
+  const tok=++scToken, {m,p,Vf,range}=sModel(), c=S.c, L=sLmax(), rM=range*1.15+1e-9;
+  if(S.s.Lauto){ $('s-L').value=L; } $('s-L-v').textContent=L;
+  const NE=110, Es=[]; for(let i=0;i<NE;i++) Es.push(S.s.Emin+(S.s.Emax-S.s.Emin)*i/(NE-1));
+  const D=Es.map(()=>new Float64Array(L+1)); let i=0;
+  $('s-progress').textContent='Computing phase shifts…';
+  const work=()=>{
+    if(tok!==scToken) return; const t0=performance.now();
+    while(i<NE&&performance.now()-t0<30){ for(let l=0;l<=L;l++) D[i][l]=PW.delta(Vf,c,Es[i],l,rM); i++; }
+    $('s-progress').textContent=i<NE?`Computing phase shifts… ${Math.round(100*i/NE)} %`:'';
+    if(i<NE){ setTimeout(work,0); return; }
+    SC={m,p,Vf,range,rM,L,Es,D}; sLowEnergy(); sRenderCurves(); sRenderE(true);
+  };
+  work(); sRenderV(); infoCard($('s-info'),m); $('s-formula').textContent=m.formula;
+}
+function sLowEnergy(){
+  const {Vf,range,rM,m,p,L,Es,D}=SC, c=S.c; let Vs=0; for(let i=1;i<=200;i++){ const v=Vf(range*i/200); if(Number.isFinite(v)) Vs=Math.max(Vs,Math.min(Math.abs(v),1e4)); }
+  const Esc=Math.max(Vs,c/(range*range)), E1=1e-5*Esc, E2=4e-5*Esc, k1=Math.sqrt(E1/c), k2=Math.sqrt(E2/c);
+  const d1=PW.delta(Vf,c,E1,0,rM), d2=PW.delta(Vf,c,E2,0,rM), y1=k1/Math.tan(d1), y2=k2/Math.tan(d2), r0=2*(y2-y1)/(k2*k2-k1*k1), a=-1/(y1-r0*k1*k1/2);
+  const NB=[0,1,2].map(l=>Math.round(PW.delta(Vf,c,E1,l,rM)/Math.PI));
+  const u=U(), card=(v,t,hl)=>`<div class="stat${hl?' hl':''}"><b>${v}</b><span>${t}</span></div>`;
+  let kind=''; if(Math.abs(a)>3*range) kind=a>0?'A large positive a means a weakly bound state just below threshold.':'A large negative a means a virtual state: the potential is almost, but not quite, strong enough to bind.';
+  $('s-low').innerHTML=card(fx(a,4)+' '+u.L,'Scattering length a',true)+card(fx(r0,3)+' '+u.L,'Effective range r₀')+card(fx(4*Math.PI*a*a*u.sk,4)+' '+u.su,'σ(E → 0) = 4πa²')+card(NB.join(' · '),'Bound states for ℓ = 0 · 1 · 2 (Levinson)');
+  // resonances: δ rising through (n + ½)π
+  const res=[]; for(let l=0;l<=L;l++) for(let i=1;i<Es.length&&res.length<10;i++){ const a0=D[i-1][l], b0=D[i][l]; const n=Math.floor((a0-Math.PI/2)/Math.PI), lvl=(n+1)*Math.PI+Math.PI/2; if(b0>a0 && b0>=lvl && a0<lvl){ let lo=Es[i-1], hi=Es[i]; for(let it=0;it<30;it++){ const md=(lo+hi)/2; if(PW.delta(Vf,c,md,l,rM)<lvl) lo=md; else hi=md; }
+      const ER=(lo+hi)/2, dE=Math.max(1e-6*ER,(Es[i]-Es[i-1])*1e-3), sl=(PW.delta(Vf,c,ER+dE,l,rM)-PW.delta(Vf,c,ER-dE,l,rM))/(2*dE), G=2/sl; if(sl>0&&G<0.6*ER) res.push({l,ER,G}); } }
+  SC.res=res;
+  $('s-res').innerHTML=(kind?kind+' ':'')+(res.length?'<b>Resonances</b> (δ rising through 90°): '+res.slice(0,8).map(r=>`ℓ = ${r.l} at E = ${fx(r.ER,4)} ${u.E}, width Γ ≈ ${fx(r.G,3)} ${u.E}, lifetime ℏ/Γ ≈ ${fx(u.tk/r.G,3)} ${u.tu}`).join('; ')+'.':'No narrow resonances in this energy range.');
+}
+function sigmaOf(E,dl){ const k2=E/S.c; return dl.map((d,l)=>4*Math.PI/k2*(2*l+1)*Math.sin(d)**2); }
+function sRenderCurves(){
+  if(!SC) return; const {Es,D,L}=SC, u=U(), sk=u.sk, nL=Math.min(L,6);
+  const tot=Es.map((E,i)=>sigmaOf(E,Array.from(D[i])).reduce((a,b)=>a+b,0)*sk);
+  const tr=[{x:Es,y:tot,name:'σ total',mode:'lines',line:{color:cssv('--veff'),width:2.8},hovertemplate:'E = %{x:.4g} '+u.E+'<br>σ = %{y:.4g} '+u.su+'<extra></extra>'}];
+  for(let l=0;l<=nL;l++) tr.push({x:Es,y:Es.map((E,i)=>4*Math.PI*S.c/E*(2*l+1)*Math.sin(D[i][l])**2*sk),name:'ℓ = '+l+' ('+LN[l]+')',mode:'lines',line:{color:pal(l),width:1.6},hovertemplate:'ℓ = '+l+'<br>σ<sub>ℓ</sub> = %{y:.4g} '+u.su+'<extra></extra>'});
+  const Ls=baseLayout('Energy E ('+u.E+')','σ ('+u.su+')'); if(S.s.log){ Ls.yaxis.type='log'; Ls.yaxis.exponentformat='power'; }
+  Ls.shapes=[{type:'line',x0:S.s.E,x1:S.s.E,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1.2,dash:'dot'}}]; Ls.uirevision=S.units+S.s.model+S.s.log; Ls.hovermode='x';
+  react('s-plot-sig',tr,Ls,'cross-section');
+  const td=[]; for(let l=0;l<=Math.min(L,8);l++) td.push({x:Es,y:Es.map((E,i)=>D[i][l]*180/Math.PI),name:'δ'+l,mode:'lines',line:{color:pal(l),width:2},hovertemplate:'ℓ = '+l+'<br>E = %{x:.4g} '+u.E+'<br>δ = %{y:.4g}°<extra></extra>'});
+  const Ld=baseLayout('Energy E ('+u.E+')','Phase shift δ (degrees)'); Ld.shapes=[{type:'line',x0:S.s.E,x1:S.s.E,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1.2,dash:'dot'}}]; Ld.uirevision=S.units+S.s.model; Ld.hovermode='x';
+  Ld.yaxis.dtick=90;
+  react('s-plot-del',td,Ld,'phase-shifts');
+  ['s-plot-sig','s-plot-del'].forEach(id=>once($(id),'plotly_click',d=>{ const p=d.points&&d.points[0]; if(p) setSE(p.x); }));
+}
+function sRenderE(fresh){
+  if(!SC) return; const {Vf,rM,L}=SC, E=S.s.E, c=S.c, k=Math.sqrt(E/c), u=U();
+  const dl=[]; for(let l=0;l<=L;l++) dl.push(PW.delta(Vf,c,E,l,rM));
+  const sig=sigmaOf(E,dl), tot=sig.reduce((a,b)=>a+b,0);
+  $('s-Ehead').textContent=$('s-Ehead2').textContent=fx(E,4)+' '+u.E;
+  $('s-table').querySelector('tbody').innerHTML=dl.map((d,l)=>`<tr><td class="lbl">${l} (${LN[l]})</td><td>${(d*180/Math.PI).toFixed(2)}</td><td>${Math.sin(d)**2<1e-6?Math.sin(d)**2===0?'0':(Math.sin(d)**2).toExponential(2):(Math.sin(d)**2).toFixed(4)}</td><td>${fx(sig[l]*u.sk,4)} ${u.su}</td><td>${(100*sig[l]/tot).toFixed(1)} %</td></tr>`).join('')+`<tr><td class="lbl">Total</td><td></td><td></td><td><b>${fx(tot*u.sk,5)} ${u.su}</b></td><td>100 %</td></tr>`;
+  const th=[],ds=[]; let fim0=0;
+  for(let i=0;i<=180;i++){ const t=i*Math.PI/180, P=PW.legendre(L,Math.cos(t)); let re=0,im=0; for(let l=0;l<=L;l++){ const s=Math.sin(dl[l]); re+=(2*l+1)*Math.cos(dl[l])*s*P[l]; im+=(2*l+1)*s*s*P[l]; } re/=k; im/=k; if(i===0) fim0=im; th.push(i); ds.push((re*re+im*im)*u.sk); }
+  $('s-optical').innerHTML=`Optical theorem check: σ = (4π/k) Im f(0) = <b>${fx(4*Math.PI/k*fim0*u.sk,5)} ${u.su}</b>, compared with Σσ<sub>ℓ</sub> = ${fx(tot*u.sk,5)} ${u.su}.`;
+  const La=baseLayout('Scattering angle θ (degrees)','dσ/dΩ ('+u.su+'/sr)'); La.yaxis.type='log'; La.yaxis.exponentformat='power'; La.xaxis.dtick=30; La.showlegend=false; La.uirevision=S.units+S.s.model;
+  react('s-plot-ang',[{x:th,y:ds,mode:'lines',line:{color:pal(0),width:2.4},fill:'tozeroy',fillcolor:'rgba(56,211,245,0.10)',hovertemplate:'θ = %{x}°<br>dσ/dΩ = %{y:.4g} '+u.su+'/sr<extra></extra>'}],La,'angular-distribution');
+  if(!fresh) ['s-plot-sig','s-plot-del'].forEach(id=>{ const el=$(id); if(PENDING[id]||el.offsetParent===null) return; if(hasPlotly()&&el.layout) try{ Plotly.relayout(el,{shapes:[{type:'line',x0:E,x1:E,yref:'paper',y0:0,y1:1,line:{color:cssv('--plot-axis'),width:1.2,dash:'dot'}}]}); }catch(_){} });
+}
+function sRenderV(){
+  const {Vf,range}=sModel(), u=U(), rs=[],vs=[]; let lim=0;
+  for(let i=1;i<=400;i++){ const r=range*1.4*i/400, v=Vf(r); rs.push(r); vs.push(v); if(Math.abs(v)<1e8) lim=Math.max(lim,Math.abs(v)); }
+  const L=baseLayout('r ('+u.L+')','V(r) ('+u.E+')'); L.showlegend=false; L.yaxis.autorange=false; L.yaxis.range=[-(lim||1)*1.15,(lim||1)*1.15]; L.uirevision=S.units+S.s.model;
+  react('s-plot-v',[{x:rs,y:vs.map(v=>Math.max(-1e6,Math.min(1e6,v))),mode:'lines',line:{color:cssv('--veff'),width:2.4},fill:'tozeroy',fillcolor:'rgba(56,211,245,0.08)',hovertemplate:'r = %{x:.4g} '+u.L+'<br>V = %{y:.4g} '+u.E+'<extra></extra>'}],L,'scattering-potential');
+}
+function setSE(E){ S.s.E=Math.min(S.s.Emax,Math.max(S.s.Emin,E)); $('s-E').value=(S.s.E-S.s.Emin)/(S.s.Emax-S.s.Emin); $('s-E-v').textContent=fx(S.s.E,4)+' '+U().E; sRenderE(); }
+function sSetup(){
+  fillModels($('s-model'),RADIAL); $('s-model').value=S.s.model; buildParams('s',RADIAL,S.s.model,$('s-params'),schedS);
+  $('s-Emin').value=S.s.Emin; $('s-Emax').value=S.s.Emax; $('s-E').value=(S.s.E-S.s.Emin)/(S.s.Emax-S.s.Emin); $('s-E-v').textContent=fx(S.s.E,4)+' '+U().E;
+  $('s-Lauto').checked=S.s.Lauto; schedS();
+}
+let sT=null; const schedS=()=>{ clearTimeout(sT); sT=setTimeout(sCompute,120); };
+$('s-model').addEventListener('change',e=>{ S.s.model=e.target.value; sSetup(); });
+$('s-E').addEventListener('input',e=>{ S.s.E=S.s.Emin+(S.s.Emax-S.s.Emin)*(+e.target.value); $('s-E-v').textContent=fx(S.s.E,4)+' '+U().E; clearTimeout(S.s.t); S.s.t=setTimeout(sRenderE,30); });
+$('s-L').addEventListener('input',e=>{ S.s.L=+e.target.value; S.s.Lauto=false; $('s-Lauto').checked=false; $('s-L-v').textContent=S.s.L; schedS(); });
+$('s-Lauto').addEventListener('change',e=>{ S.s.Lauto=e.target.checked; schedS(); });
+$('s-log').addEventListener('change',e=>{ S.s.log=e.target.checked; sRenderCurves(); });
+['s-Emin','s-Emax'].forEach(id=>$(id).addEventListener('change',()=>{ let a=Math.max(1e-6,+$('s-Emin').value), b=+$('s-Emax').value; if(!(b>a)) b=a*10; $('s-Emin').value=a; $('s-Emax').value=b; S.s.Emin=a; S.s.Emax=b; S.s.E=Math.min(b,Math.max(a,S.s.E)); sSetup(); }));
+
+/* ════════════════════════════════════════════════════════════════
+   UNITS AND PARTICLE BAR
+   ════════════════════════════════════════════════════════════════ */
+function fillParticles(){ $('particle').innerHTML=PARTICLES[S.units].map(p=>`<option value="${p.id}">${p.name}</option>`).join(''); $('particle').value=S.pid; $('mass').value=+S.m.toPrecision(7); setC(); }
+function setUnits(u,keep){
+  S.units=u; [...$('units-seg').children].forEach(b=>b.classList.toggle('on',b.dataset.u===u));
+  if(!keep){ const P=PARTICLES[u][0]; S.pid=P.id; S.m=P.m;
+    if(u==='ev'){ S.t.Emin=0; S.t.Emax=3; S.t.E=0.5; S.w.E=0.7; S.w.s=2; S.s.Emin=0.05; S.s.Emax=10; S.s.E=2; }
+    else { S.t.Emin=0; S.t.Emax=30; S.t.E=5; S.w.E=7; S.w.s=2; S.s.Emin=0.1; S.s.Emax=40; S.s.E=5; } S.t.meas=null; }
+  fillParticles(); tSetup(); sSetup(); wSetup();
+}
+$('units-seg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b&&b.dataset.u!==S.units) setUnits(b.dataset.u); });
+$('particle').addEventListener('change',e=>{ const P=PARTICLES[S.units].find(x=>x.id===e.target.value); S.pid=P.id; if(P.id!=='custom') S.m=P.m; $('mass').value=+S.m.toPrecision(7); setC(); schedT(); schedS(); wNeedsReset(); });
+$('mass').addEventListener('change',e=>{ const v=+e.target.value; if(v>0){ S.m=v; S.pid='custom'; $('particle').value='custom'; setC(); schedT(); schedS(); wNeedsReset(); } else e.target.value=+S.m.toPrecision(7); });
+
+/* ════════════════════════════════════════════════════════════════
+   EXAMPLE MODELS (drawer)
+   ════════════════════════════════════════════════════════════════ */
+const Rd=A=>+(1.4*Math.cbrt(A)).toFixed(2), muA=Ad=>+(3727.379*Ad*931.494/(3727.379+Ad*931.494)).toFixed(2);
+const EXAMPLES=[
+ {group:'Tunnelling through barriers', items:[
+  {name:'Rectangular barrier', exact:true, desc:'Electron, 1 eV high and 1 nm wide.', look:'T falls exponentially below 1 eV; above it T oscillates and touches 1 at specific energies.', set:{units:'ev',pid:'e',tab:'tun',t:{model:'rect',p:{V0:1,a:1},Emin:0,Emax:3,E:0.5,log:true}}},
+  {name:'Eckart barrier', exact:true, desc:'A smooth sech² barrier with an exact formula.', look:'The numerical curve lies exactly on the analytic one; WKB is good except near the top.', set:{units:'ev',pid:'e',tab:'tun',t:{model:'eckart',p:{V0:0.5,a:0.3},Emin:0,Emax:1.5,E:0.3,log:true}}},
+  {name:'Resonant-tunnelling diode', desc:'GaAs electron, two 0.3 eV AlGaAs barriers 2 nm wide around a 5 nm well.', look:'Sharp peaks where T reaches 1 (the first at 0.0862 eV): the quasi-bound states of the well. Click a peak and see the wave build up between the barriers.', set:{units:'ev',pid:'gaas',tab:'tun',t:{model:'double',p:{V0:0.3,b:2,w:5},Emin:0,Emax:0.5,E:0.0862,log:true}}},
+  {name:'Superlattice minibands', desc:'Six GaAs/AlGaAs barriers.', look:'Transmission bunches into bands of 5 peaks separated by gaps, the start of a band structure.', set:{units:'ev',pid:'gaas',tab:'tun',t:{model:'lattice',p:{V0:0.3,b:1.5,w:4,N:6},Emin:0,Emax:0.6,E:0.1,log:true}}},
+  {name:'Field emission from a metal', desc:'Electrons at the Fermi level (E = 5.5 eV) under a 5 V/nm field; work function 4.5 eV.', look:'Raise the field F and watch T grow by orders of magnitude (Fowler–Nordheim).', set:{units:'ev',pid:'e',tab:'tun',t:{model:'field',p:{U0:10,F:5},Emin:0,Emax:12,E:5.5,log:true}}},
+  {name:'Quantum reflection at a step', exact:true, desc:'A 1 eV step.', look:'Above the step R is not zero: a classical particle would never bounce back.', set:{units:'ev',pid:'e',tab:'tun',t:{model:'step',p:{V0:1},Emin:0,Emax:4,E:1.5,log:false}}},
+  {name:'Transmission over a well', exact:true, desc:'An attractive 2 eV well, 1 nm wide.', look:'Perfect transmission at special energies: the 1D Ramsauer–Townsend effect.', set:{units:'ev',pid:'e',tab:'tun',t:{model:'well',p:{V0:2,a:1},Emin:0,Emax:5,E:0.5,log:false}}},
+  {name:'Proton vs deuteron tunnelling', desc:'A 0.3 eV, sech² barrier (a = 0.02 nm) like a hydrogen-bond transfer. Switch the particle to the deuteron.', look:'The heavier deuteron tunnels far less: the kinetic isotope effect in chemistry.', set:{units:'ev',pid:'p',tab:'tun',t:{model:'eckart',p:{V0:0.3,a:0.02},Emin:0,Emax:0.6,E:0.15,log:true}}},
+ ]},
+ {group:'α decay (Gamow theory)', items:[
+  {name:'²¹²Po → ²⁰⁸Pb + α', desc:'Q = 8.954 MeV.', look:'Measured half-life 0.30 μs. Compare with the model.', set:{units:'mev',pid:'custom',m:muA(208),tab:'tun',meas:'0.299 μs',t:{model:'alpha',p:{Z:82,R:Rd(208),V0:35},Emin:4,Emax:10,E:8.954,log:true}}},
+  {name:'²²⁶Ra → ²²²Rn + α', desc:'Q = 4.871 MeV.', look:'Measured half-life 1600 years.', set:{units:'mev',pid:'custom',m:muA(222),tab:'tun',meas:'1600 years',t:{model:'alpha',p:{Z:86,R:Rd(222),V0:35},Emin:4,Emax:10,E:4.871,log:true}}},
+  {name:'²³⁸U → ²³⁴Th + α', desc:'Q = 4.270 MeV.', look:'Measured half-life 4.47 × 10⁹ years, about the age of the Earth.', set:{units:'mev',pid:'custom',m:muA(234),tab:'tun',meas:'4.47 × 10⁹ years',t:{model:'alpha',p:{Z:90,R:Rd(234),V0:35},Emin:4,Emax:10,E:4.270,log:true}}},
+  {name:'²¹⁰Po → ²⁰⁶Pb + α', desc:'Q = 5.407 MeV, the polonium of Marie Curie.', look:'Measured 138 days. The model is about 10× too fast: at N = 126 the α particle is hard to pre-form.', set:{units:'mev',pid:'custom',m:muA(206),tab:'tun',meas:'138 days',t:{model:'alpha',p:{Z:82,R:Rd(206),V0:35},Emin:4,Emax:10,E:5.407,log:true}}},
+ ]},
+ {group:'Wave packets', items:[
+  {name:'Packet tunnelling through a thin barrier', desc:'Electron packet at 0.7 eV on a 1 eV, 0.5 nm barrier.', look:'Part of the packet appears on the right without ever having enough energy to cross.', set:{units:'ev',pid:'e',tab:'wp',play:true,t:{model:'rect',p:{V0:1,a:0.5},Emin:0,Emax:3,E:0.7},w:{E:0.7,s:2}}},
+  {name:'Packet above a barrier', desc:'1.5 eV packet on a 1 eV barrier.', look:'Even above the top, a sizeable part is reflected.', set:{units:'ev',pid:'e',tab:'wp',play:true,t:{model:'rect',p:{V0:1,a:1},Emin:0,Emax:3,E:1.5},w:{E:1.5,s:2}}},
+  {name:'Packet on a resonant double barrier', desc:'GaAs packet at the first resonance, E₀ = 0.0862 eV.', look:'The packet leaks out of the well slowly: the dwell time is the lifetime ℏ/Γ of the quasi-bound state.', set:{units:'ev',pid:'gaas',tab:'wp',play:true,t:{model:'double',p:{V0:0.3,b:2,w:5},Emin:0,Emax:0.5,E:0.0862},w:{E:0.0862,s:20}}},
+  {name:'Packet crossing a well', desc:'0.5 eV packet over a 2 eV well.', look:'The packet speeds up inside the well (shorter wavelength) and partly reflects at its edges.', set:{units:'ev',pid:'e',tab:'wp',play:true,t:{model:'well',p:{V0:2,a:1},Emin:0,Emax:5,E:0.5},w:{E:0.5,s:1.5}}},
+ ]},
+ {group:'3D scattering (partial waves)', items:[
+  {name:'Hard sphere', exact:true, desc:'Neutron on a hard sphere of radius 1 fm.', look:'σ → 4πR² = 0.126 b at low energy (four times the geometric area) and towards 2πR² at high energy.', set:{units:'mev',pid:'n',tab:'sc',s:{model:'hard',p:{R:1},Emin:0.05,Emax:400,E:50}}},
+  {name:'n–p triplet scattering (deuteron)', desc:'Square well V₀ = 36.5 MeV, R = 2 fm, n–p reduced mass.', look:'a ≈ +5.4 fm (measured 5.42) and δ₀(0) = 180°: one bound state, the deuteron (Levinson’s theorem).', set:{units:'mev',pid:'np',tab:'sc',s:{model:'sqwell',p:{V0:36.5,R:2},Emin:0.01,Emax:20,E:1}}},
+  {name:'n–p singlet scattering (virtual state)', desc:'Square well V₀ = 15.1 MeV, R = 2.5 fm.', look:'a ≈ −24 fm (measured −23.7): almost bound. σ at low energy is huge, about 70 b.', set:{units:'mev',pid:'np',tab:'sc',s:{model:'sqwell',p:{V0:15.1,R:2.5},Emin:0.01,Emax:20,E:0.5,log:true}}},
+  {name:'Shape resonances', desc:'Nucleon in a 50 MeV well (R = 3 fm) behind a 30 MeV barrier 2 fm thick.', look:'A sharp d-wave resonance near 3.9 MeV (δ₂ jumps by 180°, Γ ≈ 0.09 MeV) and a broader s-wave one near 12 MeV. The list above gives widths and lifetimes.', set:{units:'mev',pid:'n',tab:'sc',s:{model:'shell',p:{V0:50,R:3,Vb:30,b:2},Emin:0.2,Emax:20,E:3.9,log:true}}},
+  {name:'Ramsauer–Townsend effect', desc:'Model of an electron on an argon atom: a 70 eV well of radius 0.1 nm.', look:'The cross-section almost vanishes near 0.65 eV, where δ₀ = 180° and the atom becomes nearly transparent.', set:{units:'ev',pid:'e',tab:'sc',s:{model:'sqwell',p:{V0:70,R:0.1},Emin:0.05,Emax:10,E:0.65}}},
+  {name:'Neutron + ²⁰⁸Pb', desc:'Woods–Saxon well for lead, reduced mass.', look:'Many partial waves contribute; dσ/dΩ shows diffraction minima like light around a disc.', set:{units:'mev',pid:'nPb',tab:'sc',s:{model:'ws',p:{V0:45,R:7.1,a:0.65},Emin:0.5,Emax:40,E:14,log:false}}},
+ ]},
+];
+let current=null;
+function loadExample(X){
+  const s=X.set; current=X;
+  setUnits(s.units,true); if(s.pid){ S.pid=s.pid; S.m=s.m||PARTICLES[s.units].find(p=>p.id===s.pid).m; }
+  if(s.t){ S.t.model=s.t.model; Object.assign(PV[s.units]['t:'+s.t.model],s.t.p); S.t.Emin=s.t.Emin; S.t.Emax=s.t.Emax; S.t.E=s.t.E; if(s.t.log!==undefined){ S.t.log=s.t.log; $('t-log').checked=s.t.log; } }
+  S.t.meas=s.meas||null;
+  if(s.w){ S.w.E=s.w.E; S.w.s=s.w.s; }
+  if(s.s){ S.s.model=s.s.model; Object.assign(PV[s.units]['s:'+s.s.model],s.s.p); S.s.Emin=s.s.Emin; S.s.Emax=s.s.Emax; S.s.E=s.s.E; S.s.log=!!s.s.log; $('s-log').checked=S.s.log; S.s.Lauto=true; }
+  fillParticles(); tSetup(); sSetup(); wSetup();
+  document.querySelector(`.tab[data-mode="${s.tab}"]`).click();
+  if(s.play){ setTimeout(()=>{ if(!WP.running) $('w-play').click(); },300); }
+}
+function buildExamples(){
+  const box=$('examples'); box.innerHTML='';
+  EXAMPLES.forEach(g=>{ const d=document.createElement('div'); d.className='ex-group'; d.innerHTML=`<h3>${g.group}</h3>`;
+    g.items.forEach(X=>{ const b=document.createElement('button'); b.type='button'; b.className='ex'+(X===current?' on':'');
+      b.innerHTML=`<span class="ex-title">${X.name}${X.exact?' <span class="tag exact">Exact</span>':''}</span><span class="ex-desc">${X.desc}</span><span class="ex-look"><b>Look for:</b> ${X.look}</span>`;
+      b.onclick=()=>{ closeDrawer(); loadExample(X); }; d.appendChild(b); });
+    box.appendChild(d); });
+}
+const drawer=$('examples-drawer'), back=$('drawer-back');
+function openDrawer(){ buildExamples(); drawer.hidden=false; back.hidden=false; requestAnimationFrame(()=>drawer.classList.add('open')); (drawer.querySelector('.ex.on')||drawer.querySelector('.ex')).focus(); }
+function closeDrawer(){ drawer.classList.remove('open'); back.hidden=true; setTimeout(()=>{ drawer.hidden=true; },230); }
+$('open-examples').onclick=openDrawer; $('close-examples').onclick=closeDrawer; back.onclick=closeDrawer;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!drawer.hidden) closeDrawer(); });
+
+/* ════════════════════════════════════════════════════════════════
+   TABS, THEME
+   ════════════════════════════════════════════════════════════════ */
+document.querySelector('.tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b) return;
+  document.querySelectorAll('.tab').forEach(t=>{ const on=t===b; t.classList.toggle('on',on); t.setAttribute('aria-selected',on); });
+  document.querySelectorAll('.mode').forEach(m=>m.classList.toggle('on',m.id==='mode-'+b.dataset.mode));
+  if(b.dataset.mode!=='wp'&&WP.running){ WP.running=false; $('w-play').textContent='▶ Play'; }
+  if(b.dataset.mode==='wp'&&WP.stale) wReset();
+  flushPending(b.dataset.mode);
+  try{ history.replaceState(null,'','#'+b.dataset.mode); }catch(_){}
+});
+(function(){
+  const sw=document.querySelector('.theme-sw');
+  sw.addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(b) window.__siteTheme.set(b.dataset.m); });
+  const vis=()=>{ let show=window.top===window; try{ if(!show&&window.parent.document.fullscreenElement===window.frameElement)show=true; }catch(_){ show=true; } sw.classList.toggle('show',show); };
+  vis(); window.addEventListener('resize',vis); window.__siteTheme.apply();
+})();
+window.addEventListener('themechange',()=>{ if(TD){ tRenderSpectrum(); tRenderE(true); } if(WP.ready) wRender(); if(SC){ sRenderCurves(); sRenderE(true); } sRenderV(); });
+
+/* start */
+fillParticles(); tSetup(); sSetup(); wSetup();
+const h0=location.hash.slice(1); if(['wp','sc'].includes(h0)) document.querySelector(`.tab[data-mode="${h0}"]`).click();
+</script>
+</body>
+</html>
