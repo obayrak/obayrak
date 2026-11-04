@@ -1,359 +1,477 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Quantum Potential Simulator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum Potential Simulator II: Bound States and Shell Structure</title>
+<meta name="description" content="Solve the radial Schrödinger equation for 15 nuclear and atomic potentials: bound-state energies, wavefunctions, WKB comparison and the nuclear shell model with magic numbers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#06080f;--s0:#0a0e1a;--s1:#0e1422;--s2:#12192c;--s3:#182034;
-  --bd:rgba(255,255,255,0.07);--bd2:rgba(255,255,255,0.13);
-  --text:#c8d8f0;--muted:#3a5070;--dim:#1e3050;
-  --fn:'JetBrains Mono',monospace;--fh:'Syne',sans-serif;
-  --gap:12px;--r:7px;
-  --a1:#00d4ff;--a2:#ff6b6b;--a3:#4ade80;--a4:#fbbf24;--a5:#c084fc;--a6:#f97316;
-  --sum-col:#ffffff;
+  --bg:#070b14; --surface:#0d1424; --surface-2:#121b30; --raised:#18233b;
+  --line:rgba(160,190,230,0.14); --line-strong:rgba(160,190,230,0.28);
+  --text:#e6eefa; --text-2:#b4c4dc; --muted:#8ea2bf;
+  --accent:#38d3f5; --accent-ink:#04131a; --accent-soft:rgba(56,211,245,0.12);
+  --warn:#fbbf24; --good:#4ade80; --bad:#f87171;
+  --plot-bg:#0a1120; --plot-grid:rgba(160,190,230,0.10); --plot-axis:rgba(160,190,230,0.45); --plot-text:#a9bad3;
+  --veff:#f5f7fb; --level:#fbbf24; --forbid:rgba(248,113,113,0.10);
+  --font-ui:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --font-read:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --font-num:'JetBrains Mono','Consolas',monospace;
+  --radius:10px;
+  color-scheme:dark;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html{font-size:13px;}
-body{background:var(--bg);color:var(--text);font-family:var(--fn);min-height:100vh;overflow-x:hidden;
-  background-image:linear-gradient(rgba(0,212,255,.012) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(0,212,255,.012) 1px,transparent 1px);
-  background-size:32px 32px;}
+html.day{
+  --bg:#FFFDF0; --surface:#FFFFFF; --surface-2:#FBF7E8; --raised:#F4EDD6;
+  --line:rgba(41,37,31,0.13); --line-strong:rgba(41,37,31,0.26);
+  --text:#29251F; --text-2:#4A4236; --muted:#6B6152;
+  --accent:#00707F; --accent-ink:#FFFFFF; --accent-soft:rgba(0,112,127,0.09);
+  --warn:#8A5200; --good:#1B7A3C; --bad:#B42318;
+  --plot-bg:#FFFFFF; --plot-grid:rgba(41,37,31,0.08); --plot-axis:rgba(41,37,31,0.45); --plot-text:#4A4236;
+  --veff:#29251F; --level:#9a5b00; --forbid:rgba(180,35,24,0.07);
+  --font-read:Georgia,'Times New Roman',serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);line-height:1.6;-webkit-font-smoothing:antialiased}
+html.day body{line-height:1.75}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+sub,sup{font-size:.72em}
 
-/* ── App layout ── */
-.app{display:grid;grid-template-rows:auto 1fr;height:100vh;max-height:100vh;}
-.header{padding:9px 18px;background:var(--s0);border-bottom:1px solid var(--bd);
-  display:flex;align-items:center;gap:14px;flex-shrink:0;}
-.header h1{font-family:var(--fh);font-size:1.15rem;font-weight:800;letter-spacing:-.5px;
-  background:linear-gradient(120deg,var(--a1),var(--a5),var(--a4));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.header p{font-size:.62rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
-.badge{padding:2px 8px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.22);
-  border-radius:20px;font-size:.60rem;color:var(--a1);white-space:nowrap;}
+/* header */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 22px;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:22px;font-weight:700;flex-shrink:0}
+.brand h1{font-size:1.15rem;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.brand p{font-size:.85rem;color:var(--muted);line-height:1.3}
+.tabs{display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);margin-left:auto}
+.tab{border:0;background:none;padding:7px 14px;border-radius:7px;font-weight:600;font-size:.95rem;color:var(--text-2);cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.on{background:var(--accent);color:var(--accent-ink)}
+.units{font-family:var(--font-num);font-size:.78rem;color:var(--muted);white-space:nowrap}
+.theme-sw{display:none;gap:3px;padding:3px;border-radius:8px;border:1px solid var(--line)}
+.theme-sw.show{display:flex}
+.theme-sw button{min-width:32px;height:28px;border:0;border-radius:6px;background:none;color:var(--text-2);cursor:pointer;font-size:15px}
+.theme-sw button.on{background:var(--warn);color:#1b1406}
+html.day .theme-sw button.on{background:#F2C14E;color:#29251F}
 
-.body{display:grid;grid-template-columns:296px 1fr;overflow:hidden;height:100%;}
+/* layout */
+.mode{display:none}
+.mode.on{display:block}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;padding:20px 22px 28px;max-width:1600px;margin:0 auto;align-items:start}
+.side{display:flex;flex-direction:column;gap:16px}
+.content{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h2{font-size:1.02rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h2 .hint{font-weight:400;font-size:.85rem;color:var(--muted);margin-left:auto}
+.intro{font-family:var(--font-read);font-size:1rem;color:var(--text-2)}
+.intro b{color:var(--text)}
 
-/* ── Sidebar ── */
-.sidebar{background:var(--s0);border-right:1px solid var(--bd);overflow-y:auto;
-  scrollbar-width:thin;scrollbar-color:var(--s3) transparent;display:flex;flex-direction:column;}
-.sidebar::-webkit-scrollbar{width:4px;}
-.sidebar::-webkit-scrollbar-thumb{background:var(--s3);border-radius:2px;}
+/* form controls */
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 12px;margin:10px 0}
+.row label{font-size:.92rem;color:var(--text-2)}
+.row .val{font-family:var(--font-num);font-size:.88rem;color:var(--text);min-width:64px;text-align:right}
+.row input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.row small{grid-column:1 / -1;color:var(--muted);font-size:.82rem;line-height:1.45;margin-top:-2px}
+select,input[type=number]{width:100%;padding:7px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:.95rem}
+input[type=number]{font-family:var(--font-num)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{white-space:nowrap;flex:1;min-width:0;padding:6px 8px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-size:.9rem;font-weight:600}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:1.1rem;cursor:pointer}
+.stepper span{white-space:nowrap}
+.stepper output{font-family:var(--font-num);font-size:1.15rem;min-width:28px;text-align:center}
+.check{display:flex;align-items:center;gap:8px;font-size:.92rem;color:var(--text-2);cursor:pointer;margin:6px 0}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.btn{padding:7px 12px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface-2);font-size:.9rem;font-weight:600;cursor:pointer;color:var(--text)}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets .btn{font-weight:500}
+.field{margin:10px 0}
+.field > span{display:block;font-size:.92rem;color:var(--text-2);margin-bottom:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-.sb-section{border-bottom:1px solid var(--bd);}
-.sb-section-title{
-  font-family:var(--fh);font-size:.60rem;font-weight:600;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--muted);padding:7px 11px;
-  display:flex;align-items:center;justify-content:space-between;cursor:pointer;
-  user-select:none;transition:color .15s;}
-.sb-section-title:hover{color:var(--text);}
-.sb-section-title .grp-dot{width:7px;height:7px;border-radius:50%;margin-right:7px;flex-shrink:0;}
-.sb-section-body{padding:4px 7px 8px;}
-.sb-section-body.collapsed{display:none;}
+/* potential library */
+.group{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.group:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.group-title{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0}
+.pot{border-radius:8px}
+.pot-head{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:8px;padding:6px 6px;border-radius:8px}
+.pot-head:hover{background:var(--surface-2)}
+.pot.on .pot-head{background:var(--accent-soft)}
+.pot-head input{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+.swatch{width:12px;height:12px;border-radius:3px}
+.pot-name{font-size:.95rem;cursor:pointer;line-height:1.3}
+.pot-more{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 6px;border-radius:5px}
+.pot-more:hover{color:var(--accent)}
+.pot-body{display:none;padding:2px 8px 10px 30px}
+.pot.open .pot-body{display:block}
+.pot-body .row{margin:8px 0}
 
-/* ── Potential row ── */
-.pot-row{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);
-  margin-bottom:4px;overflow:hidden;transition:border-color .2s;}
-.pot-row.active-pot{border-color:rgba(255,255,255,.18);}
+/* plots */
+.plot-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin-bottom:10px}
+.plot-tools .seg{flex:0 0 auto}
+.plot-tools .seg button{flex:0 0 auto;padding:5px 10px}
+.plot-tools label.inline{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-2)}
+.plot-tools input[type=range]{width:120px;accent-color:var(--accent)}
+.canvas-box{position:relative;width:100%;border-radius:8px;overflow:hidden;background:var(--plot-bg);border:1px solid var(--line)}
+.canvas-box canvas{display:block;width:100%;height:100%}
+.readout{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-family:var(--font-num);font-size:.84rem;color:var(--muted)}
+.readout b{color:var(--text);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.88rem;color:var(--text-2);margin-top:8px}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.status{font-size:.92rem;color:var(--text-2);margin-top:8px}
+.status.warn{color:var(--warn)}
 
-.pot-header{display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;}
-.pot-header:hover{background:rgba(255,255,255,.025);}
+/* tables */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{font-weight:600;text-align:right;color:var(--muted);font-size:.82rem;padding:8px 10px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 10px;text-align:right;font-family:var(--font-num);font-size:.88rem;border-bottom:1px solid var(--line);white-space:nowrap}
+td.lbl{font-family:var(--font-ui);font-weight:700;font-size:.95rem}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+td .flag{color:var(--warn);font-family:var(--font-ui)}
+.empty{padding:14px;color:var(--muted);font-size:.95rem}
+.note{font-size:.88rem;color:var(--muted);margin-top:10px;line-height:1.55}
 
-.pot-check{width:14px;height:14px;border-radius:3px;border:1px solid var(--bd2);
-  background:var(--s2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;
-  justify-content:center;transition:all .15s;font-size:8px;}
-.pot-check.checked{background:var(--a3);border-color:var(--a3);color:#000;}
-.pot-check.checked::after{content:'✓';}
+/* info + theory */
+.info h3{font-size:1.05rem;margin-bottom:6px}
+.formula{font-family:var(--font-num);font-size:.9rem;white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0 12px;color:var(--text)}
+.info dl{display:grid;grid-template-columns:110px 1fr;gap:6px 14px;font-family:var(--font-read)}
+.info dt{font-family:var(--font-ui);font-weight:700;color:var(--muted);font-size:.85rem;padding-top:2px}
+.info dd{white-space:pre-line;font-size:.98rem;color:var(--text-2)}
+details.theory summary{cursor:pointer;font-weight:700;font-size:1.02rem}
+details.theory .body{font-family:var(--font-read);color:var(--text-2);margin-top:10px;font-size:1rem}
+details.theory p{margin:8px 0}
+details.theory .eq{font-family:var(--font-num);font-size:.92rem;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0;color:var(--text);overflow-x:auto;white-space:nowrap}
 
-.pot-color{width:16px;height:16px;border-radius:3px;cursor:pointer;flex-shrink:0;
-  border:2px solid rgba(255,255,255,.2);overflow:hidden;position:relative;}
-.pot-color input[type=color]{position:absolute;inset:-3px;width:calc(100%+6px);
-  height:calc(100%+6px);border:none;padding:0;cursor:pointer;opacity:.01;}
+/* two-body panel */
+.pbox{border:1px solid var(--line);border-radius:9px;padding:6px 12px 2px;margin:10px 0;background:var(--surface-2)}
+.pbox .field{margin:8px 0}
+.mu-box{font-family:var(--font-num);font-size:.86rem;line-height:1.7;color:var(--text-2);background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin:8px 0}
+.mu-box b{color:var(--text);font-weight:500}
+.linkbtn{border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit;padding:0}
+input:disabled{opacity:.55}
 
-.pot-name{font-size:.70rem;flex:1;color:var(--text);font-weight:500;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pot-arrow{font-size:.58rem;color:var(--muted);transition:transform .2s;flex-shrink:0;}
-.pot-arrow.open{transform:rotate(180deg);}
+/* example drawer */
+.drawer-open{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:100%;text-align:left;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent-soft);cursor:pointer;color:var(--text)}
+.drawer-open:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.drawer-open b{display:block;font-size:1.02rem}
+.drawer-open small{display:block;color:var(--text-2);font-size:.88rem;line-height:1.35}
+.do-icon{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:16px}
+.do-arrow{font-size:1.6rem;color:var(--accent);line-height:1}
+.drawer-back{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45)}
+.drawer{position:fixed;top:0;bottom:0;left:0;z-index:41;width:min(460px,100%);overflow-y:auto;background:var(--surface);border-right:1px solid var(--line-strong);box-shadow:12px 0 40px rgba(0,0,0,.35);padding:18px 20px 28px;transform:translateX(-100%);transition:transform .22s ease}
+.drawer.open{transform:none}
+.drawer[hidden],.drawer-back[hidden]{display:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.drawer-head h2{font-size:1.15rem}
+.drawer-close{width:34px;height:34px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface-2);cursor:pointer;font-size:15px}
+.ex-group{margin-top:16px}
+.ex-group h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.ex{display:block;width:100%;text-align:left;padding:11px 13px;margin-bottom:8px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;color:var(--text)}
+.ex:hover{border-color:var(--accent)}
+.ex.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.ex .ex-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.98rem}
+.ex .ex-desc{display:block;font-size:.9rem;color:var(--text-2);margin-top:3px;line-height:1.45}
+.ex .ex-look{display:block;font-size:.86rem;color:var(--muted);margin-top:4px;line-height:1.45}
+.tag{display:inline-block;padding:0 7px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.03em;border:1px solid var(--line-strong);color:var(--text-2)}
+.tag.exact{border-color:var(--good);color:var(--good)}
 
-/* ── Inline param + physics panel ── */
-.pot-detail{padding:0 8px 9px;border-top:1px solid var(--bd);}
+/* spin–parity */
+.jp-card h2{margin-bottom:4px}
+.jp-main{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:6px 0 8px}
+.jp-big{font-family:var(--font-num);font-size:2.1rem;font-weight:500;color:var(--accent);line-height:1.1}
+.jp-meas{font-size:.98rem;color:var(--text-2)}
+.jp-meas b{font-family:var(--font-num);color:var(--text)}
+.jp-ok{color:var(--good);font-weight:700}.jp-no{color:var(--bad);font-weight:700}
+.jp-why{font-family:var(--font-read);font-size:.98rem;color:var(--text-2)}
+.jp-why b{color:var(--text)}
 
-/* Formula strip */
-.pot-formula{
-  background:var(--s2);border-radius:4px;padding:5px 8px;
-  margin:6px 0 5px;font-size:.64rem;color:var(--a4);
-  border-left:2px solid var(--a4);line-height:1.5;
-  white-space:pre-wrap;word-break:break-word;}
+/* shell model */
+.shell-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px;align-items:start}
+.magic{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-family:var(--font-num);font-size:.85rem;margin:2px 4px 2px 0}
 
-/* Physics explanation */
-.pot-physics{
-  background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.10);
-  border-radius:4px;padding:6px 8px;margin-bottom:7px;
-  font-size:.62rem;color:var(--muted);line-height:1.65;}
-.pot-physics strong{color:var(--text);}
-.pot-physics .phys-row{display:flex;gap:5px;margin-bottom:2px;}
-.pot-physics .phys-key{color:var(--a4);flex-shrink:0;}
-
-/* Param rows */
-.par-row{display:flex;flex-direction:column;gap:2px;margin-bottom:5px;}
-.par-row:last-child{margin-bottom:0;}
-.par-label{display:flex;justify-content:space-between;font-size:.63rem;color:var(--muted);}
-.par-label .pval{color:var(--text);font-weight:600;}
-.par-desc{font-size:.58rem;color:var(--dim);margin-bottom:2px;line-height:1.4;}
-input[type=range]{width:100%;-webkit-appearance:none;height:3px;border-radius:2px;
-  background:var(--s3);outline:none;cursor:pointer;}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
-  border-radius:50%;background:var(--a1);box-shadow:0 0 0 2px rgba(0,212,255,.2);
-  cursor:pointer;transition:transform .1s;}
-input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3);}
-
-/* ── Sum section ── */
-.sum-section{background:var(--s0);border-bottom:1px solid var(--bd);}
-.sum-header{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;}
-.sum-toggle{width:26px;height:15px;border-radius:8px;background:var(--s3);
-  cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
-.sum-toggle.on{background:var(--a3);}
-.sum-toggle::after{content:'';position:absolute;width:11px;height:11px;border-radius:50%;
-  background:#fff;top:2px;left:2px;transition:left .2s;}
-.sum-toggle.on::after{left:13px;}
-.sum-label{font-size:.70rem;font-weight:600;color:var(--text);}
-.sum-sublabel{font-size:.60rem;color:var(--muted);}
-.sum-color-row{display:flex;align-items:center;gap:6px;padding:0 11px 8px;}
-.sum-pots{padding:3px 11px 8px;display:flex;flex-wrap:wrap;gap:4px;}
-.sum-pot-chip{padding:2px 7px;border-radius:99px;font-size:.60rem;
-  border:1px solid var(--bd2);background:var(--s2);color:var(--muted);
-  cursor:pointer;transition:all .15s;}
-.sum-pot-chip.in-sum{background:rgba(0,212,255,.1);border-color:var(--a1);color:var(--a1);}
-
-/* ── Energy panel (sidebar) ── */
-.e-panel{padding:8px 11px 10px;border-bottom:1px solid var(--bd);}
-.e-title{font-family:var(--fh);font-size:.62rem;font-weight:600;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--a4);margin-bottom:7px;
-  display:flex;align-items:center;gap:6px;}
-.e-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
-.e-row label{font-size:.62rem;color:var(--muted);flex-shrink:0;min-width:44px;}
-.e-row .eval{color:var(--a4);font-weight:700;font-size:.68rem;min-width:54px;text-align:right;}
-.e-slider{-webkit-appearance:none;height:4px;border-radius:2px;cursor:pointer;outline:none;}
-.e-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
-  background:var(--a4);box-shadow:0 0 0 2px rgba(251,191,36,.3);cursor:pointer;}
-.e-main-row{display:flex;align-items:center;gap:8px;margin:8px 0 6px;}
-.e-big-slider{-webkit-appearance:none;flex:1;height:6px;border-radius:3px;
-  background:linear-gradient(90deg,var(--a2),var(--s3),var(--a3));
-  outline:none;cursor:pointer;}
-.e-big-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
-  border-radius:50%;background:var(--a4);border:2px solid var(--bg);
-  box-shadow:0 0 8px rgba(251,191,36,.6);cursor:pointer;}
-.e-display{background:var(--s2);border:1px solid rgba(251,191,36,.25);border-radius:5px;
-  padding:4px 10px;font-size:.78rem;font-weight:700;color:var(--a4);text-align:center;
-  min-width:90px;}
-.tp-list{margin-top:6px;padding:5px 7px;background:var(--s2);border-radius:4px;
-  border:1px solid rgba(77,222,128,.15);min-height:28px;}
-.tp-title{font-size:.58rem;color:var(--a3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px;}
-.tp-item{font-size:.63rem;color:var(--text);display:flex;align-items:center;gap:5px;margin-bottom:2px;}
-.tp-dot{width:6px;height:6px;border-radius:50%;background:var(--a4);flex-shrink:0;}
-
-/* ── Main area ── */
-.main{display:flex;flex-direction:column;overflow:hidden;}
-
-.global-bar{display:flex;flex-wrap:wrap;gap:10px;padding:7px 14px;
-  background:var(--s0);border-bottom:1px solid var(--bd);flex-shrink:0;align-items:center;}
-.gb-group{display:flex;flex-direction:column;gap:2px;min-width:90px;}
-.gb-group label{font-size:.60rem;color:var(--muted);display:flex;justify-content:space-between;}
-.gb-group label .gval{color:var(--text);font-weight:600;}
-.gb-group input[type=range]{width:90px;}
-
-.btn-sm{padding:4px 9px;background:var(--s2);border:1px solid var(--bd2);
-  color:var(--text);border-radius:5px;cursor:pointer;font-family:var(--fn);
-  font-size:.68rem;transition:all .15s;}
-.btn-sm:hover{background:var(--s3);border-color:var(--a1);color:var(--a1);}
-.btn-sm.primary{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.35);color:var(--a1);}
-.btn-sm.primary:hover{background:rgba(0,212,255,.18);}
-
-.chart-area{flex:1;position:relative;padding:8px 14px;background:var(--bg);overflow:hidden;}
-.chart-area canvas{width:100%!important;height:100%!important;}
-
-.legend-area{padding:5px 14px;background:var(--s0);border-top:1px solid var(--bd);
-  display:flex;flex-wrap:wrap;gap:7px;flex-shrink:0;min-height:26px;}
-.leg-item{display:flex;align-items:center;gap:5px;font-size:.60rem;color:var(--muted);cursor:default;}
-.leg-swatch{width:20px;height:2px;border-radius:2px;flex-shrink:0;}
-
-.formula-bar{padding:4px 14px;background:var(--s0);border-top:1px solid var(--bd);
-  font-size:.62rem;color:var(--muted);flex-shrink:0;font-family:var(--fn);
-  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
-.formula-bar span{color:var(--a4);}
+@media(max-width:1100px){.shell-grid{grid-template-columns:1fr}}
+@media(max-width:980px){.layout{grid-template-columns:1fr;padding:14px}.tabs{margin-left:0}.content{order:-1}.top{position:static}}
+@media(max-width:560px){.top{padding:10px 12px}.units{display:none}.brand p{display:none}.info dl{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
 </style>
+<script>
+/* Night/Day: shares the site-wide choice (localStorage "siteTheme") and the
+   site's Night/Day buttons. Day mode is a cream "paper" theme with Georgia text. */
+(function(){
+  var KEY='siteTheme', de=document.documentElement;
+  function get(){ try{ return localStorage.getItem(KEY)||''; }catch(e){ return ''; } }
+  function mode(){ return get()==='day'?'day':'night'; }
+  function apply(){
+    var m=mode(); de.classList.toggle('day',m==='day');
+    document.querySelectorAll('.theme-sw button').forEach(function(b){ b.classList.toggle('on',b.dataset.m===m); });
+    try{ if(window.parent!==window && window.parent.__siteThemeSync) window.parent.__siteThemeSync(m); }catch(e){}
+    window.dispatchEvent(new CustomEvent('themechange',{detail:m}));
+  }
+  function set(m){ try{ localStorage.setItem(KEY,m); }catch(e){} apply(); }
+  window.__siteTheme={ set:set, mode:mode, apply:apply };
+  window.addEventListener('storage',function(e){ if(e.key===KEY) apply(); });
+  apply();
+})();
+</script>
 <script src="../../theme.js"></script>
 </head>
 <body>
-<div class="app">
-
-<!-- HEADER -->
-<div class="header">
-  <div>
-    <h1>Quantum Potential Simulator</h1>
-    <p>V_eff(r) — 16 potentials · realistic MeV/fm units · energy panel · turning points</p>
+<header class="top">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">ψ</div>
+    <div><h1>Quantum Potential Simulator II</h1><p>Bound states, wavefunctions and nuclear shell structure</p></div>
   </div>
-  <div style="margin-left:auto;display:flex;gap:7px;align-items:center;">
-    <span class="badge">ℏ²/2mₚ = 20.73 MeV·fm²</span>
-    <span class="badge">e²/4πε₀ = 1.44 MeV·fm</span>
-    <button class="btn-sm" onclick="selectAll(true)">☑ All On</button>
-    <button class="btn-sm" onclick="selectAll(false)">☐ All Off</button>
-    <button class="btn-sm primary" onclick="updateChart()">↺ Replot</button>
-  </div>
-</div>
+  <nav class="tabs" role="tablist" aria-label="Simulator mode">
+    <button class="tab on" role="tab" aria-selected="true" data-mode="states">Bound states</button>
+    <button class="tab" role="tab" aria-selected="false" data-mode="shell">Nuclear shell model</button>
+  </nav>
+  <span class="units">MeV · fm · ℏc = 197.327 MeV·fm</span>
+  <div class="theme-sw" role="group" aria-label="Colour theme"><button type="button" data-m="night" title="Night mode" aria-label="Night mode">&#9790;</button><button type="button" data-m="day" title="Day mode" aria-label="Day mode">&#9728;</button></div>
+</header>
 
-<div class="body">
-<aside class="sidebar" id="sidebar">
-
-  <!-- ═══ ENERGY PANEL ═══ -->
-  <div class="e-panel">
-    <div class="e-title">⚡ Particle Energy  E</div>
-
-    <div class="e-row">
-      <label>E<sub>min</sub></label>
-      <input type="range" class="e-slider" id="emin_sl" style="flex:1"
-        min="-300" max="-1" step="1" value="-80"
-        oninput="onErange()">
-      <span class="eval" id="emin_val">−80 MeV</span>
-    </div>
-    <div class="e-row">
-      <label>E<sub>max</sub></label>
-      <input type="range" class="e-slider" id="emax_sl" style="flex:1"
-        min="1" max="300" step="1" value="80"
-        oninput="onErange()">
-      <span class="eval" id="emax_val">+80 MeV</span>
-    </div>
-
-    <div class="e-main-row">
-      <input type="range" class="e-big-slider" id="e_slider"
-        min="-80" max="80" step="0.5" value="-8"
-        oninput="onEslider()">
-      <div class="e-display" id="e_display">E = −8.0 MeV</div>
-    </div>
-
-    <div class="tp-list" id="tp_list">
-      <div class="tp-title">Classical turning points  r where V_eff(r) = E</div>
-      <div id="tp_items" style="color:var(--muted);font-size:.62rem;">Run chart to compute</div>
-    </div>
-  </div>
-
-  <!-- ═══ SUM CONTROLS ═══ -->
-  <div class="sum-section">
-    <div class="sum-header" onclick="toggleSumPanel()">
-      <div class="sum-toggle" id="sumToggle" onclick="event.stopPropagation();toggleSum(this)"></div>
-      <div>
-        <div class="sum-label">∑ Sum of Selected</div>
-        <div class="sum-sublabel">Total effective potential curve</div>
-      </div>
-    </div>
-    <div id="sumPanel" style="display:none;">
-      <div class="sum-color-row">
-        <span style="font-size:.61rem;color:var(--muted);">Sum colour:</span>
-        <div class="pot-color" style="background:#ffffff;width:20px;height:20px;margin-left:5px;" id="sumColorSwatch">
-          <input type="color" value="#ffffff" id="sumColorPicker" oninput="setSumColor(this.value)">
+<!-- ═════════════════════════ MODE 1: BOUND STATES ═════════════════════════ -->
+<section class="mode on" id="mode-states">
+  <div class="layout">
+    <aside class="side">
+      <button type="button" class="drawer-open" id="open-examples" aria-haspopup="dialog" aria-controls="examples-drawer">
+        <span class="do-icon" aria-hidden="true">&#9776;</span>
+        <span><b>Example models</b><small id="current-model">Choose a ready-made model to explore</small></span>
+        <span class="do-arrow" aria-hidden="true">&#8250;</span>
+      </button>
+      <div class="card">
+        <h2>Two-body system</h2>
+        <p class="note" style="margin:0 0 6px">The radial equation uses the reduced mass μ = m₁m₂/(m₁ + m₂). Pick particles or type your own masses and charges.</p>
+        <div class="pbox">
+          <div class="field"><span>Particle 1</span><select id="p1"></select></div>
+          <div class="two">
+            <label class="field"><span>Mass m₁ (MeV/c²)</span><input type="number" id="m1" min="0.001" step="any"></label>
+            <label class="field"><span>Charge Z₁</span><input type="number" id="z1" min="-2" max="120" step="1"></label>
+          </div>
         </div>
-        <span style="font-size:.62rem;color:var(--text);margin-left:5px;" id="sumColorLabel">#ffffff</span>
-        <span style="font-size:.61rem;color:var(--muted);margin-left:8px;">Width:</span>
-        <input type="range" style="width:55px;margin-left:4px;" min="1" max="5" step=".5" value="2.5"
-          id="sumWidth" oninput="updateChart()">
+        <div class="pbox">
+          <div class="field"><span>Particle 2</span><select id="p2"></select></div>
+          <div class="two">
+            <label class="field"><span>Mass m₂ (MeV/c²)</span><input type="number" id="m2" min="0.001" step="any"></label>
+            <label class="field"><span>Charge Z₂</span><input type="number" id="z2" min="-2" max="120" step="1"></label>
+          </div>
+        </div>
+        <div class="mu-box" id="mu-box"></div>
+        <label class="check"><input type="checkbox" id="coul-on" checked> Add the Coulomb potential Z₁Z₂e²/r between them</label>
+        <div class="row" id="rc-row"><label for="rc">Charge radius R<sub>c</sub></label><span class="val" id="rc-v"></span><input type="range" id="rc" min="0" max="12" step="0.1" value="0"><small>Inside R<sub>c</sub> the charge is spread over a uniform sphere, which removes the 1/r singularity. R<sub>c</sub> = 0 is a point charge. <button type="button" class="linkbtn" id="rc-auto">Use 1.2 (A₁<sup>1/3</sup> + A₂<sup>1/3</sup>) fm</button></small></div>
       </div>
-      <div style="padding:0 11px 4px;font-size:.61rem;color:var(--muted);">Click chip to toggle into sum:</div>
-      <div class="sum-pots" id="sumPots"></div>
+      <div class="card">
+        <h2>Angular momentum</h2>
+        <div>
+          <div class="field"><span>Orbital angular momentum ℓ</span>
+            <div class="stepper"><button type="button" id="l-dn" aria-label="Decrease ℓ">−</button><output id="l-out">0</output><button type="button" id="l-up" aria-label="Increase ℓ">+</button><span id="l-name" style="color:var(--muted);font-size:.95rem">s wave</span></div>
+          </div>
+          <div class="field" id="j-field"><span>Total angular momentum j (used by the spin–orbit potential)</span>
+            <div class="seg" id="j-seg"><button type="button" data-j="1" class="on">ℓ + ½</button><button type="button" data-j="-1">ℓ − ½</button></div>
+          </div>
+        </div>
+        <p class="note">The centrifugal term ℏ²ℓ(ℓ+1)/2mr² is added automatically. j matters only when the spin–orbit potential is switched on.</p>
+      </div>
+      <div class="card">
+        <h2>Potential library <span class="hint" id="active-count">0 active</span></h2>
+        <p class="note" style="margin:0 0 8px">Tick potentials to add them together. Click a name to edit its parameters and read about it.</p>
+        <div id="library"></div>
+      </div>
+      <div class="card">
+        <h2>Numerical grid</h2>
+        <div class="row"><label for="rmax">Box radius r<sub>max</sub></label><span class="val" id="rmax-v"></span><input type="range" id="rmax" min="0.7" max="6" step="0.01" value="1.301"><small>Logarithmic scale: from 5 fm (nuclei) to 10⁶ fm = 10 Å (atoms).</small><small>States must fit inside the box. A ⚠ in the table means the box is too small for that state.</small></div>
+        <div class="row"><label for="npts">Grid points</label><span class="val" id="npts-v"></span><input type="range" id="npts" min="300" max="3000" step="100" value="1200"></div>
+        <div class="row"><label for="ecut">Highest energy searched</label><span class="val" id="ecut-v"></span><input type="range" id="ecut" min="-20" max="200" step="1" value="40"><small>For potentials that vanish at large r, only states below the threshold V(∞) are bound and listed.</small></div>
+      </div>
+    </aside>
+
+    <div class="content">
+      <div class="card">
+        <h2>Effective potential and bound states</h2>
+        <div class="plot-tools">
+          <div class="seg" id="wf-seg" role="group" aria-label="Wavefunction display"><button type="button" data-wf="u" class="on">u(r)</button><button type="button" data-wf="p">|u(r)|²</button><button type="button" data-wf="off">Levels only</button></div>
+          <label class="inline">Wavefunction size <input type="range" id="wf-scale" min="0.3" max="2.5" step="0.1" value="1"></label>
+          <label class="check"><input type="checkbox" id="show-comp"> Show individual potentials</label>
+          <label class="check"><input type="checkbox" id="show-forbid" checked> Shade forbidden region of selected state</label>
+        </div>
+        <div class="canvas-box" style="height:480px"><canvas id="plot" aria-label="Effective potential with energy levels and wavefunctions"></canvas></div>
+        <div class="readout" id="readout"><span>Move the pointer over the plot to read r and V<sub>eff</sub>(r).</span></div>
+        <div class="legend" id="legend"></div>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Bound states <span class="hint">click a row to highlight it in the plot</span></h2>
+        <div class="table-wrap"><table id="states">
+          <thead><tr><th>State</th><th>Energy</th><th>Exact</th><th>WKB</th><th>WKB error</th><th>⟨r⟩</th><th>r<sub>rms</sub></th><th>P(forbidden)</th><th>Nodes</th></tr></thead>
+          <tbody></tbody></table></div>
+        <p class="note"><b>Exact</b> appears when a single potential with a known analytic spectrum is active. <b>WKB</b> uses the Langer-corrected quantisation rule; it is accurate for smooth wells and fails near hard walls. <b>P(forbidden)</b> is the probability of finding the particle where E &lt; V<sub>eff</sub>, which is impossible classically: quantum tunnelling.</p>
+      </div>
+
+      <div class="card info" id="info"></div>
+
+      <div class="card">
+        <details class="theory">
+          <summary>How the simulator solves the problem</summary>
+          <div class="body">
+            <p>Writing ψ(r,θ,φ) = u(r)/r · Y<sub>ℓm</sub>(θ,φ) turns the three-dimensional Schrödinger equation into a one-dimensional radial equation:</p>
+            <div class="eq">−(ℏ²/2m) u″(r) + [ V(r) + ℏ²ℓ(ℓ+1)/(2mr²) ] u(r) = E u(r),   u(0) = u(r<sub>max</sub>) = 0</div>
+            <p>The simulator replaces u″ by a finite difference on an even grid. The equation becomes a symmetric tridiagonal matrix whose eigenvalues are the energies. They are found one by one with Sturm-sequence bisection, and each wavefunction by inverse iteration, normalised so that ∫u² dr = 1. The number of nodes of u counts the radial quantum number n<sub>r</sub>.</p>
+            <p>The semiclassical (WKB) estimate solves</p>
+            <div class="eq">∫ √( 2m[E − V(r) − ℏ²(ℓ+½)²/2mr²] ) / ℏ dr = (n<sub>r</sub> + ½) π</div>
+            <p>between the classical turning points. The Langer replacement ℓ(ℓ+1) → (ℓ+½)² makes it exact for the harmonic oscillator and the Coulomb potential.</p>
+          </div>
+        </details>
+      </div>
     </div>
   </div>
+</section>
 
-  <!-- ═══ POTENTIAL GROUPS ═══ -->
-  <div id="potentialGroups"></div>
-
+<div class="drawer-back" id="drawer-back" hidden></div>
+<aside class="drawer" id="examples-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer-head"><h2 id="drawer-title">Example models</h2><button type="button" class="drawer-close" id="close-examples" aria-label="Close">&#10005;</button></div>
+  <p class="note" style="margin:0 0 10px">Each model sets the potential, the particle, ℓ and the grid. Models marked <span class="tag exact">Exact</span> have an analytic answer shown in the table, so you can check the numerics.</p>
+  <div id="examples"></div>
 </aside>
 
-<!-- ═══ MAIN ═══ -->
-<main class="main">
-  <div class="global-bar">
-    <div class="gb-group">
-      <label>ℓ (angular momentum) <span class="gval" id="gval_l">0</span></label>
-      <input type="range" id="g_l" min="0" max="8" step="1" value="0" oninput="updateGlobal()">
-    </div>
-    <div class="gb-group">
-      <label>r<sub>min</sub> (fm) <span class="gval" id="gval_rmin">0.05</span></label>
-      <input type="range" id="g_rmin" min="0.01" max="2" step="0.01" value="0.05" oninput="updateGlobal()">
-    </div>
-    <div class="gb-group">
-      <label>r<sub>max</sub> (fm) <span class="gval" id="gval_rmax">15</span></label>
-      <input type="range" id="g_rmax" min="2" max="40" step="0.5" value="15" oninput="updateGlobal()">
-    </div>
-    <div class="gb-group">
-      <label>V clamp (MeV ±) <span class="gval" id="gval_clamp">120</span></label>
-      <input type="range" id="g_clamp" min="5" max="400" step="5" value="120" oninput="updateGlobal()">
-    </div>
-    <div class="gb-group">
-      <label>Points <span class="gval" id="gval_pts">600</span></label>
-      <input type="range" id="g_pts" min="100" max="1200" step="50" value="600" oninput="updateGlobal()">
-    </div>
-    <div class="gb-group">
-      <label>Line width <span class="gval" id="gval_lw">1.8</span></label>
-      <input type="range" id="g_lw" min="0.5" max="4" step="0.25" value="1.8" oninput="updateGlobal()">
+<!-- ═════════════════════════ MODE 2: SHELL MODEL ═════════════════════════ -->
+<section class="mode" id="mode-shell">
+  <div class="layout">
+    <aside class="side">
+      <div class="card">
+        <h2>Nucleus</h2>
+        <div class="field"><span>Example nucleus</span>
+          <select id="sh-preset">
+            <optgroup label="Doubly magic (closed shells)">
+              <option value="4,2,0+">⁴He</option><option value="16,8,0+">¹⁶O</option><option value="40,20,0+">⁴⁰Ca</option><option value="48,20,0+">⁴⁸Ca</option><option value="56,28,0+">⁵⁶Ni</option><option value="100,50,0+">¹⁰⁰Sn</option><option value="132,50,0+">¹³²Sn</option><option value="208,82,0+" selected>²⁰⁸Pb</option>
+            </optgroup>
+            <optgroup label="One nucleon outside a closed shell">
+              <option value="17,8,5/2+">¹⁷O (one neutron)</option><option value="17,9,5/2+">¹⁷F (one proton)</option><option value="41,20,7/2-">⁴¹Ca (one neutron)</option><option value="41,21,7/2-">⁴¹Sc (one proton)</option><option value="57,28,3/2-">⁵⁷Ni (one neutron)</option><option value="209,82,9/2+">²⁰⁹Pb (one neutron)</option><option value="209,83,9/2-">²⁰⁹Bi (one proton)</option>
+            </optgroup>
+            <optgroup label="One hole in a closed shell">
+              <option value="15,7,1/2-">¹⁵N (proton hole)</option><option value="15,8,1/2-">¹⁵O (neutron hole)</option><option value="39,19,3/2+">³⁹K (proton hole)</option><option value="39,20,3/2+">³⁹Ca (neutron hole)</option><option value="115,49,9/2+">¹¹⁵In (proton hole)</option><option value="207,81,1/2+">²⁰⁷Tl (proton hole)</option><option value="207,82,1/2-">²⁰⁷Pb (neutron hole)</option>
+            </optgroup>
+            <optgroup label="Other odd-A nuclei">
+              <option value="13,6,1/2-">¹³C</option><option value="27,13,5/2+">²⁷Al</option><option value="59,27,7/2-">⁵⁹Co</option><option value="91,40,5/2+">⁹¹Zr</option>
+            </optgroup>
+            <optgroup label="Odd–odd nuclei (Nordheim rules)">
+              <option value="2,1,1+">²H (deuteron)</option><option value="6,3,1+">⁶Li</option><option value="10,5,3+">¹⁰B</option><option value="14,7,1+">¹⁴N</option><option value="210,83,1-">²¹⁰Bi</option>
+            </optgroup>
+            <optgroup label="Even–even, open shells">
+              <option value="90,40,0+">⁹⁰Zr</option><option value="120,50,0+">¹²⁰Sn</option><option value="238,92,0+">²³⁸U (deformed)</option>
+            </optgroup>
+            <option value="custom">Custom A and Z</option>
+          </select>
+        </div>
+        <div class="two">
+          <label class="field"><span>Mass number A</span><input type="number" id="sh-A" min="4" max="300" value="208"></label>
+          <label class="field"><span>Proton number Z</span><input type="number" id="sh-Z" min="1" max="120" value="82"></label>
+        </div>
+        <div class="field"><span>Show levels for</span>
+          <div class="seg" id="sh-type"><button type="button" data-t="n" class="on">Neutrons</button><button type="button" data-t="p">Protons</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Woods–Saxon + spin–orbit</h2>
+        <label class="check"><input type="checkbox" id="sh-auto" checked> Depth from the Bohr–Mottelson formula</label>
+        <div class="row"><label for="sh-V0">Depth V₀</label><span class="val" id="sh-V0-v"></span><input type="range" id="sh-V0" min="20" max="80" step="0.5" value="46"><small>V₀ = 51 ∓ 33(N − Z)/A MeV (− neutrons, + protons).</small></div>
+        <div class="row"><label for="sh-r0">Radius parameter r₀</label><span class="val" id="sh-r0-v"></span><input type="range" id="sh-r0" min="1.0" max="1.5" step="0.01" value="1.27"><small>R = r₀ A<sup>1/3</sup></small></div>
+        <div class="row"><label for="sh-a">Diffuseness a</label><span class="val" id="sh-a-v"></span><input type="range" id="sh-a" min="0.3" max="1.0" step="0.01" value="0.67"></div>
+        <div class="row"><label for="sh-so">Spin–orbit strength κ</label><span class="val" id="sh-so-v"></span><input type="range" id="sh-so" min="0" max="1" step="0.01" value="0.44"><small>V<sub>so</sub>(r) = κ V₀ r₀² (1/r)(df/dr)⟨ℓ·s⟩. Set κ = 0 to see the shells without spin–orbit coupling.</small></div>
+        <p class="note">Protons also feel the Coulomb potential of a uniformly charged sphere of charge (Z − 1)e.</p>
+      </div>
+    </aside>
+
+    <div class="content">
+      <div class="card">
+        <p class="intro">Protons and neutrons move almost independently in an average potential created by all the others. Filling the levels with 2j+1 nucleons each, large energy gaps appear after <b>2, 8, 20, 28, 50, 82 and 126</b> particles: the <b>magic numbers</b>. Nuclei with magic N or Z are especially stable. Move κ to zero to see why the spin–orbit force is needed for 28, 50, 82 and 126.</p>
+      </div>
+      <div class="shell-grid">
+        <div class="card">
+          <h2>Single-particle levels <span class="hint">click a level</span></h2>
+          <div class="canvas-box" style="height:620px"><canvas id="levels" aria-label="Single-particle level scheme"></canvas></div>
+          <div class="legend"><span><i style="background:var(--accent)"></i>Occupied</span><span><i style="background:var(--muted)"></i>Empty</span><span><i style="background:var(--warn)"></i>Shell gap (number = nucleons below it)</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+          <div class="card jp-card" id="jp-card" aria-live="polite"></div>
+          <div class="card">
+            <h2 id="sh-wf-title">Radial wavefunction</h2>
+            <div class="canvas-box" style="height:320px"><canvas id="sh-plot" aria-label="Potential and wavefunction of the selected level"></canvas></div>
+            <div class="readout" id="sh-readout"></div>
+          </div>
+          <div class="card">
+            <h2>Shell closures found</h2>
+            <div id="sh-magic"></div>
+            <p class="note" id="sh-summary"></p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Level table</h2>
+        <div class="table-wrap"><table id="sh-table">
+          <thead><tr><th>Level</th><th>E (MeV)</th><th>2j + 1</th><th>Total below</th><th>⟨r⟩ (fm)</th><th>r<sub>rms</sub> (fm)</th><th>Occupied</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
     </div>
   </div>
-
-  <div class="chart-area"><canvas id="mainChart"></canvas></div>
-  <div class="legend-area" id="legendArea"></div>
-  <div class="formula-bar" id="formulaBar">Hover a potential to see its formula.</div>
-</main>
-</div>
-</div>
+</section>
 
 <script>
 'use strict';
+/* ════════════════════════════════════════════════════════════════
+   CONSTANTS AND SHARED STATE
+   ════════════════════════════════════════════════════════════════ */
+const KC = 1.44;                   // e²/4πε₀ in MeV·fm
+const LNAME = 'spdfghiklmno';
+const PALETTE = ['#38d3f5','#f472b6','#a3e635','#fb923c','#c084fc','#facc15','#2dd4bf','#f87171','#60a5fa','#e879f9','#34d399','#fda4af'];
+const DAY_PALETTE = ['#00707F','#A3124A','#4D7C0F','#B45309','#6D28D9','#8A5200','#0F766E','#B42318','#1D4ED8','#86198F','#047857','#9F1239'];
+const G = { l:0, jSign:1, h2m:20.736, p1:'N', p2:'inf', m1:938.919, m2:Infinity, z1:0, z2:0, coul:true, rc:0, rMax:20, N:1200, Ecut:40, wf:'u', wfScale:1, showComp:false, showForbid:true, sel:0, infoId:'woodssaxon' };
+function LS(){ const l=G.l; if(l===0) return 0; const j=l+0.5*G.jSign; return (j*(j+1)-l*(l+1)-0.75)/2; }
+const HBARC = 197.327;            // MeV·fm
+/* mass in MeV/c², charge Z, mass number A (0 for leptons) */
+const PARTICLES = [
+  {id:'N',    name:'Nucleon (average)',            m:938.919,  z:0,  A:1},
+  {id:'p',    name:'Proton p',                     m:938.272,  z:1,  A:1},
+  {id:'n',    name:'Neutron n',                    m:939.565,  z:0,  A:1},
+  {id:'e',    name:'Electron e⁻',                  m:0.510999, z:-1, A:0},
+  {id:'mu',   name:'Muon μ⁻',                      m:105.658,  z:-1, A:0},
+  {id:'pi',   name:'Pion π⁻',                      m:139.570,  z:-1, A:0},
+  {id:'d',    name:'Deuteron ²H',                  m:1875.613, z:1,  A:2},
+  {id:'t',    name:'Triton ³H',                    m:2808.921, z:1,  A:3},
+  {id:'h',    name:'Helion ³He',                   m:2808.391, z:2,  A:3},
+  {id:'alpha',name:'Alpha ⁴He',                    m:3727.379, z:2,  A:4},
+  {id:'C12',  name:'¹²C nucleus',                  m:11174.86, z:6,  A:12},
+  {id:'O16',  name:'¹⁶O nucleus',                  m:14895.08, z:8,  A:16},
+  {id:'Ca40', name:'⁴⁰Ca nucleus',                 m:37214.69, z:20, A:40},
+  {id:'Pb208',name:'²⁰⁸Pb nucleus',                m:193687.1, z:82, A:208},
+  {id:'inf',  name:'Fixed centre (infinitely heavy)', m:Infinity, z:0, A:0},
+  {id:'custom',name:'Custom values',               m:NaN,      z:NaN, A:0},
+];
+const PMAP = Object.fromEntries(PARTICLES.map(p=>[p.id,p]));
+const reducedMass = () => !Number.isFinite(G.m2) ? G.m1 : !Number.isFinite(G.m1) ? G.m2 : G.m1*G.m2/(G.m1+G.m2);
+const $ = id => document.getElementById(id);
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const isDay = () => document.documentElement.classList.contains('day');
+const pal = i => (isDay()?DAY_PALETTE:PALETTE)[i % PALETTE.length];
+const fmt = (v,d=3) => Number.isFinite(v) ? v.toFixed(d) : '—';
+const fmtE = (v,d=4) => { if(!Number.isFinite(v)) return '—'; const a=Math.abs(v); return a>=0.1||a===0 ? v.toFixed(d)+' MeV' : a>=1e-4 ? (v*1e3).toFixed(d)+' keV' : (v*1e6).toFixed(d)+' eV'; };
+const fmtR = v => !Number.isFinite(v)?'—' : v<1e3 ? v.toFixed(3)+' fm' : v<1e5 ? (v/1e3).toFixed(3)+' pm' : (v/1e5).toFixed(4)+' Å';
+const eUnit = span => span>=0.5?{k:1,u:'MeV'}:span>=5e-4?{k:1e3,u:'keV'}:{k:1e6,u:'eV'};
+const rUnit = rv => rv<2e3?{k:1,u:'fm'}:rv<2e5?{k:1e-3,u:'pm'}:{k:1e-5,u:'Å'};
+const sub = s => s.replace(/(\d+)\/2/,'<sub>$1/2</sub>');
 
-// ═══════════════════════════════════════════════════════════════
-//  PHYSICAL CONSTANTS  (nuclear units: MeV, fm)
-//  ℏ²/2mₚ  = 20.73  MeV·fm²
-//  e²/4πε₀ = 1.44   MeV·fm   (Coulomb constant)
-// ═══════════════════════════════════════════════════════════════
-const H2M = 20.73;   // ℏ²/(2·mₚ)  MeV·fm²
-const KC  = 1.44;    // e²/4πε₀     MeV·fm
-
-// ═══════════════════════════════════════════════════════════════
-//  GLOBAL SIMULATION STATE
-// ═══════════════════════════════════════════════════════════════
-let G = {
-  l:0, rMin:0.05, rMax:15, clamp:120, nPts:600, lw:1.8,
-  sumOn:true, sumColor:'#ffffff', sumWidth:2.5,
-  E: -8.0, Emin: -80, Emax: 80
-};
-
-// ═══════════════════════════════════════════════════════════════
-//  POTENTIAL DEFINITIONS  — realistic nuclear MeV / fm units
-//
-//  Each potential object has:
-//    formula  — mathematical expression string
-//    physics  — object with keys:
-//                 what   : physical meaning
-//                 energy : typical energy range / application
-//                 note   : physical notes / limits
-//    params   — array of { key, label, desc, min, max, step, value, unit }
-//    fn(r, p, h2m) — returns V(r) in MeV
-// ═══════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════
+   POTENTIAL LIBRARY (from Simulator II, MeV / fm)
+   ════════════════════════════════════════════════════════════════ */
 const POT_GROUPS = [
-{
-  id:'orbital', label:'Orbital / Centrifugal', color:'#fbbf24',
-  pots:[{
-    id:'centrifugal', name:'Centrifugal Barrier', defaultColor:'#fbbf24', active:true,
-    formula:'V_ℓ(r) = ℏ²·ℓ(ℓ+1) / (2m·r²)',
-    physics:{
-      what:'Arises from angular momentum in the radial Schrödinger equation. '+
-           'Always repulsive; pushes the wavefunction away from the origin.',
-      energy:'Scale set by ℏ²/2m: at r=1 fm, V_1 = 20.73×2/1 = 41.5 MeV.',
-      note:'ℓ=0: no barrier. ℓ=1: 2×H2M/r². Controls tunnelling for α-decay (ℓ=0), '+
-           'nuclear reactions, and centrifugal potential pockets.'
-    },
-    params:[],  /* reads G.l and H2M */
-    fn:(r,_,h2m) => h2m * G.l*(G.l+1) / (r*r)
-  }]
-},
 {
   id:'well', label:'Well / Barrier Potentials', color:'#67e8f9',
   pots:[
@@ -402,7 +520,7 @@ const POT_GROUPS = [
   id:'coulomb', label:'Coulomb Family', color:'#ff6b6b',
   pots:[
     {
-      id:'coulomb', name:'Coulomb (Point Charge)', defaultColor:'#ff6b6b', active:true,
+      id:'coulomb', name:'Coulomb (Point Charge)', defaultColor:'#ff6b6b', active:false,
       formula:'V(r) = −Z·(e²/4πε₀)/r\n     = −Z × 1.44 MeV·fm / r',
       physics:{
         what:'Electrostatic potential of a point nucleus with charge Ze. '+
@@ -564,9 +682,9 @@ const POT_GROUPS = [
       },
       params:[
         {key:'V0',   label:'V₀ — strength',  unit:'MeV',desc:'Coupling. Nuclear: 40–80 MeV.',
-         min:1,max:150,step:1,value:60},
+         min:1,max:150,step:0.5,value:60},
         {key:'delta',label:'δ — screening',  unit:'fm⁻¹',desc:'Inverse Debye length. Nuclear: 0.2–0.8 fm⁻¹.',
-         min:0.02,max:3,step:0.02,value:0.4}
+         min:0.02,max:3,step:0.01,value:0.4}
       ],
       fn:(r,p) => { const e=Math.exp(-p.delta*r); const d=1-e;
                     if(Math.abs(d)<1e-12) return -1e6;
@@ -724,485 +842,560 @@ const POT_GROUPS = [
     },
     {
       id:'wsspinorbit', name:'WS Spin-Orbit', defaultColor:'#c2410c', active:false,
-      formula:'V_SO(r) = Vso·(ℏ/mπc)²·⟨L·S⟩ · (1/r)·dF/dr\nF(r) = 1/(1+exp((r−R)/a))\n⟨L·S⟩ = [j(j+1)−ℓ(ℓ+1)−3/4]/2',
+      formula:'V_SO(r) = V_so·(ℏ/m_πc)²·(1/r)·dF/dr·⟨ℓ·σ⟩\nF(r) = 1/(1+exp((r−R)/a)),  ⟨ℓ·σ⟩ = 2⟨ℓ·s⟩\n⟨ℓ·s⟩ = [j(j+1)−ℓ(ℓ+1)−3/4]/2   (j chosen with the ℓ control)',
       physics:{
         what:'Thomas-type spin-orbit coupling. Peaks near the nuclear surface r≈R. '+
              'Responsible for the splitting of ℓ>0 levels into j=ℓ+½ and j=ℓ−½ doublets.',
-        energy:'Vso ≈ −6 MeV (conventional sign). Spin-orbit splitting of p levels: ~6 MeV.\n'+
-               '(ℏ/mπc)² = (ℏc/mπc²)² = (197.3/135)² = 2.13 fm².',
+        energy:'V_so ≈ +6 MeV. Spin–orbit splitting of p levels in light nuclei: about 6 MeV.\n'+
+               '(ℏ/m_πc)² = (197.3/139.6)² ≈ 2.0 fm².',
         note:'Magic numbers 28, 50, 82, 126 arise from large spin-orbit splitting.\n'+
              '⟨L·S⟩: j=ℓ+½ → ⟨L·S⟩=+ℓ/2; j=ℓ−½ → ⟨L·S⟩=−(ℓ+1)/2.\n'+
-             'Controls nuclear spectroscopy; slider ⟨L·S⟩ sets alignment.'
+             'In this simulator ⟨ℓ·s⟩ follows the j = ℓ ± ½ choice next to ℓ.'
       },
       params:[
-        {key:'Vso',label:'Vso — SO strength',unit:'MeV',desc:'Spin-orbit coupling. Standard: −5 to −7 MeV.',
-         min:-30,max:30,step:0.5,value:-6},
-        {key:'R',  label:'R — radius',       unit:'fm', desc:'Same as WS volume term.',
+        {key:'Vso',label:'V_so — strength',unit:'MeV',desc:'Spin–orbit strength. Global optical models: about +6 MeV. Positive values lower j = ℓ+½, as observed in nuclei.',
+         min:-15,max:15,step:0.1,value:6.2},
+        {key:'R',  label:'R — radius',       unit:'fm', desc:'Use the same radius as the Woods–Saxon volume term.',
          min:0.5,max:12,step:0.1,value:4.3},
-        {key:'a',  label:'a — diffuseness',  unit:'fm', desc:'Same as WS volume term.',
-         min:0.05,max:2,step:0.05,value:0.65},
-        {key:'jj', label:'⟨L·S⟩ — spin value',unit:'', desc:'Expectation. j=ℓ+½: ℓ/2. j=ℓ−½: −(ℓ+1)/2.',
-         min:-5,max:5,step:0.5,value:0.5}
+        {key:'a',  label:'a — diffuseness',  unit:'fm', desc:'Use the same diffuseness as the Woods–Saxon volume term.',
+         min:0.05,max:2,step:0.05,value:0.65}
       ],
-      fn:(r,p,h2m) => {
+      fn:(r,p) => {
         const ex=Math.exp((r-p.R)/p.a);
         const dF=-ex/(p.a*(1+ex)*(1+ex));
-        const hbar2=(197.3/135)**2; /* (ℏ/mπc)² in fm² */
-        return p.Vso*p.jj*hbar2/r * dF;
+        const lpi2=(197.327/139.57)**2;   /* (ℏ/m_π c)² ≈ 2.0 fm² */
+        return p.Vso*lpi2*(1/r)*dF*2*LS();  /* ℓ·σ = 2⟨ℓ·s⟩ */
       }
     }
   ]
 }
 ];
+const ALL = POT_GROUPS.flatMap(g => g.pots);
+const POT = Object.fromEntries(ALL.map(p => [p.id, p]));
+const ST = {};
+ALL.forEach(p => { const v={}; p.params.forEach(q => v[q.key]=q.value); ST[p.id]={on:p.active, open:false, p:v}; });
 
-// ═══════════════════════════════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════════════════════════════
-const STATE = {};
-const SUM_IDS = new Set(['centrifugal','coulomb','woodssaxon']);
-
-POT_GROUPS.forEach(grp => grp.pots.forEach(pot => {
-  const params = {};
-  pot.params.forEach(p => { params[p.key] = p.value; });
-  STATE[pot.id] = { active:pot.active, color:pot.defaultColor, params, expanded:false };
-}));
-
-// ═══════════════════════════════════════════════════════════════
-//  SIDEBAR BUILD
-// ═══════════════════════════════════════════════════════════════
-function buildSidebar() {
-  // Sum chips
-  const sumPots = document.getElementById('sumPots');
-  const allPots = POT_GROUPS.flatMap(g=>g.pots);
-  sumPots.innerHTML = allPots.map(pot =>
-    `<div class="sum-pot-chip ${SUM_IDS.has(pot.id)?'in-sum':''}"
-         id="chip_${pot.id}" onclick="toggleSumId('${pot.id}')">${pot.name}</div>`
-  ).join('');
-
-  // Groups
-  const container = document.getElementById('potentialGroups');
-  container.innerHTML = POT_GROUPS.map(grp => `
-    <div class="sb-section" id="grpsec_${grp.id}">
-      <div class="sb-section-title" onclick="toggleGroup('${grp.id}')">
-        <div style="display:flex;align-items:center;">
-          <div class="grp-dot" style="background:${grp.color}"></div>
-          ${grp.label}
-        </div>
-        <span id="grparrow_${grp.id}" style="font-size:.58rem;color:var(--muted)">▼</span>
-      </div>
-      <div class="sb-section-body" id="grpbody_${grp.id}">
-        ${grp.pots.map(pot => buildPotRow(pot)).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
-function buildPotRow(pot) {
-  const s = STATE[pot.id];
-  const ph = pot.physics;
-
-  /* param sliders */
-  const parHtml = pot.params.length === 0 ? '' : pot.params.map(p => `
-    <div class="par-row">
-      <div class="par-label">${p.label}
-        <span class="pval" id="pval_${pot.id}_${p.key}">
-          ${s.params[p.key].toFixed(p.step<0.01?3:p.step<1?2:1)} ${p.unit||''}
-        </span>
-      </div>
-      ${p.desc?`<div class="par-desc">${p.desc}</div>`:''}
-      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}"
-        value="${s.params[p.key]}" id="pslider_${pot.id}_${p.key}"
-        oninput="onParamChange('${pot.id}','${p.key}',this.value)">
-    </div>`).join('');
-
-  /* physics box */
-  const physHtml = ph ? `
-    <div class="pot-physics">
-      <div class="phys-row"><span class="phys-key">▸ What:</span><span>${ph.what}</span></div>
-      <div class="phys-row" style="margin-top:4px"><span class="phys-key">▸ Scale:</span><span>${ph.energy}</span></div>
-      <div class="phys-row" style="margin-top:4px"><span class="phys-key">▸ Note:</span><span>${ph.note}</span></div>
-    </div>` : '';
-
-  const hasDetail = pot.params.length > 0 || ph;
-
-  return `
-    <div class="pot-row ${s.active?'active-pot':''}" id="potrow_${pot.id}"
-         onmouseenter="showFormula('${pot.id}')" onmouseleave="clearFormula()">
-      <div class="pot-header" onclick="${hasDetail?`togglePotExpand('${pot.id}')`:''}">
-        <div class="pot-check ${s.active?'checked':''}" id="check_${pot.id}"
-             onclick="event.stopPropagation();toggleActive('${pot.id}')"></div>
-        <div class="pot-color" id="swatch_${pot.id}" style="background:${s.color}">
-          <input type="color" value="${s.color}" id="colpicker_${pot.id}"
-                 oninput="onColorChange('${pot.id}',this.value)"
-                 onclick="event.stopPropagation()">
-        </div>
-        <div class="pot-name">${pot.name}</div>
-        ${hasDetail?`<div class="pot-arrow ${s.expanded?'open':''}" id="parrow_${pot.id}">▼</div>`:''}
-      </div>
-      ${hasDetail?`
-        <div class="pot-detail" id="detail_${pot.id}" style="display:${s.expanded?'block':'none'}">
-          <div class="pot-formula">${pot.formula}</div>
-          ${physHtml}
-          ${parHtml}
-        </div>
-      `:''}
-    </div>`;
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  UI INTERACTION
-// ═══════════════════════════════════════════════════════════════
-const groupOpen = {};
-POT_GROUPS.forEach(g=>{ groupOpen[g.id]=true; });
-
-function toggleGroup(id) {
-  groupOpen[id] = !groupOpen[id];
-  document.getElementById('grpbody_'+id).classList.toggle('collapsed', !groupOpen[id]);
-  document.getElementById('grparrow_'+id).textContent = groupOpen[id]?'▼':'►';
-}
-
-function togglePotExpand(id) {
-  const s = STATE[id];
-  s.expanded = !s.expanded;
-  const el = document.getElementById('detail_'+id);
-  if(el) el.style.display = s.expanded?'block':'none';
-  const arEl = document.getElementById('parrow_'+id);
-  if(arEl) arEl.classList.toggle('open', s.expanded);
-}
-
-function toggleActive(id) {
-  STATE[id].active = !STATE[id].active;
-  document.getElementById('check_'+id).classList.toggle('checked', STATE[id].active);
-  document.getElementById('potrow_'+id).classList.toggle('active-pot', STATE[id].active);
-  updateChart();
-}
-
-function onColorChange(id, val) {
-  STATE[id].color = val;
-  document.getElementById('swatch_'+id).style.background = val;
-  updateChart();
-}
-
-function onParamChange(id, key, val) {
-  const pot = POT_GROUPS.flatMap(g=>g.pots).find(p=>p.id===id);
-  const pDef = pot.params.find(p=>p.key===key);
-  const v = parseFloat(val);
-  STATE[id].params[key] = v;
-  const lbl = document.getElementById(`pval_${id}_${key}`);
-  if(lbl) lbl.textContent = `${v.toFixed(pDef.step<0.01?3:pDef.step<1?2:1)} ${pDef.unit||''}`;
-  updateChart();
-}
-
-function toggleSumId(id) {
-  SUM_IDS.has(id) ? SUM_IDS.delete(id) : SUM_IDS.add(id);
-  document.getElementById('chip_'+id).classList.toggle('in-sum', SUM_IDS.has(id));
-  updateChart();
-}
-
-let sumPanelOpen = true;
-function toggleSumPanel() {
-  sumPanelOpen = !sumPanelOpen;
-  document.getElementById('sumPanel').style.display = sumPanelOpen?'block':'none';
-}
-
-function toggleSum(el) {
-  G.sumOn = !G.sumOn;
-  el.classList.toggle('on', G.sumOn);
-  updateChart();
-}
-
-function setSumColor(val) {
-  G.sumColor = val;
-  document.getElementById('sumColorSwatch').style.background = val;
-  document.getElementById('sumColorLabel').textContent = val;
-  updateChart();
-}
-
-function selectAll(on) {
-  Object.keys(STATE).forEach(id => {
-    STATE[id].active = on;
-    document.getElementById('check_'+id)?.classList.toggle('checked', on);
-    document.getElementById('potrow_'+id)?.classList.toggle('active-pot', on);
-  });
-  updateChart();
-}
-
-const FORMULAS = {};
-POT_GROUPS.forEach(g=>g.pots.forEach(p=>{ FORMULAS[p.id]=p.formula; }));
-function showFormula(id) {
-  const name = POT_GROUPS.flatMap(g=>g.pots).find(p=>p.id===id)?.name||id;
-  document.getElementById('formulaBar').innerHTML =
-    `<span>${name}</span> — ${(FORMULAS[id]||'').replace(/\n/g,' | ')}`;
-}
-function clearFormula() {
-  document.getElementById('formulaBar').textContent = 'Hover a potential to see its formula.';
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  ENERGY PANEL LOGIC
-// ═══════════════════════════════════════════════════════════════
-function onErange() {
-  G.Emin = parseFloat(document.getElementById('emin_sl').value);
-  G.Emax = parseFloat(document.getElementById('emax_sl').value);
-  document.getElementById('emin_val').textContent =
-    (G.Emin>=0?'+':'')+G.Emin.toFixed(0)+' MeV';
-  document.getElementById('emax_val').textContent =
-    (G.Emax>=0?'+':'')+G.Emax.toFixed(0)+' MeV';
-  // Update big slider range
-  const sl = document.getElementById('e_slider');
-  sl.min = G.Emin; sl.max = G.Emax;
-  G.E = Math.max(G.Emin, Math.min(G.Emax, G.E));
-  sl.value = G.E;
-  updateEDisplay();
-  updateChart();
-}
-
-function onEslider() {
-  G.E = parseFloat(document.getElementById('e_slider').value);
-  updateEDisplay();
-  updateChart();
-}
-
-function updateEDisplay() {
-  document.getElementById('e_display').textContent =
-    `E = ${G.E>=0?'+':''}${G.E.toFixed(1)} MeV`;
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  GLOBAL CONTROLS
-// ═══════════════════════════════════════════════════════════════
-function updateGlobal() {
-  G.l      = parseInt(document.getElementById('g_l').value);
-  G.rMin   = parseFloat(document.getElementById('g_rmin').value);
-  G.rMax   = parseFloat(document.getElementById('g_rmax').value);
-  G.clamp  = parseFloat(document.getElementById('g_clamp').value);
-  G.nPts   = parseInt(document.getElementById('g_pts').value);
-  G.lw     = parseFloat(document.getElementById('g_lw').value);
-  G.sumWidth = parseFloat(document.getElementById('sumWidth').value);
-
-  document.getElementById('gval_l').textContent     = G.l;
-  document.getElementById('gval_rmin').textContent  = G.rMin.toFixed(2);
-  document.getElementById('gval_rmax').textContent  = G.rMax.toFixed(1);
-  document.getElementById('gval_clamp').textContent = G.clamp;
-  document.getElementById('gval_pts').textContent   = G.nPts;
-  document.getElementById('gval_lw').textContent    = G.lw.toFixed(2);
-
-  updateChart();
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  PHYSICS COMPUTE
-// ═══════════════════════════════════════════════════════════════
-function linspace(a,b,n){
-  const arr=new Array(n);
-  for(let i=0;i<n;i++) arr[i]=a+(b-a)*i/(n-1);
-  return arr;
-}
-function clampV(v,lo,hi){
-  if(!isFinite(v)) return v>0?hi:lo;
-  return Math.max(lo,Math.min(hi,v));
-}
-
-const ALL_POTS = POT_GROUPS.flatMap(g=>g.pots);
-const POT_MAP  = Object.fromEntries(ALL_POTS.map(p=>[p.id,p]));
-
-/* Find turning points: r where V(r) = E (sign change in V-E) */
-function findTurningPoints(rs, vs, E) {
-  const tps = [];
-  for(let i=1;i<rs.length;i++){
-    const v0=vs[i-1], v1=vs[i];
-    if(v0===null||v1===null||!isFinite(v0)||!isFinite(v1)) continue;
-    if((v0-E)*(v1-E)<0){
-      /* linear interpolation */
-      const r = rs[i-1] + (rs[i]-rs[i-1])*(E-v0)/(v1-v0);
-      tps.push(+r.toFixed(4));
+/* ── RADIAL SCHRÖDINGER SOLVER ───────────────────────────────
+   −(ℏ²/2m) u'' + V_eff(r) u = E u,  u(0) = u(r_max) = 0.
+   Second-order finite differences give a symmetric tridiagonal matrix;
+   eigenvalues by Sturm-sequence bisection, eigenvectors by inverse iteration. */
+const Solver = (() => {
+  function grid(rMax, N){ const h=rMax/(N+1), r=new Float64Array(N); for(let i=0;i<N;i++) r[i]=(i+1)*h; return {h,r}; }
+  function sturm(d,e2,x){ let c=0,q=d[0]-x; if(q<0)c++; for(let i=1;i<d.length;i++){ q=d[i]-x-e2/(q===0?1e-300:q); if(q<0)c++; } return c; }
+  function eigvec(d,e,lam){
+    const N=d.length, s=Math.max(1,Math.abs(lam))*1e-10, sh=lam+s;
+    let y=new Float64Array(N).fill(1/Math.sqrt(N));
+    const cp=new Float64Array(N), dp=new Float64Array(N);
+    for(let it=0;it<3;it++){
+      cp[0]=e/(d[0]-sh); dp[0]=y[0]/(d[0]-sh);
+      for(let i=1;i<N;i++){ const m=(d[i]-sh)-e*cp[i-1]; cp[i]=e/(m===0?1e-300:m); dp[i]=(y[i]-e*dp[i-1])/(m===0?1e-300:m); }
+      const x=new Float64Array(N); x[N-1]=dp[N-1];
+      for(let i=N-2;i>=0;i--) x[i]=dp[i]-cp[i]*x[i+1];
+      let n=0; for(let i=0;i<N;i++) n+=x[i]*x[i]; n=Math.sqrt(n); for(let i=0;i<N;i++) x[i]/=n; y=x;
     }
+    return y;
   }
-  return tps;
-}
-
-function computeDatasets() {
-  const rs = linspace(Math.max(G.rMin,1e-6), G.rMax, G.nPts);
-  const datasets = [];
-
-  // Store raw (unclamped) sum for turning point computation
-  let sumRaw = null;
-
-  // Individual potentials
-  ALL_POTS.forEach(pot => {
-    const s = STATE[pot.id];
-    if(!s.active) return;
-    const rawVs = [];
-    const data = rs.map((r,i) => {
-      try {
-        const v = pot.fn(r, s.params, H2M);
-        rawVs[i] = v;
-        return { x:+r.toFixed(5), y:clampV(v,-G.clamp,G.clamp) };
-      } catch(e) { rawVs[i]=null; return null; }
-    }).filter((d,i) => d!==null && isFinite(d.y));
-
-    datasets.push({
-      label: pot.name,
-      data,
-      borderColor: s.color,
-      borderWidth: G.lw,
-      pointRadius: 0,
-      tension: 0.2,
-      parsing: false,
-      _potId: pot.id,
-      _rawVs: rawVs
-    });
-  });
-
-  // Sum potential
-  if(G.sumOn && SUM_IDS.size>0){
-    const activeSumIds=[...SUM_IDS].filter(id=>STATE[id]?.active);
-    if(activeSumIds.length>0){
-      const rawSum = new Array(rs.length).fill(0);
-      let sumOk = true;
-      rs.forEach((r,i)=>{
-        let v=0; let ok=true;
-        activeSumIds.forEach(id=>{
-          try{ v+=POT_MAP[id].fn(r,STATE[id].params,H2M); }
-          catch(e){ ok=false; }
-        });
-        rawSum[i] = ok&&isFinite(v)?v:null;
-      });
-      sumRaw = rawSum;
-
-      const sumData = rs.map((r,i)=>{
-        if(rawSum[i]===null) return null;
-        return {x:+r.toFixed(5),y:clampV(rawSum[i],-G.clamp,G.clamp)};
-      }).filter(d=>d&&isFinite(d.y));
-
-      datasets.push({
-        label:'∑ Sum',data:sumData,
-        borderColor:G.sumColor,borderWidth:G.sumWidth,
-        borderDash:[6,3],pointRadius:0,tension:.2,parsing:false,_potId:'__sum__'
-      });
+  /* V: Float64Array of V_eff on the grid. Returns states with E < Ecut (max nMax). */
+  function solve(V,h,h2m,Ecut,nMax){
+    const N=V.length, t=h2m/(h*h), d=new Float64Array(N), e=-t, e2=t*t;
+    let lo=Infinity; for(let i=0;i<N;i++){ d[i]=2*t+V[i]; if(d[i]<lo)lo=d[i]; } lo-=2*t+1;
+    const K=Math.min(sturm(d,e2,Ecut),nMax), out=[];
+    for(let k=0;k<K;k++){
+      let a=lo,b=Ecut;
+      for(let it=0;it<70 && b-a>1e-11*Math.max(1,Math.abs(a));it++){ const m=0.5*(a+b); if(sturm(d,e2,m)>k) b=m; else a=m; }
+      const E=0.5*(a+b), v=eigvec(d,e,E), u=new Float64Array(N), s=1/Math.sqrt(h);
+      let first=0; for(let i=0;i<N;i++){ if(Math.abs(v[i])>1e-6){ first=Math.sign(v[i]); break; } }
+      for(let i=0;i<N;i++) u[i]=v[i]*s*first;           // ∫u² dr = 1, positive near the origin
+      out.push({E,u});
     }
+    return out;
   }
+  function observables(st,r,h,V){
+    const u=st.u,N=u.length; let m1=0,m2=0,pf=0,amax=0,nodes=0,prev=0;
+    for(let i=0;i<N;i++){ const p=u[i]*u[i]*h; m1+=r[i]*p; m2+=r[i]*r[i]*p; if(V[i]>st.E)pf+=p; amax=Math.max(amax,Math.abs(u[i])); }
+    const thr=1e-4*amax;
+    for(let i=0;i<N;i++){ if(Math.abs(u[i])<thr)continue; const sg=Math.sign(u[i]); if(prev&&sg!==prev)nodes++; prev=sg; }
+    let tail=0; for(let i=Math.floor(0.92*N);i<N;i++) tail=Math.max(tail,Math.abs(u[i]));
+    return {rMean:m1,rRms:Math.sqrt(m2),pForb:pf,nodes,boxed:tail>2e-3*amax};
+  }
+  /* WKB with the Langer replacement ℓ(ℓ+1) → (ℓ+½)²:  ∫ √((E−V_L)/(ℏ²/2m)) dr = (n_r+½)π */
+  function wkb(VL,r,h,h2m,nr,lo,hi){
+    const phase=E=>{ let s=0; for(let i=0;i<VL.length;i++){ const k=E-VL[i]; if(k>0)s+=Math.sqrt(k/h2m)*h; } return s; };
+    const target=(nr+0.5)*Math.PI; if(phase(hi)<target) return NaN;
+    let a=lo,b=hi; for(let it=0;it<60;it++){ const m=0.5*(a+b); if(phase(m)<target)a=m; else b=m; }
+    return 0.5*(a+b);
+  }
+  return {grid,solve,observables,wkb};
+})();
 
-  // Energy line E = const (horizontal)
-  datasets.push({
-    label:`E = ${G.E>=0?'+':''}${G.E.toFixed(1)} MeV`,
-    data:[{x:G.rMin,y:G.E},{x:G.rMax,y:G.E}],
-    borderColor:'#fbbf24',borderWidth:1.5,borderDash:[8,4],
-    pointRadius:0,tension:0,parsing:false,_potId:'__energy__'
+
+/* ════════════════════════════════════════════════════════════════
+   SMALL PLOTTING TOOLKIT
+   ════════════════════════════════════════════════════════════════ */
+function prep(cv){
+  const box=cv.parentElement, dpr=window.devicePixelRatio||1, w=box.clientWidth, h=box.clientHeight;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); }
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h};
+}
+function ticks(a,b,n){
+  const span=b-a; if(!(span>0)) return [a];
+  const raw=span/n, mag=Math.pow(10,Math.floor(Math.log10(raw))), f=raw/mag, step=(f<1.5?1:f<3?2:f<7?5:10)*mag, out=[];
+  for(let v=Math.ceil(a/step)*step; v<=b+1e-9*step; v+=step) out.push(Math.abs(v)<1e-12?0:v);
+  return out;
+}
+function frame(ctx,w,h,xr,yr,xl,yl,pad){
+  const P=pad||{l:58,r:16,t:14,b:44}, pw=w-P.l-P.r, ph=h-P.t-P.b;
+  const X=x=>P.l+(x-xr[0])/(xr[1]-xr[0])*pw, Y=y=>P.t+ph-(y-yr[0])/(yr[1]-yr[0])*ph;
+  ctx.font='12px '+cssv('--font-num'); ctx.fillStyle=cssv('--plot-text'); ctx.strokeStyle=cssv('--plot-grid'); ctx.lineWidth=1;
+  ticks(xr[0],xr[1],8).forEach(t=>{ const x=X(t); ctx.beginPath(); ctx.moveTo(x,P.t); ctx.lineTo(x,P.t+ph); ctx.stroke(); ctx.textAlign='center'; ctx.fillText(+t.toPrecision(6)+'',x,P.t+ph+17); });
+  ticks(yr[0],yr[1],7).forEach(t=>{ const y=Y(t); ctx.beginPath(); ctx.moveTo(P.l,y); ctx.lineTo(P.l+pw,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText(+t.toPrecision(6)+'',P.l-7,y+4); });
+  ctx.strokeStyle=cssv('--plot-axis'); ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(P.l,P.t); ctx.lineTo(P.l,P.t+ph); ctx.lineTo(P.l+pw,P.t+ph); ctx.stroke();
+  ctx.font='13px '+cssv('--font-ui'); ctx.fillStyle=cssv('--plot-text'); ctx.textAlign='center';
+  ctx.fillText(xl,P.l+pw/2,h-8);
+  ctx.save(); ctx.translate(15,P.t+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(yl,0,0); ctx.restore();
+  return {X,Y,P,pw,ph};
+}
+function polyline(ctx,X,Y,xs,ys,i0,i1,yr){
+  ctx.beginPath(); let pen=false; const lo=yr[0]-(yr[1]-yr[0])*2, hi=yr[1]+(yr[1]-yr[0])*2;
+  for(let i=i0;i<i1;i++){ const v=ys[i]; if(!Number.isFinite(v)){pen=false;continue;} const y=Y(Math.max(lo,Math.min(hi,v))); if(pen)ctx.lineTo(X(xs[i]),y); else {ctx.moveTo(X(xs[i]),y); pen=true;} }
+  ctx.stroke();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MODE 1 — BOUND STATES OF THE SELECTED POTENTIALS
+   ════════════════════════════════════════════════════════════════ */
+let R = null;   // latest result
+
+function exactLevel(nr){
+  const on=ALL.filter(p=>ST[p.id].on), zz=G.coul?G.z1*G.z2:0;
+  if(on.length===0 && zz<0 && G.rc===0) return -Math.pow(zz*KC,2)/(4*G.h2m*Math.pow(nr+G.l+1,2));
+  if(on.length!==1 || zz!==0) return NaN;
+  const id=on[0].id, p=ST[id].p, l=G.l, h2m=G.h2m;
+  if(id==='harmonic' && p.n===2) return p.hw*(2*nr+l+1.5);
+  if(id==='harmonic' && p.n===1 && l===0){ const AIRY=[2.33811,4.08795,5.52056,6.78671,7.94413,9.02265,10.04017,11.00852,11.93602,12.82878,13.69149,14.52783]; const F=p.hw*p.hw/(4*h2m); return AIRY[nr]*Math.cbrt(h2m*F*F); }
+  if(id==='kratzer'){ const A=p.De*p.re*p.re, B=2*p.De*p.re, L=-0.5+Math.sqrt((l+0.5)*(l+0.5)+A/h2m); return -B*B/(4*h2m*Math.pow(nr+L+1,2)); }
+  if(id==='coulomb') return -Math.pow(p.Z*KC,2)/(4*h2m*Math.pow(nr+l+1,2));
+  if(id==='infwell' && l===0) return Math.pow((nr+1)*Math.PI,2)*h2m/(p.a*p.a);
+  if(id==='hulthen' && l===0){ const n=nr+1, q=1-n*n*p.delta*h2m/p.V0; return q>0 ? -(p.V0*p.V0/(4*h2m*n*n))*q*q : NaN; }
+  return NaN;
+}
+
+function compute(){
+  const on=ALL.filter(p=>ST[p.id].on), {h,r}=Solver.grid(G.rMax,G.N), N=r.length, l=G.l, h2m=G.h2m;
+  const zz=G.coul?G.z1*G.z2:0, Rc=G.rc, any=on.length>0||zz!==0;
+  const Vs=new Float64Array(N), Veff=new Float64Array(N), VL=new Float64Array(N), comps=on.map(()=>new Float64Array(N)), cent=new Float64Array(N), vcoul=new Float64Array(N);
+  for(let i=0;i<N;i++){
+    let v=0; on.forEach((p,k)=>{ let x=p.fn(r[i],ST[p.id].p,h2m); if(!Number.isFinite(x)) x=x>0?1e6:-1e6; comps[k][i]=x; v+=x; });
+    if(zz!==0){ const x=r[i]; vcoul[i]= (Rc>0&&x<Rc) ? zz*KC/(2*Rc)*(3-x*x/(Rc*Rc)) : zz*KC/x; v+=vcoul[i]; }
+    Vs[i]=v; cent[i]=h2m*l*(l+1)/(r[i]*r[i]); Veff[i]=v+cent[i]; VL[i]=v+h2m*(l+0.5)*(l+0.5)/(r[i]*r[i]);
+  }
+  const vEnd=Vs[N-1], vPrev=Vs[Math.floor(0.85*N)], confining=any && (vEnd-vPrev>0.5 || vEnd>=1e5);
+  /* a tail that is still shrinking (Coulomb, Yukawa, Morse …) goes to 0 at infinity */
+  const thr=confining?Infinity:(Math.abs(vEnd)<Math.abs(vPrev)?0:vEnd), cut=Math.min(G.Ecut,thr);
+  let states=[];
+  if(any) states=Solver.solve(Veff,h,h2m,cut,12);
+  let lo=Infinity; for(let i=0;i<N;i++) if(VL[i]<lo) lo=VL[i];
+  const so=ST.wsspinorbit.on && l>0, jlab=so?(2*l+G.jSign)+'/2':'';
+  states=states.map((s,k)=>{
+    const o=Solver.observables(s,r,h,Veff), w=Solver.wkb(VL,r,h,h2m,k,lo,Math.max(cut,s.E+1)), ex=exactLevel(k);
+    return {...s,...o,nr:k,label:(k+1)+LNAME[l]+jlab,wkb:w,exact:ex,repTail:(!confining&&vEnd>0&&vPrev>vEnd&&s.E>0)};
   });
-
-  // Compute turning points from sum (if available) or first active potential
-  let tpVs=null, tpRs=rs;
-  if(sumRaw && sumRaw.some(v=>v!==null)){
-    tpVs=sumRaw;
-  } else if(datasets.length>0 && datasets[0]._rawVs){
-    tpVs=datasets[0]._rawVs;
-  }
-
-  const tps = tpVs ? findTurningPoints(tpRs,tpVs,G.E) : [];
-
-  // Mark turning points as scatter dots
-  if(tps.length>0){
-    datasets.push({
-      label:'Turning pts',
-      data: tps.map(r=>({x:r,y:G.E})),
-      borderColor:'#fbbf24',backgroundColor:'#fbbf24',
-      pointRadius:6,pointStyle:'crossRot',pointBorderWidth:2.5,
-      showLine:false,parsing:false,_potId:'__tp__'
-    });
-  }
-
-  updateTPDisplay(tps);
-  return datasets;
+  R={on,any,zz,vcoul,h,r,N,Vs,Veff,comps,cent,states,thr,cut,confining,vEnd};
+  if(G.sel>=states.length) G.sel=Math.max(0,states.length-1);
+  renderTable(); renderPlot(); renderStatus();
 }
 
-function updateTPDisplay(tps){
-  const el=document.getElementById('tp_items');
-  if(!tps||tps.length===0){
-    el.innerHTML='<span style="color:var(--muted)">None in current range</span>';
-    return;
-  }
-  el.innerHTML=tps.map((r,i)=>`
-    <div class="tp-item">
-      <div class="tp-dot"></div>
-      <span>r₍${i+1}₎ = ${r.toFixed(3)} fm&nbsp;&nbsp;
-        <span style="color:var(--muted);font-size:.58rem">(${i%2===0?'inner':'outer'} turning point)</span>
-      </span>
-    </div>`).join('');
+function renderStatus(){
+  const s=$('status'), n=R.states.length; s.className='status';
+  if(!R.any){ s.textContent='Tick at least one potential in the library, or give both particles a charge, to start.'; return; }
+  const thrTxt=R.confining?'the potential confines the particle at all energies':`threshold V(∞) ≈ ${fmt(Math.abs(R.thr)<0.005?0:R.thr,2)} MeV`;
+  let t=`${n} bound state${n===1?'':'s'} found for ℓ = ${G.l}${n===12?' (first 12 shown)':''}; ${thrTxt}.`;
+  if(n===0) t+=' The well is too shallow or too narrow to hold a bound state with this ℓ. Try a deeper well or a smaller ℓ.';
+  if(R.zz!==0 && R.on.some(p=>['coulomb','screencoul','screencoulcos','wscoulomb'].includes(p.id))){ t+=' Note: a Coulomb potential from the library is also ticked, so Coulomb is counted twice.'; s.className='status warn'; }
+  if(R.states.some(x=>x.boxed)){ t+=' ⚠ Some states reach the edge of the box: increase r_max for accurate energies.'; s.className='status warn'; }
+  s.textContent=t;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CHART.JS
-// ═══════════════════════════════════════════════════════════════
-Chart.defaults.color       = '#3a5070';
-Chart.defaults.font.family = "'JetBrains Mono', monospace";
-Chart.defaults.font.size   = 10;
+function renderTable(){
+  const tb=$('states').querySelector('tbody'); tb.innerHTML='';
+  if(!R.states.length){ tb.innerHTML='<tr><td colspan="9" class="empty">No bound states in the searched energy range.</td></tr>'; return; }
+  R.states.forEach((s,i)=>{
+    const tr=document.createElement('tr'); if(i===G.sel) tr.className='sel';
+    const werr=Number.isFinite(s.wkb)?s.wkb-s.E:NaN;
+    const flag=s.boxed?' <span class="flag" title="Wavefunction reaches the box edge; increase r_max">⚠</span>':s.repTail?' <span class="flag" title="Above zero but trapped behind a repulsive barrier: a quasi-bound state whose energy depends on the box">≈</span>':'';
+    tr.innerHTML=`<td class="lbl"><span style="color:${pal(i)}">●</span> ${sub(s.label)}${flag}</td><td>${fmtE(s.E)}</td><td>${fmtE(s.exact)}</td><td>${fmtE(s.wkb,3)}</td><td>${Number.isFinite(werr)?(werr>=0?'+':'')+fmtE(werr,3):'—'}</td><td>${fmtR(s.rMean)}</td><td>${fmtR(s.rRms)}</td><td>${(100*s.pForb).toFixed(1)} %</td><td>${s.nodes}</td>`;
+    tr.addEventListener('click',()=>{ G.sel=i; renderTable(); renderPlot(); });
+    tb.appendChild(tr);
+  });
+}
 
-const ctx = document.getElementById('mainChart').getContext('2d');
-let chart = new Chart(ctx, {
-  type:'scatter',
-  data:{datasets:[]},
-  options:{
-    responsive:true,maintainAspectRatio:false,animation:false,
-    interaction:{mode:'nearest',intersect:false},
-    plugins:{
-      legend:{display:false},
-      tooltip:{
-        backgroundColor:'rgba(6,8,15,0.93)',
-        borderColor:'rgba(255,255,255,0.12)',borderWidth:1,
-        titleColor:'#c8d8f0',bodyColor:'#c8d8f0',padding:8,
-        callbacks:{
-          title: ctx=>`r = ${ctx[0].parsed.x.toFixed(4)} fm`,
-          label: ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)} MeV`
-        }
-      }
-    },
-    scales:{
-      x:{type:'linear',
-        title:{display:true,text:'r  (fm)',color:'#3a5070',font:{size:11}},
-        ticks:{color:'#3a5070'},grid:{color:'rgba(255,255,255,0.045)'},
-        border:{color:'rgba(255,255,255,0.1)'}},
-      y:{type:'linear',
-        title:{display:true,text:'V(r)  (MeV)',color:'#3a5070',font:{size:11}},
-        ticks:{color:'#3a5070'},grid:{color:'rgba(255,255,255,0.045)'},
-        border:{color:'rgba(255,255,255,0.1)'},
-        min:-G.clamp,max:G.clamp}
-    },
-    showLine:true
+function viewRanges(){
+  const {r,Veff,states,N}=R; let rv=G.rMax;
+  if(states.length){
+    let far=0; states.forEach(s=>{ let amax=0; for(let i=0;i<N;i++) amax=Math.max(amax,Math.abs(s.u[i])); for(let i=N-1;i>=0;i--) if(Math.abs(s.u[i])>0.02*amax){ far=Math.max(far,r[i]); break; } });
+    rv=Math.min(G.rMax,Math.max(3,far*1.3));
   }
+  const iv=Math.min(N,Math.ceil(rv/R.h));
+  let vmin=Infinity, vmax=-Infinity; for(let i=0;i<iv;i++){ const v=Veff[i]; if(Number.isFinite(v)){ vmin=Math.min(vmin,v); vmax=Math.max(vmax,v);} }
+  let y0,y1;
+  if(states.length){
+    const e0=states[0].E, e1=states[states.length-1].E, span=Math.max(e1-e0,0.3*Math.abs(e0),1e-9);
+    const sc=Math.max(span,Math.abs(e0));
+    y0 = vmin > e0-30*sc ? vmin : e0-4*sc;   // show the whole well unless it is singular (1/r)
+    y0-=0.04*(e1-y0+span); y1=e1+0.4*span;
+    if(Number.isFinite(R.thr) && R.thr<e1+1.5*span) y1=Math.max(y1,R.thr+0.15*span);
+  }else{ y0=Math.max(vmin,-200); y1=Math.min(vmax,Math.max(G.Ecut,y0+10)); if(y1<=y0) y1=y0+10; }
+  return {xr:[0,rv],yr:[y0,y1],iv};
+}
+
+function renderPlot(){
+  const cv=$('plot'), {ctx,w,h}=prep(cv); if(!R) return;
+  if(!R.any){ ctx.fillStyle=cssv('--muted'); ctx.font='15px '+cssv('--font-ui'); ctx.textAlign='center'; ctx.fillText('Tick a potential in the library to begin',w/2,h/2); $('legend').innerHTML=''; return; }
+  const {xr,yr,iv}=viewRanges(), eu=eUnit(yr[1]-yr[0]), ru=rUnit(xr[1]), F=frame(ctx,w,h,[xr[0]*ru.k,xr[1]*ru.k],[yr[0]*eu.k,yr[1]*eu.k],'r ('+ru.u+')','Energy ('+eu.u+')'), {P,pw,ph}=F, X=x=>F.X(x*ru.k), Y=y=>F.Y(y*eu.k), {r,Veff,states}=R;
+  ctx.save(); ctx.beginPath(); ctx.rect(P.l,P.t,pw,ph); ctx.clip();
+  const S=states[G.sel];
+  if(S && G.showForbid){ ctx.fillStyle=cssv('--forbid'); let st=-1; for(let i=0;i<=iv;i++){ const f=i<iv&&Veff[i]>S.E; if(f&&st<0)st=i; if(!f&&st>=0){ ctx.fillRect(X(r[st]),P.t,X(r[i-1])-X(r[st]),ph); st=-1; } } }
+  if(Number.isFinite(R.thr)&&R.thr>yr[0]&&R.thr<yr[1]){ ctx.strokeStyle=cssv('--plot-axis'); ctx.setLineDash([6,5]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(P.l,Y(R.thr)); ctx.lineTo(P.l+pw,Y(R.thr)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=cssv('--plot-text'); ctx.font='12px '+cssv('--font-ui'); ctx.textAlign='left'; ctx.fillText('threshold V(∞)',P.l+6,Y(R.thr)-5); }
+  const leg=[`<span><i style="background:${cssv('--veff')}"></i>V<sub>eff</sub>(r) = V(r) + centrifugal</span>`];
+  if(G.showComp){
+    R.on.forEach((p,k)=>{ ctx.strokeStyle=p.defaultColor; ctx.lineWidth=1.4; ctx.setLineDash([5,4]); polyline(ctx,X,Y,r,R.comps[k],0,iv,yr); leg.push(`<span><i style="background:${p.defaultColor}"></i>${p.name}</span>`); });
+    if(R.zz!==0){ ctx.strokeStyle=cssv('--bad'); polyline(ctx,X,Y,r,R.vcoul,0,iv,yr); leg.push(`<span><i style="background:${cssv('--bad')}"></i>Coulomb Z₁Z₂e²/r (Z₁Z₂ = ${R.zz})</span>`); }
+    if(G.l>0){ ctx.strokeStyle=cssv('--warn'); polyline(ctx,X,Y,r,R.cent,0,iv,yr); leg.push(`<span><i style="background:${cssv('--warn')}"></i>Centrifugal ℏ²ℓ(ℓ+1)/2mr²</span>`); }
+    ctx.setLineDash([]);
+  }
+  ctx.strokeStyle=cssv('--veff'); ctx.lineWidth=2.4; polyline(ctx,X,Y,r,Veff,0,iv,yr);
+  const span=(yr[1]-yr[0]), gap=states.length>1?Math.min(...states.slice(1).map((s,i)=>s.E-states[i].E)):span*0.25;
+  states.forEach((s,i)=>{
+    const col=pal(i), selS=i===G.sel; let a=-1,b=-1; for(let k=0;k<iv;k++){ if(Veff[k]<=s.E){ if(a<0)a=k; b=k; } }
+    if(a<0){ a=0; b=iv-1; }
+    ctx.strokeStyle=col; ctx.globalAlpha=selS?1:0.75; ctx.lineWidth=selS?2.2:1.3; ctx.setLineDash(selS?[]:[2,3]);
+    ctx.beginPath(); ctx.moveTo(X(r[a]),Y(s.E)); ctx.lineTo(X(r[b]),Y(s.E)); ctx.stroke(); ctx.setLineDash([]);
+    if(G.wf!=='off'){
+      let amax=0; for(let k=0;k<iv;k++){ const v=G.wf==='u'?Math.abs(s.u[k]):s.u[k]*s.u[k]; if(v>amax)amax=v; }
+      const sc=(Math.min(0.45*gap,0.22*span)*G.wfScale)/(amax||1), ys=new Float64Array(iv);
+      for(let k=0;k<iv;k++) ys[k]=s.E+sc*(G.wf==='u'?s.u[k]:s.u[k]*s.u[k]);
+      ctx.lineWidth=selS?2.2:1.5; polyline(ctx,X,Y,r,ys,0,iv,yr);
+    }
+    ctx.globalAlpha=1;
+    if(selS){ ctx.fillStyle=col; if(a>0){ ctx.beginPath(); ctx.arc(X(r[a]),Y(s.E),4.5,0,7); ctx.fill(); } if(b<iv-1){ ctx.beginPath(); ctx.arc(X(r[b]),Y(s.E),4.5,0,7); ctx.fill(); } }  // classical turning points
+    ctx.font=(selS?'600 ':'')+'12px '+cssv('--font-ui'); ctx.fillStyle=col; ctx.textAlign='right';
+    ctx.fillText(s.label+'  '+fmtE(s.E,2),P.l+pw-6,Y(s.E)-4);
+  });
+  ctx.restore();
+  leg.push(`<span><i style="background:${pal(0)}"></i>Energy levels${G.wf==='off'?'':G.wf==='u'?' with u(r)':' with |u(r)|²'}</span>`);
+  if(S&&G.showForbid) leg.push(`<span><i style="background:${cssv('--bad')};opacity:.5"></i>Forbidden region of ${S.label}</span>`);
+  $('legend').innerHTML=leg.join('');
+  cv._map={X,Y,P,pw,ph,xr,yr};
+}
+
+$('plot').addEventListener('mousemove',e=>{
+  const cv=$('plot'), m=cv._map; if(!m||!R) return; const b=cv.getBoundingClientRect(), x=e.clientX-b.left;
+  if(x<m.P.l||x>m.P.l+m.pw) return;
+  const rr=m.xr[0]+(x-m.P.l)/m.pw*(m.xr[1]-m.xr[0]), i=Math.max(0,Math.min(R.N-1,Math.round(rr/R.h)-1));
+  const S=R.states[G.sel];
+  $('readout').innerHTML=`<span>r = <b>${fmtR(R.r[i])}</b></span><span>V(r) = <b>${fmtE(R.Vs[i],3)}</b></span><span>V<sub>eff</sub>(r) = <b>${fmtE(R.Veff[i],3)}</b></span>`+(S?`<span>${sub(S.label)}: u(r) = <b>${S.u[i].toFixed(4)} fm<sup>−1/2</sup></b>, ${R.Veff[i]>S.E?'classically forbidden':'classically allowed'}</span>`:'');
 });
 
-function updateChart(){
-  const ds=computeDatasets();
-  chart.data.datasets=ds;
-  chart.options.scales.y.min=-G.clamp;
-  chart.options.scales.y.max= G.clamp;
-  chart.options.scales.x.min=G.rMin;
-  chart.options.scales.x.max=G.rMax;
-  chart.update('none');
-  updateLegend(ds);
+/* ── Library UI ── */
+function buildLibrary(){
+  const L=$('library'); L.innerHTML='';
+  POT_GROUPS.forEach(g=>{
+    const gd=document.createElement('div'); gd.className='group'; gd.innerHTML=`<div class="group-title">${g.label}</div>`;
+    g.pots.forEach(p=>{
+      const s=ST[p.id], d=document.createElement('div'); d.className='pot'+(s.on?' on':'')+(s.open?' open':''); d.id='pot-'+p.id;
+      d.innerHTML=`<div class="pot-head"><input type="checkbox" ${s.on?'checked':''} aria-label="Use ${p.name}"><span class="swatch" style="background:${p.defaultColor}"></span><span class="pot-name">${p.name}</span><button type="button" class="pot-more" aria-expanded="${s.open}">${s.open?'Hide':'Edit'}</button></div><div class="pot-body"></div>`;
+      const body=d.querySelector('.pot-body');
+      p.params.forEach(q=>{
+        const row=document.createElement('div'); row.className='row';
+        row.innerHTML=`<label>${q.label}</label><span class="val">${s.p[q.key]} ${q.unit}</span><input type="range" min="${q.min}" max="${q.max}" step="${q.step}" value="${s.p[q.key]}" aria-label="${q.label}"><small>${q.desc}</small>`;
+        const inp=row.querySelector('input'), out=row.querySelector('.val');
+        inp.addEventListener('input',()=>{ s.p[q.key]=+inp.value; out.textContent=inp.value+' '+q.unit; schedule(); });
+        body.appendChild(row);
+      });
+      if(!p.params.length) body.innerHTML='<p class="note">No parameters.</p>';
+      d.querySelector('input[type=checkbox]').addEventListener('change',e=>{ s.on=e.target.checked; d.classList.toggle('on',s.on); G.infoId=p.id; renderInfo(); countActive(); syncJ(); schedule(); });
+      const tog=()=>{ s.open=!s.open; d.classList.toggle('open',s.open); const b=d.querySelector('.pot-more'); b.textContent=s.open?'Hide':'Edit'; b.setAttribute('aria-expanded',s.open); G.infoId=p.id; renderInfo(); };
+      d.querySelector('.pot-name').addEventListener('click',tog); d.querySelector('.pot-more').addEventListener('click',tog);
+      gd.appendChild(d);
+    });
+    L.appendChild(gd);
+  });
+  countActive();
 }
-
-function updateLegend(datasets){
-  const el=document.getElementById('legendArea');
-  el.innerHTML=datasets
-    .filter(d=>d.label&&!d.label.startsWith('Turning'))
-    .map(ds=>`
-      <div class="leg-item">
-        <div class="leg-swatch" style="background:${ds.borderColor};
-          ${ds.borderDash?'background:none;border-top:2px dashed '+ds.borderColor+';':''}"></div>
-        <span>${ds.label}</span>
-      </div>`).join('');
+function countActive(){ $('active-count').textContent=ALL.filter(p=>ST[p.id].on).length+' active'; }
+function renderInfo(){
+  const p=POT[G.infoId]||ALL[0];
+  $('info').innerHTML=`<h2>About the ${p.name.replace(/\(.*\)/,'').trim()} potential</h2><div class="formula">${p.formula}</div><dl><dt>Physics</dt><dd>${p.physics.what}</dd><dt>Typical scale</dt><dd>${p.physics.energy}</dd><dt>Notes</dt><dd>${p.physics.note}</dd></dl>`;
 }
+function syncJ(){ $('j-field').style.opacity=(ST.wsspinorbit.on&&G.l>0)?1:0.45; }
 
-// ═══════════════════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════════════════
-document.getElementById('sumToggle').classList.toggle('on', G.sumOn);
-document.getElementById('sumPanel').style.display = sumPanelOpen?'block':'none';
-buildSidebar();
-updateEDisplay();
-updateChart();
+/* ── controls ── */
+function setL(l){ G.l=Math.max(0,Math.min(8,l)); $('l-out').textContent=G.l; $('l-name').textContent=LNAME[G.l]+' wave'; syncJ(); schedule(); }
+$('l-dn').onclick=()=>setL(G.l-1); $('l-up').onclick=()=>setL(G.l+1);
+$('j-seg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; G.jSign=+b.dataset.j; [...$('j-seg').children].forEach(x=>x.classList.toggle('on',x===b)); schedule(); });
+/* ── two-body panel ── */
+function fillSelect(sel){ sel.innerHTML=PARTICLES.map(p=>`<option value="${p.id}">${p.name}</option>`).join(''); }
+fillSelect($('p1')); fillSelect($('p2'));
+$('p1').querySelector('option[value=inf]').remove();
+function setParticle(k,id){
+  const P=PMAP[id]; G['p'+k]=id; $('p'+k).value=id;
+  if(id!=='custom'){ G['m'+k]=P.m; G['z'+k]=P.z; }
+  const mi=$('m'+k); mi.disabled=id==='inf'; mi.value=Number.isFinite(G['m'+k])?G['m'+k]:''; mi.placeholder=id==='inf'?'∞':'';
+  $('z'+k).value=G['z'+k];
+}
+function massA(k){ const P=PMAP[G['p'+k]]; return P&&P.id!=='custom'?P.A:Math.max(0,Math.round((G['m'+k]||0)/931.494)); }
+function updateTwoBody(){
+  const mu=reducedMass(); G.h2m=HBARC*HBARC/(2*mu);
+  const zz=G.z1*G.z2, kind=zz>0?'repulsive':zz<0?'attractive':'none';
+  $('mu-box').innerHTML=`μ = <b>${mu<1?mu.toFixed(5):mu.toFixed(3)} MeV/c²</b> (${(mu/931.494).toFixed(5)} u)<br>ℏ²/2μ = <b>${G.h2m<0.1?G.h2m.toExponential(4):G.h2m.toFixed(4)} MeV·fm²</b><br>Z₁Z₂ = <b>${zz}</b> (Coulomb ${kind})`;
+  $('rc-row').style.opacity=(G.coul&&zz!==0)?1:0.45; $('rc-v').textContent=G.rc>0?G.rc.toFixed(1)+' fm':'point charge';
+  schedule();
+}
+[1,2].forEach(k=>{
+  $('p'+k).addEventListener('change',e=>{ setParticle(k,e.target.value); updateTwoBody(); });
+  $('m'+k).addEventListener('change',e=>{ const v=+e.target.value; if(v>0){ G['m'+k]=v; G['p'+k]='custom'; $('p'+k).value='custom'; } else e.target.value=G['m'+k]; updateTwoBody(); });
+  $('z'+k).addEventListener('change',e=>{ const v=Math.round(+e.target.value); if(Number.isFinite(v)){ G['z'+k]=v; e.target.value=v; if(G['p'+k]!=='custom'&&v!==PMAP[G['p'+k]].z){ G['p'+k]='custom'; $('p'+k).value='custom'; } } updateTwoBody(); });
+});
+$('coul-on').addEventListener('change',e=>{ G.coul=e.target.checked; updateTwoBody(); });
+$('rc').addEventListener('input',e=>{ G.rc=+e.target.value; updateTwoBody(); });
+$('rc-auto').addEventListener('click',()=>{ const a1=massA(1), a2=massA(2); G.rc=+(1.2*(Math.cbrt(a1)+Math.cbrt(a2))).toFixed(1); $('rc').value=G.rc; updateTwoBody(); });
+function setTwoBody(T){ setParticle(1,T.p1); setParticle(2,T.p2); G.coul=T.coul!==false; $('coul-on').checked=G.coul; G.rc=T.rc||0; $('rc').value=G.rc; updateTwoBody(); }
+function bindRange(id,key,fmtf){ const el=$(id), out=$(id+'-v'); const up=()=>{ G[key]=+el.value; out.textContent=fmtf(+el.value); }; el.addEventListener('input',()=>{ up(); schedule(); }); up(); }
+(function(){ const el=$('rmax'), out=$('rmax-v');
+  const up=()=>{ const v=Math.pow(10,+el.value), d=Math.pow(10,Math.floor(Math.log10(v))-1); G.rMax=Math.round(v/d)*d; out.textContent=fmtR(G.rMax).replace(/\.?0+ /,' '); };
+  el.addEventListener('input',()=>{ up(); schedule(); }); up(); })(); bindRange('npts','N',v=>v); bindRange('ecut','Ecut',v=>v+' MeV');
+$('wf-seg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; G.wf=b.dataset.wf; [...$('wf-seg').children].forEach(x=>x.classList.toggle('on',x===b)); renderPlot(); });
+$('wf-scale').addEventListener('input',e=>{ G.wfScale=+e.target.value; renderPlot(); });
+$('show-comp').addEventListener('change',e=>{ G.showComp=e.target.checked; renderPlot(); });
+$('show-forbid').addEventListener('change',e=>{ G.showForbid=e.target.checked; renderPlot(); });
+let timer=null; function schedule(){ clearTimeout(timer); timer=setTimeout(compute,40); }
+
+/* ── example models (opened from the drawer) ── */
+const NUC={p1:'N',p2:'inf'}, NP={p1:'p',p2:'n'}, ALPHA={p1:'alpha',p2:'inf'};
+const MODELS=[
+ {group:'Benchmarks with exact answers', items:[
+  {name:'Harmonic oscillator', exact:true, desc:'V = ½mω²r² with ℏω = 10 MeV.', look:'Levels are equally spaced by 2ℏω; the WKB column agrees exactly.', on:{harmonic:{hw:10,n:2}}, l:0, tb:NUC, rMax:20, N:1200, Ecut:100},
+  {name:'Oscillator, ℓ = 2 (d wave)', exact:true, desc:'Same oscillator with ℓ = 2.', look:'Each level lies ℏω·ℓ = 20 MeV above the ℓ = 0 level with the same number of nodes: E = ℏω(2n_r + ℓ + 3/2).', on:{harmonic:{hw:10,n:2}}, l:2, tb:NUC, rMax:20, N:1200, Ecut:100},
+  {name:'Linear potential (quark-like confinement)', exact:true, desc:'V = F·r, the shape of the confining force between heavy quarks.', look:'Energies follow the zeros of the Airy function; spacing shrinks slowly with n.', on:{harmonic:{hw:8,n:1}}, l:0, tb:NUC, rMax:32, N:1600, Ecut:30},
+  {name:'Coulomb, Z = 40', exact:true, desc:'Hydrogen-like spectrum in nuclear units.', look:'E ∝ −1/n²: levels crowd together towards zero.', on:{coulomb:{Z:40}}, l:0, tb:NUC, rMax:40, N:2000, Ecut:0},
+  {name:'Coulomb, ℓ = 1: accidental degeneracy', exact:true, desc:'The same Coulomb field with ℓ = 1.', look:'2p has exactly the energy of 2s, 3p that of 3s: a special symmetry of 1/r.', on:{coulomb:{Z:40}}, l:1, tb:NUC, rMax:40, N:2000, Ecut:0},
+  {name:'Kratzer molecular potential', exact:true, desc:'V = D_e[(r_e/r)² − 2r_e/r], solvable for every ℓ.', look:'Coulomb-like series with a modified effective ℓ.', on:{kratzer:{De:20,re:2}}, l:0, tb:NUC, rMax:40, N:2000, Ecut:0},
+  {name:'Infinite spherical well', exact:true, desc:'Hard wall at a = 4 fm.', look:'E ∝ n². WKB fails badly at a hard wall: compare the columns.', on:{infwell:{a:4}}, l:0, tb:NUC, rMax:6, N:1500, Ecut:200},
+ ]},
+ {group:'Nuclear physics', items:[
+  {name:'Deuteron: Hulthén potential', exact:true, desc:'n–p reduced mass. Measured binding energy 2.224 MeV.', look:'One single bound state, very loosely bound: ⟨r⟩ is large and over 30 % of the probability is in the forbidden region.', on:{hulthen:{V0:66.5,delta:1.14}}, l:0, tb:NP, rMax:40, N:2000, Ecut:0},
+  {name:'Deuteron: Yukawa (pion exchange)', desc:'V = −V₀e^{−μr}/r with the pion range 1/μ ≈ 1.4 fm.', look:'V₀ = 70 MeV gives about −2.2 MeV. Lower V₀ by a few MeV and the deuteron disappears.', on:{yukawa:{V0:70,alpha:0.7}}, l:0, tb:NP, rMax:40, N:2000, Ecut:0},
+  {name:'Deuteron: square well', desc:'V₀ = 36.5 MeV, radius 2 fm.', look:'Compare the wavefunction tail with the Hulthén and Yukawa models: it depends only on the binding energy.', on:{finwell:{V0:36.5,a:2,Vb:0,b:0.1}}, l:0, tb:NP, rMax:40, N:2000, Ecut:0},
+  {name:'⁴⁰Ca neutron, 1f₇/₂', desc:'Woods–Saxon plus spin–orbit, ℓ = 3, j = 7/2.', look:'Switch j to ℓ − ½: the 1f₅/₂ level lies several MeV higher. This splitting creates magic number 28.', on:{woodssaxon:{V0:51,R:4.3,a:0.65},wsspinorbit:{Vso:6.2,R:4.3,a:0.65}}, l:3, j:1, tb:NUC, rMax:20, N:1200, Ecut:0},
+  {name:'²⁰⁸Pb neutron s states', desc:'Woods–Saxon for lead, ℓ = 0.', look:'Three s states (1s, 2s, 3s) with 0, 1 and 2 nodes; the outer ones live near the surface.', on:{woodssaxon:{V0:44,R:7.5,a:0.67}}, l:0, tb:NUC, rMax:25, N:1500, Ecut:0},
+ ]},
+ {group:'Two-body systems (set by m₁, m₂, Z₁, Z₂)', items:[
+  {name:'Hydrogen atom (e⁻ + p)', exact:true, desc:'Only the Coulomb attraction between electron and proton, with the true reduced mass.', look:'E₁ = −13.598 eV and ⟨r⟩ = 1.5 a₀ ≈ 0.79 Å. The energy axis switches to eV and the r axis to Å.', on:{}, tb:{p1:'e',p2:'p'}, l:0, rMax:1000000, N:3000, Ecut:0},
+  {name:'Muonic hydrogen (μ⁻ + p)', exact:true, desc:'A muon is 207 times heavier than an electron.', look:'Energies are about 186 times larger (−2.53 keV) and the orbit is 186 times smaller, because μ is 186 times larger.', on:{}, tb:{p1:'mu',p2:'p'}, l:0, rMax:6000, N:3000, Ecut:0},
+  {name:'Muonic lead (μ⁻ + ²⁰⁸Pb)', desc:'The muon orbit is so small that it lies partly inside the nucleus. R_c = 7.1 fm.', look:'With a uniformly charged nucleus the 1s energy is about −10.5 MeV. Set R_c to 0 (point nucleus): it drops to about −19 MeV. This finite-size effect was used to measure nuclear radii.', on:{}, tb:{p1:'mu',p2:'Pb208',rc:7.1}, l:0, rMax:120, N:2500, Ecut:0},
+  {name:'Proton in ⁴¹Sc (p + ⁴⁰Ca)', desc:'Woods–Saxon well plus the Coulomb repulsion Z₁Z₂ = 20, ℓ = 3.', look:'The 1f level is at about −3 MeV. Untick the Coulomb box and it drops to about −10 MeV: the Coulomb repulsion is why proton levels lie higher than neutron levels.', on:{woodssaxon:{V0:60,R:4.3,a:0.65}}, tb:{p1:'p',p2:'Ca40',rc:4.3}, l:3, rMax:25, N:1500, Ecut:0},
+  {name:'α particle bound to ¹⁶O (²⁰Ne cluster)', desc:'α + ¹⁶O with a Woods–Saxon well and Coulomb Z₁Z₂ = 16.', look:'An α-cluster picture of ²⁰Ne. The physical ground state is the 5s level (4 nodes, 2n_r + ℓ = 8) at about −4.8 MeV, close to the measured α separation energy of 4.73 MeV. The four deeper states are forbidden by the Pauli principle.', on:{woodssaxon:{V0:94,R:3.9,a:0.7}}, tb:{p1:'alpha',p2:'O16',rc:3.9}, l:0, rMax:25, N:1500, Ecut:0},
+ ]},
+ {group:'Screening and molecular-type wells', items:[
+  {name:'Debye-screened Coulomb', desc:'Coulomb Z = 40 screened over r_D = 3 fm.', look:'Only 2 states survive, compared with many for pure Coulomb. Increase r_D to recover them.', on:{screencoul:{Z:40,rD:3}}, l:0, tb:NUC, rMax:40, N:2000, Ecut:0},
+  {name:'Morse anharmonic vibration', desc:'α particle in a Morse well, D_e = 30 MeV.', look:'Level spacing shrinks as the energy rises: the hallmark of anharmonic molecular vibrations.', on:{morse:{De:30,alpha:0.6,re:4}}, l:0, tb:ALPHA, rMax:20, N:1500, Ecut:0},
+  {name:'Pöschl–Teller shell', desc:'A sech² well centred at r₀ = 5 fm.', look:'The particle is trapped in a spherical shell, away from the centre.', on:{poschl:{V0:60,alpha:0.6,r0:5}}, l:0, tb:NUC, rMax:20, N:1500, Ecut:0},
+ ]},
+];
+let currentModel=null;
+function loadPreset(P){
+  ALL.forEach(p=>{ ST[p.id].on=false; ST[p.id].open=false; });
+  Object.entries(P.on).forEach(([id,vals])=>{ ST[id].on=true; ST[id].open=true; Object.assign(ST[id].p,vals); });
+  setTwoBody(P.tb);
+  $('rmax').value=Math.log10(P.rMax); $('rmax').dispatchEvent(new Event('input'));
+  [['npts','N'],['ecut','Ecut']].forEach(([id,k])=>{ $(id).value=P[k]; $(id).dispatchEvent(new Event('input')); });
+  G.jSign=P.j||1; [...$('j-seg').children].forEach(x=>x.classList.toggle('on',+x.dataset.j===G.jSign));
+  G.infoId=Object.keys(P.on)[0]; G.sel=0; currentModel=P; $('current-model').textContent='Current: '+P.name;
+  buildLibrary(); renderInfo(); setL(P.l); buildExamples();
+}
+function buildExamples(){
+  const box=$('examples'); box.innerHTML='';
+  MODELS.forEach(g=>{
+    const d=document.createElement('div'); d.className='ex-group'; d.innerHTML=`<h3>${g.group}</h3>`;
+    g.items.forEach(P=>{
+      const b=document.createElement('button'); b.type='button'; b.className='ex'+(P===currentModel?' on':'');
+      b.innerHTML=`<span class="ex-title">${P.name}${P.exact?' <span class="tag exact">Exact</span>':''}</span><span class="ex-desc">${P.desc}</span><span class="ex-look"><b>Look for:</b> ${P.look}</span>`;
+      b.onclick=()=>{ loadPreset(P); closeDrawer(); };
+      d.appendChild(b);
+    });
+    box.appendChild(d);
+  });
+}
+const drawer=$('examples-drawer'), back=$('drawer-back');
+function openDrawer(){ buildExamples(); drawer.hidden=false; back.hidden=false; requestAnimationFrame(()=>drawer.classList.add('open')); $('open-examples').setAttribute('aria-expanded','true'); (drawer.querySelector('.ex.on')||drawer.querySelector('.ex')).focus(); }
+function closeDrawer(){ drawer.classList.remove('open'); back.hidden=true; $('open-examples').setAttribute('aria-expanded','false'); setTimeout(()=>{ drawer.hidden=true; },230); $('open-examples').focus({preventScroll:true}); }
+$('open-examples').onclick=openDrawer; $('close-examples').onclick=closeDrawer; back.onclick=closeDrawer;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!drawer.hidden) closeDrawer(); });
+
+/* ════════════════════════════════════════════════════════════════
+   MODE 2 — NUCLEAR SHELL MODEL (Woods–Saxon + spin–orbit)
+   ════════════════════════════════════════════════════════════════ */
+const SH={A:208,Z:82,type:'n',auto:true,V0:46,r0:1.27,a:0.67,kso:0.44,levels:[],sel:-1,magic:[],meas:'0+'};
+const ELEM=['n','H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr','Rb','Sr','Y','Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I','Xe','Cs','Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu','Hf','Ta','W','Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra','Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn','Nh','Fl','Mc','Lv','Ts','Og'];
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+const nucName=(A,Z)=>String(A).replace(/\d/g,d=>SUP[d])+(ELEM[Z]||'?');
+const jpTxt=(j2,par)=>(j2%2?j2+'/2':String(j2/2))+(par>0?'⁺':'⁻');
+const H2M_N=20.736;
+function shPotential(l,j,type,V0){
+  const R=SH.r0*Math.cbrt(SH.A), a=SH.a, ls=l===0?0:(j*(j+1)-l*(l+1)-0.75)/2, Zc=SH.Z-1, prot=type==='p';
+  return r=>{ const ex=Math.exp((r-R)/a), f=1/(1+ex), df=-ex/(a*(1+ex)*(1+ex));
+    let v=-V0*f + SH.kso*V0*SH.r0*SH.r0*(1/r)*df*ls;
+    if(prot) v+= r<R ? Zc*KC/(2*R)*(3-r*r/(R*R)) : Zc*KC/r;
+    return v; };
+}
+function shDepth(type){ const N0=SH.A-SH.Z; return 51+(type==='n'?-1:1)*33*(N0-SH.Z)/SH.A; }
+/* All single-particle levels of one nucleon type, sorted by energy. Protons are
+   also searched slightly above zero: they are held in by the Coulomb barrier. */
+function shLevelsFor(type,V0){
+  const R=SH.r0*Math.cbrt(SH.A), rMax=R+14, {h,r}=Solver.grid(rMax,800), lv=[];
+  const cut=type==='p'?Math.min(4,0.5*Math.max(0,SH.Z-1)*KC/(R+2)):0;
+  for(let l=0;l<=9;l++) for(const j of (l===0?[0.5]:[l+0.5,l-0.5])){
+    const Vf=shPotential(l,j,type,V0), V=new Float64Array(r.length);
+    for(let i=0;i<r.length;i++) V[i]=Vf(r[i])+H2M_N*l*(l+1)/(r[i]*r[i]);
+    Solver.solve(V,h,H2M_N,cut,8).forEach((s,k)=>{ const o=Solver.observables(s,r,h,V); lv.push({E:s.E,u:s.u,l,j,n:k+1,deg:2*j+1,rMean:o.rMean,rRms:o.rRms,V,label:(k+1)+LNAME[l]+(2*j)+'/2'}); });
+  }
+  lv.sort((p,q)=>p.E-q.E); let c=0; lv.forEach(x=>{ c+=x.deg; x.cum=c; });
+  return {lv,r,h,R};
+}
+/* Level that holds the k-th nucleon (1-based). */
+const lastLevel=(lv,k)=>lv.find(x=>x.cum>=k);
+function shCompute(){
+  const N0=SH.A-SH.Z;
+  if(SH.auto){ SH.V0=+shDepth(SH.type).toFixed(1); $('sh-V0').value=SH.V0; }
+  $('sh-V0-v').textContent=SH.V0.toFixed(1)+' MeV'; $('sh-r0-v').textContent=SH.r0.toFixed(2)+' fm'; $('sh-a-v').textContent=SH.a.toFixed(2)+' fm'; $('sh-so-v').textContent=SH.kso.toFixed(2);
+  const other=SH.type==='n'?'p':'n';
+  const mine=shLevelsFor(SH.type,SH.V0), theirs=shLevelsFor(other,SH.auto?shDepth(other):SH.V0);
+  SH.all={[SH.type]:mine.lv,[other]:theirs.lv};
+  const lv=mine.lv, fill=SH.type==='n'?N0:SH.Z;
+  SH.fill=fill; lv.forEach(x=>x.occ=x.cum<=fill?'full':(x.cum-x.deg<fill?'part':'empty'));
+  const gaps=[]; for(let i=0;i<lv.length-1;i++){ gaps.push({i,d:lv[i+1].E-lv[i].E}); }
+  const mean=gaps.reduce((s,g)=>s+g.d,0)/Math.max(1,gaps.length);
+  SH.magic=gaps.filter((g,k)=>{ const nb=gaps.slice(Math.max(0,k-3),k).concat(gaps.slice(k+1,k+4)).map(x=>x.d); const loc=nb.reduce((a,b)=>a+b,0)/Math.max(1,nb.length); return g.d>=1.3*loc && g.d>=1.5 && lv[g.i].E<0; }).map(g=>({n:lv[g.i].cum,gap:g.d,E:(lv[g.i].E+lv[g.i+1].E)/2}));
+  SH.levels=lv; SH.grid={r:mine.r,h:mine.h,R:mine.R};
+  if(SH.sel<0||SH.sel>=lv.length){ const k=lv.indexOf(lastLevel(lv,Math.max(1,fill))); SH.sel=k<0?0:k; }   // start on the last occupied level
+  shRender();
+}
+/* Ground-state spin and parity in the extreme single-particle shell model. */
+function groundState(){
+  const Z=SH.Z, N0=SH.A-SH.Z, lvn=SH.all.n, lvp=SH.all.p;
+  const pL=Z%2?lastLevel(lvp,Z):null, nL=N0%2?lastLevel(lvn,N0):null;
+  const lbl=x=>sub(x.label), par=l=>l%2?-1:1;
+  if(Z%2===0&&N0%2===0) return {j2:0,par:1,why:'Even Z and even N: protons pair with protons and neutrons with neutrons into pairs of total angular momentum 0. Every even–even nucleus has J<sup>π</sup> = 0⁺.'};
+  if(Z%2&&N0%2===0||N0%2&&Z%2===0){
+    const odd=Z%2?pL:nL, who=Z%2?'proton':'neutron', k=Z%2?Z:N0;
+    if(!odd) return {j2:NaN,why:`The level of the odd ${who} (number ${k}) is not bound in this potential, so the model cannot predict J.`};
+    const holes=odd.cum-k, inLevel=odd.deg-holes;
+    const occTxt=inLevel===1?'is alone in':holes===0?'completes':holes===1?'leaves one hole in':`is one of ${inLevel} nucleons in`;
+    return {j2:2*odd.j,par:par(odd.l),why:`All other nucleons are paired to zero. The odd ${who} (number ${k}) ${occTxt} the <b>${lbl(odd)}</b> level, so J = j = ${jpTxt(2*odd.j,1).slice(0,-1)} and the parity is (−1)<sup>ℓ</sup> = (−1)<sup>${odd.l}</sup> = ${par(odd.l)>0?'+':'−'}.`};
+  }
+  if(!pL||!nL) return {j2:NaN,why:'The level of the odd proton or the odd neutron is not bound in this potential, so the model cannot predict J.'};
+  const jp=pL.j, jn=nL.j, P=par(pL.l+nL.l), Nn=(jp-pL.l)+(jn-nL.l);
+  const lo=Math.abs(jp-jn), hi=jp+jn;
+  if(Nn===0) return {j2:2*lo,par:P,why:`Odd–odd nucleus: odd proton in <b>${lbl(pL)}</b>, odd neutron in <b>${lbl(nL)}</b>. One has j = ℓ + ½ and the other j = ℓ − ½, so Nordheim’s strong rule gives J = |j<sub>p</sub> − j<sub>n</sub>| = ${lo}. Parity (−1)<sup>ℓp+ℓn</sup> = ${P>0?'+':'−'}. Allowed range: ${lo} to ${hi}.`};
+  return {j2:2*hi,par:P,weak:true,why:`Odd–odd nucleus: odd proton in <b>${lbl(pL)}</b>, odd neutron in <b>${lbl(nL)}</b>. Both have j = ℓ ${Nn>0?'+':'−'} ½, so Nordheim’s weak rule only says J tends to be large; the model shows J = j<sub>p</sub> + j<sub>n</sub> = ${hi}. Parity (−1)<sup>ℓp+ℓn</sup> = ${P>0?'+':'−'}. Allowed range: ${lo} to ${hi}.`};
+}
+function shJP(){
+  const g=groundState(), name=nucName(SH.A,SH.Z), meas=SH.meas;
+  const pred=Number.isFinite(g.j2)?jpTxt(g.j2,g.par):'—';
+  let cmp='';
+  if(meas){ const m=meas.replace('+','⁺').replace('-','⁻'); cmp=`<span class="jp-meas">Measured: <b>${m}</b> ${pred===m?'<span class="jp-ok">✓ agrees</span>':'<span class="jp-no">✗ differs</span>'}</span>`; }
+  else cmp='<span class="jp-meas">No measured value stored for this nucleus.</span>';
+  const extra=meas&&pred!==meas.replace('+','⁺').replace('-','⁻')&&pred!=='—'?' <b>Why it can differ:</b> the simple model ignores the residual interaction between valence nucleons, mixing of nearby levels and nuclear deformation.':'';
+  const def=SH.A>=150&&SH.A<=190||SH.A>=222?' This nucleus is strongly deformed, so the spherical shell model is only a rough guide.':'';
+  $('jp-card').innerHTML=`<h2>Ground-state spin and parity of ${name} <span class="hint">Z = ${SH.Z}, N = ${SH.A-SH.Z}</span></h2><div class="jp-main"><span class="jp-big">J<sup>π</sup> = ${pred}</span>${cmp}</div><p class="jp-why">${g.why}${g.weak?' The weak rule is less reliable.':''}${extra}${def}</p>`;
+}
+function shRender(){ shLevels(); shPlot(); shTable(); shMagic(); shJP(); }
+function shLevels(){
+  const cv=$('levels'), {ctx,w,h}=prep(cv), lv=SH.levels; if(!lv.length) return;
+  const e0=lv[0].E, e1=0, pad={l:64,r:16,t:16,b:30}, ph=h-pad.t-pad.b, Y=E=>pad.t+(e1-E)/(e1-e0+2)*ph;
+  ctx.font='12px '+cssv('--font-num'); ctx.fillStyle=cssv('--plot-text'); ctx.strokeStyle=cssv('--plot-grid');
+  ticks(e0-1,e1,8).forEach(t=>{ const y=Y(t); ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText(t+'',pad.l-8,y+4); });
+  ctx.save(); ctx.translate(14,pad.t+ph/2); ctx.rotate(-Math.PI/2); ctx.font='13px '+cssv('--font-ui'); ctx.textAlign='center'; ctx.fillText('Energy (MeV)',0,0); ctx.restore();
+  const x0=pad.l+46, x1=x0+Math.min(140,(w-pad.l)*0.32), lx=x1+16;
+  // labels pushed apart so they never overlap
+  const want=lv.map(x=>Y(x.E)), pos=want.slice(), gapPx=15;
+  for(let i=1;i<pos.length;i++) if(pos[i-1]-pos[i]<gapPx) pos[i]=pos[i-1]-gapPx;
+  const minTop=pad.t+6; if(pos[pos.length-1]<minTop){ pos[pos.length-1]=minTop; for(let i=pos.length-2;i>=0;i--) if(pos[i]-pos[i+1]<gapPx) pos[i]=pos[i+1]+gapPx; }
+  SH.hit=[];
+  SH.magic.forEach(m=>{ const y=Y(m.E); ctx.strokeStyle=cssv('--warn'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(x0-10,y); ctx.lineTo(x1+4,y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle=cssv('--warn'); ctx.font='700 13px '+cssv('--font-num'); ctx.textAlign='right'; ctx.fillText(m.n,x0-12,y+4); });
+  lv.forEach((x,i)=>{
+    const y=want[i], sel=i===SH.sel, col=x.occ==='empty'?cssv('--muted'):cssv('--accent');
+    ctx.strokeStyle=col; ctx.lineWidth=sel?4:2.2; ctx.setLineDash(x.occ==='empty'?[5,3]:[]);
+    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle=cssv('--line-strong'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(lx-3,pos[i]); ctx.stroke();
+    ctx.font=(sel?'700 ':'')+'13px '+cssv('--font-ui'); ctx.fillStyle=sel?cssv('--text'):col; ctx.textAlign='left';
+    const nIn=x.occ==='part'?SH.fill-(x.cum-x.deg):0;
+    ctx.fillText(`${x.label}  (${x.occ==='part'?nIn+' of '+x.deg:x.deg})  ${x.E.toFixed(2)}`,lx,pos[i]+4);
+    SH.hit.push({y0:Math.min(y,pos[i])-7,y1:Math.max(y,pos[i])+7,i});
+  });
+}
+$('levels').addEventListener('click',e=>{ const b=$('levels').getBoundingClientRect(), y=e.clientY-b.top; let best=null,bd=1e9; (SH.hit||[]).forEach(hh=>{ const c=(hh.y0+hh.y1)/2, d=Math.abs(c-y); if(y>=hh.y0-3&&y<=hh.y1+3&&d<bd){bd=d;best=hh;} }); if(best){ SH.sel=best.i; shRender(); } });
+function shPlot(){
+  const cv=$('sh-plot'), {ctx,w,h}=prep(cv), x=SH.levels[SH.sel]; if(!x) return;
+  const {r,R}=SH.grid, iv=r.findIndex(v=>v>R+6), n=iv<0?r.length:iv;
+  let vmin=Infinity; for(let i=0;i<n;i++) vmin=Math.min(vmin,x.V[i]);
+  const yr=[Math.max(vmin,-SH.V0-10)-3, 12], F=frame(ctx,w,h,[0,r[n-1]],yr,'r (fm)','Energy (MeV)'), {X,Y,P,pw,ph}=F;
+  ctx.save(); ctx.beginPath(); ctx.rect(P.l,P.t,pw,ph); ctx.clip();
+  ctx.strokeStyle=cssv('--plot-axis'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(X(R),P.t); ctx.lineTo(X(R),P.t+ph); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=cssv('--plot-text'); ctx.font='12px '+cssv('--font-ui'); ctx.fillText('R = '+R.toFixed(2)+' fm',X(R)+5,P.t+14);
+  ctx.strokeStyle=cssv('--veff'); ctx.lineWidth=2.2; polyline(ctx,X,Y,r,x.V,0,n,yr);
+  ctx.strokeStyle=cssv('--level'); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(P.l,Y(x.E)); ctx.lineTo(P.l+pw,Y(x.E)); ctx.stroke();
+  let amax=0; for(let i=0;i<n;i++) amax=Math.max(amax,Math.abs(x.u[i])); const sc=0.28*(yr[1]-yr[0])/amax, ys=new Float64Array(n); for(let i=0;i<n;i++) ys[i]=x.E+sc*x.u[i];
+  ctx.strokeStyle=cssv('--accent'); ctx.lineWidth=2.2; polyline(ctx,X,Y,r,ys,0,n,yr);
+  ctx.restore();
+  $('sh-wf-title').innerHTML=`Radial wavefunction of ${sub(x.label)}`;
+  $('sh-readout').innerHTML=`<span>E = <b>${x.E.toFixed(3)} MeV</b></span><span>⟨r⟩ = <b>${x.rMean.toFixed(2)} fm</b></span><span>r<sub>rms</sub> = <b>${x.rRms.toFixed(2)} fm</b></span><span>2j+1 = <b>${x.deg}</b></span><span>Potential curve: V<sub>eff</sub> for ℓ = ${x.l}, j = ${2*x.j}/2</span>`;
+}
+function shTable(){
+  const tb=$('sh-table').querySelector('tbody'); tb.innerHTML='';
+  SH.levels.forEach((x,i)=>{ const tr=document.createElement('tr'); if(i===SH.sel) tr.className='sel';
+    const isMagic=SH.magic.some(m=>m.n===x.cum);
+    tr.innerHTML=`<td class="lbl">${sub(x.label)}</td><td>${x.E.toFixed(3)}</td><td>${x.deg}</td><td>${isMagic?'<b style="color:var(--warn)">'+x.cum+'</b>':x.cum}</td><td>${x.rMean.toFixed(2)}</td><td>${x.rRms.toFixed(2)}</td><td>${x.occ==='full'?'yes':x.occ==='part'?'partly':'no'}</td>`;
+    tr.onclick=()=>{ SH.sel=i; shRender(); }; tb.appendChild(tr); });
+}
+function shMagic(){
+  const known=[2,8,20,28,50,82,126,184];
+  $('sh-magic').innerHTML=SH.magic.length?SH.magic.map(m=>`<span class="magic" title="Gap ${m.gap.toFixed(2)} MeV">${m.n}${known.includes(m.n)?' ✓':''}</span>`).join(''):'<span class="note">No clear gaps.</span>';
+  const N0=SH.A-SH.Z, fill=SH.type==='n'?N0:SH.Z, last=SH.levels.filter(x=>x.occ!=='empty').pop(), next=SH.levels.find(x=>x.occ==='empty');
+  const who=SH.type==='n'?'neutron':'proton';
+  $('sh-summary').innerHTML=`Large gaps in the spectrum (✓ = observed magic number). With ${fill} ${who}s, the last filled level is <b>${last?sub(last.label):'—'}</b>${last?' at '+last.E.toFixed(2)+' MeV, so the '+who+' separation energy is roughly '+(-last.E).toFixed(2)+' MeV':''}${next?'; the first empty level is <b>'+sub(next.label)+'</b>':''}.`;
+}
+/* shell controls */
+$('sh-preset').addEventListener('change',e=>{ if(e.target.value==='custom'){ SH.meas=''; shJP(); return; } const [A,Z,m]=e.target.value.split(','); SH.A=+A; SH.Z=+Z; SH.meas=m; $('sh-A').value=A; $('sh-Z').value=Z; SH.sel=-1; shCompute(); });
+['sh-A','sh-Z'].forEach(id=>$(id).addEventListener('change',()=>{ const A=Math.max(4,Math.min(300,+$('sh-A').value||4)), Z=Math.max(1,Math.min(A-1,+$('sh-Z').value||1)); SH.A=A; SH.Z=Z; $('sh-A').value=A; $('sh-Z').value=Z; $('sh-preset').value='custom'; SH.meas=''; SH.sel=-1; shCompute(); }));
+$('sh-type').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; SH.type=b.dataset.t; [...$('sh-type').children].forEach(x=>x.classList.toggle('on',x===b)); SH.sel=-1; shCompute(); });
+$('sh-auto').addEventListener('change',e=>{ SH.auto=e.target.checked; shCompute(); });
+[['sh-V0','V0'],['sh-r0','r0'],['sh-a','a'],['sh-so','kso']].forEach(([id,k])=>$(id).addEventListener('input',e=>{ SH[k]=+e.target.value; if(k==='V0'){ SH.auto=false; $('sh-auto').checked=false; } clearTimeout(SH.t); SH.t=setTimeout(shCompute,40); }));
+
+/* ════════════════════════════════════════════════════════════════
+   TABS, THEME, RESIZE
+   ════════════════════════════════════════════════════════════════ */
+let shReady=false;
+document.querySelector('.tabs').addEventListener('click',e=>{
+  const b=e.target.closest('.tab'); if(!b) return;
+  document.querySelectorAll('.tab').forEach(t=>{ const on=t===b; t.classList.toggle('on',on); t.setAttribute('aria-selected',on); });
+  document.querySelectorAll('.mode').forEach(m=>m.classList.toggle('on',m.id==='mode-'+b.dataset.mode));
+  if(b.dataset.mode==='shell'){ if(!shReady){ shReady=true; shCompute(); } else shRender(); } else renderPlot();
+  try{ history.replaceState(null,'','#'+b.dataset.mode); }catch(_){}
+});
+(function(){
+  const sw=document.querySelector('.theme-sw');
+  sw.addEventListener('click',e=>{ const b=e.target.closest('button[data-m]'); if(b) window.__siteTheme.set(b.dataset.m); });
+  const vis=()=>{ let show=window.top===window; try{ if(!show&&window.parent.document.fullscreenElement===window.frameElement)show=true; }catch(_){ show=true; } sw.classList.toggle('show',show); };
+  vis(); window.addEventListener('resize',vis); window.__siteTheme.apply();
+})();
+window.addEventListener('themechange',()=>{ if(R){ renderTable(); renderPlot(); } if(shReady) shRender(); });
+try{ new ResizeObserver(()=>{ if(R) renderPlot(); if(shReady&&$('mode-shell').classList.contains('on')) shRender(); }).observe(document.body); }catch(_){ window.addEventListener('resize',()=>{ renderPlot(); if(shReady) shRender(); }); }
+
+/* start */
+buildLibrary(); renderInfo(); syncJ(); setTwoBody({p1:'N',p2:'inf'});
+if(location.hash==='#shell') document.querySelector('.tab[data-mode="shell"]').click();
+compute();
 </script>
 </body>
 </html>
