@@ -39,6 +39,11 @@
   var siteRoot=new URL(document.querySelector('link[rel=stylesheet]').getAttribute('href'),location.href).href.replace(/assets\.css.*$/,'');
   /*analytics: visitor statistics (see analytics.js)*/
   (function(){ var s=document.createElement('script'); s.src=siteRoot+'analytics.js'; s.defer=true; document.head.appendChild(s); })();
+  /*footer: "Visitor Statistics" link on every page*/
+  (function(){
+    var f=document.querySelector('footer .in span:last-child'); if(!f || document.getElementById('st-link')) return;
+    f.insertAdjacentHTML('beforeend',' &middot; <a id="st-link" href="'+siteRoot+'statistics/index.html">Visitor Statistics</a>');
+  })();
   function wire(f){
     var d; try{d=f.contentDocument;}catch(e){return;} if(!d||!d.documentElement) return;
     d.addEventListener('click',function(ev){
