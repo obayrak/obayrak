@@ -310,6 +310,19 @@ main.workspace:has(.sidebar:empty) .content{
     table.spectrum-table tbody tr:last-child td{border-bottom:0;}
     table.spectrum-table tbody tr:hover{background:rgba(127,127,127,.07);}
     table.spectrum-table .selected-state{font-size:15px;font-weight:700;}
+
+/* ---------- Numerical Check tab & theory addenda (added) ---------- */
+.nc-good{ color:var(--teal); font-weight:700; }
+.nc-ok{ color:var(--amber); font-weight:700; }
+.nc-bad{ color:var(--red); font-weight:700; }
+table.spectrum-table.nc-table{ min-width:720px; table-layout:auto; }
+table.spectrum-table.nc-table th, table.spectrum-table.nc-table td{ width:auto !important; text-align:right; padding:8px 10px; font-family:var(--font-mono); font-size:12px; }
+table.spectrum-table.nc-table th:first-child, table.spectrum-table.nc-table td:first-child{ text-align:left; }
+.nc-fixnote{ display:block; border-left:3px solid var(--teal); background:rgba(47,184,168,0.08); padding:8px 12px; margin:8px 0; border-radius:0 6px 6px 0; }
+span.nc-fixnote{ display:inline; border:0; padding:0; margin:0; background:rgba(47,184,168,0.10); }
+.nc-notes ul{ margin:4px 0 12px 1.2em; }
+.nc-notes li{ margin:6px 0; line-height:1.55; }
+.nc-notes h4{ margin-top:10px; }
     </style>
 </head>
 <body>
@@ -514,6 +527,903 @@ function fmt(x, d){
   if(!isFinite(x)) return '—';
   return Number(x).toFixed(d);
 }
+
+/* =========================================================================
+   NUMERICAL CROSS-CHECK ENGINE  (RK4 + Numerov, shared by every module)
+   -------------------------------------------------------------------------
+   Solves  u''(x) = Q(x) u(x),  Q = (V(x) - E)/K   on a segmented grid.
+   - Segment boundaries are placed at every discontinuity of V ("breaks")
+     and at every delta-function location ("jumps"), so step potentials and
+     delta spikes are integrated with full order instead of O(h) error.
+     A delta term  s·δ(x-x0)  gives the exact jump  Δu' = (s/K)·u(x0).
+   - RK4: classical 4th-order Runge-Kutta on (u, u').
+   - Numerov: (1-h²Q₊/12)u₊ = 2(1+5h²Q₀/12)u₀ - (1-h²Q₋/12)u₋ ; each segment
+     is bootstrapped with one RK4 step (keeps global O(h⁴)); the end-point
+     derivative uses the Numerov-consistent one-sided formula
+       u'_N ≈ (u_N - u_{N-1})/h + h(2Q_N u_N + Q_{N-1}u_{N-1})/6 .
+   Bound states: shooting from the left boundary condition, residual at the
+   right boundary (Dirichlet u, or exact constant-potential decay u'+κu),
+   scan + bisection.
+   Transmission: integrate the purely outgoing (WKB-normalised) wave from
+   the right end to the left end and decompose there into incident and
+   reflected local waves w± = e^{±iφ}/√k.  This is flux-normalised, so it
+   is valid for unequal asymptotes (k_L≠k_R) and for unbounded-below tails
+   (inverted oscillator, inverted Morse) where k(x) grows.
+   Phase shifts (half line): u → sin(kx - Lπ/2 - η ln2kx + δ).
+   ========================================================================= */
+const NumSolve = (function(){
+
+  function integrate(Q, x0, x1, u0, up0, N, method, breaks, jumps, store, grade){
+    const dir = x1 > x0 ? 1 : -1;
+    const jl = (jumps||[]);
+    // optional geometric grading (singular origin): G log-spaced extra break points,
+    // each segment receives an additional 0.6N/G steps on top of the uniform share
+    const G = (grade && x0>0 && x1>x0) ? grade : 0;
+    const gpts = [];
+    for(let g=1; g<G; g++) gpts.push(x0*Math.pow(x1/x0, g/G));
+    const inner = Array.from(new Set([...(breaks||[]), ...jl.map(j=>j.x), ...gpts]))
+      .filter(b => (b-x0)*dir > 1e-12 && (x1-b)*dir > 1e-12)
+      .sort((a,b)=>(a-b)*dir);
+    const pts = [x0, ...inner, x1];
+    const L = Math.abs(x1-x0);
+    let u=u0, up=up0;
+    const xs = store?[x0]:null, us = store?[u0]:null;
+    const BIG=1e140, SM=1e-140;
+    function renorm(){
+      if(Math.abs(u)>BIG || Math.abs(up)>BIG){
+        u*=SM; up*=SM;
+        if(store) for(let i=0;i<us.length;i++) us[i]*=SM;
+        return SM;
+      }
+      return 1;
+    }
+    let Qc=Q;
+    function rk4step(x,h){
+      const f=(xx,uu,pp)=>[pp, Qc(xx)*uu];
+      const k1=f(x,u,up);
+      const k2=f(x+h/2,u+h/2*k1[0],up+h/2*k1[1]);
+      const k3=f(x+h/2,u+h/2*k2[0],up+h/2*k2[1]);
+      const k4=f(x+h,u+h*k3[0],up+h*k3[1]);
+      u  += h/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+      up += h/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    }
+    for(let s=0;s<pts.length-1;s++){
+      const a=pts[s], b=pts[s+1];
+      let n=Math.max(8, Math.round(N*Math.abs(b-a)/L));
+      if(G){ const la=Math.log(Math.max(Math.min(a,b),x0)), lb=Math.log(Math.max(a,b)); n+=Math.round(0.6*N*(lb-la)/Math.log(x1/x0)); }
+      const h=(b-a)/n;
+      const lo=Math.min(a,b), hi=Math.max(a,b), eps=1e-9*Math.abs(h);
+      const Qseg=x=>Q(x<lo+eps?lo+eps:(x>hi-eps?hi-eps:x));
+      Qc=Qseg;
+      if(method==='rk4'){
+        let x=a;
+        for(let i=0;i<n;i++){
+          rk4step(x,h); x=a+(i+1)*h;
+          if(store){ xs.push(x); us.push(u); }
+          renorm();
+        }
+      } else {
+        // Numerov, bootstrapped with one RK4 step
+        let um1=u, qm1=Qseg(a), um2=0, qm2=0;
+        rk4step(a,h);
+        let u0n=u, q0=Qseg(a+h);
+        if(store){ xs.push(a+h); us.push(u0n); }
+        const h2=h*h;
+        for(let i=1;i<n;i++){
+          const xp=a+(i+1)*h, qp=Qseg(xp);
+          let unew=(2*(1+5*h2*q0/12)*u0n-(1-h2*qm1/12)*um1)/(1-h2*qp/12);
+          um2=um1; qm2=qm1; um1=u0n; u0n=unew; qm1=q0; q0=qp;
+          if(store){ xs.push(xp); us.push(unew); }
+          if(Math.abs(u0n)>BIG){
+            um2*=SM; um1*=SM; u0n*=SM;
+            if(store) for(let j=0;j<us.length;j++) us[j]*=SM;
+          }
+        }
+        u=u0n;
+        // 4th-order end derivative from three Numerov points:
+        // u'_n = (u_n − u_{n−1})/h + h(7f_n + 6f_{n−1} − f_{n−2})/24,  f = u'' = Q u
+        up=(u0n-um1)/h + h*(7*q0*u0n + 6*qm1*um1 - qm2*um2)/24;
+      }
+      if(s<pts.length-2){
+        for(const j of jl){
+          if(Math.abs(j.x-b)<1e-12){ up += dir*j.s*u; }
+        }
+      }
+    }
+    return {u,up,xs,us};
+  }
+
+  // ---------------- boundary-condition helpers ----------------
+  function startCond(chk, d, E, x0){
+    if(d.left==='origin'){
+      if(chk.start) return chk.start(E,x0);
+      const p=d.p||1; return [Math.pow(x0,p), p*Math.pow(x0,p-1)];
+    }
+    if(d.left==='neumann') return [1,0];
+    if(d.left==='decay'){
+      const kap=Math.sqrt(Math.max(1e-30,(d.VL-E)/chk.K()));
+      return [1e-8, 1e-8*kap];
+    }
+    return [0,1];
+  }
+  // symmetric potentials (chk.parity): shoot on the half line from x=0 with u'(0)=0 (even) or
+  // u(0)=0 (odd) — this resolves even/odd doublets whose splitting is below double precision
+  function sector(d, sec){ return sec ? Object.assign({}, d, {x0:0, left: sec==='even'?'neumann':'dirichlet'}) : d; }
+  function residual(chk, d, E, method, N, sec){
+    d=sector(d,sec);
+    const K=chk.K();
+    const Q=x=>(chk.V(x)-E)/K;
+    const jumps=(chk.jumps?chk.jumps():[]).map(j=>({x:j.x,s:j.s/K}));
+    const [u0,up0]=startCond(chk,d,E,d.x0);
+    const r=integrate(Q,d.x0,d.x1,u0,up0,N,method,chk.breaks?chk.breaks():[],jumps,false,d.left==='origin'?24:0);
+    if(d.right==='decay'){
+      const kap=Math.sqrt(Math.max(0,(d.VR-E)/K));
+      return r.up+kap*r.u;
+    }
+    return r.u;
+  }
+
+  function boundLevels(chk, method, N){
+    const d=chk.domain(), b=chk.bound();
+    if(!b) return [];
+    const M=b.M||360, out=[];
+    const lo=b.Emin, hi=b.Emax;
+    const secs = chk.parity ? ['even','odd'] : [undefined];
+    for(const sec of secs){
+      // b.scan==='sqrt': E = hi − (hi−lo)(1−i/M)² — dense near threshold (Rydberg-like accumulation)
+      const Ei = b.scan==='sqrt' ? (i=>hi-(hi-lo)*Math.pow(1-i/M,2)) : (i=>lo+(hi-lo)*i/M);
+      let e0=lo, f0=residual(chk,d,e0,method,N,sec);
+      for(let i=1;i<=M;i++){
+        const e=Ei(i), f=residual(chk,d,e,method,N,sec);
+        if(isFinite(f0)&&isFinite(f)&&f0*f<0){
+          let l=e0,h=e,fl=f0;
+          for(let it=0;it<64;it++){
+            const m=(l+h)/2, fm=residual(chk,d,m,method,N,sec);
+            if(fl*fm<=0) h=m; else { l=m; fl=fm; }
+            if(Math.abs(h-l)<1e-13*Math.max(1,Math.abs(m))) break;
+          }
+          const br=[e0,e]; br.sec=sec;
+          out.push({E:(l+h)/2, br, sec});
+        }
+        e0=e; f0=f;
+      }
+    }
+    out.sort((p,q)=>p.E-q.E);
+    return out;
+  }
+  // refine a single level inside a known bracket at grid size N
+  function refine(chk, br, method, N){
+    const d=chk.domain();
+    const sec=br.sec;
+    let l=br[0], h=br[1], fl=residual(chk,d,l,method,N,sec), fh=residual(chk,d,h,method,N,sec);
+    if(!(fl*fh<0)) return NaN;
+    for(let it=0;it<70;it++){
+      const m=(l+h)/2, fm=residual(chk,d,m,method,N,sec);
+      if(fl*fm<=0) h=m; else { l=m; fl=fm; }
+      if(Math.abs(h-l)<1e-14*Math.max(1,Math.abs(m))) break;
+    }
+    return (l+h)/2;
+  }
+  function wavefunction(chk, E, method, N, sec){
+    const d=sector(chk.domain(),sec), K=chk.K();
+    const Q=x=>(chk.V(x)-E)/K;
+    const jumps=(chk.jumps?chk.jumps():[]).map(j=>({x:j.x,s:j.s/K}));
+    const [u0,up0]=startCond(chk,d,E,d.x0);
+    const r=integrate(Q,d.x0,d.x1,u0,up0,N,method,chk.breaks?chk.breaks():[],jumps,true,d.left==='origin'?24:0);
+    // drop the exponentially growing tail beyond the last minimum of |u| (shooting artefact)
+    let us=r.us.slice(), xs=r.xs.slice();
+    if(sec){ // mirror the half-line solution with its parity
+      const sg=sec==='even'?1:-1, n=xs.length;
+      xs=[...xs.slice(1).reverse().map(x=>-x), ...xs]; us=[...us.slice(1).reverse().map(u=>sg*u), ...us];
+    }
+    // trim the exponentially growing shooting tail: walk back from the right end while |u| keeps
+    // decreasing, and cut at that local minimum (it is pure round-off amplification of the wrong solution)
+    if(!sec || true){
+      let j=us.length-1; while(j>2 && Math.abs(us[j-1])<Math.abs(us[j])) j--;
+      if(j < us.length-1 && j > us.length*0.05){ us=us.slice(0,j+1); xs=xs.slice(0,j+1); }
+      if(sec){ let i0=0; while(i0<us.length-3 && Math.abs(us[i0+1])<Math.abs(us[i0])) i0++; if(i0>0 && i0<us.length*0.95){ us=us.slice(i0); xs=xs.slice(i0);} }
+    }
+    let norm=0; for(let i=1;i<xs.length;i++) norm+=0.5*(us[i]*us[i]+us[i-1]*us[i-1])*Math.abs(xs[i]-xs[i-1]);
+    norm=Math.sqrt(norm)||1;
+    let imax=0; for(let i=0;i<us.length;i++) if(Math.abs(us[i])>Math.abs(us[imax])) imax=i;
+    const sgn=us[imax]>=0?1:-1;
+    return {xs, us:us.map(v=>sgn*v/norm)};
+  }
+
+  function effN(V,K,E,x0,x1,N,ppw){
+    // skip the first 1% of the interval: a singular attractive origin (−1/r) is resolved by the
+    // geometric grading instead and must not inflate the uniform step count
+    let kmax=0; for(let i=4;i<=400;i++){ const x=x0+(x1-x0)*i/400, v=(E-V(x))/K; if(v>kmax) kmax=v; }
+    kmax=Math.sqrt(kmax);
+    // points per local wavelength scale with the user's N (N=2000 ↔ nominal ppw)
+    return Math.min(240000, Math.max(N, Math.ceil((ppw||30)*Math.max(1,N/2000)*kmax*Math.abs(x1-x0)/(2*Math.PI))));
+  }
+
+  // ---------------- transmission (flux-normalised, WKB end bases) ----------------
+  function transmission(chk, E, method, N){
+    const d=chk.domain(), K=chk.K(), V=chk.V;
+    const s=chk.scatter();
+    const xL=s.x0!==undefined?s.x0:d.x0, xR=s.x1!==undefined?s.x1:d.x1;
+    const Q=x=>(V(x)-E)/K;
+    const jumps=(chk.jumps?chk.jumps():[]).map(j=>({x:j.x,s:j.s/K}));
+    const breaks=chk.breaks?chk.breaks():[];
+    const kOf=x=>Math.sqrt(Math.max(1e-30,(E-V(x))/K));
+    const kpOf=x=>{ const e=1e-5*Math.max(1,Math.abs(x)); return -(V(x+e)-V(x-e))/(2*e)/(2*K*kOf(x)); };
+    const kR=kOf(xR), kpR=kpOf(xR), kL=kOf(xL), kpL=kpOf(xL);
+    const flatR=Math.abs(kpR)<1e-9*kR, flatL=Math.abs(kpL)<1e-9*kL;
+    const phR=flatR?kR*xR:0, phL=flatL?kL*xL:0;
+    // outgoing wave at right end: w+ = e^{iφ}/√k ; real & imaginary parts integrated separately
+    const amp=1/Math.sqrt(kR);
+    const re0=amp*Math.cos(phR), im0=amp*Math.sin(phR);
+    const fac=kpR/(2*kR);
+    const rep0=-kR*im0 - fac*re0, imp0= kR*re0 - fac*im0;
+    const Ne=effN(V,K,E,xL,xR,N,(s.ppw||30)*(method==='rk4'?2:1));
+    const a=integrate(Q,xR,xL,re0,rep0,Ne,method,breaks,jumps,false);
+    const b=integrate(Q,xR,xL,im0,imp0,Ne,method,breaks,jumps,false);
+    const psi={re:a.u,im:b.u}, dpsi={re:a.up,im:b.up};
+    // local basis at left end
+    const A=1/Math.sqrt(kL), fl=kpL/(2*kL);
+    const wp={re:A*Math.cos(phL), im:A*Math.sin(phL)}, wm={re:wp.re, im:-wp.im};
+    const mul=(p,q)=>({re:p.re*q.re-p.im*q.im, im:p.re*q.im+p.im*q.re});
+    const sub=(p,q)=>({re:p.re-q.re, im:p.im-q.im});
+    const div=(p,q)=>{const dd=q.re*q.re+q.im*q.im; return {re:(p.re*q.re+p.im*q.im)/dd, im:(p.im*q.re-p.re*q.im)/dd};};
+    const wpp=mul({re:-fl, im:kL}, wp), wmp=mul({re:-fl, im:-kL}, wm);
+    const det=sub(mul(wp,wmp), mul(wm,wpp));
+    const ca=div(sub(mul(psi,wmp), mul(dpsi,wm)), det);
+    const cb=div(sub(mul(wp,dpsi), mul(wpp,psi)), det);
+    const aa=ca.re*ca.re+ca.im*ca.im;
+    const T=1/aa, R=(cb.re*cb.re+cb.im*cb.im)/aa;
+    // standard amplitude t (incident e^{ik_Lx}, transmitted t e^{ik_Rx}) when both ends are flat
+    const tStd=(flatL&&flatR)? div({re:Math.sqrt(kL/kR),im:0}, ca) : null;
+    return {T,R,t:tStd};
+  }
+
+  // ---------------- half-line / reflecting phase shift ----------------
+  function phaseShift(chk, E, method, N){
+    const d=chk.domain(), K=chk.K(), s=chk.scatter();
+    const x0=s.x0!==undefined?s.x0:d.x0, x1=s.x1!==undefined?(typeof s.x1==='function'?s.x1(E):s.x1):d.x1;
+    const Q=x=>(chk.V(x)-E)/K;
+    const jumps=(chk.jumps?chk.jumps():[]).map(j=>({x:j.x,s:j.s/K}));
+    const brk=chk.breaks?chk.breaks():[];
+    const dd=Object.assign({},d,{left:s.left||d.left});
+    const [u0,up0]=startCond(chk,dd,E,x0);
+    const k=Math.sqrt(E/K);
+    const eta=s.eta?s.eta(E):0, Lr=s.L||0, off=s.offset||0;
+    const Ne=effN(chk.V,K,E,x0,x1,N,(s.ppw||30)*(method==='rk4'?2:1));
+    // local (WKB) wave number at the matching point: removes the oscillating O(η/kr) error that
+    // arises when a long-range tail is still present (u'/u = k_loc cot θ, not k cot θ)
+    const kloc=x=>Math.sqrt(Math.max(1e-30,(E-chk.V(x))/K));
+    const ph=(r,x)=>Math.atan2(kloc(x)*r.u, r.up) - (k*x - Lr*Math.PI/2 - eta*Math.log(2*k*x)) + off;
+    if(!s.extrap){
+      const r=integrate(Q,x0,x1,u0,up0,Ne,method,brk,jumps,false,dd.left==='origin'?24:0);
+      return ph(r,x1);
+    }
+    // Richardson: δ(r) = δ∞ + c/r  ->  δ∞ = 2δ(2r₁) - δ(r₁)
+    const xm=0.5*x1;
+    const r1=integrate(Q,x0,xm,u0,up0,Math.ceil(Ne/2),method,brk,jumps,false,dd.left==='origin'?24:0);
+    const r2=integrate(Q,xm,x1,r1.u,r1.up,Math.ceil(Ne/2),method,brk,jumps,false);
+    const d1=ph(r1,xm), d2=ph(r2,x1);
+    const dd2=d1+wrapPi(d2-d1);
+    return 2*dd2-d1;
+  }
+
+  function wrapPi(d){ // fold into (-π/2, π/2]
+    let x=((d%Math.PI)+Math.PI)%Math.PI; if(x>Math.PI/2) x-=Math.PI; return x;
+  }
+
+  // ---------------- Bessel J_ν(z) for complex ν, real z>0 (Schläfli integral) ----------------
+  // J_ν(z) = (1/π)∫₀^π cos(νt - z sin t)dt - (sin νπ/π)∫₀^∞ e^{-z sinh t - νt} dt
+  function besselJ(nu, z){
+    const c=(re,im)=>({re,im:im||0});
+    const cmul=(a,b)=>c(a.re*b.re-a.im*b.im, a.re*b.im+a.im*b.re);
+    const ccos=w=>c(Math.cos(w.re)*Math.cosh(w.im), -Math.sin(w.re)*Math.sinh(w.im));
+    const csin=w=>c(Math.sin(w.re)*Math.cosh(w.im), Math.cos(w.re)*Math.sinh(w.im));
+    const cexp=w=>{const m=Math.exp(w.re); return c(m*Math.cos(w.im), m*Math.sin(w.im));};
+    const n1=Math.max(400, Math.ceil(12*(Math.abs(z)+Math.abs(nu.re)+Math.abs(nu.im)))*2);
+    let s1=c(0,0); const h1=Math.PI/n1;
+    for(let i=0;i<=n1;i++){
+      const t=i*h1, w=i===0||i===n1?1:(i%2?4:2);
+      const arg=c(nu.re*t - z*Math.sin(t), nu.im*t);
+      const v=ccos(arg); s1.re+=w*v.re; s1.im+=w*v.im;
+    }
+    s1.re*=h1/3/Math.PI; s1.im*=h1/3/Math.PI;
+    // second integral, truncated where z sinh t > 60
+    const tmax=Math.asinh(60/z+1e-12)+1;
+    const n2=1200, h2=tmax/n2; let s2=c(0,0);
+    for(let i=0;i<=n2;i++){
+      const t=i*h2, w=i===0||i===n2?1:(i%2?4:2);
+      const v=cexp(c(-z*Math.sinh(t)-nu.re*t, -nu.im*t));
+      s2.re+=w*v.re; s2.im+=w*v.im;
+    }
+    s2.re*=h2/3; s2.im*=h2/3;
+    const snp=csin(c(Math.PI*nu.re, Math.PI*nu.im));
+    const term2=cmul(snp,s2);
+    return c(s1.re-term2.re/Math.PI, s1.im-term2.im/Math.PI);
+  }
+
+  // ---------------- 0F1(;1+ν;−z²/4) in double-double arithmetic ----------------
+  // J_ν(z) = (z/2)^ν/Γ(1+ν) · 0F1(;1+ν;−z²/4).  The alternating series loses ~z/ln10 digits to
+  // cancellation, so it is summed in double-double (~32 digits): accurate for z up to ~60.
+  function f01(nr, ni, z){
+    const SPL=134217729;
+    const two=(a,b)=>{ const s=a+b, bb=s-a; return [s,(a-(s-bb))+(b-bb)]; };
+    const qtwo=(a,b)=>{ const s=a+b; return [s, b-(s-a)]; };
+    const prod=(a,b)=>{ const p=a*b; let t=SPL*a; const ah=t-(t-a), al=a-ah; t=SPL*b; const bh=t-(t-b), bl=b-bh;
+      return [p, ((ah*bh-p)+ah*bl+al*bh)+al*bl]; };
+    const add=(x,y)=>{ const [s,e]=two(x[0],y[0]); return qtwo(s, e+x[1]+y[1]); };
+    const neg=x=>[-x[0],-x[1]];
+    const mul=(x,y)=>{ const [p,e]=prod(x[0],y[0]); return qtwo(p, e+x[0]*y[1]+x[1]*y[0]); };
+    const div=(x,y)=>{ const q1=x[0]/y[0]; let r=add(x,neg(mul([q1,0],y))); const q2=r[0]/y[0]; r=add(r,neg(mul([q2,0],y)));
+      const q3=r[0]/y[0]; return add(qtwo(q1,q2),[q3,0]); };
+    const w=neg(mul(prod(z,z),[0.25,0]));          // −z²/4
+    let tr=[1,0], ti=[0,0], sr=[1,0], si=[0,0];
+    const mmax=Math.max(60, Math.ceil(3*z+40));
+    for(let m=1;m<=mmax;m++){
+      // d = m(m+ν) = (m²+m·νr) + i m νi ;  t ← t·w·conj(d)/|d|²
+      const dr=add(prod(m,m),prod(m,nr)), di=prod(m,ni);
+      const den=add(mul(dr,dr),mul(di,di));
+      const fr=div(mul(w,dr),den), fi=div(neg(mul(w,di)),den);
+      const nr_=add(mul(tr,fr),neg(mul(ti,fi))), ni_=add(mul(tr,fi),mul(ti,fr));
+      tr=nr_; ti=ni_; sr=add(sr,tr); si=add(si,ti);
+      if(m>z && Math.abs(tr[0])+Math.abs(ti[0]) < 1e-34*(Math.abs(sr[0])+Math.abs(si[0])+1e-300)) break;
+    }
+    return {re:sr[0]+sr[1], im:si[0]+si[1]};
+  }
+
+  // ---------------- Woods–Saxon (+surface) exact solution via Gauss connection formula ----------------
+  // u = z^ε F(z),  F(z) = (1−z)^μ ₂F₁(A,B;2ε+1;z),  μ² = ε² − b₀,
+  // A+B = 2ε+2μ+1,  AB = (ε+μ)(ε+μ+1) + b_s   (b_s = 4a²V_s/K, 0 for plain WS).
+  // For z>½ the ₂F₁ is re-expanded about z=1 (Gauss connection) — the plain power series in z converges
+  // like z₀ⁿ with z₀ = 1/(1+e^{−R/a}) ≈ 0.999, i.e. needs ~10⁵ terms, which is why it was inaccurate.
+  function wsHyp(z, eps, b0, bs){
+    const C=(r,i)=>({re:r,im:i||0}), add=(a,b)=>C(a.re+b.re,a.im+b.im), sub=(a,b)=>C(a.re-b.re,a.im-b.im),
+      mul=(a,b)=>C(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re), div=(a,b)=>{const d=b.re*b.re+b.im*b.im;return C((a.re*b.re+a.im*b.im)/d,(a.im*b.re-a.re*b.im)/d);},
+      csqrt=w=>{const r=Math.hypot(w.re,w.im);let x=Math.sqrt(Math.max(0,(r+w.re)/2)),y=Math.sqrt(Math.max(0,(r-w.re)/2));if(w.im<0)y=-y;return C(x,y);},
+      cpow=(t,p)=>{const l=Math.log(t), m=Math.exp(p.re*l); return C(m*Math.cos(p.im*l), m*Math.sin(p.im*l));};
+    function F21(a,b,c,x){ let t=C(1), s=C(1);
+      for(let n=0;n<3000;n++){ t=mul(t,div(mul(add(a,C(n)),add(b,C(n))),mul(add(c,C(n)),C(n+1)))); t=C(t.re*x,t.im*x); s=add(s,t);
+        if(n>4 && Math.hypot(t.re,t.im)<1e-17*Math.hypot(s.re,s.im)) break; }
+      return s; }
+    const nu=eps, mu=csqrt(sub(mul(eps,eps),C(b0)));
+    const Cc=add(C(1),mul(C(2),nu)), nm=add(nu,mu), S=add(C(1),mul(C(2),nm)), P=add(mul(nm,add(nm,C(1))),C(bs));
+    const D=csqrt(sub(mul(S,S),mul(C(4),P))), A=mul(C(0.5),add(S,D)), B=mul(C(0.5),sub(S,D));
+    const t=1-z;
+    if(z<=0.5) return mul(cpow(t,mu),F21(A,B,Cc,z));
+    const cab=sub(sub(Cc,A),B), G=cgamma;
+    const T1=mul(div(mul(G(Cc),G(cab)),mul(G(sub(Cc,A)),G(sub(Cc,B)))),F21(A,B,sub(C(1),cab),t));
+    const T2=mul(mul(cpow(t,cab),div(mul(G(Cc),G(C(-cab.re,-cab.im))),mul(G(A),G(B)))),F21(sub(Cc,A),sub(Cc,B),add(C(1),cab),t));
+    return mul(cpow(t,mu),add(T1,T2));
+  }
+
+  // Lanczos complex Gamma (g=7)
+  const LG=7, LP=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,
+    -176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  function cgamma(z){
+    const C=(r,i)=>({re:r,im:i||0});
+    const mul=(a,b)=>C(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re);
+    const div=(a,b)=>{const d=b.re*b.re+b.im*b.im; return C((a.re*b.re+a.im*b.im)/d,(a.im*b.re-a.re*b.im)/d);};
+    const exp=w=>{const m=Math.exp(w.re); return C(m*Math.cos(w.im),m*Math.sin(w.im));};
+    const log=w=>C(Math.log(Math.hypot(w.re,w.im)),Math.atan2(w.im,w.re));
+    if(z.re<0.5){
+      const s=C(Math.sin(Math.PI*z.re)*Math.cosh(Math.PI*z.im), Math.cos(Math.PI*z.re)*Math.sinh(Math.PI*z.im));
+      return div(C(Math.PI), mul(s, cgamma(C(1-z.re,-z.im))));
+    }
+    const zz=C(z.re-1,z.im); let x=C(LP[0]);
+    for(let i=1;i<9;i++){ x.re+=0; x=((xi)=>({re:x.re+xi.re,im:x.im+xi.im}))(div(C(LP[i]),C(zz.re+i,zz.im))); }
+    const t=C(zz.re+LG+0.5,zz.im);
+    const tp=exp(mul(C(zz.re+0.5,zz.im),log(t)));
+    return mul(C(Math.sqrt(2*Math.PI)), mul(tp, mul(exp(C(-t.re,-t.im)), x)));
+  }
+  function argGamma(z){ const g=cgamma(z); return Math.atan2(g.im,g.re); }
+  // locate x where V(x)=Vcut between an inner point (V<Vcut) and an outer point (V>Vcut)
+  function wallPoint(V, xin, xout, Vcut){
+    let a=xin, b=xout;
+    for(let i=0;i<80;i++){ const m=(a+b)/2; if(V(m)>Vcut) b=m; else a=m; }
+    return (a+b)/2;
+  }
+  // Frobenius start u = r^p (1 + c1 r),  c1 = -g/(2p) for  u'' = (p(p-1)/r² - g/r - …) u
+  function frob(p,g){ return (E,x)=>{ const c1=-g/(2*p); return [Math.pow(x,p)*(1+c1*x), p*Math.pow(x,p-1)+c1*(p+1)*Math.pow(x,p)]; }; }
+
+  return { cgamma, argGamma, wallPoint, frob, f01, wsHyp, integrate, boundLevels, refine, wavefunction, transmission, phaseShift, wrapPi, besselJ };
+})();
+
+/* =========================================================================
+   NUMERICAL CHECK TAB (built automatically for any module exposing .check)
+   ========================================================================= */
+const NumCheckUI = (function(){
+  const ui = { N: 2000, running:false, sel:0 };
+
+  function pairLevels(an, num){
+    // nearest-energy pairing; each numeric root used at most once
+    const used=new Set();
+    return an.map(a=>{
+      let best=-1, bd=Infinity;
+      num.forEach((q,i)=>{ if(used.has(i)) return; const dd=Math.abs(q.E-a.E); if(dd<bd){bd=dd;best=i;} });
+      const scale=Math.max(1e-3, Math.abs(a.E), 1e-3*Math.max(...an.map(q=>Math.abs(q.E))));
+      if(best>=0 && bd<0.02*scale+1e-6){ used.add(best); return num[best]; }
+      return null;
+    });
+  }
+  const fE=x=>(x==null||!isFinite(x))?'—':(x===0?'0':Number(x).toPrecision(10));
+  function errCell(v, ref, scale){
+    if(v==null || !isFinite(v)) return '<td>—</td>';
+    // relative to |E|, but never to less than 10⁻³ of the spectrum scale (levels at E≈0 would give ∞)
+    const d=Math.abs(v-ref), rel=d/Math.max(1e-12,Math.abs(ref),1e-3*(scale||0));
+    const cls = rel<1e-5?'nc-good':(rel<1e-3?'nc-ok':'nc-bad');
+    return `<td class="${cls}">${d.toExponential(2)}</td>`;
+  }
+
+  function build(pot){
+    const chk=pot.check;
+    const side=el('div');
+    side.innerHTML=`
+      <div class="control-group">
+        <div class="control-label"><span>Grid points  N</span><span class="val" id="nc_N_val">${ui.N}</span></div>
+        <input type="range" id="nc_N" min="400" max="8000" step="200" value="${ui.N}">
+      </div>
+      <div class="btn-row"><button class="ui-btn primary" id="nc_run">▶ Run comparison</button></div>
+      <div class="small-note">Parameters are taken from the other subtabs of this potential
+      (change them there, then re-run). Analytic results are compared with two independent
+      integrators of the same Schrödinger equation: 4th-order Runge–Kutta and Numerov.</div>`;
+    document.getElementById('sidebar').appendChild(buildCard('Numerical Check Settings', side));
+    document.getElementById('sidebar').appendChild(buildCard('How the check works', `
+      <div class="theory-block">
+      <p><strong>Bound states:</strong> shooting from the left boundary condition, residual
+      \\(u(x_R)\\) (hard wall) or \\(u'(x_R)+\\kappa u(x_R)\\) (exact decay into a constant
+      asymptote), scanned in energy and refined by bisection.</p>
+      <p><strong>Transmission:</strong> a purely outgoing wave \\(e^{i\\varphi}/\\sqrt{k}\\) is
+      integrated from right to left and decomposed into incident/reflected local waves —
+      flux-normalised, so valid for \\(k_L\\neq k_R\\) and for tails where \\(V\\to-\\infty\\).</p>
+      <p><strong>Phase shifts:</strong> \\(u\\to\\sin(kx-L\\pi/2-\\eta\\ln 2kx+\\delta)\\), compared
+      modulo \\(\\pi\\) (the overall sign of a real solution is arbitrary).</p>
+      <p><strong>Colour code:</strong> <span class="nc-good">rel. err &lt; 10⁻⁵</span>,
+      <span class="nc-ok">&lt; 10⁻³</span>, <span class="nc-bad">larger</span>.</p>
+      <p><strong>Convergence plot:</strong> both methods should show slope ≈ −4 on the log–log
+      plot (global error \\(\\propto h^4\\)). The slope is fitted only where the error still drops
+      ≥3× per doubling of N; once the curve flattens near \\(10^{-12}\\) you are at the round-off
+      floor and no order is quoted. A slope near −1…−3 would reveal an unresolved discontinuity,
+      a singular origin, or a too-small box.</p>
+      <p><strong>Engineering details:</strong> grids are split at every discontinuity and δ-spike
+      (exact jump \\(\\Delta u'=(s/K)u\\)); singular origins (\\(1/r\\), \\(1/r^2\\)) get a
+      geometric grid plus a Frobenius start \\(u=r^p(1-gr/2p)\\); Numerov is started with one RK4
+      step and its end derivative uses the 4th-order formula
+      \\(u'_n=(u_n-u_{n-1})/h+h(7f_n+6f_{n-1}-f_{n-2})/24\\); symmetric potentials are shot on the
+      half line by parity; phase shifts use the local wave number and Richardson extrapolation in \\(1/r\\).</p>
+      </div>`, {collapsed:true}));
+
+    const c=el('div');
+    const notice=el('div','notice info');
+    notice.innerHTML=`<strong>Analytic vs. Numerov vs. Runge–Kutta.</strong> ${chk.note||''}`;
+    c.appendChild(notice);
+    c.appendChild(buildCard('Bound-State Comparison','<div id="nc_table"><div class="small-note">Press “Run comparison”.</div></div>'));
+    const g=el('div','plot-grid-2');
+    ['nc_wave','nc_conv','nc_scat','nc_scaterr'].forEach(id=>{const p=el('div','plot-box'); p.innerHTML=`<div id="${id}" style="height:320px"></div>`; g.appendChild(p);});
+    c.appendChild(g);
+    c.appendChild(buildCard('Verdict','<div class="obs-grid" id="nc_verdict"></div>'));
+    document.getElementById('content').appendChild(c);
+
+    wireSlider('nc_N', v=>{ ui.N=Math.round(v); }, 0);
+    document.getElementById('nc_run').addEventListener('click', ()=>run(pot));
+    if(window.MathJax&&MathJax.typesetPromise) MathJax.typesetPromise([document.getElementById('sidebar')]);
+    setTimeout(()=>run(pot), 30);
+  }
+
+  function run(pot){
+    const chk=pot.check;
+    const btn=document.getElementById('nc_run'); if(btn){ btn.textContent='⏳ Running…'; }
+    setTimeout(()=>{
+      try{ runInner(chk); }
+      catch(err){ document.getElementById('nc_table').innerHTML='<div class="notice">Check failed: '+err.message+'</div>'; }
+      if(btn) btn.textContent='▶ Run comparison';
+    },20);
+  }
+
+  function runInner(chk){
+    const res=compute(chk, ui.N, true);
+    const U=chk.units||{E:'eV',x:'nm'};
+    // ---- table ----
+    let html='';
+    if(res.bound){
+      if(!res.bound.an.length && !res.bound.rk.length){
+        html='<div class="small-note">No bound states for the current parameters (none analytically, none numerically).</div>';
+      } else {
+        html='<div class="spectrum-table-wrap"><table class="spectrum-table nc-table"><thead><tr><th>state</th><th>Analytic ('+U.E+')</th><th>RK4</th><th>Numerov</th><th>|RK4−An|</th><th>|Num−An|</th></tr></thead><tbody>';
+        const sc=Math.max(...res.bound.an.map(a=>Math.abs(a.E)),1e-12);
+        res.bound.an.forEach((a,i)=>{
+          const r=res.bound.rkP[i], n=res.bound.nuP[i];
+          html+=`<tr><td>${a.label}</td><td>${fE(a.E)}</td><td>${r?fE(r.E):'<span class="nc-bad">none</span>'}</td><td>${n?fE(n.E):'<span class="nc-bad">none</span>'}</td>${errCell(r&&r.E,a.E,sc)}${errCell(n&&n.E,a.E,sc)}</tr>`;
+        });
+        const usedR=new Set(res.bound.rkP.filter(Boolean));
+        res.bound.rk.filter(q=>!usedR.has(q)).forEach(q=>{
+          html+=`<tr><td class="nc-bad">extra</td><td>—</td><td>${fE(q.E)}</td><td>—</td><td colspan="2" class="nc-bad">numeric root with no analytic partner</td></tr>`;
+        });
+        html+='</tbody></table></div>';
+      }
+    } else html='<div class="small-note">'+(chk.boundNote||'No bound-state check for this configuration.')+'</div>';
+    document.getElementById('nc_table').innerHTML=html;
+
+    // ---- wavefunction overlay (ground state) ----
+    if(res.wave){
+      const tr=[{x:res.wave.rk.xs,y:res.wave.rk.us,type:'scatter',mode:'lines',name:'RK4',line:{width:2.5,color:'#4fd8e0'}},
+                {x:res.wave.nu.xs,y:res.wave.nu.us,type:'scatter',mode:'lines',name:'Numerov',line:{dash:'dot',width:2,color:'#e0b040'}}];
+      if(res.wave.an) tr.push({x:res.wave.an.xs,y:res.wave.an.us,type:'scatter',mode:'lines',name:'Analytic',line:{dash:'dash',width:1.5,color:'#e05a5a'}});
+      const W=res.wave.rk, mx=Math.max(...W.us.map(Math.abs)); let ia=0, ib=W.us.length-1;
+      while(ia<ib && Math.abs(W.us[ia])<2e-3*mx) ia++; while(ib>ia && Math.abs(W.us[ib])<2e-3*mx) ib--;
+      const pad=0.08*(W.xs[ib]-W.xs[ia]||1);
+      Plotly.react('nc_wave',tr,mkLayout({title:{text:`Lowest bound state: analytic vs RK4 vs Numerov`,font:{size:12}},xaxis:{title:'x ('+U.x+')',range:[W.xs[ia]-pad,W.xs[ib]+pad]},yaxis:{title:'normalised u'}}),PLOT_CONFIG);
+    } else Plotly.react('nc_wave',[],mkLayout({title:{text:'No bound state to plot',font:{size:12}}}),PLOT_CONFIG);
+
+    // ---- convergence ----
+    if(res.conv){
+      const tr=[{x:res.conv.Ns,y:res.conv.rk,type:'scatter',mode:'lines+markers',name:'RK4'},
+                {x:res.conv.Ns,y:res.conv.nu,type:'scatter',mode:'lines+markers',name:'Numerov'},
+                {x:res.conv.Ns,y:res.conv.Ns.map(n=>res.conv.ref*Math.pow(res.conv.Ns[0]/n,4)),type:'scatter',mode:'lines',name:'∝ N⁻⁴ guide',line:{dash:'dot',color:'#8ea3c4'}}];
+      Plotly.react('nc_conv',tr,mkLayout({title:{text:`|E₀(N) − E₀(analytic)|  — fitted slopes RK4 ${isFinite(res.conv.slopeRk)?fmt(res.conv.slopeRk,2):'— (round-off)'}, Numerov ${isFinite(res.conv.slopeNu)?fmt(res.conv.slopeNu,2):'— (round-off)'}`,font:{size:11}},
+        xaxis:{title:'grid points N',type:'log'},yaxis:{title:'|ΔE| ('+U.E+')',type:'log'}}),PLOT_CONFIG);
+    } else Plotly.react('nc_conv',[],mkLayout({title:{text:'Convergence study needs a bound state',font:{size:12}}}),PLOT_CONFIG);
+
+    // ---- scattering ----
+    if(res.scat){
+      const S=res.scat, lab=S.kind==='T'?'T(E)':(S.kind==='R'?'R(E)':'δ(E) mod π');
+      Plotly.react('nc_scat',[
+        {x:S.dense.Es.length?S.dense.Es:S.Es,y:S.dense.Es.length?S.dense.an:S.an,type:'scatter',mode:'lines',name:'Analytic',line:{color:'#e05a5a',width:2},connectgaps:false},
+        {x:S.Es,y:S.rk,type:'scatter',mode:'markers',name:'RK4',marker:{size:6,color:'#4fd8e0'}},
+        {x:S.Es,y:S.nu,type:'scatter',mode:'markers',name:'Numerov',marker:{size:5,symbol:'diamond',color:'#e0b040'}}
+      ],mkLayout({title:{text:lab+': analytic curve vs numerical points',font:{size:12}},xaxis:{title:'E ('+U.E+')'},yaxis:{title:lab}}),PLOT_CONFIG);
+      Plotly.react('nc_scaterr',[
+        {x:S.Es,y:S.erk.map(v=>Math.max(v,1e-16)),type:'scatter',mode:'lines+markers',name:'|RK4−An|'},
+        {x:S.Es,y:S.enu.map(v=>Math.max(v,1e-16)),type:'scatter',mode:'lines+markers',name:'|Num−An|'}
+      ],mkLayout({title:{text:'Scattering deviation from the analytic result',font:{size:12}},xaxis:{title:'E ('+U.E+')'},yaxis:{title:'|Δ|',type:'log'}}),PLOT_CONFIG);
+    } else {
+      Plotly.react('nc_scat',[],mkLayout({title:{text:chk.scatterNote||'No scattering check for this configuration',font:{size:11}}}),PLOT_CONFIG);
+      Plotly.react('nc_scaterr',[],mkLayout({title:{text:' ',font:{size:11}}}),PLOT_CONFIG);
+    }
+
+    // ---- verdict ----
+    const items=[];
+    if(res.bound && res.bound.an.length){
+      const sc=Math.max(...res.bound.an.map(a=>Math.abs(a.E)),1e-12);
+      const errs=res.bound.an.map((a,i)=>res.bound.nuP[i]?Math.abs(res.bound.nuP[i].E-a.E)/Math.max(1e-12,Math.abs(a.E),1e-3*sc):Infinity);
+      const worst=Math.max(...errs);
+      items.push(['Bound levels matched', `${res.bound.rkP.filter(Boolean).length}/${res.bound.an.length} (RK4), ${res.bound.nuP.filter(Boolean).length}/${res.bound.an.length} (Numerov)`, worst<1e-3]);
+      items.push(['Worst relative ΔE (Numerov)', isFinite(worst)?worst.toExponential(2):'unmatched level', worst<1e-3]);
+      const extra=res.bound.rk.length-res.bound.rkP.filter(Boolean).length;
+      if(extra>0) items.push(['Extra numerical roots', String(extra)+' (analytic list incomplete?)', false]);
+    }
+    if(res.conv){ const o=v=>isFinite(v)?fmt(-v,2):'— (at round-off)'; items.push(['Observed order (RK4 / Numerov)', `${o(res.conv.slopeRk)} / ${o(res.conv.slopeNu)}`, null]); }
+    if(res.scat){
+      const m1=Math.max(...res.scat.erk), m2=Math.max(...res.scat.enu);
+      items.push(['Max scattering deviation (RK4)', m1.toExponential(2), m1<1e-3]);
+      items.push(['Max scattering deviation (Numerov)', m2.toExponential(2), m2<1e-3]);
+      if(res.scat.extra) items.push(...res.scat.extra);
+    }
+    items.push(['Grid points N', String(ui.N), null]);
+    document.getElementById('nc_verdict').innerHTML=items.map(([k,v,p])=>`<div class="obs-item ${p===null||p===undefined?'':(p?'check-pass':'check-fail')}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  }
+
+  // pure computation (also used by the headless test harness)
+  function compute(chk, N, full){
+    const out={};
+    const b=chk.bound?chk.bound():null;
+    if(b){
+      const rk=NumSolve.boundLevels(chk,'rk4',N), nu=NumSolve.boundLevels(chk,'numerov',N);
+      const an=b.levels||[];
+      out.bound={an, rk, nu, rkP:pairLevels(an,rk), nuP:pairLevels(an,nu)};
+      if(full && rk.length){
+        const E0=out.bound.rkP[0]?out.bound.rkP[0].E:rk[0].E;
+        const r0=out.bound.rkP[0]||rk[0], n0=out.bound.nuP[0]||nu[0]||r0;
+        out.wave={rk:NumSolve.wavefunction(chk,E0,'rk4',N,r0.sec), nu:NumSolve.wavefunction(chk,n0.E,'numerov',N,n0.sec)};
+        if(chk.psi && an.length){
+          const xs=out.wave.rk.xs; let ys=xs.map(x=>chk.psi(an[0],x));
+          let nn=0; for(let i=1;i<xs.length;i++) nn+=0.5*(ys[i]*ys[i]+ys[i-1]*ys[i-1])*Math.abs(xs[i]-xs[i-1]);
+          nn=Math.sqrt(nn)||1; let im=0; ys.forEach((v,i)=>{ if(Math.abs(v)>Math.abs(ys[im])) im=i; });
+          const sg=ys[im]>=0?1:-1; out.wave.an={xs, us:ys.map(v=>sg*v/nn)};
+        }
+      }
+      if(full && an.length && out.bound.rkP[0]){
+        const br=out.bound.rkP[0].br, Ns=[250,500,1000,2000,4000,8000], Eref=an[0].E;
+        const erk=[], enu=[];
+        Ns.forEach(n=>{ erk.push(Math.abs(NumSolve.refine(chk,br,'rk4',n)-Eref)+1e-16); enu.push(Math.abs(NumSolve.refine(chk,br,'numerov',n)-Eref)+1e-16); });
+        // least-squares slope of log|ΔE| vs log N over points above the round-off floor
+        const floor=5e-13*Math.max(1,Math.abs(Eref));
+        // fit only the asymptotic, still-converging part: start at N=500 and stop as soon as the error
+        // no longer drops by ≥3× per doubling (round-off floor or pre-asymptotic noise)
+        const slope=a=>{ let P=[];
+          for(let i=1;i<Ns.length;i++){ if(a[i]<=floor) break; if(P.length && a[i]*3>a[i-1]) break; P.push([Math.log(Ns[i]),Math.log(a[i])]); }
+          P=P.slice(-3); if(P.length<2) return NaN;
+          const mx=P.reduce((t,p)=>t+p[0],0)/P.length, my=P.reduce((t,p)=>t+p[1],0)/P.length;
+          let sxy=0,sxx=0; P.forEach(p=>{sxy+=(p[0]-mx)*(p[1]-my); sxx+=(p[0]-mx)**2;}); return sxy/sxx; };
+        out.conv={Ns, rk:erk, nu:enu, ref:Math.max(erk[0],enu[0]), slopeRk:slope(erk), slopeNu:slope(enu)};
+      }
+    }
+    const s=chk.scatter?chk.scatter():null;
+    if(s){
+      const Es=s.Es, an=[], rk=[], nu=[], erk=[], enu=[];
+      Es.forEach(E=>{
+        let a,r,n;
+        if(s.kind==='T' || s.kind==='R'){
+          const A=s.analytic(E), R1=NumSolve.transmission(chk,E,'rk4',N), R2=NumSolve.transmission(chk,E,'numerov',N);
+          a=(s.kind==='T'?A:1-A); r=(s.kind==='T'?R1.T:R1.R); n=(s.kind==='T'?R2.T:R2.R);
+          an.push(a); rk.push(r); nu.push(n); erk.push(Math.abs(r-a)); enu.push(Math.abs(n-a));
+        } else {
+          a=NumSolve.wrapPi(s.analytic(E));
+          r=NumSolve.wrapPi(NumSolve.phaseShift(chk,E,'rk4',N));
+          n=NumSolve.wrapPi(NumSolve.phaseShift(chk,E,'numerov',N));
+          an.push(a); rk.push(r); nu.push(n);
+          erk.push(Math.abs(NumSolve.wrapPi(r-a))); enu.push(Math.abs(NumSolve.wrapPi(n-a)));
+        }
+      });
+      // dense analytic curve (narrow resonances between the check energies stay visible)
+      let dE=[], dA=[];
+      if(full){ const e0=Es[0], e1=Es[Es.length-1];
+        for(let i=0;i<=500;i++){ const E=e0+(e1-e0)*i/500; let v=s.analytic(E);
+          if(s.kind==='R') v=1-v; if(s.kind==='phase') v=NumSolve.wrapPi(v);
+          if(s.kind==='phase' && dA.length && dA[dA.length-1]!==null && Math.abs(v-dA[dA.length-1])>Math.PI/2){ dE.push(E); dA.push(null); }
+          dE.push(E); dA.push(v); } }
+      out.scat={kind:s.kind, Es, an, rk, nu, erk, enu, dense:{Es:dE, an:dA}, extra:s.extra?s.extra():null};
+    }
+    return out;
+  }
+
+  return { build, compute };
+})();
+
+
+/* =========================================================================
+   THEORY ADDENDA — "Extreme cases, pinpoints & suggestions"
+   Appended automatically to every module's Theory tab by the engine.
+   extreme : limiting / extreme-parameter behaviour (what the formulas do there)
+   pin     : pinpoints — subtle points, common errors, corrections made in this version
+   sugg    : suggestions — things to try, extensions, cross-checks
+   ========================================================================= */
+const THEORY_NOTES = {
+'infinite-well': {
+ extreme: String.raw`
+  <li><strong>\(L\to0\):</strong> \(E_n=n^2\pi^2K/L^2\) diverges. Once \(E_1\) approaches \(\mu c^2\) (for an electron, \(L\lesssim\hbar/mc\approx0.39\) pm) the non-relativistic model is meaningless — pair creation, not a larger kinetic energy, is the physics.</li>
+  <li><strong>\(L\to\infty\):</strong> spacing \(E_{n+1}-E_n=(2n+1)\pi^2K/L^2\to0\); the 1D density of states becomes \(g(E)=\tfrac{L}{2\pi}\sqrt{1/(KE)}\), the free-particle result.</li>
+  <li><strong>\(n\to\infty\):</strong> \(|\psi_n|^2=\tfrac{2}{L}\sin^2(n\pi x/L)\) averages to the uniform classical density \(1/L\) (correspondence), but never converges pointwise.</li>`,
+ pin: String.raw`
+  <li>\(\psi'\) is discontinuous at the walls; only \(\psi\) itself vanishes. Because of this, a smooth-looking trial state such as \(\psi\propto x(L-x)\) is <em>not</em> in the domain of \(\hat H^2\): \(\int\psi\hat H^2\psi\,dx=0\) while \(\sum_n|c_n|^2E_n^2>0\). The eigen-expansion is the correct \(\langle H^2\rangle\).</li>
+  <li>Momentum is not conserved and \(\hat p\) has no eigenstates satisfying both wall conditions; \(\langle p\rangle=0\), \(\Delta p=n\pi\hbar/L\).</li>
+  <li>Numerical Check: the Numerov convergence curve flattens near \(10^{-11}\) relative error — that is the double-precision round-off floor, not a method error.</li>`,
+ sugg: String.raw`
+  <li>Build a two-state superposition and verify the revival time \(T_{\rm rev}=4\mu L^2/(\pi\hbar)\) (all phases \(e^{-iE_nt/\hbar}\) realign).</li>
+  <li>Compare with the Finite Well at large \(V_0\): its levels lie <em>below</em> \(n^2\pi^2K/L^2\) because the wave leaks a distance \(\sim1/\kappa\) into each wall (effective width \(L+2/\kappa\)).</li>`
+},
+'finite-well': {
+ extreme: String.raw`
+  <li><strong>Deep well</strong> (\(z_0=\tfrac a2\sqrt{V_0/K}\gg1\)): \(E_n+V_0\approx n^2\pi^2K/(a+2/\kappa_n)^2\) — the infinite-well result with a penetration-corrected width.</li>
+  <li><strong>Shallow/narrow well</strong> (\(z_0\ll1\)): in 1D there is <em>always</em> one even bound state, with \(E\approx-(V_0a)^2/(4K)\) — exactly the delta-well result with \(\alpha=V_0a\) (try the Delta module with that strength).</li>
+  <li>Number of bound states: \(N=\lceil 2z_0/\pi\rceil\); a new level appears each time \(z_0\) passes a multiple of \(\pi/2\).</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> Ramsauer–Townsend features are <em>peaks</em> \(T=1\) (zeros of \(R\)) at \(k_2a=n\pi\), not dips.</li>
+  <li>At the threshold \(z_0=m\pi/2\) the new level sits at \(E=0^-\) as a non-normalisable “half-bound” state; in the 3D radial problem only odd solutions survive and the first bound state needs \(z_0>\pi/2\).</li>
+  <li>The \(\psi''\) jump at \(x=\pm a/2\) reduces Numerov to 3rd order unless the grid is split at the discontinuities — the Numerical Check splits there; the observed slope of −3 is from Numerov’s end-derivative reconstruction at the segment breaks.</li>`,
+ sugg: String.raw`
+  <li>Track how the highest level approaches \(E=0\) as \(V_0\) is reduced: \(\kappa\propto(z_0-m\pi/2)\) near threshold (linear, not square-root).</li>
+  <li>Use the Scattering tab to locate the \(T=1\) energies and check \(E_n=-V_0+K(n\pi/a)^2\).</li>`
+},
+'harmonic-oscillator': {
+ extreme: String.raw`
+  <li><strong>\(\omega\to0\):</strong> spacing \(\hbar\omega\to0\), oscillator length \(\sqrt{\hbar/\mu\omega}\to\infty\) — free particle.</li>
+  <li><strong>Large \(n\):</strong> classical turning points \(x_n=\pm\sqrt{(2n+1)\hbar/\mu\omega}\); \(|\psi_n|^2\) approaches \(1/(\pi\sqrt{x_n^2-x^2})\) when averaged.</li>`,
+ pin: String.raw`
+  <li>WKB with the Maslov ½ is <em>exact</em> here (and only for very few potentials) — a good sanity check for any semiclassical code.</li>
+  <li>Finite-box numerics: a box of \(\pm6.4\) oscillator lengths is adequate up to \(n\approx10\); for higher \(n\) the turning point approaches the box edge and the levels rise artificially.</li>
+  <li>Real molecules are not harmonic: near the bottom, Morse gives \(E_n\approx\hbar\omega(n+\tfrac12)-[\hbar\omega(n+\tfrac12)]^2/(4D_e)\).</li>`,
+ sugg: String.raw`
+  <li>Coherent states \(|\alpha\rangle\) keep \(\Delta x\Delta p=\hbar/2\) for all times — compare with the spreading of a superposition of only two levels.</li>
+  <li>Compare with the Inverted Oscillator tab: the same Hermite structure, but with \(\omega\to i\omega\) the levels become purely decaying Gamow poles \(E=-i\hbar\omega(n+\tfrac12)\).</li>`
+},
+'rectangular-barrier': {
+ extreme: String.raw`
+  <li><strong>Opaque barrier</strong> (\(\kappa a\gg1\)): \(T\approx\dfrac{16E(V_0-E)}{V_0^2}e^{-2\kappa a}\).</li>
+  <li><strong>\(E=V_0\):</strong> finite, \(T=\big[1+V_0a^2/(4K)\big]^{-1}\).</li>
+  <li><strong>Delta limit</strong> \(V_0\to\infty,\ a\to0,\ V_0a=\alpha\) fixed: \(T\to E/(E+\alpha^2/4K)\), the Delta-barrier result.</li>
+  <li><strong>\(E\to0\):</strong> \(T\propto E\to0\) (no tunnelling at zero energy in 1D).</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> \(T(E)\) is <em>not</em> monotonic above the barrier; \(T=1\) at \(E_n=V_0+K(n\pi/a)^2\) (over-barrier resonances).</li>
+  <li>The Hartman effect (phase time saturating with \(a\)) does not imply superluminal signalling: the transmitted peak is reshaped from the leading edge of the incident packet.</li>`,
+ sugg: String.raw`
+  <li>Compare the exact \(\ln T\) with the WKB exponent \(-2\kappa a\) as \(a\) grows: the prefactor \(16E(V_0-E)/V_0^2\) is what WKB misses for sharp edges.</li>
+  <li>Two barriers make a resonant-tunnelling structure — see Double Delta with \(\alpha<0\).</li>`
+},
+'well-barrier': {
+ extreme: String.raw`
+  <li><strong>Very high / thick barrier:</strong> resonances become the bound levels of the well closed by the barrier; widths shrink as \(\Gamma\propto e^{-2\kappa b}\).</li>
+  <li><strong>\(V_1\to0\):</strong> the structure reduces to an asymmetric finite well open on both sides — resonances broaden into Ramsauer-type features.</li>`,
+ pin: String.raw`
+  <li>Breit–Wigner (Lorentzian) shapes are only valid for \(\Gamma\ll\) level spacing; for broad resonances read \(E_r,\Gamma\) from the complex pole, not from the peak of \(T\).</li>
+  <li>This module lets you change \(K=\hbar^2/2\mu\); the Numerical Check uses the same \(K\), so any agreement is for the mass you set.</li>`,
+ sugg: String.raw`
+  <li>Verify \(\tau=\hbar/\Gamma\) against the Wigner delay \(2\hbar\,d\varphi/dE\) of the transmission phase at resonance.</li>
+  <li>Plot \(\ln\Gamma\) vs barrier width \(b\): the slope should approach \(-2\kappa\).</li>`
+},
+'delta-potential': {
+ extreme: String.raw`
+  <li><strong>Weak coupling:</strong> any attractive \(\alpha>0\) binds in 1D, \(E_0=-\alpha^2/(4K)\) — quadratic in \(\alpha\), a hallmark of 1D (in 3D a threshold strength is needed).</li>
+  <li><strong>Scattering:</strong> \(T(E)=E/(E+E_\alpha)\), \(E_\alpha=\alpha^2/(4K)\), independent of the sign of \(\alpha\); only the phase of \(t\) knows whether it is a well or a barrier.</li>`,
+ pin: String.raw`
+  <li>The pole of \(t(k)\) at \(k=i\alpha/(2K)\) <em>is</em> the bound state; for \(\alpha<0\) it moves to the negative imaginary axis (an anti-bound / virtual state), not a resonance.</li>
+  <li>In 2D and 3D a bare \(\delta\) needs regularisation/renormalisation; the 1D result has no such subtlety.</li>
+  <li>Numerical Check: RK4 is exact between the spikes (free solution), while Numerov’s derivative reconstruction across the jump is \(O(h^3)\) — hence slope −3 for Numerov only.</li>`,
+ sugg: String.raw`
+  <li>Match a narrow finite well with \(V_0a=\alpha\): its ground state converges to \(-\alpha^2/(4K)\).</li>`
+},
+'double-delta-potential': {
+ extreme: String.raw`
+  <li><strong>Large separation:</strong> even/odd splitting \(\Delta E\approx4|E_0|e^{-2\beta a}\), \(\beta=\alpha/2K\), \(E_0=-K\beta^2\). For the default parameters \(2\beta a\approx131\), so \(\Delta E\sim10^{-55}\) eV — far below double precision.</li>
+  <li><strong>\(a\to0\):</strong> one delta of strength \(2\alpha\): \(E\to-(2\alpha)^2/4K=4E_0\). The odd state exists only for \(2\beta a>1\).</li>
+  <li><strong>\(\alpha<0\)</strong> (two barriers): sharp resonant-tunnelling peaks \(T=1\) appear between the barriers.</li>`,
+ pin: String.raw`
+  <li>The analytic table therefore shows two equal energies for the default parameters — that is correct physics, not a bug. A full-line shooting code cannot resolve such a doublet; the Numerical Check now shoots on the half line with \(u'(0)=0\) / \(u(0)=0\) to find both members independently.</li>
+  <li>Tunnelling time between the wells \(\pi\hbar/\Delta E\) becomes astronomically long — the doublet is effectively two localized states.</li>`,
+ sugg: String.raw`
+  <li>Reduce \(\alpha\) or \(a\) until \(\Delta E\) is visible (\(2\beta a\sim3\)–\(10\)) and check \(\Delta E\approx4|E_0|e^{-2\beta a}\).</li>`
+},
+'inverted-harmonic-oscillator': {
+ extreme: String.raw`
+  <li><strong>Exact transmission (Kemble):</strong> \(T(E)=1/(1+e^{-2\pi E/\hbar\omega})\); \(T=\tfrac12\) exactly at the barrier top \(E=0\).</li>
+  <li><strong>\(E\ll-\hbar\omega\):</strong> \(T\approx e^{-2\pi|E|/\hbar\omega}\), the WKB tunnelling exponent; \(E\gg\hbar\omega\): \(R\approx e^{-2\pi E/\hbar\omega}\) (above-barrier reflection is exponentially small, not zero).</li>`,
+ pin: String.raw`
+  <li>The spectrum is continuous on the whole real axis; the “quasi-bound” Gamow poles \(E=-i\hbar\omega(n+\tfrac12)\) are purely imaginary — they describe decay without oscillation.</li>
+  <li>\(V\to-\infty\) on both sides, so the asymptotic waves are not plane waves; the Numerical Check uses flux-normalised WKB waves \(e^{i\int k}/\sqrt{k}\) at both ends.</li>`,
+ sugg: String.raw`
+  <li>Barrier-top tunnelling correction in chemistry: Wigner’s factor \(1+\tfrac1{24}(\hbar\omega/k_BT)^2\) follows from expanding the Kemble \(T(E)\) in a thermal average.</li>`
+},
+'coulomb-potential': {
+ extreme: String.raw`
+  <li><strong>Large \(Z\):</strong> relativistic corrections \(\sim(Z\alpha)^2E_n\); the point-nucleus Dirac equation fails at \(Z\alpha>1\) (\(Z\gtrsim137\)).</li>
+  <li><strong>Rydberg limit \(n\to\infty\):</strong> \(\langle r\rangle\sim n^2a_0\), spacing \(\approx2\,\mathrm{Ry}/n^3\), lifetimes \(\propto n^3\)–\(n^5\).</li>
+  <li><strong>\(E\to0^+\):</strong> the Sommerfeld factor \(C_0^2=2\pi\eta/(e^{2\pi\eta}-1)\to2\pi|\eta|\) (attractive) diverges like \(E^{-1/2}\).</li>`,
+ pin: String.raw`
+  <li>The levels use the reduced mass (\(E_1=-13.598\) eV, not \(-13.606\) eV for an infinitely heavy nucleus).</li>
+  <li>The Coulomb phase is defined against \(\sin(kr-l\pi/2-\eta\ln2kr+\sigma_l)\); a plain \(\sin(kr+\delta)\) never converges. Numerically, reading the phase with the free \(k\) leaves an oscillating \(O(\eta/kr)\) error that Richardson extrapolation cannot remove; the check now uses the local wave number \(k(r)\).</li>
+  <li><strong>Corrected:</strong> the single Gamow integral is \(\pi\eta\); with the factor 2 the tunnelling exponent is \(2\pi\eta\).</li>`,
+ sugg: String.raw`
+  <li>Add a \(1/r^2\) term (Kratzer) or screening (Hulthén) and watch the \(l\)-degeneracy lift.</li>`
+},
+'morse-potential': {
+ extreme: String.raw`
+  <li><strong>\(D_e\to\infty\) at fixed \(\omega=a\sqrt{2D_e/\mu}\):</strong> harmonic oscillator.</li>
+  <li><strong>\(\lambda=\sqrt{D_e/K}/a<\tfrac12\):</strong> no bound state; \(n_{\max}=\lfloor\lambda-\tfrac12\rfloor\).</li>
+  <li><strong>Birge–Sponer:</strong> \(E_{n+1}-E_n\) decreases linearly in \(n\) and extrapolates to \(D_e\).</li>`,
+ pin: String.raw`
+  <li>The exact solution is for \(x\in(-\infty,\infty)\). A diatomic molecule lives on \(r>0\); the error from the finite wall \(V(0)\) is \(\sim e^{-2ar_e}\) — negligible only when \(ar_e\gg1\).</li>
+  <li>Poles of \(\Gamma(\tfrac12+ik/a-\lambda)\) with \(m>\lambda-\tfrac12\) lie on the <em>negative</em> imaginary \(k\) axis: virtual (anti-bound) states, not resonances.</li>
+  <li>Garbled sentence in §2 of Quasi-Bound theory cleaned up in this version.</li>`,
+ sugg: String.raw`
+  <li>Add a rotational term \(J(J+1)\hbar^2/2\mu r^2\) (not in this module) to create real shape resonances behind a centrifugal barrier.</li>`
+},
+'inverted-morse-potential': {
+ extreme: String.raw`
+  <li>\(V=D_e(2e^{-ax}-e^{-2ax})\): a barrier of height \(D_e\) at \(x=0\) with \(V\to0^+\) on the right and \(V\to-\infty\) on the left. \(E\gg D_e\): \(T\to1\); \(E\ll D_e\): tunnelling, \(T\) exponentially small.</li>`,
+ pin: String.raw`
+  <li>On the left the particle is accelerated without bound: the local wave number \(k(x)\) grows like \(e^{-ax}\), so plane waves are not valid asymptotic states — the Numerical Check uses flux-normalised WKB waves on that side.</li>
+  <li>A potential unbounded below is not a stable physical system in general; here it models the falling side of a reaction barrier.</li>`,
+ sugg: String.raw`
+  <li>Compare \(T(E)\) near the top with the inverted-oscillator formula using the barrier curvature \(\omega_b=a\sqrt{2D_e/\mu}\).</li>`
+},
+'kratzer-potential': {
+ extreme: String.raw`
+  <li><strong>\(r_e\to0\) at fixed \(2D_er_e\):</strong> Coulomb limit with charge \(2D_er_e\).</li>
+  <li><strong>Large \(\beta=D_er_e^2/K\):</strong> \(\Lambda\approx\sqrt\beta\) and the low levels become harmonic around \(r_e\).</li>`,
+ pin: String.raw`
+  <li>The physical phase shift relative to the free \(l\)-wave is \(\sigma_\Lambda+(l-\Lambda)\pi/2\) with non-integer \(\Lambda\); quoting \(\sigma_\Lambda\) alone is off by \((l-\Lambda)\pi/2\).</li>
+  <li>Infinite tower of levels accumulating at \(E=0\) (Coulomb tail) — scan in \(\sqrt{-E}\) to find them all.</li>`,
+ sugg: String.raw`
+  <li>Increase \(l\): \(\Lambda(\Lambda+1)=l(l+1)+\beta\), so rotation simply shifts the effective angular momentum.</li>`
+},
+'inverted-kratzer-potential': {
+ extreme: String.raw`
+  <li>\(V=D_e(2r_e/r-r_e^2/r^2)\): repulsive Coulomb tail and an attractive \(-1/r^2\) core. With \(C=l(l+1)-\beta\), the regime \(C<-\tfrac14\) is <strong>supercritical</strong>.</li>
+  <li>Default parameters (\(\beta\approx2.95\)) are supercritical for \(l=0,1\) and subcritical from \(l=2\).</li>`,
+ pin: String.raw`
+  <li><strong>Supercritical = fall to the centre.</strong> \(\hat H\) is not essentially self-adjoint; solutions near \(r=0\) behave as \(r^{1/2\pm is}\), both square-integrable. A boundary condition (self-adjoint extension) must be chosen, the bound spectrum is unbounded below (geometric tower), and resonance positions depend on that choice.</li>
+  <li><strong>Corrected:</strong> the RK4 cross-check in the Scattering tab had the sign of the \(1/r\) term reversed (attractive instead of repulsive).</li>`,
+ sugg: String.raw`
+  <li>Set \(l\ge2\) (subcritical) and open the Numerical Check: no bound states and the repulsive-Coulomb phase \(\arg\Gamma(\Lambda+1+i\eta)\) are confirmed.</li>`
+},
+'hulthen-potential': {
+ extreme: String.raw`
+  <li><strong>\(\delta\to0\) at fixed \(V_0/\delta\):</strong> Coulomb limit — the level count grows without bound.</li>
+  <li><strong>Critical screening:</strong> level \(n_r\) exists only while \(\beta=V_0/(K\delta^2)>(n_r+l+1)^2\); at the threshold it becomes a zero-energy state.</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> \(\sigma_l=\arg\Gamma(1+2i\tilde\kappa)-\arg\Gamma(a)-\arg\Gamma(b)+l\pi/2\). The old formula was off by up to 1.5 rad.</li>
+  <li>For \(l\ge1\) the spectrum uses the Greene–Aldrich replacement \(1/r^2\to\delta^2e^{-\delta r}/(1-e^{-\delta r})^2\); the Numerical Check solves the true centrifugal problem, so the deviation shown for \(l\ge1\) <em>is</em> the approximation error (largest for weakly bound states).</li>`,
+ sugg: String.raw`
+  <li>Plot the energy of the last bound state against \(\delta\) to see the critical screening length.</li>`
+},
+'poschl-teller-potential': {
+ extreme: String.raw`
+  <li><strong>Reflectionless points:</strong> when \(s=-\tfrac12+\sqrt{\tfrac14+V_0/K\alpha^2}\) is an integer, \(R(E)\equiv0\) for every \(E\) (the well is invisible to scattering).</li>
+  <li><strong>\(\alpha\to\infty\) at fixed \(2V_0/\alpha\):</strong> delta-function limit.</li>`,
+ pin: String.raw`
+  <li>The phase of \(t(k)\) is checked numerically modulo \(2\pi\) — the analytic \(\arg t\) may differ by \(2\pi\) from the principal value.</li>`,
+ sugg: String.raw`
+  <li>Set \(V_0=K\alpha^2s(s+1)\) with integer \(s\) and confirm \(T=1\) everywhere in the Scattering and Numerical Check tabs.</li>`
+},
+'eckart-potential': {
+ extreme: String.raw`
+  <li><strong>\(B=0\):</strong> symmetric Pöschl–Teller.</li>
+  <li><strong>Large \(|B|\):</strong> the step dominates; bound levels disappear from the top as \(N_n=s-n\) falls below \(\sqrt{|b|/2}\).</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> a root of the energy formula is a bound state only if <em>both</em> exponents \(p,q>0\), i.e. \(N_n>\sqrt{|B|/(2K\alpha^2)}\). For the defaults the old list contained two spurious levels (\(n=3,4\)); numerical shooting finds none, and they are now removed.</li>
+  <li>\(q^2-p^2=b/2\) and \(p,q=N_n/2\mp b/(4N_n)\) (corrected factors).</li>`,
+ sugg: String.raw`
+  <li>Watch \(T(E)\) just above the upper threshold \(|B|\): flux normalisation \(k_R/k_L\) is essential when the two asymptotes differ.</li>`
+},
+'rosen-morse-potential': {
+ extreme: String.raw`
+  <li><strong>\(V_2=0\):</strong> symmetric Pöschl–Teller, \(E_n=-K\alpha^2(\lambda-n)^2\).</li>
+  <li><strong>Large \(|V_2|\):</strong> the tilt removes levels from the top.</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> normalisability requires \(a_n^2>|V_2|/2\), not just \(a_n>0\). AM–GM (\(E_n\le-|V_2|\)) holds even for the spurious roots, so it is not a valid test. Defaults: three spurious levels removed.</li>`,
+ sugg: String.raw`
+  <li>Increase \(V_2\) slowly and see levels vanish one by one at \(a_n=\sqrt{|V_2|/2}\).</li>`
+},
+'manning-rosen-potential': {
+ extreme: String.raw`
+  <li><strong>\(A=1\):</strong> Hulthén at \(l=0\).</li>
+  <li><strong>Small \(\alpha r\):</strong> \(V\to KA(A-1)/r^2-K\alpha(A(A-1)+B)/r\) — a Kratzer-like core.</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> since \(x^2/(1-x)^2=x/(1-x)^2-x/(1-x)\), the effective attraction is \(\tilde B=B+A(A-1)\): \(\varepsilon_n=\tilde B/(2N)-N/2\). For the defaults the exact levels are \(E_0=-0.610\) eV and \(E_1=-0.0381\) eV (previously listed as \(-0.343\) and \(-0.0042\) eV). The phase-shift formula was corrected in the same way.</li>`,
+ sugg: String.raw`
+  <li>Check the \(A=1\) limit against the Hulthén module with \(V_0=K\alpha^2B\), \(\delta=\alpha\).</li>`
+},
+'scarf-potential': {
+ extreme: String.raw`
+  <li><strong>Scarf I</strong> (trigonometric, compact domain): infinitely many levels growing like \(n^2\) at large \(n\) (box-like), harmonic-like near the bottom.</li>
+  <li><strong>Scarf II</strong> (hyperbolic): finite number of levels; reflectionless for special parameters.</li>`,
+ pin: String.raw`
+  <li>The ground state of Scarf I has \(E_0=0\) in this module’s energy origin; relative errors are meaningless there, so the Numerical Check reports absolute errors scaled by the spectrum width.</li>
+  <li>A complex (PT-symmetric) Scarf II is non-Hermitian: real spectra can still occur, but norms and probabilities need the PT inner product.</li>`,
+ sugg: String.raw`
+  <li>Compare Scarf I near its minimum with a harmonic oscillator of the same curvature.</li>`
+},
+'exponential-potential': {
+ extreme: String.raw`
+  <li>Bound states: \(J_\nu(z_0)=0\) with \(\nu=2a\kappa\), \(z_0=2a\sqrt{V_0/K}\). The number of levels is the number of zeros of \(J_\nu(z_0)\) in \(\nu>0\); a new one appears when \(z_0\) crosses a zero \(j_{0,m}\) of \(J_0\).</li>
+  <li><strong>\(a\to\infty\) at fixed \(V_0\):</strong> \(z_0\to\infty\), many levels, and the spectrum approaches the WKB result for a slowly varying well; <strong>\(z_0<2.405\)</strong>: no bound state at all (the hard wall at \(x=0\) imposes a threshold, unlike a free 1D well).</li>`,
+ pin: String.raw`
+  <li>The phase shift is \(\delta=\arg J_{i\mu}(z_0)+\arg\Gamma(1+i\mu)-\mu\ln(z_0/2)=\arg{}_0F_1(;1+i\mu;-z_0^2/4)\), \(\mu=2ak\). The Schläfli integral loses all accuracy for \(\mu\gtrsim5\) (cancellation \(\sim e^{\pi\mu}\)); the check uses the \({}_0F_1\) series in double-double precision.</li>`,
+ sugg: String.raw`
+  <li>Lower \(V_0\) until only one level remains and compare its energy with the threshold \(z_0=j_{0,1}\approx2.405\).</li>`
+},
+'woods-saxon-potential': {
+ extreme: String.raw`
+  <li><strong>\(a\to0\):</strong> square well of radius \(R\); <strong>large \(a\):</strong> soft, almost harmonic interior.</li>`,
+ pin: String.raw`
+  <li><strong>Corrected:</strong> \(z_0=1/(1+e^{-R/a})\approx0.999\) for nuclear parameters, so the power series in \(z\) needs \(\sim10^5\) terms; with 3000 terms the levels were off by 0.05–0.06 MeV. The exact form \(u=z^\varepsilon(1-z)^\mu{}_2F_1(A,B;2\varepsilon+1;z)\) is now evaluated with the Gauss connection formula about \(z=1\) and agrees with RK4/Numerov to \(10^{-9}\).</li>
+  <li>Only \(l=0\) has a closed form; \(l\ge1\) needs numerics or an approximation (Pekeris).</li>`,
+ sugg: String.raw`
+  <li>Vary the target mass \(m_2\): the levels move through the reduced mass in \(K=\hbar^2c^2/2\mu c^2\).</li>`
+},
+'woods-saxon-surface': {
+ extreme: String.raw`
+  <li><strong>\(V_s=0\):</strong> plain Woods–Saxon. Large \(V_s>0\) raises a surface barrier that can trap quasi-bound states; \(V_s<0\) deepens the surface region.</li>`,
+ pin: String.raw`
+  <li>The volume+surface potential is still a Riemann (hypergeometric) problem: \(A+B=2\varepsilon+2\mu+1\), \(AB=(\varepsilon+\mu)(\varepsilon+\mu+1)+b_s\), \(b_s=4a^2V_s/K\). The same slow-series problem as plain Woods–Saxon is fixed by the connection formula, including the complex-\(\varepsilon\) search for quasi-bound poles.</li>`,
+ sugg: String.raw`
+  <li>Compare with the “New Woods–Saxon + Surface” module (Jost-function implementation): the levels agree once the masses are the same.</li>`
+},
+'new-eckart-pdf': {
+ extreme: String.raw`
+  <li>\(V=V_1q+V_2q^2\), \(q=e^{-r/a}/(1+be^{-r/a})\in(0,1/(1+b)]\). <strong>\(b\to0\):</strong> exponential plus double-exponential (Morse-like) form; <strong>large \(b\):</strong> the well flattens and becomes shallower, \(V(0)\to(V_1+V_2/(1+b))/(1+b)\).</li>`,
+ pin: String.raw`
+  <li>A bound level must satisfy \(V_{\min}<E<0\) on \(r\ge0\); the minimum may be at \(r=0\). For the default parameters there is no bound state — both the exact Jost function and direct integration agree.</li>`,
+ sugg: String.raw`
+  <li>Increase \(|V_1|\) or \(a\) until the first level appears and follow its energy towards threshold.</li>`
+},
+'new-ws-surface': {
+ extreme: String.raw`
+  <li>Same physics as the Woods–Saxon + Surface module, solved with Jost functions; \(V_s\) large enough gives complex \(\beta=\tfrac12+\sqrt{\tfrac14-4a^2V_s/K}\).</li>`,
+ pin: String.raw`
+  <li>Slightly different default masses than the other Woods–Saxon module (\(m_1,m_2\) rounded) shift the levels by \(\sim10^{-6}\) MeV — not an error.</li>`,
+ sugg: String.raw`
+  <li>Open the Numerical Check: the exact levels and phase shifts are compared with an independent RK4/Numerov engine (not the module’s own 700-step shooting).</li>`
+}
+};
 
 /* =========================================================================
    POTENTIAL 1 — INFINITE SQUARE WELL (with parity)
@@ -954,7 +1864,17 @@ const InfiniteWell = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST, V:x=>0,
+    domain:()=>({x0:-state.a/2, x1:state.a/2, left:'dirichlet', right:'dirichlet'}),
+    bound:()=>{ const lv=[]; for(let n=1;n<=6;n++) lv.push({n, label:'n='+n, E:E(n,state.a)});
+      return {levels:lv, Emin:0.2*E(1,state.a), Emax:0.5*(E(6,state.a)+E(7,state.a)), M:400}; },
+    psi:(lv,x)=>psi(lv.n,state.a,x),
+    note:'Hard walls are imposed exactly (u=0 at x=±a/2), so both integrators must reproduce n²π²K/a² with the textbook O(h⁴) convergence.',
+    scatterNote:'No scattering states (impenetrable walls).'
+  };
+
+  return { check: CHECK, _state: state,
     id:'infinite-well', name:'Infinite Square Well',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -1212,7 +2132,7 @@ const FiniteWell = (function(){
     \\(\\tau_n\\to\\infty\\)) — exactly like the infinite well, just with a finite, numerically-determined number of them.
     Every state with \\(E>0\\) is a true unbound scattering state (see the Scattering tab) rather than a trapped
     resonance, because there is no barrier to create metastability. Ramsauer&ndash;Townsend transmission resonances
-    (visible as \\(T\\to1\\) dips at special energies in the Scattering tab) are sometimes loosely called
+    (visible as \\(T=1\\) peaks at \\(k_2a=n\\pi\\) in the Scattering tab, i.e. dips of \\(R\\) to zero) are sometimes loosely called
     "shape resonances," but they are not S-matrix poles off the real axis — they are just special real energies with
     exactly zero reflection, disappearing entirely (\\(\\Gamma\\) undefined) once the well itself is removed.</p>
     </div>`;
@@ -1222,7 +2142,7 @@ const FiniteWell = (function(){
     <h4>Genuine Scattering States (E &gt; 0)</h4>
     <p>Unlike the infinite well and harmonic oscillator, the finite well has a real continuum: for \\(E>0\\) the
     particle passes over/through the dip with real wavevectors everywhere,</p>
-    <div class="eq-wrap">\\ [ k_1=\\sqrt{2\\mu E}/\\hbar \\;\\;(|x|>a/2), \\qquad k_2=\\sqrt{2\\mu(E+V_0)}/\\hbar \\;\\;(|x|<a/2) \\] </div>
+    <div class="eq-wrap">\\[ k_1=\\sqrt{2\\mu E}/\\hbar \\;\\;(|x|>a/2), \\qquad k_2=\\sqrt{2\\mu(E+V_0)}/\\hbar \\;\\;(|x|<a/2) \\] </div>
     <p>with asymptotic form \\(\\psi = e^{ik_1x}+re^{-ik_1x}\\) (left), \\(\\psi=A\\cos(k_2x)+B\\sin(k_2x)\\) (inside),
     \\(\\psi=te^{ik_1x}\\) (right). Matching \\(\\psi,\\psi'\\) at both boundaries (4 equations, 4 complex unknowns
     \\(A,B,r,t\\)) is solved exactly in closed form (this app solves the resulting linear system directly rather than
@@ -1529,7 +2449,7 @@ const FiniteWell = (function(){
       { x:Es, y:Ts, type:'scatter', mode:'lines', line:{color:'#4fd8e0', width:2}, name:'T(E)' },
       { x:Es, y:Ts.map(t=>1-t), type:'scatter', mode:'lines', line:{color:'#e05a5a', width:2}, name:'R(E)' },
       { x:[E,E], y:[0,1], type:'scatter', mode:'lines', line:{color:'#e0b040', width:1.5, dash:'dash'}, name:'current E' }
-    ], mkLayout({ title:{text:'Transmission / Reflection vs Energy (Ramsauer–Townsend dips at T=1)', font:{size:11}},
+    ], mkLayout({ title:{text:'Transmission / Reflection vs Energy (Ramsauer–Townsend peaks: T=1, R=0)', font:{size:11}},
       yaxis:{title:'probability', range:[-0.05,1.05]}, xaxis:{title:'E (eV)'} }), PLOT_CONFIG);
 
     // V(x) with E marked
@@ -1600,7 +2520,19 @@ const FiniteWell = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Math.abs(x)<state.a/2?-state.V0:0,
+    breaks:()=>[-state.a/2, state.a/2],
+    domain:()=>({x0:-state.a/2-0.3, x1:state.a/2+0.3, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const ss=solveBoundStates(state.V0,state.a);
+      return {levels:ss.map((s,i)=>({n:i, s, label:'n='+(i+1)+' ('+s.parity+')', E:s.E})), Emin:-state.V0*(1-1e-9), Emax:-1e-7, M:500}; },
+    psi:(lv,x)=>psiBoundRaw(lv.s,state.a,x),
+    scatter:()=>({kind:'T', Es:linspace(0.05, Math.max(4*state.V0,10), 36), analytic:E=>computeScatter(E,state.V0,state.a).T}),
+    note:'Outside the well V is exactly constant, so the decay condition u′=∓κu is imposed exactly at the box edge; the step at x=±a/2 is a segment boundary, so no O(h) error from the discontinuity.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'finite-well', name:'Finite Square Well',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -2029,7 +2961,18 @@ const HarmonicOscillator = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST/state.m,
+    V:x=>0.5*state.m*MU_MASS*state.omega*state.omega*x*x,
+    domain:()=>{ const L=Math.sqrt(40*HBAR_EVFS/(state.m*MU_MASS*state.omega)); return {x0:-L, x1:L, left:'dirichlet', right:'dirichlet'}; },
+    bound:()=>{ const lv=[]; for(let n=0;n<=5;n++) lv.push({n, label:'n='+n, E:E(n,state.omega)});
+      return {levels:lv, Emin:0.1*E(0,state.omega), Emax:E(5,state.omega)+0.5*HBAR_EVFS*state.omega, M:400}; },
+    psi:(lv,x)=>psi(lv.n,state.m,state.omega,x),
+    note:'Box of half-width √(40ħ/mω) ≈ 6.3 oscillator lengths; the Gaussian tail there is ~e⁻²⁰, so the hard-wall error is far below the integration error.',
+    scatterNote:'Confining potential: no scattering states.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'harmonic-oscillator', name:'Harmonic Oscillator',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -2183,8 +3126,11 @@ const RectangularBarrier = (function(){
     and lingers before eventually leaking out. Mathematically, poles of the S-matrix for a single barrier do exist off
     the real axis, but they sit far from it (heavily damped, \\(\\Gamma\\) comparable to \\(E_r\\) itself) rather than
     forming the narrow, long-lived peaks that define an observable "quasi-bound" resonance.</p>
-    <p>Consequently the Transmission curve \\(T(E)\\) in the Scattering tab is smooth and monotonically approaches 1 at
-    high energy — it shows no sharp resonance spikes. (Contrast this with a double-barrier structure, not modeled
+    <p>Consequently the Transmission curve \\(T(E)\\) in the Scattering tab shows no <em>narrow</em> resonance spikes below the
+    barrier top. <span class="nc-fixnote"><strong>Corrected:</strong> above the barrier (\\(E>V_0\\)) \\(T(E)\\) is <em>not</em>
+    monotonic — it oscillates and reaches \\(T=1\\) exactly when \\(q a=n\\pi\\), \\(q=\\sqrt{(E-V_0)/K}\\), i.e. at
+    \\(E_n=V_0+K(n\\pi/a)^2\\) (over-barrier transmission resonances). These are the broad poles mentioned above;
+    their width grows with \\(n\\).</span> (Contrast this with a double-barrier structure, not modeled
     here, where an interior well between two barriers <em>would</em> produce sharp transmission resonances at the
     well's quasi-bound energies — this is the operating principle of resonant-tunneling diodes.)</p>
     </div>`;
@@ -2489,7 +3435,17 @@ const RectangularBarrier = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Math.abs(x)<state.a/2?state.V0:0,
+    breaks:()=>[-state.a/2, state.a/2],
+    domain:()=>({x0:-state.a/2-0.2, x1:state.a/2+0.2, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>null, boundNote:'No bound states (V ≥ 0 everywhere) — nothing to compare.',
+    scatter:()=>({kind:'T', Es:linspace(0.07, Math.max(4*state.V0,10), 40).filter(E=>Math.abs(E-state.V0)>1e-3), analytic:E=>computeScatter(E,state.V0,state.a).T}),
+    note:'Tunnelling (E<V₀) and over-barrier (E>V₀) transmission from the closed form vs. direct integration through the barrier.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'rectangular-barrier', name:'Rectangular Barrier',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -3430,7 +4386,18 @@ const WellBarrier = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>state.K,
+    V:x=> x<-state.a?0:(x<0?-state.V0:(x<state.b?state.V1:0)),
+    breaks:()=>[-state.a,0,state.b],
+    domain:()=>({x0:-state.a-0.3, x1:state.b+0.3, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const ss=solveBoundStates(state.V0,state.V1,state.a,state.b,state.K);
+      return {levels:ss.map((s,i)=>({n:i,label:'n='+(i+1),E:s.E})), Emin:-state.V0*(1-1e-9), Emax:-1e-7, M:500}; },
+    scatter:()=>({kind:'T', Es:linspace(0.05, 2.5*Math.max(state.V0,state.V1)+5, 50), analytic:E=>computeScatter(E,state.V0,state.V1,state.a,state.b,state.K).T}),
+    note:'Transfer-matrix (analytic) vs. direct integration through all three interfaces; uses the adjustable K of this module.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'well-barrier', name:'Well + Barrier',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -3608,9 +4575,9 @@ const DeltaPotential = (function(){
     <p>Formally, the transmission amplitude \\(t(E)\\) derived in the Scattering tab has only a single pole in the
     complex-energy plane (found by analytic continuation to \\(E<0\\)), and that pole sits exactly on the real axis
     at \\(E=E_0\\) — it <em>is</em> the bound state, with \\(\\Gamma=0\\). There is no second, complex pole displaced
-    into the lower half-plane, so no finite-width resonance is produced. The Transmission tab shows \\(T(E)\\) rising
+    into the lower half-plane, so no finite-width resonance is produced. The Transmission tab shows \\(T(E)=E/(E+E_\\alpha)\\), \\(E_\\alpha=\\alpha^2/(4K)\\), rising
     smoothly and monotonically from \\(T(0)=0\\) toward \\(T(E\\to\\infty)=1\\), with no resonance peaks of any kind —
-    for either sign of \\(\\alpha\\).</p>
+    for either sign of \\(\\alpha\\) (\\(T\\) depends on \\(\\alpha^2\\) only; the sign shows up only in the phase of \\(t\\)).</p>
     </div>`;
 
   const theoryScatter = `
@@ -4019,7 +4986,18 @@ const DeltaPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST, V:x=>0,
+    jumps:()=>[{x:0, s:-state.alpha}],
+    domain:()=>({x0:-0.6, x1:0.6, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>{ if(!(state.alpha>1e-9)) return {levels:[], Emin:-50, Emax:-1e-6, M:200};
+      const E0=E0Of(state.alpha); return {levels:[{n:0,label:'n=0',E:E0}], Emin:1.6*E0, Emax:0.05*E0, M:300}; },
+    psi:(lv,x)=>psiBound(state.alpha,x),
+    scatter:()=>({kind:'T', Es:linspace(0.05,20,36), analytic:E=>computeScatter(E,state.alpha).T}),
+    note:'The δ-function is applied as the exact jump Δψ′ = −(α/K)ψ(0) at a segment boundary — no smoothing or finite-width approximation.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'delta-potential', name:'Delta Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -4367,7 +5345,7 @@ const DoubleDeltaPotential = (function(){
     <h4>2. Repulsive Case (α &lt; 0) — A Delta-Function Resonant-Tunneling Cavity</h4>
     <p>For two repulsive spikes (\\(\\alpha<0\\), i.e. \\(\\beta<0\\)), each delta individually reflects some
     incident amplitude (recall from the single Delta Potential module that a lone repulsive delta has
-    \\(T(E)=[1+V_0a^2/4K]^{-1}\\)-type suppression at low energy, i.e. it is a genuine, if weak, partial
+    \\(T(E)=\\big[1+\\alpha^2/(4KE)\\big]^{-1}=4KE/(4KE+\\alpha^2)\\) — strong suppression at low energy, i.e. it is a genuine, if weak, partial
     reflector). Two such reflectors separated by a gap of width \\(2a\\) form exactly the same kind of leaky
     Fabry&ndash;P&eacute;rot cavity discussed in the Well+Barrier module's Quasi-Bound theory, but now built from
     the simplest possible point scatterers. A particle can bounce back and forth in the field-free region
@@ -4849,7 +5827,20 @@ const DoubleDeltaPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST, V:x=>0,
+    jumps:()=>[{x:-state.a, s:-state.alpha},{x:state.a, s:-state.alpha}],
+    parity:true,
+    domain:()=>({x0:-state.a-0.6, x1:state.a+0.6, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const ss=solveBoundStates(state.alpha,state.a);
+      if(!ss.length) return {levels:[], Emin:-4*Math.max(1,state.alpha*state.alpha/(K_CONST)), Emax:-1e-6, M:200};
+      return {levels:ss.map((s,i)=>({n:i,s,label:s.parity,E:s.E})), Emin:1.3*ss[0].E, Emax:-1e-7, M:400}; },
+    psi:(lv,x)=>psiBoundRaw(lv.s,state.a,x),
+    scatter:()=>({kind:'T', Es:linspace(0.05,20,40), analytic:E=>computeScatter(E,state.alpha,state.a).T}),
+    note:'Both spikes are exact derivative jumps. Bound states are shot on the half line with u′(0)=0 (even) or u(0)=0 (odd), so even/odd doublets are resolved even when their splitting ∝ e^{−2κa} is far below double precision on the full line; the transfer-matrix T(E) is tested independently.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'double-delta-potential', name:'Double Delta Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -5629,7 +6620,22 @@ const InvertedHarmonicOscillator = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST/state.m,
+    V:x=>(state.orientation==='well'?1:-1)*0.5*state.m*MU_MASS*state.omega*state.omega*x*x,
+    domain:()=>{ const xo=Math.sqrt(HBAR_EVFS/(state.m*MU_MASS*state.omega));
+      return state.orientation==='well' ? {x0:-6.4*xo, x1:6.4*xo, left:'dirichlet', right:'dirichlet'} : {x0:-14*xo, x1:14*xo, left:'dirichlet', right:'dirichlet'}; },
+    bound:()=>{ if(state.orientation!=='well') return null; const lv=[]; for(let n=0;n<=5;n++) lv.push({n,label:'n='+n,E:Ewell(n,state.omega)});
+      return {levels:lv, Emin:0.1*Ewell(0,state.omega), Emax:Ewell(5,state.omega)+0.5*HBAR_EVFS*state.omega, M:400}; },
+    boundNote:'Barrier orientation: Hamiltonian unbounded below, no bound states.',
+    psi:(lv,x)=>psiWell(lv.n,state.m,state.omega,x),
+    scatter:()=>{ if(state.orientation==='well') return null; const hw=HBAR_EVFS*state.omega;
+      return {kind:'T', ppw:18, Es:linspace(-3*hw,3*hw,25), analytic:E=>computeScatterIHO(E,state.omega).T}; },
+    scatterNote:'Well orientation: no scattering states. Switch to the Barrier orientation for the Kemble formula check.',
+    note:'Barrier: both ends are classically allowed with growing k(x); the numerical T(E) uses flux-normalised WKB waves e^{±i∫k}/√k at x = ±14 oscillator lengths (residual WKB error ≈ (k′/k²)² ~ 10⁻⁵), a direct test of T = 1/(1+e^{−2πE/ħω}).'
+  };
+
+  return { check: CHECK, _state: state,
     id:'inverted-harmonic-oscillator', name:'Inverted Harmonic Oscillator',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -6023,8 +7029,8 @@ const CoulombPotential = (function(){
     tunneling exponent is</p>
     <div class="eq-wrap">\\[ 2\\!\\int_0^{r_c}\\!\\!\\sqrt{\\frac{ZE_{\\text{coul}}/r-E}{K}}\\,dr \\]</div>
     <p>Substituting \\(r=r_c\\sin^2\\phi\\) turns the integrand into an elementary trigonometric form, and the
-    integral evaluates to exactly \\(\\tfrac{\\pi}{2}r_c\\sqrt{E/K}\\,\\times\\,2 = \\pi\\eta\\) after simplification
-    with the Step-1 definition of \\(\\eta\\), giving the celebrated <strong>Gamow factor</strong>:</p>
+    single integral \\(\\int_0^{r_c}\\) evaluates to \\(\\tfrac{\\pi}{2}r_c\\sqrt{E/K}=\\tfrac{\\pi}{2}(2\\eta)=\\pi\\eta\\)
+    (since \\(kr_c=2\\eta\\)), so the exponent with its factor 2 is \\(2\\pi\\eta\\), giving the celebrated <strong>Gamow factor</strong>:</p>
     <div class="eq-wrap">\\[ P_{\\text{Gamow}} \\;\\approx\\; e^{-2\\pi\\eta} \\]</div>
     <p>matching the large-\\(\\eta\\) asymptotic limit of the exact \\(C_0^2(\\eta)\\) formula above
     (\\(C_0^2(\\eta)\\to2\\pi\\eta\\,e^{-2\\pi\\eta}\\) for \\(\\eta\\gg1\\)) up to the slowly-varying prefactor — this
@@ -6375,7 +7381,21 @@ const CoulombPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:r=>state.l*(state.l+1)*K_CONST/(r*r) - state.Z*COULOMB_K/r,
+    start:(E,x)=>NumSolve.frob(state.l+1, state.Z*COULOMB_K/K_CONST)(E,x),
+    domain:()=>{ const nT=state.l+4, a0=a0Of(state.Z); return {x0:1e-5*a0, x1:a0*(2*nT*nT+30*nT), left:'origin', right:'dirichlet'}; },
+    bound:()=>{ const Z=state.Z,l=state.l, lv=[]; for(let n=l+1;n<=l+4;n++) lv.push({n,label:'n='+n+', l='+l,E:En(Z,n)});
+      return {levels:lv, Emin:1.15*En(Z,l+1), Emax:0.5*(En(Z,l+4)+En(Z,l+5)), M:240, scan:'sqrt'}; },
+    psi:(lv,r)=>uRaw(lv.n,state.l,state.Z,r),
+    scatter:()=>({kind:'phase', ppw:80, extrap:true, x1:E=>Math.min(70, Math.max(30, 300/Math.sqrt(E))), L:state.l,
+      eta:E=>etaOf(E,state.Z,Math.sqrt(E/K_CONST)), Es:linspace(3,40,18),
+      analytic:E=>sigmaL(state.l, etaOf(E,state.Z,Math.sqrt(E/K_CONST)))}),
+    note:'Uses l from the Bound States tab for both checks. Frobenius start u = r^{l+1}(1−g r/(2l+2)) handles the 1/r singularity; the Coulomb phase is read against sin(kr − lπ/2 − η ln2kr + σ_l) with Richardson extrapolation in 1/r to remove the slowly-decaying O(η²/kr) asymptotic correction.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'coulomb-potential', name:'Coulomb Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -6692,8 +7712,7 @@ const MorsePotential = (function(){
     would require a pole of \\(r(k)\\) at \\(k=k_r-i\\gamma\\) with \\(\\gamma>0\\) — strictly in the lower half of
     the complex-\\(k\\) plane (equivalently, off the negative real energy axis once mapped to \\(E=Kk^2\\)). Since
     the Gamma function's only singularities are simple poles at non-positive integer argument, the poles of
-    \\(r(k)\\propto\\Gamma\\big(\\tfrac12-\\tfrac{ik}a-\\lambda\\big)^{-1}\\)... more precisely (Theory: Scattering,
-    Step 4) the poles occur where \\(\\Gamma\\!\\big(\\tfrac12+\\tfrac{ik}{a}-\\lambda\\big)\\) blows up, i.e. where</p>
+    \\(r(k)\\) (Theory: Scattering, Step 4) occur where \\(\\Gamma\\!\\big(\\tfrac12+\\tfrac{ik}{a}-\\lambda\\big)\\) blows up, i.e. where</p>
     <div class="eq-wrap">\\[ \\tfrac12+\\frac{ik}a-\\lambda = -m, \\qquad m=0,1,2,\\dots \\;\\Longrightarrow\\; k = ia\\Big(\\lambda-\\tfrac12-m\\Big) \\]</div>
     <p>For \\(m=0,1,\\dots,n_{\\max}=\\lfloor\\lambda-\\tfrac12\\rfloor\\), this \\(k\\) is <strong>purely
     imaginary and positive</strong>, \\(k=i\\kappa_m\\) with \\(\\kappa_m\\equiv a(\\lambda-\\tfrac12-m)>0\\). The
@@ -7114,7 +8133,21 @@ const MorsePotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vmorse(state.De,state.a,x),
+    domain:()=>{ const De=state.De,a=state.a, nm=nMaxBound(De,a);
+      const kl = nm>=0 ? Math.sqrt(Math.max(1e-6,-Emorse(De,a,nm))/K_CONST) : 1;
+      return {x0:NumSolve.wallPoint(x=>Vmorse(De,a,x),0,-20/a,40*De+50), x1:Math.max(40/a,14/kl), left:'dirichlet', right:'decay', VL:0, VR:0}; },
+    bound:()=>{ const De=state.De,a=state.a, nm=nMaxBound(De,a); const lv=[]; for(let n=0;n<=nm;n++) lv.push({n,label:'n='+n,E:Emorse(De,a,n)});
+      return {levels:lv, Emin:-De*(1-1e-9), Emax:-1e-8, M:600}; },
+    psi:(lv,x)=>psiRaw(lv.n,state.De,state.a,x),
+    scatter:()=>({kind:'phase', ppw:30, x1:40/state.a, offset:-Math.PI/2, Es:linspace(0.3,20,20),
+      analytic:E=>computeScatter(E,state.De,state.a).delta}),
+    note:'The repulsive wall is cut where V = 40D_e (ψ there ~ e^{−∫κ} ≪ 10⁻¹⁰). The reflection phase is compared with r = e^{2iδ}: ψ ∝ e^{−ikx}+r e^{ikx} ∝ cos(kx+δ).'
+  };
+
+  return { check: CHECK, _state: state,
     id:'morse-potential', name:'Morse Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -7716,7 +8749,16 @@ const InvertedMorsePotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vinv(state.De,state.a,x),
+    domain:()=>{ const De=state.De,a=state.a; return {x0:-Math.log(1+Math.sqrt(1+1000))/a, x1:20/a, left:'dirichlet', right:'dirichlet'}; },
+    bound:()=>null, boundNote:'Unbounded below (V→−∞ as x→−∞): no bound states.',
+    scatter:()=>({kind:'T', ppw:20, Es:linspace(0.4, 2.2*state.De, 22), analytic:E=>computeScatter(E,state.De,state.a).T}),
+    note:'Left end placed where V ≈ −1000 D_e; the transmitted wave there is a flux-normalised WKB wave e^{−i∫k}/√k. This directly tests the λ→−iμ continued reflection amplitude of the Inverted Morse module.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'inverted-morse-potential', name:'Inverted Morse Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -8339,7 +9381,21 @@ const KratzerPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:r=>Vkratzer(state.De,state.re,r)+state.l*(state.l+1)*K_CONST/(r*r),
+    start:(E,x)=>NumSolve.frob(LambdaOf(state.De,state.re,state.l)+1, AOf(state.De,state.re)/K_CONST)(E,x),
+    domain:()=>{ const {De,re,l}=state, kap=kappaOf(De,re,l,4); return {x0:1e-5*re, x1:40/kap, left:'origin', right:'dirichlet'}; },
+    bound:()=>{ const {De,re,l}=state, lv=[]; for(let nr=0;nr<=4;nr++) lv.push({nr,label:'n_r='+nr,E:Enr(De,re,l,nr)});
+      return {levels:lv, Emin:1.2*Enr(De,re,l,0), Emax:0.5*(Enr(De,re,l,4)+Enr(De,re,l,5)), M:240, scan:'sqrt'}; },
+    psi:(lv,r)=>uRaw(lv.nr,state.l,state.De,state.re,r),
+    scatter:()=>({kind:'phase', ppw:80, extrap:true, x1:E=>Math.max(20,60/Math.sqrt(E)), L:state.l,
+      eta:E=>etaOf(E,state.De,state.re,Math.sqrt(E/K_CONST)), Es:linspace(1,30,16),
+      analytic:E=>{ const sc=computeScatterKratzer(E,state.De,state.re,state.l); return sc.sigma+(state.l-sc.Lambda)*Math.PI/2; }}),
+    note:'Uses l from the Bound States tab. The physical phase shift relative to the free l-wave is σ_Λ + (l−Λ)π/2 (Λ non-integer), which is what is compared here.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'kratzer-potential', name:'Kratzer Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -8532,9 +9588,9 @@ const InvertedKratzerPotential = (function(){
     const LamRe = Lambda.re; // dominant real power for the regularity condition
     const A = AchargeOf(De,re);
     const beta = betaOf(De,re);
-    function Vterm(r){ return (l*(l+1)-beta)/(r*r) - (-A)/(K_CONST*r) - E/K_CONST; }
-    // NOTE: -A/(K r) reproduces the correct sign since here the equation's
-    // linear term is +2*De*re/r = -A_charge/r with A_charge<0
+    // FIX: V = De(2re/r − re²/r²)  ⇒  u'' = [(l(l+1)−β)/r² + 2De·re/(K r) − E/K] u
+    //      (previous code had −2De·re/(K r), i.e. an attractive instead of repulsive Coulomb tail)
+    function Vterm(r){ return (l*(l+1)-beta)/(r*r) + 2*De*re/(K_CONST*r) - E/K_CONST; }
     const k = Math.sqrt(E/K_CONST);
     const r0 = Math.min(1e-3, 0.05/k);
     let y = [Math.pow(r0,LamRe+1), (LamRe+1)*Math.pow(r0,LamRe)];
@@ -8970,7 +10026,22 @@ const InvertedKratzerPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:r=>Vinv(state.De,state.re,r)+state.l*(state.l+1)*K_CONST/(r*r),
+    start:(E,x)=>{ const L=LambdaOf(state.l,state.De,state.re); return NumSolve.frob(L.re+1, -2*state.De*state.re/K_CONST)(E,x); },
+    domain:()=>({x0:1e-5*state.re, x1:20*state.re+5, left:'origin', right:'dirichlet'}),
+    bound:()=>{ const L=LambdaOf(state.l,state.De,state.re); if(L.supercritical) return null;
+      return {levels:[], Emin:-3*state.De, Emax:-1e-5, M:300}; },
+    boundNote:'Supercritical (β > l(l+1)+¼): the regular boundary condition does not exist (“fall to the centre”), so no unique bound-state problem can be integrated. Raise l or lower D_e·r_e² to enter the subcritical regime.',
+    scatter:()=>{ const L=LambdaOf(state.l,state.De,state.re); if(L.supercritical) return null;
+      return {kind:'phase', ppw:48, extrap:true, x1:60, L:state.l, eta:E=>state.De*state.re/(K_CONST*Math.sqrt(E/K_CONST)), Es:linspace(1,30,16),
+        analytic:E=>{ const sc=computeScatter(E,state.l,state.De,state.re); return sc.sigma+(state.l-sc.Lambda.re)*Math.PI/2; }}; },
+    scatterNote:'Supercritical: phase shift depends on an arbitrary self-adjoint extension — no unique check.',
+    note:'Uses l from the Bound States tab. Subcritical regime only: confirms (i) no bound states with the regular boundary condition and (ii) the repulsive-tail Coulomb phase σ = arg Γ(Λ+1+iη).'
+  };
+
+  return { check: CHECK, _state: state,
     id:'inverted-kratzer-potential', name:'Inverted Kratzer Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -9112,7 +10183,9 @@ const HulthenPotential = (function(){
     const b = Cx(1+l-nu.re, kt-nu.im);
     const c = Cx(1, 2*kt);
     const gA=cGamma(a), gB=cGamma(b), gC=cGamma(c);
-    const sigma = Math.atan2(gA.im,gA.re) + Math.atan2(gB.im,gB.re) - 2*Math.atan2(gC.im,gC.re);
+    // FIX: δ_l = arg Γ(c) − arg Γ(a) − arg Γ(b) + lπ/2  (Jost-function result; previous
+    //      expression argΓ(a)+argΓ(b)−2argΓ(c) was wrong by sign and by −argΓ(c))
+    const sigma = Math.atan2(gC.im,gC.re) - Math.atan2(gA.im,gA.re) - Math.atan2(gB.im,gB.re) + l*Math.PI/2;
     const S = Cx(Math.cos(2*sigma), Math.sin(2*sigma));
     return { k, kt, nu, beta, sigma, S, R:1, T:0 };
   }
@@ -9272,7 +10345,13 @@ const HulthenPotential = (function(){
     hypergeometric connection formula gives the reflection phase as a sum of Gamma-function arguments — each
     \\(\\arg[\\Gamma(z)]\\) is automatically real for any complex \\(z\\), so the result is manifestly real without
     further work:</p>
-    <div class="eq-wrap">\\[ \\boxed{\\; \\sigma_l(k) = \\arg\\big[\\Gamma(a)\\big] + \\arg\\big[\\Gamma(b)\\big] - 2\\arg\\big[\\Gamma(c)\\big] \\;} \\]</div>
+    <div class="eq-wrap">\\[ \\boxed{\\; \\sigma_l(k) = \\arg\\Gamma(c) - \\arg\\Gamma(a) - \\arg\\Gamma(b) + \\frac{l\\pi}{2} \\;} \\]</div>
+    <p class="nc-fixnote"><strong>Corrected in this version.</strong> This follows from the Jost function
+    \\(F(k)=\\Gamma(c)\\big/[\\Gamma(a)\\Gamma(b)]\\) (up to a real positive factor), \\(\\sigma_l=-\\arg F(k)+l\\pi/2\\);
+    zeros of \\(F\\) (poles of \\(\\Gamma(b)\\)) on the positive imaginary \\(k\\) axis are the bound states. The
+    previous expression \\(\\arg\\Gamma(a)+\\arg\\Gamma(b)-2\\arg\\Gamma(c)\\) disagreed with direct Numerov/RK4
+    integration by up to 1.5 rad; the corrected formula now agrees to better than \\(10^{-5}\\) rad (see the
+    <em>Numerical Check</em> tab, \\(l=0\\)).</p>
     <p>evaluated in this app via the same Lanczos-approximated complex Gamma function used throughout (Coulomb,
     Kratzer, Morse, Inverted Harmonic Oscillator). The S-matrix \\(S(E)=e^{2i\\sigma_l}\\) is unimodular by
     construction (it is defined as a pure phase), matching the exact \\(R\\equiv1\\) result of Step 1.</p>
@@ -9622,7 +10701,23 @@ const HulthenPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:r=>Vhulthen(state.V0,state.delta,r)+state.l*(state.l+1)*K_CONST/(r*r),
+    start:(E,x)=>NumSolve.frob(state.l+1, state.V0/(state.delta*K_CONST))(E,x),
+    domain:()=>{ const {V0,delta,l}=state, nm=nMaxBound(V0,delta,l);
+      const kl = nm>=0 ? Math.max(1e-3,kappaOf(V0,delta,l,nm)) : 1; return {x0:1e-6/delta, x1:Math.min(400, 16/kl+12/delta), left:'origin', right:'dirichlet'}; },
+    bound:()=>{ const {V0,delta,l}=state, nm=nMaxBound(V0,delta,l), lv=[];
+      for(let nr=0;nr<=nm;nr++) lv.push({nr,label:'n_r='+nr+(l>0?' (GA approx.)':''),E:Enr(V0,delta,l,nr)});
+      return {levels:lv, Emin:nm>=0?1.4*Enr(V0,delta,l,0)-0.1:-V0, Emax:-1e-6, M:260, scan:'sqrt'}; },
+    psi:(lv,r)=>uRaw(lv.nr,state.l,state.V0,state.delta,r),
+    scatter:()=>{ if(state.l!==0) return null; return {kind:'phase', ppw:30, x1:22/state.delta, L:0, Es:linspace(0.3,25,13),
+      analytic:E=>computeScatterHulthen(E,state.V0,state.delta,0).sigma}; },
+    scatterNote:'Phase check only for l = 0 (for l ≥ 1 the analytic phase belongs to the Greene–Aldrich model potential, not to the true centrifugal one).',
+    note:'For l = 0 the analytic spectrum is exact. For l ≥ 1 the numerical columns solve the TRUE centrifugal problem l(l+1)K/r², so the deviation shown is the size of the Greene–Aldrich approximation error itself.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'hulthen-potential', name:'Hulthén Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -10266,7 +11361,24 @@ const PoschlTellerPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vpt(state.V0,state.alpha,state.orientation,x),
+    domain:()=>({x0:-25/state.alpha, x1:25/state.alpha, left:'decay', right:'decay', VL:0, VR:0}),
+    bound:()=>{ if(state.orientation!=='well') return null; const nm=nMaxBound(state.V0,state.alpha), lv=[];
+      for(let n=0;n<=nm;n++) lv.push({n,label:'n='+n,E:Enr(state.V0,state.alpha,n)});
+      return {levels:lv, Emin:-state.V0*(1-1e-9), Emax:-1e-8, M:500}; },
+    boundNote:'Barrier orientation: V ≥ 0, no bound states.',
+    psi:(lv,x)=>psiRaw(lv.n,state.V0,state.alpha,x),
+    scatter:()=>({kind:'T', Es:linspace(0.05,25,36), analytic:E=>computeScatter(E,state.V0,state.alpha,state.orientation).T,
+      extra:()=>{ const E=state.Escatt, num=NumSolve.transmission(CHECK,E,'numerov',4000), an=computeScatter(E,state.V0,state.alpha,state.orientation);
+        const argNum=Math.atan2(num.t.im,num.t.re); const d=NumSolve.wrapPi(argNum-an.delta)*2;
+        const anW=Math.atan2(Math.sin(an.delta),Math.cos(an.delta));
+        return [['arg t at E='+fmt(E,2)+' (analytic vs Numerov, mod 2π)', fmt(anW,5)+' vs '+fmt(argNum,5)+' rad', Math.abs(Math.atan2(Math.sin(argNum-an.delta),Math.cos(argNum-an.delta)))<1e-3]]; }}),
+    note:'Both the closed-form T(E) and the phase of the exact Γ-function transmission amplitude t(k) are checked; the domain ±25/α makes the sech² tail ~ 10⁻²¹ of V₀.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'poschl-teller-potential', name:'Pöschl–Teller Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -10366,7 +11478,10 @@ const EckartPotential = (function(){
   // ---------------- core physics: potential & bound-state closed form ----------------
   function Vecк(A,B,alpha,x){ return -A/Math.pow(Math.cosh(alpha*x),2) + B*Math.tanh(alpha*x); }
   function sOf(A,alpha){ return -0.5+Math.sqrt(0.25+A/(K_CONST*alpha*alpha)); }
-  function nMaxBound(A,alpha){ return Math.floor(sOf(A,alpha)-1e-9); }
+  // FIX: a level exists only if BOTH decay constants are positive: p_n = N_n/2 − b/(4N_n) > 0
+  //      ⇔ N_n > √(|B|/(2Kα²)).  Previously levels with p_n<0 (growing on one side) were listed.
+  function nMaxBound(A,alpha,B){ if(B===undefined) B=state.B; const s=sOf(A,alpha), Nc=Math.sqrt(Math.abs(B)/(2*K_CONST*alpha*alpha));
+    let n=Math.floor(s-1e-9); while(n>=0 && (s-n)<=Nc*(1+1e-12)) n--; return n; }
   function NOf(A,alpha,n){ return sOf(A,alpha)-n; }
   function Enr(A,B,alpha,n){
     const N = NOf(A,alpha,n);
@@ -10544,15 +11659,16 @@ const EckartPotential = (function(){
     <p>Defining \\(s\\equiv-\\tfrac12+\\sqrt{\\tfrac14+a}\\) (the same "well-strength" parameter as Pöschl&ndash;Teller,
     built from \\(A\\) alone), the hypergeometric series terminates as a degree-\\(n\\) polynomial exactly when</p>
     <div class="eq-wrap">\\[ p+q = N_n \\equiv s-n, \\qquad n=0,1,\\dots,n_{\\max}=\\lfloor s-\\epsilon\\rfloor \\]</div>
-    <p>Combined with \\(q^2-p^2=(\\kappa_R^2-\\kappa_L^2)/(4\\alpha^2)=b/N_n\\) (from the definitions of
+    <p>Combined with \\(q^2-p^2=(\\kappa_R^2-\\kappa_L^2)/(4\\alpha^2)=b/2\\) (from the definitions of
     \\(\\kappa_L,\\kappa_R\\)) and \\(p+q=N_n\\), solving the resulting linear system gives
-    \\(p=N_n-\\tfrac{b}{2N_n}\\), \\(q=N_n+\\tfrac{b}{2N_n}\\) (taking \\(B\\ge0\\) WLOG), and hence the closed-form
+    \\(p=\\tfrac{N_n}{2}-\\tfrac{b}{4N_n}\\), \\(q=\\tfrac{N_n}{2}+\\tfrac{b}{4N_n}\\) (taking \\(B\\ge0\\) WLOG), and hence the closed-form
     spectrum:</p>
     <div class="eq-wrap">\\[ \\boxed{\\; E_n = -K\\alpha^2N_n^2 - \\frac{B^2}{4K\\alpha^2N_n^2}, \\qquad N_n=s-n \\;} \\]</div>
-    <p>A short AM&ndash;GM argument (\\(N_n^2+b^2/(4N_n^2)\\ge|b|\\)) shows \\(E_n\\le-|B|\\) automatically for every
-    valid \\(N_n>0\\) — the quantization condition self-consistently never produces an unphysical "bound state"
-    above the lower threshold, so the only constraint on \\(n\\) is \\(N_n=s-n>0\\), exactly mirroring the
-    Pöschl&ndash;Teller module's \\(n_{\\max}=\\lfloor s\\rfloor\\). Setting \\(B=0\\) recovers
+    <p>A short AM&ndash;GM argument (\\(N_n^2+b^2/(4N_n^2)\\ge|b|\\)) shows \\(E_n\\le-|B|\\) for every
+    \\(N_n>0\\). <span class="nc-fixnote"><strong>Corrected:</strong> this is <em>not</em> enough. Both exponents must be positive,
+    \\(p=N_n/2-|b|/(4N_n)>0\\), i.e. \\(N_n>\\sqrt{|b|/2}\\). Roots with \\(\\sqrt{|b|/2}\\ge N_n>0\\) satisfy the energy
+    formula but grow exponentially on the low side; they were previously listed as bound states (and shooting finds none).
+    Hence \\(n_{\\max}=\\max\\{n: s-n>\\sqrt{|b|/2}\\}\\), which reduces to Pöschl&ndash;Teller's \\(\\lfloor s\\rfloor\\) at \\(B=0\\).</span> Setting \\(B=0\\) recovers
     \\(E_n=-K\\alpha^2(s-n)^2\\), the Pöschl&ndash;Teller spectrum exactly.</p>
 
     <h4>4. Explicit Wavefunctions</h4>
@@ -11042,7 +12158,18 @@ const EckartPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vecк(state.A,state.B,state.alpha,x),
+    domain:()=>({x0:-22/state.alpha, x1:22/state.alpha, left:'decay', right:'decay', VL:-state.B, VR:state.B}),
+    bound:()=>{ const {A,B,alpha}=state, nm=nMaxBound(A,alpha), lv=[]; for(let n=0;n<=nm;n++) lv.push({n,label:'n='+n,E:Enr(A,B,alpha,n)});
+      return {levels:lv, Emin:-A-Math.abs(B), Emax:-Math.abs(B)-1e-7, M:600}; },
+    psi:(lv,x)=>psiRaw(lv.n,state.A,state.B,state.alpha,x),
+    scatter:()=>({kind:'T', Es:linspace(Math.abs(state.B)+0.2, Math.abs(state.B)+30, 36), analytic:E=>computeScatter(E,state.A,state.B,state.alpha).T}),
+    note:'Asymptotes −B (left) and +B (right) are imposed with their own decay constants κ_L, κ_R; transmission uses flux normalisation (k_R/k_L), so the asymmetric closed form is tested directly.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'eckart-potential', name:'Eckart Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -11157,9 +12284,11 @@ const RosenMorsePotential = (function(){
   function AOf(V1,alpha){ const k=kappaOf(alpha); return (-k+Math.sqrt(k*k+4*V1))/2; }
   function BOf(V2){ return -V2/2; }
   function lambdaOf(V1,alpha){ const v1=V1/(K_CONST*alpha*alpha); return -0.5+Math.sqrt(0.25+v1); }
-  function nMaxBound(V1,alpha){
-    const A=AOf(V1,alpha), k=kappaOf(alpha);
-    return Math.floor(A/k - 1e-9);
+  // FIX: normalisable on both sides only if a_n² > |B| = |V₂|/2 (otherwise one decay constant is negative)
+  function nMaxBound(V1,alpha,V2){
+    if(V2===undefined) V2=state.V2;
+    const A=AOf(V1,alpha), k=kappaOf(alpha), ac=Math.sqrt(Math.abs(V2)/2);
+    let n=Math.floor(A/k - 1e-9); while(n>=0 && (A-n*k)<=ac*(1+1e-12)) n--; return n;
   }
   function anOf(n,V1,alpha){ return AOf(V1,alpha) - n*kappaOf(alpha); }
   function Enr(n,V1,V2,alpha){
@@ -11281,8 +12410,11 @@ const RosenMorsePotential = (function(){
     <div class="eq-wrap">\\[ \\boxed{\\; E_n = -a_n^2 - \\frac{B^2}{a_n^2}, \\qquad a_n \\equiv A-n\\kappa, \\qquad \\kappa\\equiv\\sqrt{K}\\,\\alpha \\;} \\]</div>
     <p>where \\(A\\) and \\(B\\) are fixed by the physical well parameters via</p>
     <div class="eq-wrap">\\[ V_1 = A(A+\\kappa) \\;\\Longrightarrow\\; A = \\frac{-\\kappa+\\sqrt{\\kappa^2+4V_1}}{2}, \\qquad V_2 = -2B \\;\\Longrightarrow\\; B=-\\frac{V_2}{2} \\]</div>
-    <p>Bound states exist for \\(n=0,1,\\dots,n_{\\max}\\), where \\(n_{\\max}=\\lfloor A/\\kappa-\\epsilon\\rfloor\\)
-    (a <strong>finite</strong> tower — the requirement \\(a_n>0\\) for normalizability).</p>
+    <p>Bound states exist for \\(n=0,1,\\dots,n_{\\max}\\), where \\(n_{\\max}\\) is the largest \\(n\\) with
+    \\(a_n=A-n\\kappa>\\sqrt{|B|}=\\sqrt{|V_2|/2}\\) (a <strong>finite</strong> tower). <span class="nc-fixnote"><strong>Corrected:</strong>
+    \\(a_n>0\\) alone is not sufficient — the two decay constants are \\(\\kappa_{L,R}\\propto a_n\\pm B/a_n\\), and if
+    \\(a_n^2<|B|\\) one of them is negative, so the "solution" grows exponentially on one side. Such spurious levels were
+    previously listed; numerical shooting finds no state there.</span></p>
 
     <h4>5. Consistency Check — the Symmetric (V₂=0) Limit</h4>
     <p>Setting \\(B=0\\): \\(E_n=-a_n^2=-(A-n\\kappa)^2\\). Writing \\(A=\\lambda\\kappa\\) (from
@@ -11292,6 +12424,9 @@ const RosenMorsePotential = (function(){
 
     <h4>6. Why E_n Always Lies Below Both Asymptotes</h4>
     <p>By the AM&ndash;GM inequality, \\(a_n^2+B^2/a_n^2 \\ge 2|B|=|V_2|\\) for any \\(a_n>0\\), so</p>
+    <p class="nc-fixnote"><strong>Pinpoint:</strong> this inequality is necessary but <em>not</em> sufficient. AM&ndash;GM is satisfied
+    even by the spurious roots with \\(a_n^2<|B|\\); what really decides normalisability is the sign of
+    \\(a_n-|B|/a_n\\) (the smaller decay constant).</p>
     <div class="eq-wrap">\\[ E_n \\le -|V_2| = \\min\\big(V_2,-V_2\\big) \\]</div>
     <p>confirming every \\(E_n\\) lies below <em>both</em> asymptotic plateaus — a necessary condition for a state
     to be genuinely, symmetrically bound (decaying on both sides), and a useful built-in check on the formula's
@@ -11764,7 +12899,18 @@ const RosenMorsePotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vrm(state.V1,state.V2,state.alpha,x),
+    domain:()=>({x0:-22/state.alpha, x1:22/state.alpha, left:'decay', right:'decay', VL:-state.V2, VR:state.V2}),
+    bound:()=>{ const {V1,V2,alpha}=state, nm=nMaxBound(V1,alpha), lv=[]; for(let n=0;n<=nm;n++) lv.push({n,label:'n='+n,E:Enr(n,V1,V2,alpha)});
+      return {levels:lv, Emin:-V1-Math.abs(V2), Emax:-Math.abs(V2)-1e-7, M:600}; },
+    psi:(lv,x)=>psiRaw(lv.n,state.V1,state.V2,state.alpha,x),
+    scatter:()=>({kind:'T', Es:linspace(Math.abs(state.V2)+0.2, Math.abs(state.V2)+30, 36), analytic:E=>computeScatter(E,state.V1,state.V2,state.alpha).T}),
+    note:'Same asymmetric-asymptote treatment as the Eckart module; the Gauss connection-formula T(E) is compared with direct integration.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'rosen-morse-potential', name:'Rosen–Morse Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -11860,10 +13006,12 @@ const ManningRosenPotential = (function(){
     return K_CONST*alpha*alpha*( A*(A-1)*x*x/((1-x)*(1-x)) - B*x/(1-x) );
   }
   function NOf(n,A){ return n+A; }
-  function epsOf(n,A,B){ const N=NOf(n,A); return B/(2*N) - N/2; }
+  // FIX: x²/(1−x)² = x/(1−x)² − x/(1−x)  ⇒  effective Hulthén strength is B + A(A−1), not B
+  function gEffMR(A,B){ return B + A*(A-1); }
+  function epsOf(n,A,B){ const N=NOf(n,A); return gEffMR(A,B)/(2*N) - N/2; }
   function kappaOf(n,A,B,alpha){ return alpha*epsOf(n,A,B); }
   function Enr(n,A,B,alpha){ const eps=epsOf(n,A,B); return -K_CONST*alpha*alpha*eps*eps; }
-  function nMaxBound(A,B){ return Math.floor(Math.sqrt(B)-A-1e-9); }
+  function nMaxBound(A,B){ return Math.floor(Math.sqrt(gEffMR(A,B))-A-1e-9); }
 
   // finite (terminating) Gauss hypergeometric series: 2F1(-n, Bp; Cp; x)
   function hyperF(n,Bp,Cp,x){
@@ -11899,13 +13047,14 @@ const ManningRosenPotential = (function(){
   function computeScatterMR(E,A,B,alpha){
     const k = Math.sqrt(E/K_CONST);
     const kt = k/alpha;
-    const disc = B-kt*kt;
+    const disc = gEffMR(A,B)-kt*kt;   // FIX: B → B + A(A−1)
     const nu = disc>=0 ? Cx(Math.sqrt(disc),0) : Cx(0, Math.sqrt(-disc));
     const a = Cx(A+nu.re, kt+nu.im);
     const b = Cx(A-nu.re, kt-nu.im);
     const c = Cx(1, 2*kt);
     const gA=cGamma(a), gB=cGamma(b), gC=cGamma(c);
-    const sigma = Math.atan2(gA.im,gA.re) + Math.atan2(gB.im,gB.re) - 2*Math.atan2(gC.im,gC.re);
+    // FIX: δ = arg Γ(c) − arg Γ(a) − arg Γ(b)   (phase relative to sin kr)
+    const sigma = Math.atan2(gC.im,gC.re) - Math.atan2(gA.im,gA.re) - Math.atan2(gB.im,gB.re);
     const S = Cx(Math.cos(2*sigma), Math.sin(2*sigma));
     return { k, kt, nu, sigma, S, R:1, T:0 };
   }
@@ -11977,17 +13126,23 @@ const ManningRosenPotential = (function(){
     the Hulthén module's exact \\(l=0\\) reduction, here occurring for <em>any</em> \\(A\\) rather than only at
     \\(A=1\\)) reduces the equation for \\(F(x)\\) exactly to Gauss's hypergeometric equation:</p>
     <div class="eq-wrap">\\[ x(1-x)F'' + \\big[(2\\varepsilon+1)-(2\\varepsilon+2A+1)x\\big]F' - ab\\,F = 0 \\]</div>
-    <p>with parameters \\(c=2\\varepsilon+1\\), \\(a+b=2\\varepsilon+2A\\), \\(ab=A(2\\varepsilon+A)-B\\). Solving
+    <p>with parameters \\(c=2\\varepsilon+1\\), \\(a+b=2\\varepsilon+2A\\), \\(ab=A(2\\varepsilon+1)-B\\). Solving
     this pair (complete the square on \\(a+b\\)):</p>
-    <div class="eq-wrap">\\[ \\boxed{\\; a,b = (\\varepsilon+A) \\pm \\sqrt{\\varepsilon^2+B} \\;} \\]</div>
+    <div class="eq-wrap">\\[ \\boxed{\\; a,b = (\\varepsilon+A) \\pm \\sqrt{\\varepsilon^2+B+A(A-1)} \\;} \\]</div>
 
     <h4>4. Quantization</h4>
     <p>Normalizability forces \\(F\\) to terminate as a degree-\\(n\\) polynomial: \\(b=-n\\), \\(n=0,1,2,\\dots\\).
     Setting \\(N\\equiv n+A\\):</p>
-    <div class="eq-wrap">\\[ \\sqrt{\\varepsilon^2+B} = \\varepsilon+N \\;\\Longrightarrow\\; B = 2\\varepsilon N + N^2 \\;\\Longrightarrow\\; \\boxed{\\; \\varepsilon_n = \\frac{B}{2N}-\\frac{N}{2}, \\qquad N=n+A \\;} \\]</div>
-    <div class="eq-wrap">\\[ \\boxed{\\; E_n = -K\\alpha^2\\varepsilon_n^2, \\qquad n=0,1,\\dots,n_{\\max}=\\big\\lfloor\\sqrt{B}-A\\big\\rfloor \\;} \\]</div>
-    <p>A bound state \\((n)\\) exists iff \\(\\varepsilon_n>0\\), i.e. \\(B>N^2=(n+A)^2\\) — the ground state
-    requires \\(B>A^2\\), a genuine minimum-strength threshold exactly analogous to the Hulthén potential's own
+    <div class="eq-wrap">\\[ \\sqrt{\\varepsilon^2+\\tilde B} = \\varepsilon+N \\;\\Longrightarrow\\; \\tilde B = 2\\varepsilon N + N^2 \\;\\Longrightarrow\\; \\boxed{\\; \\varepsilon_n = \\frac{\\tilde B}{2N}-\\frac{N}{2}, \\qquad N=n+A,\\quad \\tilde B\\equiv B+A(A-1) \\;} \\]
+    <p class="nc-fixnote"><strong>Corrected in this version.</strong> Because
+    \\(x^2/(1-x)^2 = x/(1-x)^2 - x/(1-x)\\), the core term also contributes \\(-A(A-1)\\,x/(1-x)\\) to the
+    Hulthén-like attraction, so the effective strength is \\(\\tilde B=B+A(A-1)\\). The earlier formula
+    (with \\(B\\) alone) missed the ground state entirely for the default parameters
+    (\\(A=2,B=10\\): exact \\(E_0=-0.610\\) eV, \\(E_1=-0.0381\\) eV versus the former \\(-0.343, -0.0042\\) eV);
+    the Numerov and RK4 shooting results in the Numerical Check tab confirm the corrected values.</p></div>
+    <div class="eq-wrap">\\[ \\boxed{\\; E_n = -K\\alpha^2\\varepsilon_n^2, \\qquad n=0,1,\\dots,n_{\\max}=\\big\\lfloor\\sqrt{B+A(A-1)}-A\\big\\rfloor \\;} \\]</div>
+    <p>A bound state \\((n)\\) exists iff \\(\\varepsilon_n>0\\), i.e. \\(B+A(A-1)>N^2=(n+A)^2\\) — the ground state
+    requires \\(B>A\\), a genuine minimum-strength threshold exactly analogous to the Hulthén potential's own
     \\(\\beta>(n_r+l+1)^2\\) condition, but here controlled by the core strength \\(A\\) instead of the angular
     momentum \\(l\\).</p>
 
@@ -12020,10 +13175,10 @@ const ManningRosenPotential = (function(){
     exterior, nothing can trap probability transiently.</p>
 
     <h4>2. Pole Argument</h4>
-    <p>The Scattering tab derives \\(S(E)=e^{2i\\sigma(E)}\\), \\(\\sigma=\\arg\\Gamma(a)+\\arg\\Gamma(b)-2\\arg\\Gamma(c)\\),
-    with \\(a,b=(A+i\\tilde\\kappa)\\pm\\nu\\), \\(\\nu=\\sqrt{B-\\tilde\\kappa^2}\\), \\(\\tilde\\kappa\\equiv k/\\alpha\\).
+    <p>The Scattering tab derives \\(S(E)=e^{2i\\sigma(E)}\\), \\(\\sigma=\\arg\\Gamma(c)-\\arg\\Gamma(a)-\\arg\\Gamma(b)\\),
+    with \\(a,b=(A+i\\tilde\\kappa)\\pm\\nu\\), \\(\\nu=\\sqrt{\\tilde B-\\tilde\\kappa^2}\\), \\(\\tilde B=B+A(A-1)\\), \\(\\tilde\\kappa\\equiv k/\\alpha\\).
     Continuing to the bound-state regime \\(k=i\\kappa\\) (\\(\\tilde\\kappa\\to i\\kappa/\\alpha\\equiv i\\varepsilon\\),
-    real \\(\\varepsilon\\)) makes \\(\\nu\\to\\sqrt{B+\\varepsilon^2}\\) real, and \\(b=A+\\varepsilon-\\nu\\) develops
+    real \\(\\varepsilon\\)) makes \\(\\nu\\to\\sqrt{\\tilde B+\\varepsilon^2}\\) real, and \\(b=A+\\varepsilon-\\nu\\) develops
     simple poles of \\(\\Gamma(b)\\) exactly where \\(b=-n\\) — i.e. exactly the Theory: Bound States, §4
     quantization condition. Every pole of the analytically-continued S-matrix therefore sits precisely on the
     negative real energy axis, reproducing the bound-state tower with zero width, and <strong>nowhere else</strong>
@@ -12053,7 +13208,7 @@ const ManningRosenPotential = (function(){
     <h4>2. Analytic Continuation to Real Energy</h4>
     <p>Set \\(E>0\\), \\(k\\equiv\\sqrt{E/K}\\), and continue \\(\\varepsilon\\to i\\tilde\\kappa\\),
     \\(\\tilde\\kappa\\equiv k/\\alpha\\), in the hypergeometric parameters of Theory: Bound States, §3. Since
-    \\(\\varepsilon^2+B=B-\\tilde\\kappa^2\\) is always real, define \\(\\nu\\equiv\\sqrt{B-\\tilde\\kappa^2}\\) via
+    \\(\\varepsilon^2+\\tilde B=\\tilde B-\\tilde\\kappa^2\\) is always real (\\(\\tilde B=B+A(A-1)\\)), define \\(\\nu\\equiv\\sqrt{\\tilde B-\\tilde\\kappa^2}\\) via
     the same real/imaginary branch convention used for the Rectangular Barrier and Well+Barrier modules (real for
     \\(\\tilde\\kappa^2<B\\), purely imaginary otherwise):</p>
     <div class="eq-wrap">\\[ a = A+i\\tilde\\kappa+\\nu, \\qquad b = A+i\\tilde\\kappa-\\nu, \\qquad c = 1+2i\\tilde\\kappa \\]</div>
@@ -12063,7 +13218,9 @@ const ManningRosenPotential = (function(){
     \\(r\\to\\infty\\) via the standard hypergeometric connection formula (the identical construction used for the
     Coulomb, Kratzer, and Hulthén modules) gives the reflection phase as a sum of real Gamma-function arguments —
     automatically real for any complex argument, so the result is manifestly real without further work:</p>
-    <div class="eq-wrap">\\[ \\boxed{\\; \\sigma(k) = \\arg\\Gamma(a) + \\arg\\Gamma(b) - 2\\arg\\Gamma(c) \\;} \\]</div>
+    <div class="eq-wrap">\\[ \\boxed{\\; \\sigma(k) = \\arg\\Gamma(c) - \\arg\\Gamma(a) - \\arg\\Gamma(b) \\;} \\]</div>
+    <p class="nc-fixnote"><strong>Corrected in this version</strong> (sign and \\(\\arg\\Gamma(c)\\) multiplicity), verified against
+    direct Numerov/RK4 integration of the radial equation (Numerical Check tab).</p>
     <p>evaluated in this app via the same Lanczos-approximated complex Gamma function used throughout
     (Coulomb, Kratzer, Hulthén, Morse, Pöschl&ndash;Teller). \\(S(E)=e^{2i\\sigma(E)}\\) is unimodular by
     construction, matching the exact \\(R\\equiv1\\) result of Step 1.</p>
@@ -12074,7 +13231,7 @@ const ManningRosenPotential = (function(){
     amplitude and the bound spectrum are two faces of one analytic function, evaluated on two different domains.</p>
 
     <h4>5. Threshold and High-Energy Limits</h4>
-    <p>As \\(E\\to0^+\\), \\(\\nu\\to\\sqrt B\\) (real, assuming \\(B>0\\)), and \\(\\sigma(E)\\) approaches a value
+    <p>As \\(E\\to0^+\\), \\(\\nu\\to\\sqrt{\\tilde B}\\) (real), and \\(\\sigma(E)\\) approaches a value
     set by the number of bound states already present — the Manning&ndash;Rosen analogue of Levinson's theorem
     (compare Coulomb/Kratzer/Hulthén elsewhere in this app). As \\(E\\to\\infty\\), \\(\\tilde\\kappa\\to\\infty\\)
     dominates \\(\\nu\\) (which becomes purely imaginary and subdominant), and \\(\\sigma\\to0\\) — the potential
@@ -12411,7 +13568,20 @@ const ManningRosenPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:r=>Vmr(state.A,state.B,state.alpha,r),
+    start:(E,x)=>NumSolve.frob(state.A, state.alpha*(state.A*(state.A-1)+state.B))(E,x),
+    domain:()=>{ const {A,B,alpha}=state, nm=nMaxBound(A,B); const kl=nm>=0?Math.max(1e-3,kappaOf(nm,A,B,alpha)):1;
+      return {x0:1e-6/alpha, x1:Math.min(400,16/kl+12/alpha), left:'origin', right:'dirichlet'}; },
+    bound:()=>{ const {A,B,alpha}=state, nm=nMaxBound(A,B), lv=[]; for(let n=0;n<=nm;n++) lv.push({n,label:'n='+n,E:Enr(n,A,B,alpha)});
+      return {levels:lv, Emin:nm>=0?1.4*Enr(0,A,B,alpha)-0.1:-10, Emax:-1e-6, M:260, scan:'sqrt'}; },
+    psi:(lv,r)=>uRaw(lv.n,state.A,state.B,state.alpha,r),
+    scatter:()=>({kind:'phase', ppw:60, x1:40/state.alpha, L:0, Es:linspace(0.3,30,18), analytic:E=>computeScatterMR(E,state.A,state.B,state.alpha).sigma}),
+    note:'Near the origin u ~ r^A (non-integer power set by the A(A−1)/r² core); the start uses u = r^A(1 − g r/2A).'
+  };
+
+  return { check: CHECK, _state: state,
     id:'manning-rosen-potential', name:'Manning–Rosen Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -13415,7 +14585,21 @@ const ScarfPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>VscarfI(state.A,state.B,state.alpha,x),
+    domain:()=>{ const {A,B,alpha}=state, e=xEdgeI(alpha), Ecut=EnScarfI(7,A,alpha)*40+200;
+      const V=x=>VscarfI(A,B,alpha,x);
+      return {x0:NumSolve.wallPoint(V,0,-e*(1-1e-9),Ecut), x1:NumSolve.wallPoint(V,0,e*(1-1e-9),Ecut), left:'dirichlet', right:'dirichlet'}; },
+    bound:()=>{ if(state.orientation!=='I' || !(state.A>Math.abs(state.B))) return null; const {A,alpha}=state, lv=[];
+      for(let n=0;n<=6;n++) lv.push({n,label:'n='+n,E:EnScarfI(n,A,alpha)});
+      return {levels:lv, Emin:-A*A, Emax:0.5*(EnScarfI(6,A,alpha)+EnScarfI(7,A,alpha)), M:500}; },
+    boundNote:'Numerical check covers Scarf I (real, compact domain, A>|B|). Scarf II is non-Hermitian; its own tabs already use complex RK4 shooting.',
+    psi:(lv,x)=>psiRawScarfI(lv.n,state.A,state.B,state.alpha,x),
+    note:'The sec² walls are cut where V reaches 40·E₇+200 eV, deep in the forbidden region; the exact SUSY ladder E_n=(A+nκ)²−A² is compared level by level.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'scarf-potential', name:'Scarf I–II Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -14067,7 +15251,34 @@ const ExponentialPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    let besselKey='', besselCache=[];
+  function besselLevels(V0,a){
+    const key=V0.toFixed(6)+'|'+a.toFixed(6); if(key===besselKey) return besselCache;
+    const z0=z0Of(V0,a), f=nu=>NumSolve.f01(nu,0,z0).re, out=[];  // J_ν(z0)=0 ⇔ 0F1(;1+ν;−z0²/4)=0
+    const M=500; let n0=1e-7, f0=f(n0);
+    for(let i=1;i<=M;i++){ const nu=z0*i/M, fv=f(nu);
+      if(f0*fv<0){ let lo=n0,hi=nu,fl=f0; for(let it=0;it<55;it++){ const m=(lo+hi)/2, fm=f(m); if(fl*fm<=0) hi=m; else {lo=m;fl=fm;} }
+        const nuR=(lo+hi)/2; out.push(-K_CONST*Math.pow(nuR/(2*a),2)); }
+      n0=nu; f0=fv; }
+    out.sort((p,q)=>p-q); besselKey=key; besselCache=out; return out;
+  }
+  const CHECK = {
+    units:{E:'eV',x:'nm'}, K:()=>K_CONST,
+    V:x=>Vexp(state.V0,state.a,state.orientation,x),
+    domain:()=>({x0:0, x1:40*state.a, left:'dirichlet', right:'decay', VL:0, VR:0}),
+    bound:()=>{ if(state.orientation!=='well') return null;
+      const lv=besselLevels(state.V0,state.a).map((E,i)=>({n:i,label:'n='+i+' (J_ν(z₀)=0)',E}));
+      return {levels:lv, Emin:-state.V0*(1-1e-9), Emax:-1e-7, M:260, scan:'sqrt'}; },
+    boundNote:'Barrier orientation: no bound states.',
+    scatter:()=>{ if(state.orientation!=='well') return null;
+      return {kind:'phase', ppw:60, x1:30*state.a, L:0, Es:linspace(0.3,20,16),
+        analytic:E=>{ const k=Math.sqrt(E/K_CONST), mu=2*state.a*k, z0=z0Of(state.V0,state.a);
+          const F=NumSolve.f01(0,mu,z0); return Math.atan2(F.im,F.re); }}; },
+    scatterNote:'Barrier orientation: the modified-Bessel closed form is not implemented — no analytic reference.',
+    note:'The “analytic” column is a genuine special-function result: bound states are the roots ν = 2aκ of J_ν(z₀)=0, z₀ = 2a√(V₀/K), and the phase shift is δ = arg J_{iμ}(z₀) + arg Γ(1+iμ) − μ ln(z₀/2) = arg ₀F₁(;1+iμ;−z₀²/4), μ = 2ak. The ₀F₁ series is summed in double-double precision because its alternating terms cancel by ~e^{z₀}.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'exponential-potential', name:'Exponential Potential',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -14156,6 +15367,9 @@ const WoodsSaxonPotential = (function(){
 
   // ---------------- the exact series F(z;ε) (derived in Theory tab) ----------------
   function evalF(z,eps,b0,Nmax){
+    // FIX: z0 = 1/(1+e^{-R/a}) ≈ 0.999 → the power series needs ~10^5 terms; use the exact
+    //      hypergeometric form with the Gauss connection formula about z = 1 instead.
+    if(z>0.5){ const w=NumSolve.wsHyp(z,{re:eps,im:0},b0,0); if(isFinite(w.re)) return w.re; }
     const C0 = b0 - 2*eps*eps - eps;
     let cPrev=0, cCurr=1;
     let sum=cCurr, zn=1;
@@ -14752,7 +15966,17 @@ const WoodsSaxonPotential = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'MeV',x:'fm'}, K:()=>Kfn(state.m1,state.m2),
+    V:x=>Vws(state.V0,state.R,state.a,x),
+    domain:()=>({x0:0, x1:state.R+40*state.a, left:'dirichlet', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const {V0,R,a,m1,m2}=state, ss=solveBoundStatesWS(V0,R,a,m1,m2);
+      return {levels:ss.map((s,i)=>({n:i,eps:s.eps,label:'n='+i,E:s.E})), Emin:-V0*(1-1e-9), Emax:-1e-6, M:500}; },
+    psi:(lv,x)=>{ const K=Kfn(state.m1,state.m2); return psiRawWS(x,state.R,state.a,lv.eps,b0Of(state.V0,state.a,K),3000); },
+    note:'The “analytic” levels are roots of the exact hypergeometric series F(z₀;ε)=0 (no ODE integration); RK4 and Numerov integrate the same s-wave equation from u(0)=0.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'woods-saxon-potential', name:'Woods–Saxon Potential ',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -14866,6 +16090,8 @@ const WoodsSaxonSurface = (function(){
 
   // ---------------- the exact series F(z;ε), real ε (bound states) ----------------
   function evalF(z,eps,b0,bs,Nmax){
+    // FIX: exact ₂F₁ form + Gauss connection formula near z = 1 (series converged too slowly at z0≈0.999)
+    if(z>0.5){ const w=NumSolve.wsHyp(z,{re:eps,im:0},b0,bs); if(isFinite(w.re)) return w.re; }
     const C0 = b0 - 2*eps*eps - eps - bs;
     let cPrev=0, cCurr=1;
     let sum=cCurr, zn=1;
@@ -14891,6 +16117,7 @@ const WoodsSaxonSurface = (function(){
   // (n+1)(n+2ε+1) c_{n+1} = [2n²+(4ε+1)n - C0] c_n - [n²+(2ε-1)n+ε²-ε+b_s] c_{n-1}
   // C0 = b0 - 2ε² - ε - b_s
   function evalFComplex(z, eps, b0, bs, Nmax){
+    if(z>0.5){ const w=NumSolve.wsHyp(z,eps,b0,bs); if(isFinite(w.re)&&isFinite(w.im)) return w; }
     const eps2 = cMul(eps,eps);
     const C0 = cSub(cSub(cSub(cx(b0,0), cScale(eps2,2)), eps), cx(bs,0));
     let cPrev = cx(0,0), cCurr = cx(1,0);
@@ -15712,7 +16939,17 @@ const WoodsSaxonSurface = (function(){
     MathJax.typesetPromise([container]);
   }
 
-  return {
+    const CHECK = {
+    units:{E:'MeV',x:'fm'}, K:()=>Kfn(state.m1,state.m2),
+    V:x=>VwsTot(state.V0,state.Vs,state.R,state.a,x),
+    domain:()=>({x0:0, x1:state.R+40*state.a, left:'dirichlet', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const {V0,Vs,R,a,m1,m2}=state, ss=solveBoundStatesWS(V0,Vs,R,a,m1,m2);
+      return {levels:ss.map((s,i)=>({n:i,eps:s.eps,label:'n='+i,E:s.E})), Emin:VminOnDomain(V0,Vs,R,a)*(1-1e-9), Emax:-1e-6, M:500}; },
+    psi:(lv,x)=>{ const K=Kfn(state.m1,state.m2); return psiRawWS(x,state.R,state.a,lv.eps,b0Of(state.V0,state.a,K),bsOf(state.Vs,state.a,K),3000); },
+    note:'Volume+surface series (shared R,a) vs direct integration. Quasi-bound poles of this module are checked in its own tab against the same F(z₀;ε)=0 continued off the real axis.'
+  };
+
+  return { check: CHECK, _state: state,
     id:'woods-saxon-surface', name:'Woods–Saxon + Surface)',
     subtabs:{
       bound:{ label:'Bound States', build: buildBoundStateDOM },
@@ -16476,7 +17713,17 @@ const NewEckartPDF = (function(){
     const c=el('div'),card=el('div','card'),body=el('div','card-body');body.innerHTML=theory;
     card.appendChild(body);c.appendChild(card);document.getElementById('content').appendChild(c);MathJax.typesetPromise([c]);
   }
-  return {id:'new-eckart-pdf',name:'New Eckart ',subtabs:{
+    const CHECK = {
+    units:{E:'MeV',x:'fm'}, K:()=>K(),
+    V:r=>potential(r),
+    domain:()=>({x0:0, x1:xend(), left:'dirichlet', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const ss=boundStatesAnalytic(), Vm=potentialMinimum(); if(!(Vm<0)) return {levels:[], Emin:-1, Emax:-1e-6, M:100};
+      return {levels:ss.map((s,i)=>({n:i,label:'n='+i,E:s.E})), Emin:Vm*(1-1e-9), Emax:-1e-6, M:400}; },
+    scatter:()=>({kind:'phase', ppw:40, x1:xend(), L:0, Es:linspace(0.5,30,14), analytic:E=>scatterAnalytic(E).delta}),
+    note:'Exact Jost-function (PDF) levels and S-matrix phase δ = ½ arg S₀ versus independent RK4/Numerov integration of u″ = (V−E)u/K with u(0)=0 and the exact decaying tail.'
+  };
+
+  return { check: CHECK, _state: state,id:'new-eckart-pdf',name:'New Eckart ',subtabs:{
     bound:{label:'Bound States',build:buildBound},quasi:{label:'Quasi-Bound States',build:buildQuasi},
     scattering:{label:'Scattering States',build:buildScatter},theory:{label:'Theory',build:theoryDOM}
   }};
@@ -17149,7 +18396,17 @@ const NewWSSurface = (function(){
   </div>`;
 
   function theoryDOM(){const c=el('div'),card=el('div','card'),body=el('div','card-body');body.innerHTML=theory;card.appendChild(body);c.appendChild(card);document.getElementById('content').appendChild(c);MathJax.typesetPromise([c]);}
-  return {id:'new-ws-surface',name:'New Woods–Saxon + Surface',subtabs:{
+    const CHECK = {
+    units:{E:'MeV',x:'fm'}, K:()=>K(),
+    V:r=>V(r),
+    domain:()=>({x0:0, x1:xend(), left:'dirichlet', right:'decay', VL:0, VR:0}),
+    bound:()=>{ const ss=boundStatesAnalytic();
+      return {levels:ss.map((s,i)=>({n:i,label:'n='+i,E:s.E})), Emin:-Math.max(120,state.V0+4*Math.abs(state.Vs)), Emax:-1e-6, M:400}; },
+    scatter:()=>({kind:'phase', ppw:40, x1:xend(), L:0, Es:linspace(0.5,30,14), analytic:E=>scatterAnalytic(E).delta}),
+    note:'Exact Jost-function levels (secant on f₊(k)=0) and phase δ = ½ arg S₀ versus this tab’s own RK4/Numerov engine — independent of the module’s built-in 700-step shooting.'
+  };
+
+  return { check: CHECK, _state: state,id:'new-ws-surface',name:'New Woods–Saxon + Surface',subtabs:{
     bound:{label:'Bound States',build:buildBound},quasi:{label:'Quasi-Bound States',build:buildQuasi},
     scattering:{label:'Scattering States',build:buildScatter},theory:{label:'Theory',build:theoryDOM}
   }};
@@ -17209,6 +18466,36 @@ function renderAll(){
   renderMainTabs();
   renderContent();
 }
+
+
+/* =========================================================================
+   ENGINE ADDITIONS: "Numerical Check" subtab for every module that exposes
+   .check, and the "Extreme Cases, Pinpoints & Suggestions" addendum that is
+   appended to every Theory tab.
+   ========================================================================= */
+function appendTheoryNotes(pot){
+  const notes = THEORY_NOTES[pot.id]; if(!notes) return;
+  const box = el('div');
+  box.appendChild(buildCard('Extreme Cases, Pinpoints &amp; Suggestions',
+    `<div class="theory-block nc-notes">
+       <h4>Extreme and limiting cases</h4><ul>${notes.extreme}</ul>
+       <h4>Pinpoints</h4><ul>${notes.pin}</ul>
+       <h4>Suggestions</h4><ul>${notes.sugg}</ul>
+       ${pot.check?'<p class="small-note">Every analytic result of this module can be verified against Runge–Kutta and Numerov integration in the <strong>Numerical Check</strong> tab.</p>':''}
+     </div>`));
+  document.getElementById('content').appendChild(box);
+}
+POTENTIALS.forEach(pot=>{
+  if(pot.check && !pot.subtabs.numcheck){
+    pot.subtabs.numcheck = { label:'Numerical Check', build:()=>NumCheckUI.build(pot) };
+  }
+  const th = pot.subtabs.theory;
+  if(th && !th.__notes){
+    const base = th.build;
+    th.build = function(){ base.apply(this, arguments); appendTheoryNotes(pot); };
+    th.__notes = true;
+  }
+});
 
 renderAll();
 </script>
