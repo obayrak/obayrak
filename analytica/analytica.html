@@ -8,6 +8,48 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* Day-mode plot colours: neon trace / annotation colours made for the dark
+   background are swapped for darker shades of the same hue when the page is in
+   Day mode, so curves, markers and Max/Min labels stay readable on white. */
+(function(){
+  if(!window.Plotly) return;
+  var HEX={'#00d4ff':'#0077c2','#00ff9d':'#0b8a57','#ffb347':'#b86200','#ff4d8d':'#c2185b',
+           '#b07aff':'#6b3fc9','#4ecdc4':'#13857b','#ffe66d':'#9a7b00','#a29bfe':'#5b4fd1'};
+  var RGB={'0,212,255':'0,119,194','0,255,157':'11,138,87','255,179,71':'184,98,0',
+           '255,77,141':'194,24,91','176,122,255':'107,63,201','3,6,13':'255,255,255'};
+  function light(){return document.documentElement.getAttribute('data-theme')==='light';}
+  function col(v){
+    var k=v.toLowerCase(); if(HEX[k]) return HEX[k];
+    return v.replace(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/gi,function(m,r,g,b){
+      var n=r+','+g+','+b; return RGB[n]?m.slice(0,m.indexOf('(')+1)+RGB[n]:m;});
+  }
+  function map(o){
+    if(typeof o==='string') return col(o);
+    if(Array.isArray(o)){ if(o.length>16&&typeof o[0]==='number') return o; return o.map(map); }
+    if(o&&typeof o==='object'&&(o.constructor===Object||!o.constructor)){
+      var r={}; for(var k in o){ r[k]=(k==='x'||k==='y'||k==='z'||k==='text'||k==='name'||k==='customdata')&&typeof o[k]!=='string'?o[k]:map(o[k]); } return r;
+    }
+    return o;
+  }
+  function wrap(fn,dataIdx,layoutIdx){
+    var orig=Plotly[fn]; if(!orig) return;
+    Plotly[fn]=function(){
+      var a=Array.prototype.slice.call(arguments);
+      if(light()){
+        if(dataIdx!=null&&a[dataIdx]&&typeof a[dataIdx]==='object') a[dataIdx]=map(a[dataIdx]);
+        if(layoutIdx!=null&&a[layoutIdx]&&typeof a[layoutIdx]==='object'){
+          a[layoutIdx]=map(a[layoutIdx]);
+          if(fn!=='relayout'&&fn!=='restyle'&&!a[layoutIdx].modebar) a[layoutIdx].modebar={bgcolor:'rgba(255,255,255,.75)',color:'#53678a',activecolor:'#00609e'};
+        }
+      }
+      return orig.apply(this,a);
+    };
+  }
+  wrap('newPlot',1,2); wrap('react',1,2); wrap('plot',1,2);
+  wrap('addTraces',1,null); wrap('restyle',1,null); wrap('relayout',null,1); wrap('update',1,2);
+})();
+</script>
 <style>
 :root{
   --bg0:#03060d;--bg1:#060d1a;--bg2:#09142a;--bg3:#0c1b35;--bg4:#111e38;
@@ -20,9 +62,19 @@
   --bg0:#eef3fa;--bg1:#e3ebf6;--bg2:#d8e3f2;--bg3:#cddaee;--bg4:#c2d1e8;
   --bdr:#b7c8e2;--glo:rgba(0,120,200,.18);
   --c:#0077c2;--c2:rgba(0,119,194,.10);--c3:rgba(0,119,194,.05);
-  --am:#c5720a;--gn:#0b9d63;--pk:#c22364;--vl:#6b3fc9;
-  --t1:#152238;--t2:#3d5575;--t3:#6f84a3;--t4:#0b1220;
+  --am:#7a4600;--gn:#06663f;--pk:#93124a;--vl:#512aa3;
+  --t1:#152238;--t2:#2f4363;--t3:#46597a;--t4:#0b1220;
 }
+[data-theme="light"]{--c:#00548a}
+/* Day-mode readability fixes: header bar, console, glows */
+[data-theme="light"] header{background:linear-gradient(to right,#dbe5f2,rgba(219,229,242,0))}
+[data-theme="light"] .term{background:#f3f6fa}
+[data-theme="light"] .nt.on{text-shadow:none}
+[data-theme="light"] .la{color:#00548a}
+[data-theme="light"] .empty-ic{opacity:.55}
+[data-theme="light"] .dtbl td{border-color:rgba(0,60,120,.16)}
+[data-theme="light"] .dtbl tr:nth-child(even) td,[data-theme="light"] .htbl tr:nth-child(even) td{background:rgba(0,80,160,.06)}
+[data-theme="light"] .dtbl tr:hover td{background:var(--c2)}
 [data-theme="light"] body::before{background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.012) 3px,rgba(0,0,0,.012) 4px)}
 [data-theme="light"] body::after{background-image:linear-gradient(rgba(0,80,160,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,80,160,.05) 1px,transparent 1px)}
 [data-theme="light"] .la{text-shadow:0 0 10px rgba(0,119,194,.35)}
@@ -2235,14 +2287,17 @@ function renderCorr(){
     z:showMat,
     x:numCols, y:numCols,
     type:'heatmap',
-    colorscale:[
+    colorscale:isLightTheme()?[
+      [0,'#e0729a'],[0.25,'#bba3f0'],[0.5,'#f3f4f6'],
+      [0.75,'#86c8ee'],[1,'#62d09f']
+    ]:[
       [0,'#ff4d8d'],[0.25,'#b07aff'],[0.5,'#060d1a'],
       [0.75,'#00d4ff'],[1,'#00ff9d']
     ],
     zmin:-1,zmax:1,
     text:zText,
     texttemplate:'%{text}',
-    textfont:{size:10,color:'#e8f6ff'},
+    textfont:{size:10,color:isLightTheme()?'#152238':'#e8f6ff'},
     hoverongaps:false,
     colorbar:{
       thickness:12,tickfont:{color:'#cce0f0',size:9},
@@ -3209,5 +3264,6 @@ function init(){
 }
 init();
 </script>
+<script src="../contrast-guard.js"></script>
 </body>
 </html>

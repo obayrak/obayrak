@@ -95,6 +95,12 @@ header{padding:24px 40px 16px;display:flex;align-items:flex-end;justify-content:
 
 .close-btn{position:absolute;top:14px;right:18px;background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;z-index:10;transition:color .12s;line-height:1}
 .close-btn:hover{color:#fff}
+/* close-fix: ✕ sits on the card itself, clearly visible; Night/Day buttons hidden while open */
+.detail-card{position:relative}
+.detail-card .close-btn{top:12px;right:12px;width:38px;height:38px;border-radius:50%;background:#0f172a;color:#fff;border:2px solid #fff;font-size:1.15rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.detail-card .close-btn:hover{background:#334155;color:#fff}
+body.detail-open .st-box{display:none!important}
+@keyframes popIn{from{opacity:0}to{opacity:1}}
 
 /* ── scroll body ── */
 .dc-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:0}
@@ -726,7 +732,7 @@ function openDetail(Z){
     : `<tr><td colspan="4" style="color:#cbd5e1;font-size:15px">Detailed isotope data not available</td></tr>`;
 
   document.getElementById('detailCard').innerHTML = `
-    <button class="close-btn" onclick="closeDetail()">✕</button>
+    <button class="close-btn" onclick="closeDetail()" title="Close (Esc)" aria-label="Close">✕</button>
 
     <!-- TOP HEADER -->
     <div class="dc-header">
@@ -831,6 +837,8 @@ function openDetail(Z){
   `;
 
   document.getElementById('detailOverlay').classList.add('open');
+  document.body.classList.add('detail-open');
+  fitOverlayToView(); watchParentScroll(true);
 
   // Draw canvas visual
   requestAnimationFrame(()=>{
@@ -848,8 +856,31 @@ function switchTab(el, sec, color){
 }
 
 function closeDetail(e){
-  if(!e||e.target===document.getElementById('detailOverlay'))
+  if(!e||e.target===document.getElementById('detailOverlay')){
     document.getElementById('detailOverlay').classList.remove('open');
+    document.body.classList.remove('detail-open');
+    watchParentScroll(false);
+  }
+}
+/* When this page is shown inside the site page, the site grows the frame to the full
+   page height. A "fixed" overlay would then be centred on that tall frame, far below
+   what the visitor sees. Keep the overlay inside the visible part of the frame instead. */
+function fitOverlayToView(){
+  var ov=document.getElementById('detailOverlay'), card=document.getElementById('detailCard');
+  var fe=null; try{ fe=window.frameElement; }catch(e){}
+  if(!fe || window.innerHeight<=window.parent.innerHeight+4){ ov.style.top=''; ov.style.bottom=''; ov.style.height=''; if(card) card.style.maxHeight=''; return; }
+  var r=fe.getBoundingClientRect(), ph=window.parent.innerHeight;
+  var top=Math.max(0,-r.top), bottom=Math.min(r.height, ph-r.top), h=Math.max(200,bottom-top);
+  ov.style.top=top+'px'; ov.style.bottom='auto'; ov.style.height=h+'px';
+  if(card) card.style.maxHeight=(h-32)+'px';
+}
+var _pwatch=false;
+function watchParentScroll(on){
+  try{
+    if(!window.frameElement) return;
+    if(on&&!_pwatch){ window.parent.addEventListener('scroll',fitOverlayToView,{passive:true}); window.parent.addEventListener('resize',fitOverlayToView); _pwatch=true; }
+    if(!on&&_pwatch){ window.parent.removeEventListener('scroll',fitOverlayToView); window.parent.removeEventListener('resize',fitOverlayToView); _pwatch=false; }
+  }catch(e){}
 }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetail(); });
 
@@ -860,5 +891,6 @@ buildLegend(); buildTable(); buildLanAct();
 window.addEventListener('resize',alignLanAct);
 requestAnimationFrame(()=>setTimeout(alignLanAct,80));
 </script>
+<script src="../contrast-guard.js"></script>
 </body>
 </html>
