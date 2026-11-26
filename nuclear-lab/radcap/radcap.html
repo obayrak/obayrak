@@ -60,7 +60,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;font-variant-numeric:tabular-nums}
 th{cursor:pointer;color:var(--mute);font-weight:600}
 .pill{white-space:nowrap;padding:1px 8px;border-radius:10px;font-size:11px;color:#fff}
-.pill.pass{background:var(--ok)}.pill.fail{background:var(--bad)}.pill.todo{background:var(--mute)}.pill.notrun{background:var(--warn)}
+.pill.pass{background:var(--ok)}.pill.explained{background:#2f6fb5}.pill.alternative{background:#6b7280}.pill.inconsistent{background:#8a5a00}.pill.warn{background:var(--warn)}.pill.fail{background:var(--bad)}.pill.todo{background:var(--mute)}.pill.notrun{background:var(--warn)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;align-items:center}
 .plot{width:100%;height:380px}
 .note{font-size:12px;color:var(--mute)}
@@ -90,7 +90,7 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
 <header>
   <h1>RADCAP-style Direct Capture Tool</h1>
   <div class="ref">Based on C. A. Bertulani, Comput. Phys. Commun. 156 (2003) 123–141 &middot; independent browser implementation, not the original Fortran code</div>
-  <button class="hb" id="hdrSave" title="Save all input fields to a JSON file">Save settings</button><button class="hb" id="hdrLoad" title="Load a settings file saved earlier">Load settings</button><button class="hb" id="hdrReport" title="Standalone HTML report of the current results">HTML report</button><input type="file" id="hdrFile" accept=".json,application/json" style="display:none">
+  <button class="hb" id="hdrRunAll" title="Bound state → capture (tab 7, top panel) → rates, REACLIB fit and reverse rate (tab 9), with a summary in tab 1 (Ctrl+Enter runs the main button of the open tab)">Run all</button><button class="hb" id="hdrSave" title="Save all input fields to a JSON file">Save settings</button><button class="hb" id="hdrLoad" title="Load a settings file saved earlier">Load settings</button><button class="hb" id="hdrReport" title="Standalone HTML report of the current results">HTML report</button><input type="file" id="hdrFile" accept=".json,application/json" style="display:none">
   <span id="status">Ready</span>
   <select id="themeSel" title="Theme"><option value="light">Day</option><option value="dark">Night</option></select>
 </header>
@@ -111,9 +111,11 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
   <div id="sideSummary"></div>
 </nav>
 <main>
+<div id="sessBox"></div>
 
 <!-- TAB 1 -->
 <section class="pane active" id="t1">
+ <div id="runAllBox"></div>
  <div class="card">
   <h2>Reaction setup: a + b → c + γ</h2>
   <p class="note">Particle <i>a</i> is the core, <i>b</i> the (usually nucleon) valence particle; couplings l + I<sub>b</sub> = j, j + I<sub>a</sub> = J (Eqs. 1–3). Presets identify literature-backed parameter sets and illustrative starting configurations separately. Literature citations appear after loading a sourced preset; other potential parameters are not claimed to be fitted or evaluated nuclear data. Verify spins, separation energies, and model assumptions before quantitative use.</p>
@@ -200,6 +202,7 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
   <div id="boundMsg"></div>
   <div class="cards" id="boundCards"></div>
   <div id="wfPlot" class="plot"></div>
+  <div id="ancBox"></div><div id="ancPlot" class="plot" style="height:280px;display:none"></div>
   <div id="convOut"></div>
  </div>
 </section>
@@ -330,6 +333,25 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
  <h3>Photodissociation of each final state (same calculation)</h3>
  <div id="xcPlotR" class="plot" style="height:300px"></div><div id="xcPlotG" class="plot" style="height:300px"></div><div id="xcTab"></div>
 </details>
+<details class="card" id="cmpPanel" style="margin-top:14px"><summary>Compare with measured data: χ² fit of the normalization (C²S, ANC²) and the Gamow window</summary>
+ <p class="note">Paste measured points as lines of <code>E value error</code> (spaces, commas or semicolons; lines starting with # are ignored; the error column is optional). The calculated curve is interpolated to each measured energy (log-linear between grid points; points outside the calculated range are left out) and a single normalization factor N is fitted by weighted least squares, χ² = Σ[(y<sub>i</sub> − N m<sub>i</sub>)/Δy<sub>i</sub>]². Because σ<sub>capture</sub> ∝ C²S, N·C²S is the spectroscopic factor the data prefer for this potential, and for a peripheral reaction N·C²S·b² is the ANC² (b from tab 3). Only the overall scale is fitted; the energy dependence is the model's.</p>
+ <div class="grid">
+  <label>Calculated curve from<select id="cmp_src"><option value="d">single-state panel (top of tab 7)</option><option value="xc">Extended capture panel</option></select></label>
+  <label>Quantity in the data<select id="cmp_q"><option value="S">S-factor</option><option value="sig">cross section σ</option></select></label>
+  <label>Unit of the values<select id="cmp_u"><option value="eVb">eV b</option><option value="keVb">keV b</option><option value="MeVb">MeV b</option><option value="nb">nb</option><option value="ub">µb</option><option value="mb">mb</option><option value="b">b</option></select></label>
+  <label>Energy unit (centre of mass)<select id="cmp_eu"><option value="MeV">MeV</option><option value="keV">keV</option></select></label>
+  <label>Fit only E ≥ (MeV, optional)<input id="cmp_lo" type="number" step="any" placeholder="all"></label>
+  <label>Fit only E ≤ (MeV, optional)<input id="cmp_hi" type="number" step="any" placeholder="all"></label>
+  <label>Gamow window at T<sub>9</sub> (optional)<input id="cmp_T9" type="number" step="any" placeholder="e.g. 0.015"></label>
+  <label>Data label<input id="cmp_lab" type="text" value="data"></label>
+ </div>
+ <label style="margin-top:8px">Measured points<textarea id="cmp_data" rows="7" style="width:100%;font-family:monospace;margin-top:4px" placeholder="# E (MeV)   S (eV b)   error&#10;0.116   20.6   0.8&#10;0.320   19.9   0.6&#10;..."></textarea></label>
+ <div class="row"><label>Saved datasets (this browser)<select id="lib_sel"><option value="">—</option></select></label><button class="sec" id="lib_load">Load</button><button class="sec" id="lib_save">Save current as…</button><button class="sec" id="lib_del">Delete</button><button class="sec" id="lib_exp">Export all</button><button class="sec" id="lib_imp">Import…</button><input type="file" id="lib_file" accept=".json" style="display:none"></div>
+ <div class="row"><button id="cmpRun">Fit normalization</button><button class="sec" id="cmpFile">Load data file…</button><input type="file" id="cmpFileIn" accept=".txt,.dat,.csv" style="display:none"><button class="sec" id="cmpExp">Export CSV</button>
+  <label style="flex-direction:row;gap:6px;align-items:center">x:<select id="cmpXs"><option value="linear">linear</option><option value="log">log</option></select></label>
+  <label style="flex-direction:row;gap:6px;align-items:center">y:<select id="cmpYs"><option value="linear">linear</option><option value="log">log</option></select></label></div>
+ <div id="cmpMsg"></div><div class="cards" id="cmpCards"></div><div id="cmpPlot" class="plot"></div><div id="cmpRes" class="plot" style="height:240px;display:none"></div>
+</details>
 </div></section>
 <section class="pane" id="t8"><div class="card">
  <h2>Photodissociation (Eqs. 29–31)</h2>
@@ -339,12 +361,28 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
   <label>y<select id="d8Ys"><option value="linear">linear</option><option value="log">log</option></select></label></div>
  <div id="d8Msg"><div class="msg info">No calculation yet: press the button or run tab 7.</div></div><div class="cards" id="d8Cards"></div>
  <div id="d8Plot" class="plot"></div><div id="d8Resp" class="plot" style="height:300px"></div>
+</div>
+<div class="card" id="cdCard">
+ <h2>Coulomb dissociation (equivalent-photon method)</h2>
+ <p class="note">A fast projectile c = a + b passing a heavy target at impact parameter b ≥ b<sub>min</sub> sees a pulse of virtual photons. To first order the breakup cross section is dσ/dE<sub>γ</sub> = Σ<sub>λ</sub> n<sub>πλ</sub>(E<sub>γ</sub>) σ<sub>γ</sub><sup>πλ</sup>(E<sub>γ</sub>)/E<sub>γ</sub>, with E<sub>γ</sub> = E + |E<sub>B</sub>| and the straight-line virtual-photon numbers of Bertulani and Baur (Phys. Rep. 163, 299 (1988)):
+ n<sub>E1</sub> = (2/π)Z<sub>t</sub>²α(c/v)²[ξK₀K₁ − (v²ξ²/2c²)(K₁² − K₀²)], n<sub>E2</sub> = (2/π)Z<sub>t</sub>²α(c/v)⁴[2(1 − v²/c²)K₁² + ξ(2 − v²/c²)²K₀K₁ − (ξ²v⁴/2c⁴)(K₁² − K₀²)], ξ = E<sub>γ</sub>b<sub>min</sub>/(ħγv). The photoabsorption cross sections σ<sub>γ</sub> per multipolarity are those of this tab (× C²S). Not included: nuclear breakup, Coulomb post-acceleration and higher-order (dynamical) effects, which matter at low beam energies and for small b<sub>min</sub>; M1 virtual photons are omitted (negligible for these cases).</p>
+ <div class="grid">
+  <label>Target Z<sub>t</sub><input id="cd_Zt" type="number" step="1" value="82"></label>
+  <label>Target A<sub>t</sub><input id="cd_At" type="number" step="1" value="208"></label>
+  <label>Beam energy (MeV per nucleon)<input id="cd_E" type="number" step="any" value="254"></label>
+  <label>b<sub>min</sub> (fm; blank = 1.2(A<sub>p</sub><sup>1/3</sup> + A<sub>t</sub><sup>1/3</sup>) + 2 fm)<input id="cd_b" type="number" step="any" placeholder="automatic"></label>
+ </div>
+ <div class="row"><button id="cdRun">Calculate breakup</button><button class="sec" id="cdExp">Export CSV</button>
+  <label style="flex-direction:row;gap:6px;align-items:center">y:<select id="cdYs"><option value="linear">linear</option><option value="log">log</option></select></label></div>
+ <div id="cdMsg"><div class="msg info">Uses the result of tab 7 (single-state panel): run it first.</div></div><div class="cards" id="cdCards"></div>
+ <div id="cdPlot" class="plot"></div><div id="cdN" class="plot" style="height:280px"></div>
 </div></section>
 <section class="pane" id="t9"><div class="card">
  <h2>Stellar reaction rates (Eqs. 34–35, 38, 45–48, 53–54)</h2>
  <p>$$\langle\sigma v\rangle=\Big(\frac{8}{\pi m_{ab}}\Big)^{1/2}\frac{1}{(k_BT)^{3/2}}\int_0^\infty\sigma(E)\,E\,e^{-E/k_BT}\,dE,\qquad R=\frac{n_an_b}{1+\delta_{ab}}\langle\sigma v\rangle$$</p>
  <p>$$\langle\sigma v\rangle_R=\Big(\frac{2\pi}{m_{ab}k_BT}\Big)^{3/2}\hbar^2(\omega\gamma)_R\,e^{-E_R/k_BT},\qquad (\omega\gamma)_R=\frac{2J_R+1}{(2J_a+1)(2J_b+1)}(1+\delta_{ab})\frac{\Gamma_p\Gamma_\gamma}{\Gamma_{\rm tot}}$$</p>
- <p class="note"><b>What is integrated.</b> The non-resonant part is the <b>direct-capture</b> σ(E) of tab 7 (its optional Breit–Wigner term is <i>not</i> included here, to avoid double counting); resonances are added from the list below, either with the narrow-resonance formula Eq. (53) or by numerical integration of Eq. (49). The integral runs over the <b>calculated energy range of tab 7 only</b>. Nothing is extrapolated unless you tick the extrapolation option, which uses a documented model (constant S-factor for charged particles, σ ∝ 1/v for neutral ones, below E<sub>min</sub> only; never above E<sub>max</sub>). The weight of the integrand lying outside the table is reported for every temperature. Units: T<sub>9</sub> = T/10⁹ K, k<sub>B</sub>T = 0.0861733 T<sub>9</sub> MeV; ⟨σv⟩ in cm³ s⁻¹, N<sub>A</sub>⟨σv⟩ in cm³ mol⁻¹ s⁻¹. <b>Identical particles:</b> the factor 1/(1+δ<sub>ab</sub>) is applied to the volumetric rate and (1+δ<sub>ab</sub>) enters ωγ as in Eq. (54); tab 7's cross sections are not symmetrized for identical particles, so that case is supported only through these factors. Eq. (46) is applied with S(0), Ṡ(0), S̈(0) from a least-squares quadratic fit of the tabulated S(E) below the fit-window energy.</p>
+ <p class="note"><b>What is integrated.</b> The non-resonant part is the <b>direct-capture</b> σ(E) of tab 7 (the Extended panel or the single-state panel, selected below) (its optional Breit–Wigner term is <i>not</i> included here, to avoid double counting); resonances are added from the list below, either with the narrow-resonance formula Eq. (53) or by numerical integration of Eq. (49). The integral runs over the <b>calculated energy range of tab 7 only</b>. Nothing is extrapolated unless you tick the extrapolation option, which uses a documented model (constant S-factor for charged particles, σ ∝ 1/v for neutral ones, below E<sub>min</sub> only; never above E<sub>max</sub>). The weight of the integrand lying outside the table is reported for every temperature. Units: T<sub>9</sub> = T/10⁹ K, k<sub>B</sub>T = 0.0861733 T<sub>9</sub> MeV; ⟨σv⟩ in cm³ s⁻¹, N<sub>A</sub>⟨σv⟩ in cm³ mol⁻¹ s⁻¹. <b>Identical particles:</b> the factor 1/(1+δ<sub>ab</sub>) is applied to the volumetric rate and (1+δ<sub>ab</sub>) enters ωγ as in Eq. (54); tab 7's cross sections are not symmetrized for identical particles, so that case is supported only through these factors. Eq. (46) is applied with S(0), Ṡ(0), S̈(0) from a least-squares quadratic fit of the tabulated S(E) below the fit-window energy.</p>
+ <div class="row"><label>Non-resonant cross section from<select id="th_src"><option value="auto">automatic (Extended panel if calculated, else the single-state panel)</option><option value="xc">Extended capture panel (tab 7, bottom)</option><option value="d">single-state direct capture (tab 7, top)</option></select></label></div>
  <div id="msg9src"></div>
  <div class="grid">
   <label>T<sub>9,min</sub><input id="th_Tmin" type="number" step="any" value="0.05"></label>
@@ -365,6 +403,22 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
  <div id="msg9"></div><div class="cards" id="cards9"></div>
  <div id="plotRate9" class="plot"></div><div id="plotAn9" class="plot" style="height:300px"></div><div id="plotVol9" class="plot" style="height:300px;display:none"></div>
  <h3>Numerical table (click a header to sort)</h3><div style="overflow:auto;max-height:420px"><table id="tab9"></table></div>
+ <h3 style="margin-top:14px">REACLIB fit of the total rate</h3>
+ <p class="note">Fits the seven-parameter form used by REACLIB and most network codes, ln N<sub>A</sub>⟨σv⟩ = a<sub>0</sub> + a<sub>1</sub>T<sub>9</sub><sup>−1</sup> + a<sub>2</sub>T<sub>9</sub><sup>−1/3</sup> + a<sub>3</sub>T<sub>9</sub><sup>1/3</sup> + a<sub>4</sub>T<sub>9</sub> + a<sub>5</sub>T<sub>9</sub><sup>5/3</sup> + a<sub>6</sub> ln T<sub>9</sub>, to the rate table above. The model is linear in a<sub>0</sub>…a<sub>6</sub>, so the fit is an ordinary least-squares problem in ln(rate) (solved by Householder QR with scaled columns); every temperature has equal weight in relative terms. The fit is only valid over the tabulated T<sub>9</sub> range. For a non-resonant charged-particle rate a<sub>1</sub> ≈ 0 and a<sub>2</sub> ≈ −4.2487 (Z<sub>a</sub><sup>2</sup>Z<sub>b</sub><sup>2</sup>μ/u)<sup>1/3</sup> is expected; this value is shown as a check after the fit, and a<sub>1</sub> can be fixed to 0 for a purely non-resonant rate. At least 10 temperatures are needed; 30 or more are recommended.</p>
+ <div class="row"><label style="flex-direction:row;gap:6px;align-items:center"><input type="checkbox" id="rl_a1"> fix a<sub>1</sub> = 0 (no resonance term in T<sub>9</sub><sup>−1</sup>)</label>
+  <button id="rlFit">Fit REACLIB parameters</button><button class="sec" id="rlExp">Export coefficients</button></div>
+ <div id="rlMsg"></div><div class="cards" id="rlCards"></div><div id="rlPlot" class="plot" style="height:280px;display:none"></div>
+ <h3 style="margin-top:14px">Reverse (photodisintegration) rate c + γ → a + b</h3>
+ <p class="note">Detailed balance in a thermal photon bath: λ<sub>γ</sub> = (g<sub>a</sub>g<sub>b</sub>/g<sub>c</sub>)(G<sub>a</sub>G<sub>b</sub>/G<sub>c</sub>)(μk<sub>B</sub>T/2πħ²)<sup>3/2</sup> ⟨σv⟩ e<sup>−Q/k<sub>B</sub>T</sup> = 9.8685·10⁹ Â<sup>3/2</sup>T<sub>9</sub><sup>3/2</sup> (g<sub>a</sub>g<sub>b</sub>/g<sub>c</sub>)(G<sub>a</sub>G<sub>b</sub>/G<sub>c</sub>) N<sub>A</sub>⟨σv⟩ e<sup>−11.6045 Q/T<sub>9</sub></sup> s⁻¹, with g = 2J + 1 of the ground states, Q = |E<sub>B</sub>| the capture Q-value and G the partition functions (entered here as one constant ratio; take them from a table if excited states are thermally populated). Applies to the forward rate computed above, i.e. capture to the state(s) of tab 7; the reverse REACLIB set follows from the forward one by a<sub>0</sub>′ = a<sub>0</sub> + ln[9.8685·10⁹Â<sup>3/2</sup>(g<sub>a</sub>g<sub>b</sub>/g<sub>c</sub>)(G ratio)], a<sub>1</sub>′ = a<sub>1</sub> − 11.6045 Q, a<sub>6</sub>′ = a<sub>6</sub> + 3/2.</p>
+ <div class="grid"><label>Q = |E<sub>B</sub>| (MeV)<input id="rv_Q" type="number" step="any" placeholder="tab 1"></label><label>J<sub>a</sub><input id="rv_Ja" type="number" step="0.5" placeholder="tab 1"></label><label>J<sub>b</sub><input id="rv_Jb" type="number" step="0.5" placeholder="tab 1"></label><label>J<sub>c</sub> (ground state of c)<input id="rv_Jc" type="number" step="0.5" placeholder="tab 1"></label><label>G<sub>a</sub>G<sub>b</sub>/G<sub>c</sub><input id="rv_G" type="number" step="any" value="1"></label></div>
+ <div class="row"><button id="rvRun">Calculate reverse rate</button><button class="sec" id="rvExp">Export CSV</button></div>
+ <div id="rvMsg"></div><div class="cards" id="rvCards"></div><div id="rvPlot" class="plot" style="height:300px;display:none"></div>
+ <h3 style="margin-top:14px">Interfering resonances and direct capture</h3>
+ <p class="note">The rates above add the resonances incoherently. Levels with the same J<sup>π</sup>, and a resonance and the direct capture in the same entrance channel, interfere: σ = (1 − f)σ<sub>DC</sub> + |s<sub>0</sub>√(fσ<sub>DC</sub>) + Σ<sub>k</sub> s<sub>k</sub>√σ<sub>k</sub> e<sup>iδ<sub>k</sub></sup>|² + Σ<sub>other</sub>σ<sub>k</sub>, with δ<sub>k</sub> = atan2(Γ<sub>k</sub>(E)/2, E<sub>R,k</sub> − E) (Eq. 56 for each level) and f the fraction of the direct capture that has the J<sup>π</sup> and channel of the interfering levels (the multilevel generalisation of Eq. 55; f must come from the channel breakdown of tab 7). The signs s = ±1 cannot be calculated here: they come from R-matrix fits to data, so compare both. Each level is a Breit–Wigner shape with the Γ<sub>p</sub>(E) of its row (penetrability or constant). With f = 0 and no level marked, the result reproduces the incoherent rate (shown as a check).</p>
+ <div class="grid"><label>Interfering fraction f of the direct capture (0–1)<input id="ci_f" type="number" step="any" min="0" max="1" value="0"></label><label>Sign s<sub>0</sub> of the direct amplitude<select id="ci_s0"><option value="1">+</option><option value="-1">−</option></select></label></div>
+ <div id="ciList" class="row"></div>
+ <div class="row"><button id="ciRun">Calculate coherent rate</button><button class="sec" id="ciExp">Export CSV</button></div>
+ <div id="ciMsg"></div><div class="cards" id="ciCards"></div><div id="ciPlotS" class="plot" style="height:320px;display:none"></div><div id="ciPlotR" class="plot" style="height:280px;display:none"></div>
 </div></section>
 
 <!-- TAB 10 -->
@@ -373,6 +427,8 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
   <h2>Validation and benchmarks</h2>
   <p class="note">Each row is computed only when you press the button; nothing is pre-filled. Pass criterion (fixed in advance): |ΔE| ≤ 5 keV. The paper does not state its mass convention, and the result is sensitive to it: with m = A·931.494 MeV/c² the 8B g.s. comes out near −0.034 MeV, with m = A·938.9 near −0.139 MeV. The default here is the mean nucleon mass 938.919 MeV/c² (editable in tab 1); ħc = 197.327 MeV fm, e² = 1.43996 MeV fm. Deviations are reported as found.</p>
   <div class="row"><button id="runBench">Run implemented benchmarks</button><button class="sec" id="massSens">Mass-unit sensitivity</button></div>
+  <p class="note"><b>Status.</b> <span class="pill pass">pass</span> within the tolerance fixed in advance · <span class="pill explained">explained</span> outside the tolerance, but the difference is reproduced exactly by an original-code row in this table (a convention of the Fortran program, not a different result) · <span class="pill warn">warn</span> outside the comfort range, not wrong · <span class="pill alternative">alternative</span> a reading of the paper that the test rules out · <span class="pill inconsistent">inconsistent</span> the paper’s printed value is not reproduced by the original program itself (with the emulation switch), so it cannot be matched · <span class="pill fail">fail</span> unexplained disagreement.</p>
+  <div id="benchSum"></div>
   <table id="benchTable"><thead><tr><th>Case</th><th>Source</th><th>Reference</th><th>Calculated</th><th>Δ</th><th>Status</th></tr></thead><tbody></tbody></table>
   <div id="massOut"></div>
  </div>
@@ -548,6 +604,24 @@ code{background:var(--code);padding:1px 4px;border-radius:4px}
 <section class="pane" id="t11"><div class="card">
  <h2>Documentation</h2>
  <p class="note">Reference: C. A. Bertulani, “RADCAP: A potential model tool for direct capture reactions”, Comput. Phys. Commun. 156 (2003) 123–141. This is an <b>independent implementation written from the paper</b>; it is not the original Fortran code and has not been compared with it. Agreement with the paper's numbers is reported honestly in tab 10, including the cases where it fails.</p>
+<details class="card" open><summary>Additions beyond the paper (ANC, comparison with data, REACLIB fit, tab-9 source)</summary>
+<ul class="note">
+<li><b>Asymptotic normalization coefficient (tab 3).</b> After every bound-state solution the ratio u(r)/W<sub>−η,l+1/2</sub>(2κr) is evaluated outside the nuclear range (from R + 8a to where u has fallen by 10⁻⁹ or 0.6 R<sub>max</sub>); its mean is the single-particle ANC b, and its flatness is reported as a check. The Whittaker function is computed from its integral representation (agrees with mpmath to 10⁻¹²). ANC² = C²S·b².</li>
+<li><b>Comparison with measured data (tab 7, bottom).</b> Paste or load E, value, error; the calculated S-factor or σ is interpolated to the data energies and one normalization N is fitted by weighted least squares (χ², residuals, N·C²S and N·C²S·b²). Optional fit window and Gamow-window marker. No literature data are built in; the data you enter are not stored except in "Save settings".</li>
+<li><b>Tab-9 source.</b> The non-resonant rate can now use the single-state panel of tab 7 as well as the Extended panel (selector above the temperature grid).</li>
+<li><b>REACLIB fit (tab 9).</b> Seven-parameter fit of ln N<sub>A</sub>⟨σv⟩ by Householder QR, with the deviation from the table, a check of a<sub>2</sub> against the Gamow value −4.2487(Z<sub>a</sub>²Z<sub>b</sub>²Â)<sup>1/3</sup>, and export.</li>
+<li><b>Theme.</b> Day/Night follows the site-wide setting and is shared with the other pages.</li>
+<li><b>Paper comparisons resolved (tab 10).</b> Rows that miss the paper are no longer just "fail": the 631 keV resonance is reproduced exactly by emulating the original search (original constants, 15 keV grid from 1 keV, last point before δ = π/2), and B(E2) = 3.76 is the original code's B/e². These rows are marked <i>explained</i>. The four S₁₇ values read from Fig. 4 lie 12–14 % above what the original program itself gives for the App. E input (emulation, which reproduces the recorded DICAP output), so they are marked <i>inconsistent</i>: the printed curve cannot be reproduced from the published input.</li>
+<li><b>Preset consistency.</b> A benchmark row solves every preset and compares with its stated separation energy (pass ≤ 20 keV), and loading a preset warns if it does not reproduce its own |E<sub>B</sub>|. The ¹⁵C presets now use the 2s orbital (N = 1), the α + ¹²C example obeys 2N + L = 4, and depths that missed |E<sub>B</sub>| were refitted (the notes give the published values).</li>
+<li><b>Run all</b> (header button): bound state → direct capture (tab 7, top panel) → rates, REACLIB fit and reverse rate (tab 9) with the current settings, and a summary card at the top of tab 1 with the key numbers, any warnings and links to the tabs.</li>
+<li><b>Ctrl+Enter</b> (Cmd+Enter on a Mac) runs the main button of the open tab. Long benchmark runs show their progress.</li>
+<li><b>Sessions and data.</b> Inputs are saved in this browser as you type; on the next visit a bar offers to restore them (nothing is restored without asking). Measured datasets in the comparison panel of tab 7 can be saved by name, reloaded, deleted, and exported or imported as a JSON file to move them to another browser. Nothing leaves your computer.</li>
+<li><b>C²S from a measured ANC (tab 3).</b> Enter ANC² (e.g. from a transfer reaction) and its error; C²S = ANC²/b² for the current potential, with a button that copies it to tab 1.</li>
+<li><b>Coulomb dissociation (tab 8).</b> dσ/dE for breakup on a heavy target from the photoabsorption cross sections of tab 7 and the straight-line E1/E2 virtual-photon numbers of Bertulani and Baur; σ<sub>CD</sub>, its E1/E2 parts and the photon spectra. First order, no nuclear breakup or post-acceleration. The modified Bessel functions K₀, K₁ agree with tables to 10⁻⁸.</li>
+<li><b>Reverse rate (tab 9).</b> Photodisintegration rate λ<sub>γ</sub>(T₉) by detailed balance from the forward rate, with spins, Q and a partition-function ratio; the reverse REACLIB set is derived from the forward fit and added to its export.</li>
+<li><b>Interfering resonances (tab 9).</b> Any set of the listed resonances, and a fraction f of the direct capture, can be added coherently with chosen signs (multilevel form of Eq. 55); the incoherent result is recomputed independently as a check (agrees with the rate table to 10⁻⁸), and S(E) and the rate ratio are plotted.</li>
+<li><b>Energy range for rates (tab 9).</b> After a rate calculation the app states the energy range that holds all but 0.1 % of the thermal integral at T<sub>9,min</sub> and T<sub>9,max</sub>, says whether the tab-7 table covers it, and offers a button that sets both tab-7 panels to that range.</li>
+</ul></details>
 <details class="card"><summary>Comparison with the original RADCAP.FOR (run in this project with gfortran)</summary>
 <p class="note">The supplied Fortran source was compiled (gfortran, <code>-std=legacy</code>) and its test inputs were run; the numbers below are from those runs, not copied from the paper. Agreement is claimed only where listed. This remains an independent implementation, not a validated equivalent of the Fortran.</p>
 <table><tr><th>Item</th><th>Original code</th><th>This app</th><th>Status</th></tr>
@@ -1274,40 +1348,40 @@ const PRESETS=[
   v:{nameA:'12C',nameB:'n',nameC:'13C',Aa:12,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:1,j:.5,J:.5,Eb:4.946,V0:-41.35,R0:2.906,a0:.62,VS0:-7,RS0:2.906,aS:.62,RC:2.906,Rmax:100,npts:4000}},
  {name:'p + 14N → 15O* 6.793 MeV (s1/2, 3/2+) — literature WS (HBG 2010)',note:'Capture to the 6.793 MeV 3/2+ excited state (S_p = 7.297 − 6.793 = 0.504 MeV). HBG geometry: r0 = 1.3 fm (R = 3.206 fm), r_c = 1.2 fm (R_C = 2.959 fm), a = 0.6 fm, V_S0 = −2.0 MeV; V0 = −14.83 MeV (this solver gives S_p ≈ 0.49 MeV). Paper: SF = 1.5; M1 resonance at 0.259 MeV uses V_c = −49.18 MeV, SF = 0.51.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 2, Sec. 3.11',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'14N',nameB:'p',nameC:'15O*',Aa:14,Za:7,Ia:1,Ab:1,Zb:1,Ib:.5,Nn:0,l:0,j:.5,J:1.5,Eb:.504,V0:-14.83,R0:3.206,a0:.6,VS0:-2,RS0:3.206,aS:.6,RC:2.959,Rmax:100,npts:4000}},
- {name:'15C g.s. — literature WS (standard ANC)',note:'Literature 14C+n potential: s-wave depth and geometry from Table I; reproduces S_n(15C)=1.218 MeV. This is one of several published potential geometries, not a unique interaction.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
-  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:0,j:.5,J:.5,Eb:1.218,V0:-52.814,R0:2.959,a0:.6,VS0:0,RS0:2.959,aS:.6,RC:2.959,Rmax:160,npts:6000}},
- {name:'15C g.s. — literature WS (large-ANC geometry)',note:'Published sensitivity variant for 14C+n: deliberately large diffuseness a=1.5 fm; use to study geometry/ANC sensitivity, not as a universal best-fit potential.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
-  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:0,j:.5,J:.5,Eb:1.218,V0:-38.415,R0:2.820,a0:1.5,VS0:0,RS0:2.820,aS:1.5,RC:2.820,Rmax:180,npts:6500}},
- {name:'15C g.s. — literature WS (small-ANC geometry)',note:'Published sensitivity variant for 14C+n: small diffuseness a=0.3 fm; included to reproduce the paper’s ANC-sensitivity comparison.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
-  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:0,j:.5,J:.5,Eb:1.218,V0:-59.122,R0:2.959,a0:.3,VS0:0,RS0:2.959,aS:.3,RC:2.959,Rmax:160,npts:6000}},
+ {name:'15C g.s. — literature WS (standard ANC)',note:'The 15C ground state is the 2s orbital (one radial node, N = 1): the 1s level of the same well is the deeply bound core orbital. Literature 14C+n potential: s-wave depth and geometry from Table I; reproduces S_n(15C)=1.218 MeV. This is one of several published potential geometries, not a unique interaction.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
+  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:1,l:0,j:.5,J:.5,Eb:1.218,V0:-52.814,R0:2.959,a0:.6,VS0:0,RS0:2.959,aS:.6,RC:2.959,Rmax:160,npts:6000}},
+ {name:'15C g.s. — literature WS (large-ANC geometry)',note:'The 15C ground state is the 2s orbital (one radial node, N = 1): the 1s level of the same well is the deeply bound core orbital. Published sensitivity variant for 14C+n: deliberately large diffuseness a=1.5 fm; use to study geometry/ANC sensitivity, not as a universal best-fit potential.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
+  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:1,l:0,j:.5,J:.5,Eb:1.218,V0:-38.415,R0:2.820,a0:1.5,VS0:0,RS0:2.820,aS:1.5,RC:2.820,Rmax:180,npts:6500}},
+ {name:'15C g.s. — literature WS (small-ANC geometry)',note:'The 15C ground state is the 2s orbital (one radial node, N = 1): the 1s level of the same well is the deeply bound core orbital. Published sensitivity variant for 14C+n: small diffuseness a=0.3 fm; included to reproduce the paper’s ANC-sensitivity comparison.',source:'P. Capel and Y. Nollet, Phys. Rev. C 96, 015801 (2017), Table I',sourceUrl:'https://doi.org/10.1103/PhysRevC.96.015801',
+  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:1,l:0,j:.5,J:.5,Eb:1.218,V0:-59.122,R0:2.959,a0:.3,VS0:0,RS0:2.959,aS:.3,RC:2.959,Rmax:160,npts:6000}},
  {name:'p + 15N → 16O g.s. (p1/2) — literature WS (HBG 2010)',note:'HBG Table 1 geometry, V0 = −54.81 MeV (bound state, S_p = 12.13 MeV). Paper uses SF = 1.8 (Rolfs & Rodney) for non-resonant capture; the 312 and 964 keV resonances are not reproduced by the single-particle model, and S(0) is very sensitive to V_c near the resonance.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 2, Sec. 3.12',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'15N',nameB:'p',nameC:'16O',Aa:15,Za:7,Ia:.5,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:.5,J:0,Eb:12.128,V0:-54.81,R0:3.150,a0:.65,VS0:-10,RS0:3.150,aS:.65,RC:3.150,Rmax:100,npts:4000}},
  {name:'n + 15N → 16N g.s. (d5/2, 2−), Table-1 geometry, V0 fitted',note:'Quantum numbers as in HBG Sec. 4.7 (2− g.s. = d5/2 neutron on 15N 1/2−). Geometry from HBG Table 1; V0 = −50.205 MeV was fitted in this app to S_n = 2.491 MeV. The Vb = −27.06 MeV printed in HBG Table 3 for this state does not bind in this implementation, so it is not used. Paper SF = 0.55 (Bohne et al.).',source:'Geometry: J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 1, Sec. 4.7; V0 fitted locally',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'15N',nameB:'n',nameC:'16N',Aa:15,Za:7,Ia:.5,Ab:1,Zb:0,Ib:.5,Nn:0,l:2,j:2.5,J:2,Eb:2.491,V0:-50.205,R0:3.150,a0:.65,VS0:-10,RS0:3.150,aS:.65,RC:3.150,Rmax:100,npts:4000}},
- {name:'Illustrative α + 12C → 16O (s-wave)',note:'Cluster-model demonstration. The simple single-particle framework is not a complete α-cluster model.',v:{nameA:'12C',nameB:'alpha',nameC:'16O',Aa:12,Za:6,Ia:0,Ab:4,Zb:2,Ib:0,Nn:0,l:0,j:0,J:0,Eb:7.162,V0:-100,R0:3.5,a0:.7,VS0:0,RS0:3.5,aS:.7,RC:3.5,Rmax:100,npts:4000}},
+ {name:'Illustrative α + 12C → 16O (s-wave)',note:'Cluster-model demonstration. The α-particle orbital obeys the Wildermuth condition 2N + L = 4 (Pauli principle), so the s-wave state has N = 2 nodes; V0 = −54.887 MeV was fitted in this app to S_α = 7.162 MeV. The simple single-particle framework is not a complete α-cluster model, and the ANC this potential gives (tab 3) is not an estimate of the ¹⁶O α-ANC.',v:{nameA:'12C',nameB:'alpha',nameC:'16O',Aa:12,Za:6,Ia:0,Ab:4,Zb:2,Ib:0,Nn:2,l:0,j:0,J:0,Eb:7.162,V0:-54.887,R0:3.5,a0:.7,VS0:0,RS0:3.5,aS:.7,RC:3.5,Rmax:100,npts:4000}},
  {name:'n + 7Li → 8Li g.s. (p3/2, 2+) — literature WS (HBG 2010)',note:'HBG Sec. 4.2: R0 = R_C = R_S0 = 2.391 fm, a = 0.65 fm, V_S0 = −10 MeV (Table 1), V0 = −43.56 MeV (bound state). Paper: SF(g.s.) = 0.87; continuum depths −56.15 / −46.50 MeV for channel spin 2 / 1 (fitted to scattering lengths), and −34.93 MeV for the 0.26 MeV M1 resonance.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 3, Sec. 4.2',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'7Li',nameB:'n',nameC:'8Li',Aa:7,Za:3,Ia:1.5,Ab:1,Zb:0,Ib:.5,Nn:0,l:1,j:1.5,J:2,Eb:2.033,V0:-43.56,R0:2.391,a0:.65,VS0:-10,RS0:2.391,aS:.65,RC:2.391,Rmax:120,npts:4500}},
  {name:'p + 6Li → 7Be g.s. (p1/2, 3/2−) — literature WS (HBG 2010)',note:'HBG Table 1 geometry (R = 1.25·7^(1/3) = 2.391 fm), V0 = −65.91 MeV; p1/2 proton coupled to 6Li (1+) gives J = 3/2 (the paper labels both the g.s. and 1st excited state p1/2). Paper: SF = 0.83 (Camargo et al.), continuum V_c = −37.70 MeV. This solver gives S_p ≈ 5.63 MeV.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 2, Sec. 3.2',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'6Li',nameB:'p',nameC:'7Be',Aa:6,Za:3,Ia:1,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:.5,J:1.5,Eb:5.606,V0:-65.91,R0:2.391,a0:.65,VS0:-10,RS0:2.391,aS:.65,RC:2.391,Rmax:120,npts:4500}},
- {name:'Illustrative n + 10B → 11B (p3/2)',note:'Illustrative neutron channel for testing bound-state and transition calculations.',v:{nameA:'10B',nameB:'n',nameC:'11B',Aa:10,Za:5,Ia:3,Ab:1,Zb:0,Ib:.5,Nn:0,l:1,j:1.5,J:2.5,Eb:11.454,V0:-52,R0:2.6,a0:.65,VS0:-5,RS0:2.6,aS:.65,RC:2.6,Rmax:100,npts:4000}},
- {name:'Illustrative p + 10B → 11C (p3/2)',note:'Illustrative charged-particle setup; potential parameters are not experimentally fitted.',v:{nameA:'10B',nameB:'p',nameC:'11C',Aa:10,Za:5,Ia:3,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:1.5,J:2.5,Eb:8.689,V0:-52,R0:2.6,a0:.65,VS0:-5,RS0:2.6,aS:.65,RC:2.6,Rmax:120,npts:4500}},
+ {name:'Illustrative n + 10B → 11B (p3/2)',note:'Illustrative neutron channel for testing bound-state and transition calculations; geometry not fitted, V0 = −58.172 MeV fitted in this app to S_n = 11.454 MeV.',v:{nameA:'10B',nameB:'n',nameC:'11B',Aa:10,Za:5,Ia:3,Ab:1,Zb:0,Ib:.5,Nn:0,l:1,j:1.5,J:2.5,Eb:11.454,V0:-58.172,R0:2.6,a0:.65,VS0:-5,RS0:2.6,aS:.65,RC:2.6,Rmax:100,npts:4000}},
+ {name:'Illustrative p + 10B → 11C (p3/2)',note:'Illustrative charged-particle setup; geometry not experimentally fitted, V0 = −58.362 MeV fitted in this app to S_p = 8.689 MeV.',v:{nameA:'10B',nameB:'p',nameC:'11C',Aa:10,Za:5,Ia:3,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:1.5,J:2.5,Eb:8.689,V0:-58.362,R0:2.6,a0:.65,VS0:-5,RS0:2.6,aS:.65,RC:2.6,Rmax:120,npts:4500}},
  {name:'n + 16O → 17O g.s. (d5/2) — literature WS (HBG 2010)',note:'HBG Table 1 geometry, V0 = −51.77 MeV (bound state, S_n = 4.14 MeV); the paper uses SF = 1.0 for both g.s. and 1/2+ state. Continuum depth equals the bound-state depth.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 3, Sec. 4.8',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'16O',nameB:'n',nameC:'17O',Aa:16,Za:8,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:2,j:2.5,J:2.5,Eb:4.143,V0:-51.77,R0:3.214,a0:.65,VS0:-10,RS0:3.214,aS:.65,RC:3.214,Rmax:120,npts:4500}},
  {name:'17F g.s. — literature WS (16O+p, d5/2)',note:'Published single-particle potential for the 5/2+ ground state: V0 = −54.477 MeV, R = 3.242 fm, a = 0.67 fm, adjusted in the paper to reproduce S_p = 0.600 MeV. The cited model uses no explicit spin-orbit term in this bound-state Hamiltonian.',source:'H. Esbensen and G. F. Bertsch, Nucl. Phys. A 706, 383–399 (2002), Sec. 3',sourceUrl:'https://archive.int.washington.edu/users/bertsch/articles/NPA.706.383.pdf',v:{nameA:'16O',nameB:'p',nameC:'17F',Aa:16,Za:8,Ia:0,Ab:1,Zb:1,Ib:.5,Nn:0,l:2,j:2.5,J:2.5,Eb:0.600,V0:-54.477,R0:3.242,a0:.67,VS0:0,RS0:3.242,aS:.67,RC:3.242,Rmax:160,npts:6000}},
  {name:'n + 8Li → 9Li g.s. (p3/2) — literature WS (HBG 2010)',note:'HBG Sec. 4.3 geometry (from Bertulani, J. Phys. G 25, 1959): a = 0.52 fm, R = 2.499 fm, V_S0 = −9.9 MeV; V0 = −45.29 MeV (S_n = 4.06 MeV). Paper SF = 0.8 (instead of 1.65) for the g.s.',source:'J. T. Huang, C. A. Bertulani, V. Guimarães, At. Data Nucl. Data Tables 96, 824 (2010), Table 3, Sec. 4.3',sourceUrl:'https://doi.org/10.1016/j.adt.2010.06.004',
   v:{nameA:'8Li',nameB:'n',nameC:'9Li',Aa:8,Za:3,Ia:2,Ab:1,Zb:0,Ib:.5,Nn:0,l:1,j:1.5,J:1.5,Eb:4.064,V0:-45.29,R0:2.499,a0:.52,VS0:-9.9,RS0:2.499,aS:.52,RC:2.499,Rmax:120,npts:4500}},
- {name:'Illustrative p + 11B → 12C (p1/2)',note:'Illustrative setup for testing spin coupling and Coulomb effects; not a calibrated model.',v:{nameA:'11B',nameB:'p',nameC:'12C',Aa:11,Za:5,Ia:1.5,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:.5,J:1,Eb:15.957,V0:-55,R0:2.7,a0:.65,VS0:-6,RS0:2.7,aS:.65,RC:2.7,Rmax:100,npts:4000}},
+ {name:'Illustrative p + 11B → 12C (p1/2)',note:'Illustrative setup for testing spin coupling and Coulomb effects; not a calibrated model (V0 = −71.242 MeV fitted in this app to S_p = 15.957 MeV).',v:{nameA:'11B',nameB:'p',nameC:'12C',Aa:11,Za:5,Ia:1.5,Ab:1,Zb:1,Ib:.5,Nn:0,l:1,j:.5,J:1,Eb:15.957,V0:-71.242,R0:2.7,a0:.65,VS0:-6,RS0:2.7,aS:.65,RC:2.7,Rmax:100,npts:4000}},
  {name:'15C first excited state (5/2+, 0.740 MeV) — literature WS',
-  note:'14C+n d-wave bound state for the 0.740-MeV excited level of 15C. Uses the published illustrative WS geometry R = 3.04 fm, a = 0.70 fm and depth magnitude 52.8 MeV; the depth is entered negative in this app. Treat as a literature starting set and verify the calculated separation energy and node assignment with this solver.',
+  note:'14C+n d-wave bound state for the 0.740-MeV excited level of 15C. Uses the published illustrative WS geometry R = 3.04 fm, a = 0.70 fm and depth magnitude 52.8 MeV. With this app’s mass unit the published depth gives E = −0.546 MeV, so V0 = −52.613 MeV (fitted in this app to S_n = 0.478 MeV) is entered; type −52.8 to use the published depth.',
   source:'D. Weller et al., Astrophysical Journal 363, 340–343 (1990), discussion of 14C(n,γ)15C',
   sourceUrl:'https://adsabs.harvard.edu/pdf/1990ApJ...363..340W',
-  v:{nameA:'14C',nameB:'n',nameC:'15C* (0.740 MeV)',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:2,j:2.5,J:2.5,Eb:.478,V0:-52.8,R0:3.04,a0:.70,VS0:0,RS0:3.04,aS:.70,RC:3.04,Rmax:180,npts:8000}}
+  v:{nameA:'14C',nameB:'n',nameC:'15C* (0.740 MeV)',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:2,j:2.5,J:2.5,Eb:.478,V0:-52.613,R0:3.04,a0:.70,VS0:0,RS0:3.04,aS:.70,RC:3.04,Rmax:180,npts:8000}}
 ,
  {name:'15C g.s. — literature WS (Weller 1990 geometry)',
-  note:'Alternative published 14C+n s-wave geometry for the 15C ground state: R = 3.04 fm, a = 0.70 fm and depth magnitude 49.9 MeV. This is a distinct literature parameterization from the Capel–Nollet set already listed; compare ANC and observables rather than treating either geometry as unique.',
+  note:'Alternative published 14C+n s-wave geometry for the 15C ground state: R = 3.04 fm, a = 0.70 fm and depth magnitude 49.9 MeV. This is a distinct literature parameterization from the Capel–Nollet set already listed; compare ANC and observables rather than treating either geometry as unique. The ground state is the 2s orbital (N = 1). With this app’s mass unit the published depth 49.9 MeV gives E = −1.53 MeV, so V0 = −48.632 MeV (fitted in this app to S_n = 1.218 MeV) is entered; type −49.9 to use the published depth.',
   source:'D. Weller et al., Astrophysical Journal 363, 340–343 (1990), discussion of 14C(n,γ)15C',
   sourceUrl:'https://adsabs.harvard.edu/pdf/1990ApJ...363..340W',
-  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:0,l:0,j:.5,J:.5,Eb:1.218,V0:-49.9,R0:3.04,a0:.70,VS0:0,RS0:3.04,aS:.70,RC:3.04,Rmax:180,npts:8000}}
+  v:{nameA:'14C',nameB:'n',nameC:'15C',Aa:14,Za:6,Ia:0,Ab:1,Zb:0,Ib:.5,Nn:1,l:0,j:.5,J:.5,Eb:1.218,V0:-48.632,R0:3.04,a0:.70,VS0:0,RS0:3.04,aS:.70,RC:3.04,Rmax:180,npts:8000}}
 
 ];
 const NUM=['mN','Aa','Za','Ia','Ab','Zb','Ib','Nn','l','j','J','Eb','C2S','V0','R0','a0','VS0','RS0','aS','RC','Rmax','npts'];
@@ -1422,6 +1496,7 @@ function loadPreset(i){
   if(typeof dWaveVis==='function')dWaveVis();
   if(lastPot)plotPot();   // tab-2 curve follows the new potential if it was already drawn
   setStatus('Preset loaded: all reaction and potential parameters updated.');
+  if(window.afterPreset)afterPreset(p);
 }
 function readP(){
   const p={};let bad=[];
@@ -1493,7 +1568,7 @@ function solveFromUI(){
 }
 let lastWf=null;
 function showBound(p,m,res,label){
-  if(res.error){$('boundMsg').innerHTML=`<div class="msg bad">${res.error}</div>`;$('boundCards').innerHTML='';return;}
+  if(res.error){$('boundMsg').innerHTML=`<div class="msg bad">${res.error}</div>`;$('boundCards').innerHTML='';if(window.afterBound)afterBound(p,m,{E:NaN});return;}
   lastWf={p,m,res};
   const kv=(a,b)=>`<div class="kv"><b>${a}</b><span>${b}</span></div>`;
   const dE=p.Eb>0?(res.E+p.Eb)*1000:null;
@@ -1512,6 +1587,7 @@ function showBound(p,m,res,label){
   const tr=[{x:xs,y:us,name:'u(r) '+(label||'current'),mode:'lines'},{x:xs,y:ps,name:'u²(r)',mode:'lines',line:{dash:'dot'}}];
   pinned.forEach(q=>tr.push({x:q.x,y:q.y,name:q.name,mode:'lines',line:{dash:'dash'}}));
   Plotly.newPlot('wfPlot',tr,layout('r (fm)','u (fm⁻¹ᐟ²)',{xaxis:{title:'r (fm)',range:[0,Math.min(p.Rmax,res.rm*4+20)],gridcolor:plotColors().line}}),{responsive:true});
+  if(window.afterBound)afterBound(p,m,res);
 }
 async function runSolve(){
   setStatus('Solving…','run');await nextFrame();const t0=performance.now();
@@ -1553,10 +1629,13 @@ async function runBench(){
   };
   doBound('8B g.s. energy, p3/2, V0=-44.658 (WS, 250 fm, 9999 pts)','Paper App. B: S_p = 0.136 MeV',0,-0.136);
   doBound('Artificial p3/2 1+ state, V0=-30.55','Paper App. C: E = -0.05 MeV',1,-0.05);
-  stage3Bench(rows);stage4Bench(rows);closureRows(rows);stage5Bench(rows);await xcBench(rows);stage6Bench(rows);m3yBench(rows);gaussBench(rows);litBench(rows);await intBench(rows);origBench(rows);emBench(rows);
+  const steps=[['Coulomb functions, phase shifts, resonances',()=>stage3Bench(rows)],['angular algebra and B values',()=>stage4Bench(rows)],['completeness sum rule',()=>closureRows(rows)],['direct capture',()=>stage5Bench(rows)],['extended capture',()=>xcBench(rows)],['thermal averages',()=>stage6Bench(rows)],['M3Y folding',()=>m3yBench(rows)],['Gaussian shape',()=>gaussBench(rows)],['literature plausibility',()=>litBench(rows)],['integrators',()=>intBench(rows)],['original-code comparison',()=>origBench(rows)],['EM conventions',()=>emBench(rows)],['preset consistency',()=>{if(window.presetBench)presetBench(rows);}]];
+  for(let k=0;k<steps.length;k++){setStatus(`Benchmarks ${k+1}/${steps.length}: ${steps[k][0]}…`,'run');await nextFrame();await steps[k][1]();}
   const todo=[];
   $('benchTable').querySelector('tbody').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td><span class="pill ${r[5]}">${r[5]}</span></td></tr>`).join('')+
    todo.map(t=>`<tr><td>${t[0]}</td><td>${t[1]}</td><td>—</td><td>—</td><td>—</td><td><span class="pill todo">not yet implemented (${t[2]})</span></td></tr>`).join('');
+  const cnt={};rows.forEach(r=>cnt[r[5]]=(cnt[r[5]]||0)+1);
+  $('benchSum').innerHTML=`<div class="msg ${cnt.fail?'bad':(cnt.warn?'warn':'ok')}">${rows.length} checks: ${['pass','explained','inconsistent','warn','alternative','fail'].filter(k=>cnt[k]).map(k=>`${cnt[k]} ${k}`).join(', ')}.</div>`;
   setStatus('Done');
 }
 
@@ -1676,13 +1755,21 @@ function stage3Bench(rows){
     for(const E of [0.5,3,10]){const r=contSolve(mn,pn,E),q=Math.sqrt(2*mn.mu*(E+40))/PC.hbarc;let a=-r.k*3+Math.atan2(r.k*Math.sin(q*3),q*Math.cos(q*3));a=((a+Math.PI/2)%Math.PI+Math.PI)%Math.PI-Math.PI/2;e3=Math.max(e3,Math.abs(r.delta-a));}}
   rows.push(['Neutral s-wave well (a = 0.02 fm, nearly sharp edge) vs analytic hard-edge phase shift','Eq. 15 (η = 0)','tolerance 2e-3 rad',e3.toExponential(2)+' rad','—',P(e3<2e-3)]);
   // 4 resonance set 1 and 2
+  const EMU={},emuRows=[];
+  {const sv=Object.assign({},PC);try{Object.assign(PC,RADCAP_C);   /* original continuum constants (931.5, 197.33, 1.44) */
+    for(const s of [1,2]){const m=makeModel(Object.assign({},BASEP,CPSETS[s])),pre=prepC(m,40,0.02);let prev=null,hit=null;
+      for(let n=0;n<200&&!hit;n++){const E=0.001+0.015*n,d=contSolve(m,pre,E).delta;if(prev&&prev.d<Math.PI/2&&prev.d>0.5&&d<0){const dd=d+Math.PI;hit={grid:prev.E,lin:prev.E+0.015*(Math.PI/2-prev.d)/(dd-prev.d)};}prev={E,d};}
+      EMU[s]=hit;}}finally{Object.assign(PC,sv);}}
   [[1,'-42.3, R0 = 2.391'],[2,'-28.65, R0 = 2.95']].forEach(([s,lab])=>{
-    const f=resonanceFor(s),cs='1+ resonance p+7Be, l=1 j=3/2, V0 = '+lab;
+    const f=resonanceFor(s),cs='1+ resonance p+7Be, l=1 j=3/2, V0 = '+lab,em=EMU[s];
+    if(em)emuRows.push([`1+ resonance, set ${s} (V0 = ${lab}), emulating the original CONT search: original continuum constants (931.5, 197.33, 1.44), energy grid E = 0.001 + 0.015 n MeV, last grid point before δ passes π/2. Linear interpolation of the same crossing gives ${(em.lin*1000).toFixed(1)} keV.`,'Paper App. D (printed value)','631 keV',(em.grid*1000).toFixed(1)+' keV',((em.grid*1000-631)).toFixed(1)+' keV',Math.abs(em.grid*1000-631)<0.5?'pass':'fail']);
     if(!f){rows.push([cs+tag,'Paper App. D','631 keV, ≈50 keV','no resonance found','—','fail']);return;}
     const dE=f.ER*1000-631,dG=(f.Gam*1000-50)/50*100;
-    rows.push([cs+tag+' (tolerance fixed in advance: |ΔE_R| ≤ 10 keV)','Paper App. D: E_R = 631 keV (set 2: "same resonance")','631 keV',(f.ER*1000).toFixed(1)+' keV',dE.toFixed(1)+' keV',P(Math.abs(dE)<=10)]);
+    const expl=em&&Math.abs(em.grid*1000-631)<0.5;
+    rows.push([cs+tag+' (tolerance fixed in advance: |ΔE_R| ≤ 10 keV)'+(expl&&Math.abs(dE)>10?'. The paper’s 631 keV is reproduced exactly by the original-code emulation below: it is a grid point of the original search with the original mass unit 931.5 MeV, not a refined resonance energy; this value is the refined one with the mass unit of tab 1.':''),'Paper App. D: E_R = 631 keV (set 2: "same resonance")','631 keV',(f.ER*1000).toFixed(1)+' keV',dE.toFixed(1)+' keV',Math.abs(dE)<=10?'pass':(expl?'explained':'fail')]);
     rows.push([cs+tag+' (tolerance fixed in advance: Γ within 20% of 50 keV)','Paper App. D: Γ ≈ 50 keV','≈50 keV',(f.Gam*1000).toFixed(1)+' keV',dG.toFixed(0)+' %',P(Math.abs(dG)<=20)]);
   });
+  emuRows.forEach(r=>rows.push(r));
 }
 
 function closureTest(Zb){
@@ -2005,14 +2092,14 @@ function stage4Bench(rows){
     const mi=mk(xi),mf=mk(xf),bi=solveBound(mi,prep(mi,9999,250),0),bf=solveBound(mf,prep(mf,9999,250),0);
     if(bi.error||bf.error){rows.push([label+tag,'Paper App. C','3.76 e² fm⁴',(bi.error||bf.error),'—','fail']);return;}
     const Pp={l:xf.l,j:xf.j,l0:xi.l,j0:xi.j,lam:2,eff:effCharge(2,7,4,1,1),I:radInt(bf.u,bi.u,bi.h,2)};
-    const B=BEl(Pp,1.5,xf.J,xi.J)*fac,d=(B/3.76-1)*100;
-    rows.push([label+tag+' (tolerance fixed in advance: within 5 %)','Paper App. C: B(E2) = 3.76 e² fm⁴','3.76 e² fm⁴',B.toFixed(3)+' e² fm⁴',d.toFixed(0)+' %',P(Math.abs(d)<=5)]);};
+    const B=BEl(Pp,1.5,xf.J,xi.J)*fac,d=(B/3.76-1)*100,dc=(B/1.44/3.76-1)*100,expl=Math.abs(dc)<=1;
+    rows.push([label+tag+' (tolerance fixed in advance: within 5 %)'+(expl&&Math.abs(d)>5?`. Divided by e² = 1.44 MeV fm, as the original BVALUE prints it, this is ${(B/1.44).toFixed(3)} (${dc>=0?'+':''}${dc.toFixed(1)} %): the paper’s 3.76 is in units of e² fm⁴ divided by e² (see the original-code row below), not a different physics result.`:''),'Paper App. C: B(E2) = 3.76 e² fm⁴','3.76 e² fm⁴',B.toFixed(3)+' e² fm⁴',d.toFixed(0)+' %',Math.abs(d)<=5?'pass':(expl?'explained':'fail')]);};
   run(Pi,Pf,1,'B(E2; 8B g.s. → artificial 1+), two potentials of App. B and C');
   { // initial J0=2 with same potential: need J of initial separately
     const xi=Object.assign({},Pf,{J:2}),xf=Pf;const mi=mk(xi),mf=mk(xf),bi=solveBound(mi,prep(mi,9999,250),0),bf=solveBound(mf,prep(mf,9999,250),0);
     if(!bi.error&&!bf.error){const Pp={l:1,j:1.5,l0:1,j0:1.5,lam:2,eff:effCharge(2,7,4,1,1),I:radInt(bf.u,bi.u,bi.h,2)};
       const B=BEl(Pp,1.5,1,2),d=(B/3.76-1)*100;
-      rows.push(['B(E2) with the single potential of BVALUE.INP (V₀ = −30.55) for both states, J₀ = 2 → J = 1'+tag+' (tolerance 5 %)','Paper App. C: 3.76 e² fm⁴','3.76 e² fm⁴',B.toFixed(3)+' e² fm⁴',d.toFixed(0)+' %',P(Math.abs(d)<=5)]);}}
+      rows.push(['B(E2) with the single potential of BVALUE.INP (V₀ = −30.55) for both states, J₀ = 2 → J = 1'+tag+` (tolerance 5 %). An alternative reading of the input: even with the original ÷1.44 it gives ${(B/1.44).toFixed(2)}, so the paper did not use one potential for both states; this row only documents that the reading is ruled out.`,'Paper App. C: 3.76 e² fm⁴','3.76 e² fm⁴',B.toFixed(3)+' e² fm⁴',d.toFixed(0)+' %',Math.abs(d)<=5?'pass':'alternative']);}}
 }
 
 /* ---------- Stage 5 UI: direct capture, S-factor, photodissociation ---------- */
@@ -2174,7 +2261,8 @@ function stage5Bench(rows){
   const fig=[[0.005,21.2],[0.5,20.0],[1.0,23.3],[1.5,28.7]];
   fig.forEach(([E,ref])=>{
     try{const r=dicapRun(Object.assign({},cfgBase,{Emin:E,Emax:E+1e-9,nE:2})),S=r.S[0]*1e4,d=(S/ref-1)*100;
-      rows.push([`S₁₇ for p + ⁷Be, E1 only (s1/2, d3/2, d5/2), paper App. E input, E = ${E} MeV${tag}`+' (reference read by me from the printed solid curve of Fig. 4, uncertainty ≈ ±0.5 eV b; tolerance fixed in advance: 5 %)','Paper Fig. 4 (solid curve, not tabulated)',ref.toFixed(1)+' eV b',S.toFixed(2)+' eV b',d.toFixed(0)+' %',P(Math.abs(d)<=5)]);
+      const ro=dicapRun(Object.assign({},cfgBase,{orig:true,Rm:100,Emin:E,Emax:E+1e-9,nE:2})),So=ro.S[0]*1e4,dO=(So/ref-1)*100,inc=Math.abs(d)>5&&Math.abs(dO)>5;
+      rows.push([`S₁₇ for p + ⁷Be, E1 only (s1/2, d3/2, d5/2), paper App. E input, E = ${E} MeV${tag}`+' (reference read by me from the printed solid curve of Fig. 4, uncertainty ≈ ±0.5 eV b; tolerance fixed in advance: 5 %)'+(inc?`. The emulation of the original RADCAP.FOR (which reproduces the recorded DICAP output to 0.5 %, row below) gives ${So.toFixed(2)} eV b here (${dO>=0?'+':''}${dO.toFixed(0)} %): the printed curve is not reproduced by the paper’s own program with this input either, so there is nothing in this app to correct.`:''),'Paper Fig. 4 (solid curve, not tabulated)',ref.toFixed(1)+' eV b',S.toFixed(2)+' eV b',d.toFixed(0)+' %',Math.abs(d)<=5?'pass':(inc?'inconsistent':'fail')]);
     }catch(e){rows.push(['S₁₇ vs Fig. 4','Paper Fig. 4',ref+' eV b',e.message,'—','fail']);}
   });
 }
@@ -2417,11 +2505,17 @@ function build9(){
   document.querySelectorAll('nav .tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='t9')src9();}));
   render9R();
 }
+function rateSrc(){ /* non-resonant capture table for tab 9: the Extended panel or the single-state panel of tab 7 */
+  const want=($('th_src')||{}).value||'auto';
+  const xc=(xcRes&&xcCfg)?{res:xcRes,cfg:xcCfg,label:'Extended capture panel',kind:'xc'}:null;
+  let d=null;if(dState){const r=dState.r,p=dState.cfg.p;d={res:{E:r.E,sigmaDC:r.sigma,mu:PC.amu*p.Aa*p.Ab/(p.Aa+p.Ab),charged:r.charged},cfg:{p,res:null},label:'single-state direct capture (top of tab 7)',kind:'d'};}
+  if(want==='xc')return xc;if(want==='d')return d;return xc||d;}
 function src9(){
+  const RS=rateSrc();if(RS){$('msg9src').innerHTML=`<div class="msg ok">Source: ${RS.label}, ${RS.res.E.length} energies from ${RS.res.E[0]} to ${RS.res.E[RS.res.E.length-1]} MeV, ${RS.res.charged?'charged':'neutral'} entrance channel.${RS.cfg.res?' Tab 7 also has a Breit–Wigner resonance defined; it is not part of the non-resonant integral (use "Import tab 7 resonance").':''}</div>`;return;}
   $('msg9src').innerHTML=xcRes?`<div class="msg ok">Source: tab 7 direct-capture cross section, ${xcRes.E.length} energies from ${xcRes.E[0]} to ${xcRes.E[xcRes.E.length-1]} MeV, ${xcRes.charged?'charged':'neutral'} entrance channel.${xcCfg&&xcCfg.res?' Tab 7 also has a Breit–Wigner resonance defined; it is not part of the non-resonant integral (use "Import tab 7 resonance").':''}</div>`:`<div class="msg warn">No capture result yet. Tab 9 integrates the cross section from the <b>Extended capture</b> panel at the bottom of tab 7: expand it, load the preset (or define your states) and press Calculate there. The direct panel above it is not used here.</div>`;
 }
 function read9(){
-  if(!xcRes||!xcCfg)throw new Error('Tab 9 integrates the result of the "Extended capture" panel at the bottom of tab 7 (expand it, load the preset or define your states, press Calculate). The direct panel above it is not used here.');
+  if(!rateSrc())throw new Error(($('th_src').value==='auto'?'No capture result yet: run the single-state panel or the Extended capture panel of tab 7 first.':'The selected tab-7 panel has no result yet: press its Calculate button first.'));
   sync9();const g=id=>{const v=parseFloat($(id).value);if(!isFinite(v))throw new Error('Tab 9 input "'+id.replace(/^th_/,'')+'" is missing or invalid.');return v;};
   const c={Tmin:g('th_Tmin'),Tmax:g('th_Tmax'),nT:Math.round(g('th_nT')),fit:g('th_fit'),ident:$('th_ident').checked,extrap:$('th_extrap').checked,log:$('th_scale').value==='log'};
   if(!(c.Tmin>0)||!(c.Tmax>c.Tmin))throw new Error('Temperatures must satisfy 0 < T9,min < T9,max.');
@@ -2439,7 +2533,7 @@ function read9(){
 async function run9(){
   setStatus('Thermal averages…','run');await nextFrame();const t0=performance.now();
   try{
-    const c=read9(),p=xcCfg.p,E=Array.from(xcRes.E),sig=Array.from(xcRes.sigmaDC),mu=xcRes.mu,ZZ=p.Za*p.Zb*PC.e2,charged=ZZ>0,n=c.nT,msgs=[];
+    const c=read9(),RS=rateSrc(),p=RS.cfg.p,E=Array.from(RS.res.E),sig=Array.from(RS.res.sigmaDC),mu=RS.res.mu,ZZ=p.Za*p.Zb*PC.e2,charged=ZZ>0,n=c.nT,msgs=[];
     const R={c,T9:c.T9,kT:c.T9.map(t=>KT_PER_T9*t),charged,nr:[],nrErr:[],res:c.rows.map(()=>[]),tot:[],cm3s:[],NA:[],missLo:[],missHi:[],ex:[],E0:[],Delta:[],E0eq47:[],tau:[],an:[],ratio:[],vol:[],narrowBad:c.rows.map(()=>[]),resErr:c.rows.map(()=>[])};
     const kTmax=KT_PER_T9*c.Tmax,bws=c.rows.map(r=>{if(r.method!=='bw')return null;return makeBW({Er:r.Er,JR:r.JR,Gp:r.GpM,Gg:r.GgM,pen:r.pen,lR:r.lR,ac:r.ac},p,mu,r.Er+60*kTmax+20*(r.GpM+r.GgM));});
     // analytic fit (Eq. 46 or Eq. 37-38)
@@ -2462,6 +2556,7 @@ async function run9(){
     res9=R;
     // messages
     const mH=Math.max(...R.missHi),mL=Math.max(...R.missLo),i1=R.missHi.findIndex(v=>v>0.01),i2=R.missLo.findIndex(v=>v>0.01);
+    msgs.push(['info',`Non-resonant cross section: ${RS.label}.`]);
     msgs.push(['info',`Non-resonant integral over the table only (${E[0]} – ${E[E.length-1]} MeV); adaptive Gauss–Legendre, largest embedded error estimate ${Math.max(...R.nrErr.map((e,i)=>e/R.nr[i]||0)).toExponential(1)} (relative).`]);
     if(i1>=0)msgs.push(['warn',`From T<sub>9</sub> ≈ ${c.T9[i1].toPrecision(3)} upward more than 1 % of the integrand lies above E<sub>max</sub> = ${E[E.length-1]} MeV (up to ${(mH*100).toFixed(0)} % at T<sub>9</sub> = ${c.Tmax}); the non-resonant rate there is a <b>lower bound</b>. Extend the tab-7 energy range.`]);else msgs.push(['ok',`Weight above E<sub>max</sub> is ≤ ${(mH*100).toExponential(1)} % at all temperatures.`]);
     if(i2>=0&&!c.extrap)msgs.push(['warn',`More than 1 % of the integrand lies below E<sub>min</sub> = ${E[0]} MeV for T<sub>9</sub> ≲ ${c.T9[R.missLo.length-1-[...R.missLo].reverse().findIndex(v=>v>0.01)].toPrecision(3)} (up to ${(mL*100).toFixed(0)} %); the rate is a lower bound unless you enable the documented extrapolation or lower E<sub>min</sub>.`]);
@@ -2489,6 +2584,7 @@ async function run9(){
     const hdr=['T₉','k_BT (MeV)','⟨σv⟩ non-res (cm³/s)'].concat(c.rows.map((_,q)=>`⟨σv⟩ res ${q+1}`),['⟨σv⟩ total (cm³/s)','N_A⟨σv⟩','outside table: low','outside table: high','E₀ (MeV)','numeric/analytic']);
     $('tab9').innerHTML=`<thead><tr>${hdr.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${c.T9.map((t,i)=>`<tr><td>${t.toPrecision(4)}</td><td>${R.kT[i].toPrecision(4)}</td><td>${svToCm3s(R.nr[i]).toExponential(4)}</td>${c.rows.map((_,q)=>`<td>${svToCm3s(R.res[q][i]).toExponential(4)}</td>`).join('')}<td>${R.cm3s[i].toExponential(4)}</td><td>${R.NA[i].toExponential(4)}</td><td>${R.missLo[i].toExponential(1)}</td><td>${R.missHi[i].toExponential(1)}</td><td>${isFinite(R.E0[i])?R.E0[i].toPrecision(4):'—'}</td><td>${isFinite(R.ratio[i])?R.ratio[i].toFixed(4):'—'}</td></tr>`).join('')}</tbody>`;
     makeSortable($('tab9'));
+    if(window.afterRun9)afterRun9(R);
     setStatus(`Done in ${((performance.now()-t0)/1000).toFixed(1)} s`);
   }catch(e){setStatus(e.message,'err');$('msg9').innerHTML=`<div class="msg bad">${e.message}</div>`;}
 }
@@ -2546,8 +2642,8 @@ async function runDiag(){
       const lw=Math.max(...r.states.map(S=>Math.max(...S.Eg)))*(xcCfg.states[0].pot.R0+8*xcCfg.states[0].pot.a0)/PC.hbarc;
       add('Long-wavelength approximation: max E_γ (R₀ + 8a₀)/ħc (state 1 radius)',lw.toFixed(3),'< 0.3 (E1/E2/M1 operators are long-wavelength limits)',lw<0.3?'pass':(lw<0.6?'warn':'fail'));}
     // D5 thermal-integral independent cross-check
-    if(!xcRes||!xcCfg)add('Thermal integral: adaptive Gauss–Legendre vs independent Simpson in ln E','run tab 7 first','relative difference < 1e-4','n/a');
-    else{const p=xcCfg.p,r=xcRes,ZZ=p.Za*p.Zb*PC.e2,E=Array.from(r.E),sig=Array.from(r.sigmaDC),T0=parseFloat($('th_Tmin').value),T1=parseFloat($('th_Tmax').value);
+    if(!rateSrc())add('Thermal integral: adaptive Gauss–Legendre vs independent Simpson in ln E','run tab 7 first','relative difference < 1e-4','n/a');
+    else{const RS=rateSrc(),p=RS.cfg.p,r=RS.res,ZZ=p.Za*p.Zb*PC.e2,E=Array.from(r.E),sig=Array.from(r.sigmaDC),T0=parseFloat($('th_Tmin').value),T1=parseFloat($('th_Tmax').value);
       const Ts=(isFinite(T0)&&isFinite(T1)&&T1>T0&&T0>0)?[T0,Math.sqrt(T0*T1),T1]:[0.1,0.3,1];let w=0;
       for(const T9 of Ts){const kT=KT_PER_T9*T9,a=thermalNR(E,sig,kT,ZZ,r.mu,r.charged,false),b=thermalSimpson(E,a.Y,kT,ZZ,r.mu,r.charged,40000);if(a.svTab>0)w=Math.max(w,Math.abs(b/a.svTab-1));}
       add(`Thermal integral of the table at T₉ = ${Ts.map(t=>t.toPrecision(3)).join(', ')}: adaptive Gauss–Legendre vs Simpson in ln E`,w.toExponential(1),'< 1e-4',st(w,1e-4,1e-3));}
@@ -2724,7 +2820,7 @@ function init(){
   $('loadPreset').onclick=()=>loadPreset($('preset').value);
   $('resetBtn').onclick=()=>loadPreset(0);
   NUM.concat(['nameA','nameB','nameC']).forEach(k=>{const e=$(k);if(e)e.addEventListener('input',refresh);});
-  $('themeSel').onchange=e=>{document.documentElement.dataset.theme=e.target.value;if(lastPot)plotPot();if(lastWf)showBound(lastWf.p,lastWf.m,lastWf.res);};
+  $('themeSel').onchange=e=>{document.documentElement.dataset.theme=e.target.value;siteThemePut(e.target.value);if(lastPot)plotPot();if(lastWf)showBound(lastWf.p,lastWf.m,lastWf.res);if(window.replotExtras)replotExtras();};
   $('plotPot').onclick=plotPot;
   $('expPot').onclick=()=>{try{const d=potentialData();download('potential.csv','r_fm,central_MeV,spinorbit_x_ls_MeV,coulomb_MeV,centrifugal_MeV,total_MeV\n'+d.r.map((x,i)=>[x,d.c[i],d.so[i],d.cou[i],d.cent[i],d.tot[i]].join(',')).join('\n'));}catch(e){setStatus(e.message,'err');}};
   $('solveBtn').onclick=runSolve;$('fitBtn').onclick=runFit;$('convBtn').onclick=runConv;
@@ -2748,6 +2844,439 @@ function init(){
     if(!window.Plotly||window.Plotly.__stub)setStatus('Plotly failed to load (no CDN access): numbers still work, plots show a notice','err');});
 }
 init();
+</script>
+<script>
+/* ===== Extensions: ANC, comparison with data, REACLIB fit, site theme ===== */
+(function(){
+const kvx=(a,b)=>`<div class="kv"><b>${a}</b><span>${b}</span></div>`;
+const msgx=a=>a.map(x=>`<div class="msg ${x[0]}">${x[1]}</div>`).join('');
+const REDRAW={};
+window.replotExtras=()=>{Object.values(REDRAW).forEach(f=>{try{f();}catch(e){}});};
+
+/* ---------- Whittaker function W_{-eta,l+1/2}(z) ---------- */
+function lgam(x){const g=7,c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5)return Math.log(Math.PI/Math.abs(Math.sin(Math.PI*x)))-lgam(1-x);x-=1;let a=c[0];const t=x+g+0.5;for(let i=1;i<9;i++)a+=c[i]/(x+i);return 0.5*Math.log(2*Math.PI)+(x+0.5)*Math.log(t)-t+Math.log(a);}
+function whittakerW(eta,l,z){ /* integral representation, valid for l+1+eta > 0:
+   W = z^(-eta) e^(-z/2)/Gamma(l+1+eta) * Int_0^inf t^(l+eta) (1+t/z)^(l-eta) e^(-t) dt ; substitution t = x^2 */
+  const a=l+eta,b=l-eta,tmax=80+4*(Math.abs(a)+Math.abs(b)),xm=Math.sqrt(tmax),n=4000,h=xm/n;
+  const lf=x=>{if(x===0)return -Infinity;const t=x*x;return Math.log(2)+(2*a+1)*Math.log(x)+b*Math.log1p(t/z)-t;};
+  let mx=-Infinity;const L=new Float64Array(n+1);for(let i=0;i<=n;i++){L[i]=lf(i*h);if(L[i]>mx)mx=L[i];}
+  let s=0;for(let i=0;i<=n;i++){const w=(i===0||i===n)?1:(i%2?4:2);s+=w*Math.exp(L[i]-mx);}
+  const lnI=Math.log(s*h/3)+mx;
+  return Math.exp(-eta*Math.log(z)-z/2-lgam(l+1+eta)+lnI);}
+window.whittakerW=whittakerW;
+
+/* ---------- ANC of the bound state (tab 3) ---------- */
+let ancLast=null;
+window.afterBound=function(p,m,res){
+  const box=$('ancBox'),pl=$('ancPlot');
+  try{
+    if(!(res.E<0)){box.innerHTML='';pl.style.display='none';ancLast=null;return;}
+    const kap=Math.sqrt(2*m.mu*(-res.E))/PC.hbarc,eta=m.ZZ*m.mu/(PC.hbarc*PC.hbarc*kap),N=res.N,h=res.h,Rmax=N*h;
+    let umax=0;for(let i=0;i<=N;i++)umax=Math.max(umax,Math.abs(res.u[i]));
+    const rN=Math.max(m.R0,m.RC||0,m.RS0||0)+7*Math.max(m.a0,m.aS||0);
+    let rEnd=rN;for(let i=Math.round(rN/h);i<=N;i++){if(Math.abs(res.u[i])<1e-11*umax||i*h>0.6*Rmax)break;rEnd=i*h;}
+    rEnd=Math.min(rEnd,rN+40);
+    if(rEnd<rN+2){box.innerHTML=msgx([['warn','ANC: the wavefunction tail beyond the nuclear range is too short to read off the asymptotic normalization (increase R<sub>max</sub>).']]);pl.style.display='none';ancLast=null;return;}
+    const r0=Math.max(h*4,0.5*Math.max(m.R0,1)),xs=[],bs=[],np=90;
+    for(let k=0;k<=np;k++){const r=r0+(rEnd-r0)*k/np,i=Math.round(r/h),rr=i*h;const W=whittakerW(eta,m.l,2*kap*rr);xs.push(rr);bs.push(res.u[i]/W);}
+    const sgn=Math.sign(bs[bs.length-1])||1,ba=bs.map(v=>v*sgn);
+    const plat=ba.filter((v,k)=>xs[k]>=rN),b=plat.reduce((x,y)=>x+y,0)/plat.length,spread=(Math.max(...plat)-Math.min(...plat))/b;
+    const C2S=isFinite(p.C2S)?p.C2S:1;
+    ancLast={b,eta,kap,rN,rEnd,spread,C2S,xs,ba,label:`${p.nameC||''} ${'spdfghi'[p.l]}${2*p.j}/2`};
+    const ms=[];
+    ms.push([spread<0.01?'ok':(spread<0.05?'warn':'bad'),`Asymptotic normalization read off between r = ${rN.toFixed(1)} and ${rEnd.toFixed(1)} fm: u(r) = b·W<sub>−η,l+1/2</sub>(2κr) there to within ${(spread*100).toFixed(2)} %. ${spread<0.01?'':'The ratio is not flat: the tail is affected by the mesh or by R<sub>max</sub>, or the nuclear potential has not died off.'}`]);
+    ms.push(['info','The single-particle ANC b depends only on the potential; the ANC of the nucleus is C = √(C²S)·b. For peripheral captures (small binding, low energy) σ ∝ C²S·b², so the same capture cross section follows from any potential with the same C²S·b² — the reason ANCs are used to normalize S-factors.']);
+    box.innerHTML='<h3 style="margin-top:10px">Asymptotic normalization coefficient (ANC)</h3>'+msgx(ms)+'<div class="cards">'+
+      kvx('Single-particle ANC b (fm⁻¹ᐟ²)',b.toPrecision(5))+kvx('b² (fm⁻¹)',(b*b).toPrecision(5))+kvx(`ANC² = C²S·b² (C²S = ${C2S})`,(C2S*b*b).toPrecision(5)+' fm⁻¹')+
+      kvx('κ (fm⁻¹), η (bound)',kap.toFixed(4)+', '+eta.toFixed(4))+kvx('Plateau flatness',(spread*100).toFixed(3)+' %')+'</div>';
+    pl.style.display='';
+    REDRAW.anc=()=>{const L=ancLast;if(!L)return;const col=plotColors();
+      Plotly.newPlot('ancPlot',[{x:L.xs,y:L.ba,name:'u(r) / W(2κr)',mode:'lines'},{x:[L.rN,L.rEnd],y:[L.b,L.b],name:'ANC b (plateau mean)',mode:'lines',line:{dash:'dash'}}],
+        layout('r (fm)','b(r)',{xaxis:{title:'r (fm)',gridcolor:col.line},yaxis:{title:'u(r)/W₋η,l+½(2κr)  (fm⁻¹ᐟ²)',gridcolor:col.line},shapes:[{type:'rect',xref:'x',yref:'paper',x0:L.rN,x1:L.rEnd,y0:0,y1:1,fillcolor:'rgba(13,138,106,0.10)',line:{width:0}}]}),{responsive:true});};
+    REDRAW.anc();
+  }catch(e){box.innerHTML=msgx([['warn','ANC could not be evaluated: '+e.message]]);pl.style.display='none';}
+};
+
+/* ---------- comparison with measured data ---------- */
+const UNIT={eVb:1,keVb:1e3,MeVb:1e6,nb:1e-6,ub:1e-3,mb:1,b:1e3};
+let cmpLast=null;
+function cmpModel(src){
+  if(src==='xc'){if(!xcRes||!xcCfg)throw new Error('The Extended capture panel has no result yet: press its Calculate button first.');
+    const r=xcRes;return {E:Array.from(r.E),sig:Array.from(r.sigma),eta:Array.from(r.eta),charged:xcCfg.p.Za*xcCfg.p.Zb>0,p:xcCfg.p,C2S:xcCfg.states.map(s=>s.C2S),label:'Extended panel'};}
+  if(!dState)throw new Error('The single-state panel of tab 7 has no result yet: press its Calculate button first.');
+  const r=dState.r;return {E:Array.from(r.E),sig:Array.from(r.sigma),eta:Array.from(r.eta),charged:r.charged,p:dState.cfg.p,C2S:[dState.cfg.C2S],label:'single-state panel'};}
+function interp(E,Y,x){if(x<E[0]||x>E[E.length-1])return NaN;let lo=0,hi=E.length-1;while(hi-lo>1){const md=(lo+hi)>>1;if(E[md]>x)hi=md;else lo=md;}
+  const t=(x-E[lo])/(E[hi]-E[lo]||1),a=Y[lo],b=Y[hi];return (a>0&&b>0)?Math.exp(Math.log(a)+t*(Math.log(b)-Math.log(a))):a+t*(b-a);}
+function parseData(txt,eu){const out=[];txt.split(/\r?\n/).forEach((ln,k)=>{ln=ln.trim();if(!ln||ln[0]==='#'||ln[0]==='!')return;
+  const f=ln.split(/[\s,;]+/).map(Number);if(f.length<2||!isFinite(f[0])||!isFinite(f[1]))throw new Error(`Data line ${k+1} is not "E value [error]": ${ln.slice(0,60)}`);
+  out.push({E:f[0]*(eu==='keV'?1e-3:1),y:f[1],dy:(f.length>2&&isFinite(f[2])&&f[2]>0)?f[2]:NaN});});return out;}
+function cmpRun(){
+  try{
+    const src=$('cmp_src').value,M=cmpModel(src),q=$('cmp_q').value,u=$('cmp_u').value,isS=['eVb','keVb','MeVb'].includes(u);
+    if(q==='S'&&!isS)throw new Error('S-factor data need an energy × area unit (eV b, keV b or MeV b).');
+    if(q==='sig'&&isS)throw new Error('Cross-section data need an area unit (nb, µb, mb or b).');
+    if(q==='S'&&!M.charged)throw new Error('The entrance channel is neutral: compare cross sections, not S-factors.');
+    const data=parseData($('cmp_data').value,$('cmp_eu').value);if(!data.length)throw new Error('No data points: paste lines of "E value error".');
+    const f=UNIT[u];data.forEach(d=>{d.y*=f;d.dy*=f;});                      // eV b or mb
+    const model=M.E.map((e,i)=>q==='S'?e*M.sig[i]*Math.exp(2*Math.PI*M.eta[i])*1e4:M.sig[i]*FM2_TO_MB);
+    const lo=parseFloat($('cmp_lo').value),hi=parseFloat($('cmp_hi').value);
+    data.forEach(d=>{d.m=interp(M.E,model,d.E);d.inR=isFinite(d.m);d.use=d.inR&&!(d.E<lo)&&!(d.E>hi);});
+    const used=data.filter(d=>d.use),noErr=used.some(d=>!isFinite(d.dy));
+    if(used.length<1)throw new Error(`None of the ${data.length} points lies inside the calculated range ${M.E[0]}–${M.E[M.E.length-1]} MeV${isFinite(lo)||isFinite(hi)?' and the fit window':''}.`);
+    used.forEach(d=>d.w=noErr?d.y:d.dy);
+    let sym=0,smm=0;used.forEach(d=>{sym+=d.y*d.m/(d.w*d.w);smm+=d.m*d.m/(d.w*d.w);});
+    const Nf=sym/smm;let chi=0,chi1=0;used.forEach(d=>{chi+=((d.y-Nf*d.m)/d.w)**2;chi1+=((d.y-d.m)/d.w)**2;});
+    const nu=Math.max(1,used.length-1);let dN=1/Math.sqrt(smm);if(noErr)dN*=Math.sqrt(chi/nu);
+    const ms=[];
+    ms.push(['info',`${used.length} of ${data.length} points used (calculated range ${M.E[0]}–${M.E[M.E.length-1]} MeV${isFinite(lo)||isFinite(hi)?', fit window applied':''}); model from the ${M.label}, which already includes C²S = ${M.C2S.join(', ')}.`]);
+    if(noErr)ms.push(['warn','At least one point has no error: all points are weighted equally in relative terms (Δy = y), and the uncertainty of N is taken from the scatter (× √(χ²/ν)). χ² is then not a goodness-of-fit measure.']);
+    else{const pr=chi/nu;ms.push([pr<2?'ok':(pr<5?'warn':'bad'),`χ²/ν = ${pr.toFixed(2)} for ν = ${nu}. ${pr<2?'The energy dependence of the model is compatible with the data.':'The data are not described by a rescaled model curve alone: the energy dependence differs (another potential, more partial waves, a resonance, or interference may be needed), or the errors are underestimated.'}`]);
+      if(pr>1)ms.push(['info',`Inflating the uncertainty of N by √(χ²/ν) (Birge factor) gives ±${(dN*Math.sqrt(pr)).toPrecision(2)}.`]);}
+    if(M.C2S.length>1)ms.push(['info','Several final states: the same factor N multiplies every C²S; a separate C²S per state cannot be fitted from a total S-factor alone.']);
+    let anc='';if(ancLast&&src==='d'){const A2=Nf*ancLast.C2S*ancLast.b*ancLast.b,dA2=dN*ancLast.C2S*ancLast.b*ancLast.b;anc=kvx('ANC² preferred by the data (fm⁻¹)',A2.toPrecision(4)+' ± '+dA2.toPrecision(2));
+      ms.push(['info',`ANC² = N·C²S·b² uses b = ${ancLast.b.toPrecision(5)} fm⁻¹ᐟ² from the last bound-state solution in tab 3 (${ancLast.label}); it applies if that is the state used in tab 7.`]);}
+    let gw='';const T9=parseFloat($('cmp_T9').value);
+    if(isFinite(T9)&&T9>0){if(!M.charged)ms.push(['info','No Gamow window for a neutral channel (the relevant energy is about k<sub>B</sub>T).']);
+      else{const mu=PC.amu*M.p.Aa*M.p.Ab/(M.p.Aa+M.p.Ab),g=gamow(KT_PER_T9*T9,M.p.Za*M.p.Zb*PC.e2,mu);gw={E0:g.E0,D:g.Delta,T9};
+        gw.S=interp(M.E,model,g.E0)*Nf;
+        ms.push([g.E0-g.Delta/2<M.E[0]?'warn':'info',`Gamow window at T<sub>9</sub> = ${T9}: E₀ = ${(g.E0*1e3).toFixed(1)} keV, Δ = ${(g.Delta*1e3).toFixed(1)} keV${g.E0-g.Delta/2<M.E[0]?' — it extends below the calculated range.':'.'}${data.every(d=>d.E>g.E0+g.Delta/2)?' All data lie above the window: the rate at this temperature rests on the extrapolation by the model.':''}`]);}}
+    cmpLast={M,q,u,f,data,model,Nf,dN,chi,nu,noErr,gw,lab:$('cmp_lab').value||'data'};
+    $('cmpMsg').innerHTML=msgx(ms);
+    $('cmpCards').innerHTML=kvx('Normalization N',Nf.toPrecision(4)+' ± '+dN.toPrecision(2))+kvx('C²S preferred by the data',M.C2S.map(c=>(c*Nf).toPrecision(4)).join(', ')+' ± '+M.C2S.map(c=>(c*dN).toPrecision(2)).join(', '))+
+      kvx('χ² (fitted / N = 1)',chi.toPrecision(4)+' / '+chi1.toPrecision(4))+anc+
+      (q==='S'?kvx('S at the lowest model energy × N (eV b)',(model[0]*Nf).toPrecision(4)+' @ '+M.E[0]+' MeV'):'')+(gw&&isFinite(gw.S)?kvx(`S(E₀) × N at T₉ = ${gw.T9} (eV b)`,gw.S.toPrecision(4)):'');
+    REDRAW.cmp=cmpPlot;cmpPlot();
+  }catch(e){$('cmpMsg').innerHTML=msgx([['bad',e.message]]);$('cmpCards').innerHTML='';setStatus(e.message,'err');}
+}
+function cmpPlot(){
+  const L=cmpLast;if(!L)return;const col=plotColors(),uf=1/L.f,ul=$('cmp_u').selectedOptions[0].text,ylab=(L.q==='S'?'S':'σ')+' ('+ul+')';
+  const used=L.data.filter(d=>d.use),out=L.data.filter(d=>!d.use);
+  const tr=[{x:L.M.E,y:L.model.map(v=>v*L.Nf*uf),name:`model × N (N = ${L.Nf.toPrecision(3)})`,mode:'lines',line:{width:3}},
+    {x:L.M.E,y:L.model.map(v=>v*uf),name:'model as calculated',mode:'lines',line:{dash:'dash'}},
+    {x:used.map(d=>d.E),y:used.map(d=>d.y*uf),error_y:{type:'data',array:used.map(d=>isFinite(d.dy)?d.dy*uf:0),visible:true},name:L.lab,mode:'markers',marker:{size:7}}];
+  if(out.length)tr.push({x:out.map(d=>d.E),y:out.map(d=>d.y*uf),name:L.lab+' (not fitted)',mode:'markers',marker:{size:7,symbol:'circle-open'}});
+  const shapes=L.gw?[{type:'rect',xref:'x',yref:'paper',x0:Math.max(1e-6,L.gw.E0-L.gw.D/2),x1:L.gw.E0+L.gw.D/2,y0:0,y1:1,fillcolor:'rgba(178,106,0,0.15)',line:{width:0}}]:[];
+  const ann=L.gw?[{x:L.gw.E0,y:1,yref:'paper',text:`Gamow window, T₉ = ${L.gw.T9}`,showarrow:false,yanchor:'bottom',font:{size:11,color:col.ink}}]:[];
+  Plotly.newPlot('cmpPlot',tr,layout('E (MeV)',ylab,{xaxis:{title:'E (MeV, c.m.)',type:$('cmpXs').value,gridcolor:col.line},yaxis:{title:ylab,type:$('cmpYs').value,gridcolor:col.line},shapes,annotations:ann}),{responsive:true});
+  $('cmpRes').style.display=L.noErr?'none':'';
+  if(!L.noErr)Plotly.newPlot('cmpRes',[{x:used.map(d=>d.E),y:used.map(d=>(d.y-L.Nf*d.m)/d.dy),mode:'markers',name:'(data − N·model)/error'}],
+    layout('E (MeV)','residual',{xaxis:{title:'E (MeV)',type:$('cmpXs').value,gridcolor:col.line},yaxis:{title:'(y − N m)/Δy',gridcolor:col.line,zeroline:true},shapes:[-1,1].map(v=>({type:'line',xref:'paper',x0:0,x1:1,y0:v,y1:v,line:{dash:'dot',width:1,color:col.line}}))}),{responsive:true});
+}
+function cmpExport(){const L=cmpLast;if(!L){setStatus('Fit first','err');return;}
+  let s=`# model: ${L.M.label}; N = ${L.Nf} +- ${L.dN}; chi2 = ${L.chi}, nu = ${L.nu}; values in ${$('cmp_u').value}\nE_MeV,data,error,model,model_x_N,used\n`;
+  L.data.forEach(d=>s+=[d.E,d.y/L.f,isFinite(d.dy)?d.dy/L.f:'',isFinite(d.m)?d.m/L.f:'',isFinite(d.m)?d.m*L.Nf/L.f:'',d.use?1:0].join(',')+'\n');download('capture_vs_data.csv',s);}
+
+/* ---------- REACLIB fit ---------- */
+let rlLast=null;
+function lsq(A,y){ /* least squares via Householder QR with column scaling; A: m x n rows */
+  const m=A.length,n=A[0].length,sc=new Array(n).fill(0);
+  for(let j=0;j<n;j++){for(let i=0;i<m;i++)sc[j]=Math.max(sc[j],Math.abs(A[i][j]));sc[j]=sc[j]||1;}
+  const R=A.map(r=>r.map((v,j)=>v/sc[j])),b=y.slice();
+  for(let k=0;k<n;k++){let nr=0;for(let i=k;i<m;i++)nr+=R[i][k]*R[i][k];nr=Math.sqrt(nr);if(nr===0)continue;
+    const al=R[k][k]>0?-nr:nr,v=new Array(m).fill(0);for(let i=k;i<m;i++)v[i]=R[i][k];v[k]-=al;let vv=0;for(let i=k;i<m;i++)vv+=v[i]*v[i];if(vv===0)continue;
+    for(let j=k;j<n;j++){let d=0;for(let i=k;i<m;i++)d+=v[i]*R[i][j];d*=2/vv;for(let i=k;i<m;i++)R[i][j]-=d*v[i];}
+    let d=0;for(let i=k;i<m;i++)d+=v[i]*b[i];d*=2/vv;for(let i=k;i<m;i++)b[i]-=d*v[i];}
+  const x=new Array(n).fill(0);for(let k=n-1;k>=0;k--){let s=b[k];for(let j=k+1;j<n;j++)s-=R[k][j]*x[j];x[k]=s/R[k][k];}
+  let cond=0,mn=Infinity,mxd=0;for(let k=0;k<n;k++){const a=Math.abs(R[k][k]);mn=Math.min(mn,a);mxd=Math.max(mxd,a);}cond=mxd/mn;
+  return {x:x.map((v,j)=>v/sc[j]),cond};}
+const rlTerms=T=>[1,1/T,Math.pow(T,-1/3),Math.pow(T,1/3),T,Math.pow(T,5/3),Math.log(T)];
+const rlEval=(a,T)=>rlTerms(T).reduce((s,t,i)=>s+a[i]*t,0);
+function rlFit(){
+  try{
+    if(!res9)throw new Error('Calculate the rates first (button above).');
+    const R=res9,T=[],y=[];R.c.T9.forEach((t,i)=>{if(R.NA[i]>0&&isFinite(R.NA[i])){T.push(t);y.push(Math.log(R.NA[i]));}});
+    if(T.length<10)throw new Error(`Only ${T.length} temperatures with a positive rate; at least 10 are needed (increase "Temperature points").`);
+    const fix=$('rl_a1').checked,cols=fix?[0,2,3,4,5,6]:[0,1,2,3,4,5,6];
+    const A=T.map(t=>{const r=rlTerms(t);return cols.map(c=>r[c]);});
+    const {x,cond}=lsq(A,y),a=[0,0,0,0,0,0,0];cols.forEach((c,k)=>a[c]=x[k]);
+    const dev=T.map((t,i)=>Math.exp(rlEval(a,t)-y[i])-1),mx=Math.max(...dev.map(Math.abs)),rms=Math.sqrt(dev.reduce((s,d)=>s+d*d,0)/dev.length);
+    const RS=rateSrc(),p=RS?RS.cfg.p:null,ms=[];
+    ms.push([mx<0.01?'ok':(mx<0.05?'warn':'bad'),`Largest deviation of the fit from the table: ${(mx*100).toFixed(2)} % (rms ${(rms*100).toFixed(2)} %) over T<sub>9</sub> = ${T[0]} – ${T[T.length-1]}. ${mx<0.05?'':'A single REACLIB set does not describe this rate well; REACLIB uses several sets (e.g. one for the non-resonant part and one per resonance) whose rates are added. Fit narrower temperature ranges, or separate components.'}`]);
+    if(p&&p.Za*p.Zb>0){const Ared=p.Aa*p.Ab/(p.Aa+p.Ab),a2e=-4.2487*Math.cbrt(p.Za*p.Za*p.Zb*p.Zb*Ared);
+      ms.push(['info',`Check: for a smooth non-resonant S-factor a<sub>2</sub> ≈ −4.2487(Z<sub>a</sub>²Z<sub>b</sub>²Â)<sup>1/3</sup> = ${a2e.toFixed(4)} (Â = ${Ared.toFixed(4)}) and a<sub>6</sub> ≈ −2/3; fitted a<sub>2</sub> = ${a[2].toFixed(4)}, a<sub>6</sub> = ${a[6].toFixed(4)}. Large differences mean the parameters trade off against each other; the fitted curve can still be accurate, but do not use it outside the fitted T<sub>9</sub> range.`]);}
+    if(cond>1e10)ms.push(['warn',`The least-squares problem is ill-conditioned (condition ≈ ${cond.toExponential(1)}): the individual coefficients are not well determined, only their combination.`]);
+    rlLast={a,T,dev,mx,rms,fix,src:RS?RS.label:''};
+    $('rlMsg').innerHTML=msgx(ms);
+    $('rlCards').innerHTML=a.map((v,i)=>kvx('a'+'₀₁₂₃₄₅₆'[i]+(fix&&i===1?' (fixed)':''),v.toExponential(6))).join('')+kvx('max |deviation|',(mx*100).toFixed(3)+' %');
+    $('rlPlot').style.display='';REDRAW.rl=rlPlot;rlPlot();
+  }catch(e){$('rlMsg').innerHTML=msgx([['bad',e.message]]);$('rlCards').innerHTML='';$('rlPlot').style.display='none';}
+}
+function rlPlot(){const L=rlLast;if(!L)return;const col=plotColors();
+  Plotly.newPlot('rlPlot',[{x:L.T,y:L.dev.map(d=>d*100),mode:'lines+markers',name:'fit / table − 1'}],layout('T₉','',{xaxis:{title:'T₉',type:'log',gridcolor:col.line},yaxis:{title:'deviation (%)',gridcolor:col.line,zeroline:true}}),{responsive:true});}
+function rlExport(){const L=rlLast;if(!L){setStatus('Fit first','err');return;}
+  const nm=($('nameA').value||'a')+'('+($('nameB').value||'b')+',g)'+($('nameC').value||'c'),f=v=>{const s=v.toExponential(6).replace(/e([+-])(\d)$/,'e$10$2');return (v<0?'':' ')+s.padStart(12);};
+  let s=`# REACLIB-form fit of N_A<sigma v> (cm^3 mol^-1 s^-1) for ${nm}\n# source: ${L.src}; T9 = ${L.T[0]} - ${L.T[L.T.length-1]}; max deviation ${(L.mx*100).toFixed(3)} %, rms ${(L.rms*100).toFixed(3)} %${L.fix?'; a1 fixed to 0':''}\n`;
+  s+=`# rate = exp( a0 + a1/T9 + a2*T9^(-1/3) + a3*T9^(1/3) + a4*T9 + a5*T9^(5/3) + a6*ln(T9) )\n# coefficients in REACLIB order (a0 a1 a2 a3 / a4 a5 a6):\n`;
+  s+=L.a.slice(0,4).map(f).join('')+'\n'+L.a.slice(4).map(f).join('')+'\n# T9, table, fit, deviation\n';
+  L.T.forEach((t,i)=>{const fit=Math.exp(rlEval(L.a,t));s+=`${t},${fit/(1+L.dev[i])},${fit},${L.dev[i]}\n`;});
+  if(rvLast&&rvLast.a)s+='# reverse (photodisintegration) set from detailed balance, Q = '+rvLast.Q+' MeV:\n'+rvLast.a.slice(0,4).map(f).join('')+'\n'+rvLast.a.slice(4).map(f).join('')+'\n';
+  download('reaclib_fit.txt',s);}
+
+
+/* ---------- preset consistency (does each preset reproduce its own separation energy?) ---------- */
+const PRESET_TOL=[20,100];   /* keV: pass / warn */
+function presetCheck(v){
+  const P=Object.assign({Ia:0,Ib:.5,Nn:0,C2S:1,VS0:0,Rmax:100,npts:4000},v);if(!(P.Eb>0))return null;
+  const m=makeModel(Object.assign({shape:'ws',useM3Y:false},P)),r=solveBound(m,prep(m,Math.round(P.npts),P.Rmax),P.Nn);
+  if(r.error)return {err:r.error};return {E:r.E,d:(r.E+P.Eb)*1000};}
+window.presetBench=function(rows){
+  const sv=PC.amu;let worst=0,bad=[],n=0;
+  try{PC.amu=parseFloat($('mN').value)||938.919;
+    PRESETS.forEach((pr,i)=>{const c=presetCheck(pr.v);if(!c)return;n++;
+      if(c.err){bad.push(`#${i+1} ${pr.name}: no bound state (${c.err})`);worst=Infinity;return;}
+      worst=Math.max(worst,Math.abs(c.d));if(Math.abs(c.d)>PRESET_TOL[0])bad.push(`#${i+1} ${pr.name}: E = ${c.E.toFixed(4)} MeV (${c.d>0?'+':''}${c.d.toFixed(0)} keV)`);});
+  }finally{PC.amu=sv;}
+  rows.push([`Preset consistency: each of the ${n} presets with a bound state, solved with its own node number N, reproduces its stated separation energy [m = A × ${$('mN').value} MeV/c²]${bad.length?'. Outside 20 keV: '+bad.join('; ')+'. These use published depths as given; "Fit V₀" in tab 3 adjusts them.':''}`,'Preset notes (tab 1)','|ΔE| ≤ 20 keV (warn ≤ 100 keV)',isFinite(worst)?worst.toFixed(1)+' keV (largest)':'missing state',bad.length+' outside 20 keV',worst<=PRESET_TOL[0]?'pass':(worst<=PRESET_TOL[1]?'warn':'fail')]);};
+window.afterPreset=function(pr){
+  const note=$('presetNote');if(!note)return;
+  try{const {p,res}=solveFromUI();if(!(p.Eb>0))return;
+    if(res.error){note.insertAdjacentHTML('beforeend',`<div class="msg warn" style="margin:6px 0 0">Check on loading: no bound state with N = ${p.Nn} nodes for these parameters (${res.error}).</div>`);return;}
+    const d=(res.E+p.Eb)*1000;
+    if(Math.abs(d)>PRESET_TOL[0])note.insertAdjacentHTML('beforeend',`<div class="msg warn" style="margin:6px 0 0">Check on loading: with N = ${p.Nn} these parameters give E = ${res.E.toFixed(4)} MeV, ${Math.abs(d).toFixed(0)} keV ${d>0?'less':'more'} bound than the stated |E<sub>B</sub>| = ${p.Eb} MeV. Use "Fit V₀" in tab 3 to reproduce the separation energy, or select "calculated bound-state energy" in tab 7.</div>`);
+  }catch(e){}};
+
+/* ---------- energy range needed for the thermal integral (tab 9) ---------- */
+function needRange(T9lo,T9hi,ZZ,mu,charged,frac){ /* energies that leave a fraction frac of the thermal integral outside, each side */
+  const lf=(E,kT)=>charged?-2*Math.PI*etaOf(E,ZZ,mu)-E/kT:0.5*Math.log(E)-E/kT;
+  const span=kT=>{const n=6000,a=Math.log(1e-7),b=Math.log(200),L=[];let mx=-Infinity;
+    for(let i=0;i<=n;i++){const E=Math.exp(a+(b-a)*i/n),v=lf(E,kT)+Math.log(E);L.push([E,v]);if(v>mx)mx=v;}
+    const w=L.map(x=>Math.exp(x[1]-mx)),tot=w.reduce((s,v)=>s+v,0);let c=0,lo=L[0][0],hi=L[n][0];
+    for(let i=0;i<=n;i++){c+=w[i];if(c>frac*tot){lo=L[Math.max(0,i-1)][0];break;}}
+    c=0;for(let i=n;i>=0;i--){c+=w[i];if(c>frac*tot){hi=L[Math.min(n,i+1)][0];break;}}
+    return [lo,hi];};
+  return {lo:span(KT_PER_T9*T9lo)[0],hi:span(KT_PER_T9*T9hi)[1]};}
+const r2=(x,up)=>{const p=Math.pow(10,Math.floor(Math.log10(x))-1);return +((up?Math.ceil(x/p):Math.floor(x/p))*p).toPrecision(2);};
+window.applyRange9=function(lo,hi){['d_Emin','xc_Emin'].forEach(id=>{if($(id))$(id).value=lo;});['d_Emax','xc_Emax'].forEach(id=>{if($(id))$(id).value=hi;});
+  setStatus(`Tab 7 energy range set to ${lo} – ${hi} MeV (both panels); recalculate tab 7, then tab 9.`);};
+function rangeMsg(R){
+  const RS=rateSrc();if(!RS)return '';const p=RS.cfg.p,ZZ=p.Za*p.Zb*PC.e2,mu=RS.res.mu,E=RS.res.E;
+  const nr=needRange(R.c.Tmin,R.c.Tmax,ZZ,mu,ZZ>0,1e-3),lo=r2(Math.max(nr.lo,1e-4),false),hi=r2(nr.hi,true),okLo=E[0]<=1.1*nr.lo,okHi=E[E.length-1]>=0.95*nr.hi;
+  const t=`For T<sub>9</sub> = ${R.c.Tmin} – ${R.c.Tmax} less than 0.1 % of the thermal integral of a ${ZZ>0?'constant S-factor':'1/v cross section'} lies below E ≈ ${lo} MeV (at T<sub>9,min</sub>) and less than 0.1 % above ${hi} MeV (at T<sub>9,max</sub>). The tab-7 table covers ${E[0]} – ${E[E.length-1]} MeV${okLo&&okHi?', which is enough.':`; ${!okLo?'its lower end is too high':''}${!okLo&&!okHi?' and ':''}${!okHi?'its upper end is too low':''}.`} Resonances in the list are integrated separately and do not need the table.`;
+  return `<div class="msg ${okLo&&okHi?'ok':'warn'}">${t}${okLo&&okHi?'':` <button class="sec" onclick="applyRange9(${lo},${hi})">Set tab 7 to ${lo} – ${hi} MeV</button>`}</div>`;}
+
+
+/* ---------- ANC -> C2S from a measured ANC (tab 3) ---------- */
+let ancMeas={v:'',e:''};
+function ancToC2S(){const o=$('ancC2S');if(!o||!ancLast)return;const v=parseFloat($('anc_meas').value),e=parseFloat($('anc_merr').value);ancMeas={v:$('anc_meas').value,e:$('anc_merr').value};
+  if(!(v>0)){o.innerHTML='';return;}const b2=ancLast.b*ancLast.b,c=v/b2,dc=e>0?e/b2:NaN;
+  o.innerHTML=`<div class="msg info">C²S = ANC²/b² = ${v} / ${b2.toPrecision(5)} = <b>${c.toPrecision(4)}</b>${isFinite(dc)?' ± '+dc.toPrecision(2):''} for this potential. A different geometry gives a different b and hence a different C²S for the same ANC: for peripheral reactions the ANC is the measured quantity, C²S is model dependent. <button class="sec" id="ancUse">Use as C²S (tab 1)</button></div>`;
+  $('ancUse').onclick=()=>{$('C2S').value=+c.toPrecision(4);if(typeof refresh==='function')refresh();setStatus(`C²S set to ${c.toPrecision(4)} (tab 1).`);};}
+const _ab=window.afterBound;
+window.afterBound=function(p,m,res){_ab(p,m,res);if(!ancLast||!(res.E<0))return;
+  $('ancBox').insertAdjacentHTML('beforeend',`<div class="grid" style="margin-top:6px"><label>Measured ANC² of the state (fm⁻¹, e.g. from transfer)<input id="anc_meas" type="number" step="any" value="${ancMeas.v}"></label><label>its uncertainty (fm⁻¹)<input id="anc_merr" type="number" step="any" value="${ancMeas.e}"></label></div><div id="ancC2S"></div>`);
+  ['anc_meas','anc_merr'].forEach(id=>$(id).addEventListener('input',ancToC2S));ancToC2S();};
+
+/* ---------- Coulomb dissociation (tab 8) ---------- */
+function bI0(x){const ax=Math.abs(x);if(ax<3.75){const y=(x/3.75)**2;return 1+y*(3.5156229+y*(3.0899424+y*(1.2067492+y*(0.2659732+y*(0.360768e-1+y*0.45813e-2)))));}
+  const y=3.75/ax;return Math.exp(ax)/Math.sqrt(ax)*(0.39894228+y*(0.1328592e-1+y*(0.225319e-2+y*(-0.157565e-2+y*(0.916281e-2+y*(-0.2057706e-1+y*(0.2635537e-1+y*(-0.1647633e-1+y*0.392377e-2))))))));}
+function bI1(x){const ax=Math.abs(x);let a;if(ax<3.75){const y=(x/3.75)**2;a=ax*(0.5+y*(0.87890594+y*(0.51498869+y*(0.15084934+y*(0.2658733e-1+y*(0.301532e-2+y*0.32411e-3))))));}
+  else{const y=3.75/ax;a=0.2282967e-1+y*(-0.2895312e-1+y*(0.1787654e-1-y*0.420059e-2));a=0.39894228+y*(-0.3988024e-1+y*(-0.362018e-2+y*(0.163801e-2+y*(-0.1031555e-1+y*a))));a*=Math.exp(ax)/Math.sqrt(ax);}return x<0?-a:a;}
+function bK0(x){if(x<=2){const y=x*x/4;return -Math.log(x/2)*bI0(x)+(-0.57721566+y*(0.42278420+y*(0.23069756+y*(0.3488590e-1+y*(0.262698e-2+y*(0.10750e-3+y*0.74e-5))))));}
+  const y=2/x;return Math.exp(-x)/Math.sqrt(x)*(1.25331414+y*(-0.7832358e-1+y*(0.2189568e-1+y*(-0.1062446e-1+y*(0.587872e-2+y*(-0.251540e-2+y*0.53208e-3))))));}
+function bK1(x){if(x<=2){const y=x*x/4;return Math.log(x/2)*bI1(x)+(1/x)*(1+y*(0.15443144+y*(-0.67278579+y*(-0.18156897+y*(-0.1919402e-1+y*(-0.110404e-2+y*(-0.4686e-4)))))));}
+  const y=2/x;return Math.exp(-x)/Math.sqrt(x)*(1.25331414+y*(0.23498619+y*(-0.3655620e-1+y*(0.1504268e-1+y*(-0.780353e-2+y*(0.325614e-2+y*(-0.68245e-3)))))));}
+window.besselK=[bK0,bK1];
+const ALPHA=1/137.035999;
+function vphot(lam,Eg,Zt,beta,gam,bmin){const xi=Eg*bmin/(PC.hbarc*gam*beta),k0=bK0(xi),k1=bK1(xi),b2=beta*beta;
+  if(lam===1)return 2/Math.PI*Zt*Zt*ALPHA/b2*(xi*k0*k1-b2*xi*xi/2*(k1*k1-k0*k0));
+  return 2/Math.PI*Zt*Zt*ALPHA/(b2*b2)*(2*(1-b2)*k1*k1+xi*(2-b2)**2*k0*k1-xi*xi*b2*b2/2*(k1*k1-k0*k0));}
+let cdLast=null;
+function cdRun(){
+  try{if(!dState)throw new Error('Run the single-state panel of tab 7 first (its photoabsorption cross sections are used).');
+    const {cfg,r}=dState,Zt=parseFloat($('cd_Zt').value),At=parseFloat($('cd_At').value),Eu=parseFloat($('cd_E').value);
+    if(!(Zt>0)||!(At>0)||!(Eu>0))throw new Error('Target Z, A and the beam energy must be positive.');
+    const Ap=cfg.p.Aa+cfg.p.Ab,bIn=parseFloat($('cd_b').value),bmin=bIn>0?bIn:1.2*(Math.cbrt(Ap)+Math.cbrt(At))+2;
+    const gam=1+Eu/931.494,beta=Math.sqrt(1-1/(gam*gam)),n=r.E.length,mults=[...new Set(Object.values(r.curves).map(c=>c.mult))];
+    const sg={};mults.forEach(mu=>{sg[mu]=new Float64Array(n);Object.values(r.curves).filter(c=>c.mult===mu).forEach(c=>{for(let i=0;i<n;i++)sg[mu][i]+=c.sg[i]*cfg.C2S;});});
+    const used=mults.filter(m=>m!=='M1'),dsd={},nv={};let tot=new Float64Array(n);
+    used.forEach(mu=>{const lam=mu==='E2'?2:1;nv[mu]=r.Eg.map(e=>vphot(lam,e,Zt,beta,gam,bmin));dsd[mu]=r.E.map((e,i)=>nv[mu][i]*sg[mu][i]/r.Eg[i]*FM2_TO_MB);dsd[mu].forEach((v,i)=>tot[i]+=v);});
+    let sig=0;for(let i=1;i<n;i++)sig+=0.5*(tot[i]+tot[i-1])*(r.E[i]-r.E[i-1]);
+    const ip=tot.indexOf(Math.max(...tot)),ms=[];
+    ms.push(['info',`b<sub>min</sub> = ${bmin.toFixed(2)} fm${bIn>0?'':' (automatic)'}, γ = ${gam.toFixed(4)}, v/c = ${beta.toFixed(4)}; adiabatic cutoff E<sub>γ</sub> ≈ ħγv/b<sub>min</sub> = ${(PC.hbarc*gam*beta/bmin).toFixed(2)} MeV. Multipolarities: ${used.join(', ')||'none'}${mults.includes('M1')?' (M1 omitted)':''}. C²S = ${cfg.C2S} included.`]);
+    if(Eu<50)ms.push(['warn','Below about 50 MeV/u the straight-line first-order picture becomes poor (Coulomb deflection, higher-order and nuclear effects).']);
+    if(tot[n-1]>0.05*tot[ip])ms.push(['warn',`dσ/dE is still ${(tot[n-1]/tot[ip]*100).toFixed(0)} % of its peak at the end of the tab-7 range (E = ${r.E[n-1]} MeV): the integrated cross section is a lower bound; extend E<sub>max</sub> in tab 7.`]);
+    if(!used.length)throw new Error('Tab 7 has no E1 or E2 channel.');
+    cdLast={r,used,dsd,nv,tot,sig,bmin,Eu,Zt};
+    $('cdMsg').innerHTML=msgx(ms);
+    $('cdCards').innerHTML=kvx('σ<sub>CD</sub> over the tab-7 range (mb)',sig.toPrecision(4))+used.map(mu=>{let s=0;for(let i=1;i<n;i++)s+=0.5*(dsd[mu][i]+dsd[mu][i-1])*(r.E[i]-r.E[i-1]);return kvx(`${mu} part (mb)`,s.toPrecision(4));}).join('')+kvx('peak of dσ/dE at E (MeV)',r.E[ip].toPrecision(3))+kvx('n<sub>E1</sub> at E<sub>γ</sub> = 1 MeV',used.includes('E1')?vphot(1,1,Zt,beta,gam,bmin).toPrecision(3):'—');
+    REDRAW.cd=cdPlot;cdPlot();
+  }catch(e){$('cdMsg').innerHTML=msgx([['bad',e.message]]);$('cdCards').innerHTML='';}
+}
+function cdPlot(){const L=cdLast;if(!L)return;const col=plotColors();
+  Plotly.newPlot('cdPlot',[{x:L.r.E,y:Array.from(L.tot),name:'total',mode:'lines',line:{width:3}}].concat(L.used.map(mu=>({x:L.r.E,y:L.dsd[mu],name:mu,mode:'lines',line:{dash:'dot'}}))),
+    layout('E (MeV)','',{xaxis:{title:'relative energy E of a + b (MeV)',gridcolor:col.line},yaxis:{title:'dσ_CD/dE (mb/MeV)',type:$('cdYs').value,gridcolor:col.line}}),{responsive:true});
+  Plotly.newPlot('cdN',L.used.map(mu=>({x:L.r.Eg,y:L.nv[mu],name:'n_'+mu+'(E_γ)',mode:'lines'})),layout('E_γ (MeV)','',{xaxis:{title:'E_γ (MeV)',gridcolor:col.line},yaxis:{title:'virtual photon number',type:'log',gridcolor:col.line}}),{responsive:true});}
+function cdExport(){const L=cdLast;if(!L){setStatus('Calculate first','err');return;}
+  let s=`# Coulomb dissociation, Zt=${L.Zt}, ${L.Eu} MeV/u, bmin=${L.bmin} fm; sigma_CD=${L.sig} mb\nE_MeV,Egamma_MeV,`+L.used.map(m=>`n_${m},dsdE_${m}_mb_per_MeV`).join(',')+',dsdE_total\n';
+  L.r.E.forEach((e,i)=>s+=[e,L.r.Eg[i]].concat(...L.used.map(m=>[L.nv[m][i],L.dsd[m][i]]),[L.tot[i]]).join(',')+'\n');download('coulomb_dissociation.csv',s);}
+
+/* ---------- reverse rate (tab 9) ---------- */
+let rvLast=null;
+function rvDefaults(){const RS=rateSrc(),p=RS?RS.cfg.p:null,f=(id,v)=>{if($(id).value===''&&isFinite(v))$(id).placeholder=String(v);};
+  f('rv_Q',parseFloat($('Eb').value));f('rv_Ja',parseFloat($('Ia').value));f('rv_Jb',parseFloat($('Ib').value));f('rv_Jc',parseFloat($('J').value));}
+function rvVal(id){const v=parseFloat($(id).value);return isFinite(v)?v:parseFloat($(id).placeholder);}
+function rvRun(){
+  try{if(!res9)throw new Error('Calculate the forward rates first.');rvDefaults();
+    const Q=rvVal('rv_Q'),Ja=rvVal('rv_Ja'),Jb=rvVal('rv_Jb'),Jc=rvVal('rv_Jc'),G=parseFloat($('rv_G').value);
+    if(!(Q>0))throw new Error('Q must be positive (capture to a bound state).');if(![Ja,Jb,Jc].every(v=>v>=0))throw new Error('Spins must be ≥ 0.');if(!(G>0))throw new Error('Partition-function ratio must be positive.');
+    if(res9.c.ident)throw new Error('Identical particles a = b: the reverse rate needs an extra symmetry factor that is not implemented here.');
+    const RS=rateSrc(),p=RS.cfg.p,Ah=p.Aa*p.Ab/(p.Aa+p.Ab),gr=(2*Ja+1)*(2*Jb+1)/(2*Jc+1);
+    const T=res9.c.T9,lam=T.map((t,i)=>{const pre=Math.pow(931.494*KT_PER_T9*t*Ah/(2*Math.PI*PC.hbarc*PC.hbarc),1.5)*1e39/NAVO;return pre*gr*G*res9.NA[i]*Math.exp(-Q/(KT_PER_T9*t));});
+    const c0=Math.pow(931.494*KT_PER_T9/(2*Math.PI*PC.hbarc*PC.hbarc),1.5)*1e39/NAVO;   // = 9.8685e9 per Â^1.5 T9^1.5
+    rvLast={T,lam,Q,gr,G,Ah,c0};const ms=[];
+    ms.push(['info',`Â = ${Ah.toFixed(4)}, g<sub>a</sub>g<sub>b</sub>/g<sub>c</sub> = ${gr.toFixed(4)}, G ratio = ${G}, Q = ${Q} MeV; numerical constant ${c0.toPrecision(5)} (= 9.8685·10⁹). The reverse rate is negligible until k<sub>B</sub>T approaches Q/30 or so (T<sub>9</sub> ≈ ${(Q/30/KT_PER_T9).toPrecision(2)}).`]);
+    if(rlLast){const a=rlLast.a.slice();a[0]+=Math.log(c0*Math.pow(Ah,1.5)*gr*G);a[1]-=11.6045*Q;a[6]+=1.5;rvLast.a=a;
+      ms.push(['ok','Reverse REACLIB coefficients from the forward fit: '+a.map(v=>v.toExponential(6)).join(', ')+' (exported with the forward set).']);}
+    $('rvMsg').innerHTML=msgx(ms);const mid=Math.floor(T.length/2);
+    $('rvCards').innerHTML=kvx(`λ<sub>γ</sub> at T₉ = ${T[mid].toPrecision(3)} (s⁻¹)`,lam[mid].toExponential(3))+kvx(`λ<sub>γ</sub> at T₉ = ${T[T.length-1]} (s⁻¹)`,lam[T.length-1].toExponential(3));
+    $('rvPlot').style.display='';REDRAW.rv=rvPlot;rvPlot();
+  }catch(e){$('rvMsg').innerHTML=msgx([['bad',e.message]]);$('rvCards').innerHTML='';$('rvPlot').style.display='none';}
+}
+function rvPlot(){const L=rvLast;if(!L)return;const col=plotColors(),pos=a=>a.map(v=>v>1e-30?v:null);
+  Plotly.newPlot('rvPlot',[{x:L.T,y:pos(L.lam),name:'λ_γ (s⁻¹)',mode:'lines'}],layout('T₉','',{xaxis:{title:'T₉',type:'log',gridcolor:col.line},yaxis:{title:'λ_γ (s⁻¹)',type:'log',gridcolor:col.line}}),{responsive:true});}
+function rvExport(){const L=rvLast;if(!L){setStatus('Calculate first','err');return;}
+  let s=`# reverse rate, Q=${L.Q} MeV, ga*gb/gc=${L.gr}, G ratio=${L.G}, Ahat=${L.Ah}\n${L.a?'# reverse REACLIB a0..a6: '+L.a.map(v=>v.toExponential(6)).join(' ')+'\n':''}T9,lambda_gamma_per_s\n`;
+  L.T.forEach((t,i)=>s+=`${t},${L.lam[i]}\n`);download('reverse_rate.csv',s);}
+
+/* ---------- interfering resonances (tab 9) ---------- */
+let ciSel={},ciLast=null;
+function ciRender(){const box=$('ciList');if(!box)return;
+  if(!R9.length){box.innerHTML='<span class="note">No resonances in the list above (add them first).</span>';return;}
+  box.innerHTML=R9.map((r,i)=>{const s=ciSel[i]||{on:false,s:1};return `<label style="flex-direction:row;gap:6px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:4px 8px"><input type="checkbox" id="ci_on${i}" ${s.on?'checked':''}> level ${i+1} (E<sub>R</sub> = ${r.Er||'?'} MeV, J = ${r.JR||'?'}) sign <select id="ci_lvs${i}"><option value="1" ${s.s>0?'selected':''}>+</option><option value="-1" ${s.s<0?'selected':''}>−</option></select></label>`;}).join('');
+  R9.forEach((r,i)=>{['ci_on'+i,'ci_lvs'+i].forEach(id=>$(id).onchange=()=>{ciSel[i]={on:$('ci_on'+i).checked,s:+$('ci_lvs'+i).value};});});}
+function ciRun(){
+  try{if(!res9)throw new Error('Calculate the rates first.');const R=res9,RS=rateSrc(),p=RS.cfg.p,mu=RS.res.mu,E=Array.from(RS.res.E),sig=Array.from(RS.res.sigmaDC),ZZ=p.Za*p.Zb*PC.e2,charged=ZZ>0;
+    const f=parseFloat($('ci_f').value),s0=+$('ci_s0').value;if(!(f>=0&&f<=1))throw new Error('f must lie between 0 and 1.');
+    const rows=R.c.rows,kTmax=KT_PER_T9*R.c.Tmax;
+    const lv=rows.map((r,i)=>{const bw=makeBW({Er:r.Er,JR:r.JR,Gp:r.GpM,Gg:r.GgM,pen:r.method==='bw'&&r.pen,lR:r.lR,ac:r.ac},p,mu,r.Er+60*kTmax+20*(r.GpM+r.GgM));const sel=ciSel[i]||{on:false,s:1};return {r,bw,on:sel.on,s:sel.s};});
+    const Y=E.map((e,i)=>charged?e*sig[i]*Math.exp(2*Math.PI*etaOf(e,ZZ,mu)):sig[i]*Math.sqrt(e));
+    const sDC=e=>{if(e<E[0]||e>E[E.length-1])return 0;const y=yLin(E,Y,e);return charged?y/e*Math.exp(-2*Math.PI*etaOf(e,ZZ,mu)):y/Math.sqrt(e);};
+    const sigC=e=>{const d=sDC(e);let re=s0*Math.sqrt(f*d),im=0,inc=(1-f)*d;
+      for(const L of lv){const sk=L.bw.sigma(e);if(!L.on){inc+=sk;continue;}const G=L.bw.GpAt(e)+L.r.GgM,dl=Math.atan2(G/2,L.r.Er-e),a=L.s*Math.sqrt(sk);re+=a*Math.cos(dl);im+=a*Math.sin(dl);}
+      return inc+re*re+im*im;};
+    const sigI=e=>sDC(e)+lv.reduce((s,L)=>s+L.bw.sigma(e),0);
+    const avg=(fn,kT)=>{let br=[1e-7,1e-5,1e-4,1e-3,1e-2,0.05,0.1,0.3,1,3].concat(E.filter((x,i)=>i%Math.max(1,Math.floor(E.length/60))===0),[E[0],E[E.length-1]]);
+      lv.forEach(L=>{const G0=L.r.GpM+L.r.GgM;[-50,-20,-10,-5,-2,-1,-0.5,0,0.5,1,2,5,10,20,50].forEach(m=>br.push(L.r.Er+m*G0));});
+      const Ehi=Math.max(E[E.length-1],...lv.map(L=>L.r.Er+20*(L.r.GpM+L.r.GgM)))+60*kT;br.push(Ehi);br=[...new Set(br.filter(x=>x>0&&x<=Ehi))].sort((a,b)=>a-b);
+      const g=e=>fn(e)*e*Math.exp(-e/kT);let tot=0;for(let i=0;i<br.length-1;i++)tot+=Math.abs(gl8(g,br[i],br[i+1]));const tol=1e-7*tot/br.length;let I=0;
+      for(let i=0;i<br.length-1;i++)I+=adaptGL(g,br[i],br[i+1],tol,25).I;return Math.sqrt(8/(Math.PI*mu))*Math.pow(kT,-1.5)*I;};
+    const T=R.c.T9,coh=[],inc=[];T.forEach(t=>{const kT=KT_PER_T9*t;coh.push(svToCm3s(avg(sigC,kT))*NAVO);inc.push(svToCm3s(avg(sigI,kT))*NAVO);});
+    const chk=Math.max(...inc.map((v,i)=>Math.abs(v/R.NA[i]-1)));
+    const nOn=lv.filter(L=>L.on).length,ms=[];
+    ms.push([chk<1e-3?'ok':'warn',`Check: the incoherent sum integrated here agrees with the rate table above to ${(chk*100).toExponential(1)} % (largest over T).`]);
+    if(!nOn&&f===0)ms.push(['info','No level is marked and f = 0: nothing interferes, so coherent = incoherent.']);
+    if(nOn===1&&f===0)ms.push(['info','Only one level marked and f = 0: a single amplitude has nothing to interfere with.']);
+    if(rows.some(r=>r.method==='narrow'))ms.push(['info','Rows set to "narrow" are treated here as Breit–Wigner shapes with constant widths.']);
+    const ratio=coh.map((v,i)=>v/inc[i]),mx=Math.max(...ratio),mn=Math.min(...ratio);
+    ms.push([Math.abs(mx-1)<0.05&&Math.abs(mn-1)<0.05?'info':'warn',`Coherent / incoherent rate ranges from ${mn.toFixed(3)} to ${mx.toFixed(3)} over T<sub>9</sub> = ${T[0]} – ${T[T.length-1]}. Repeat with the other sign to bracket the interference.`]);
+    const Eg=[];{const lo=Math.max(E[0],1e-4),hi=Math.max(E[E.length-1],...lv.map(L=>L.r.Er+10*(L.r.GpM+L.r.GgM)));for(let i=0;i<=800;i++)Eg.push(lo*Math.pow(hi/lo,i/800));lv.forEach(L=>{for(let m=-6;m<=6;m+=0.1)Eg.push(L.r.Er+m*(L.r.GpM+L.r.GgM));});}
+    const Es=[...new Set(Eg.filter(x=>x>0))].sort((a,b)=>a-b),conv=(e,s)=>charged?e*s*Math.exp(2*Math.PI*etaOf(e,ZZ,mu))*1e4:s*FM2_TO_MB;
+    ciLast={T,coh,inc,ratio,Es,SC:Es.map(e=>conv(e,sigC(e))),SI:Es.map(e=>conv(e,sigI(e))),charged,f,s0,sel:lv.map(L=>L.on?L.s:0)};
+    $('ciMsg').innerHTML=msgx(ms);const mid=Math.floor(T.length/2);
+    $('ciCards').innerHTML=kvx(`coherent N<sub>A</sub>⟨σv⟩ at T₉ = ${T[mid].toPrecision(3)}`,coh[mid].toExponential(4))+kvx('incoherent, same T',inc[mid].toExponential(4))+kvx('ratio coherent/incoherent',ratio[mid].toFixed(4));
+    ['ciPlotS','ciPlotR'].forEach(id=>$(id).style.display='');REDRAW.ci=ciPlot;ciPlot();
+  }catch(e){$('ciMsg').innerHTML=msgx([['bad',e.message]]);$('ciCards').innerHTML='';}
+}
+function ciPlot(){const L=ciLast;if(!L)return;const col=plotColors(),yl=L.charged?'S (eV b)':'σ (mb)';
+  Plotly.newPlot('ciPlotS',[{x:L.Es,y:L.SC,name:'coherent',mode:'lines',line:{width:3}},{x:L.Es,y:L.SI,name:'incoherent sum',mode:'lines',line:{dash:'dash'}}],layout('E (MeV)',yl,{xaxis:{title:'E (MeV)',type:'log',gridcolor:col.line},yaxis:{title:yl,type:'log',gridcolor:col.line}}),{responsive:true});
+  Plotly.newPlot('ciPlotR',[{x:L.T,y:L.ratio,name:'coherent / incoherent',mode:'lines+markers'}],layout('T₉','',{xaxis:{title:'T₉',type:'log',gridcolor:col.line},yaxis:{title:'rate ratio',gridcolor:col.line}}),{responsive:true});}
+function ciExport(){const L=ciLast;if(!L){setStatus('Calculate first','err');return;}
+  let s=`# interfering levels: f=${L.f}, s0=${L.s0}, level signs (0 = incoherent): ${L.sel.join(' ')}\nT9,NA_sv_coherent,NA_sv_incoherent,ratio\n`;L.T.forEach((t,i)=>s+=`${t},${L.coh[i]},${L.inc[i]},${L.ratio[i]}\n`);download('interference_rate.csv',s);}
+
+$('cdRun').onclick=cdRun;$('cdExp').onclick=cdExport;$('cdYs').onchange=()=>cdPlot();
+$('rvRun').onclick=rvRun;$('rvExp').onclick=rvExport;$('ciRun').onclick=ciRun;$('ciExp').onclick=ciExport;
+document.querySelectorAll('nav .tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='t9'){ciRender();rvDefaults();}}));
+['r9Add','r9Clr','r9Imp'].forEach(id=>$(id).addEventListener('click',()=>setTimeout(ciRender,0)));
+ciRender();
+window.radcapExtras={get ci(){return ciLast;},get cd(){return cdLast;},get rv(){return rvLast;},get rl(){return rlLast;},get anc(){return ancLast;}};
+
+/* ---------- usability: data library, run-all, session autosave, Ctrl+Enter ---------- */
+const LIBKEY='radcapData',SESSKEY='radcapSession';
+const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}};
+const lsPut=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}};
+const LIBF=['cmp_data','cmp_q','cmp_u','cmp_eu','cmp_lab','cmp_lo','cmp_hi'];
+function libRender(sel){const L=lsGet(LIBKEY)||{},names=Object.keys(L).sort();$('lib_sel').innerHTML='<option value="">—</option>'+names.map(n=>`<option ${n===sel?'selected':''}>${n.replace(/</g,'&lt;')}</option>`).join('');}
+function libSave(){const nm=(prompt('Name for this dataset (e.g. "Junghans 2010, BE3")',$('cmp_lab').value||'data')||'').trim();if(!nm)return;
+  if(!$('cmp_data').value.trim()){setStatus('Nothing to save: paste data first','err');return;}
+  const L=lsGet(LIBKEY)||{};L[nm]={};LIBF.forEach(id=>L[nm][id]=$(id).value);L[nm]._saved=new Date().toISOString();
+  setStatus(lsPut(LIBKEY,L)?`Dataset "${nm}" saved in this browser.`:'Could not save (browser storage unavailable)',lsPut(LIBKEY,L)?'':'err');libRender(nm);}
+function libLoad(){const nm=$('lib_sel').value,L=lsGet(LIBKEY)||{};if(!nm||!L[nm])return;LIBF.forEach(id=>{if(L[nm][id]!==undefined)$(id).value=L[nm][id];});setStatus(`Dataset "${nm}" loaded; press "Fit normalization".`);}
+function libDel(){const nm=$('lib_sel').value,L=lsGet(LIBKEY)||{};if(!nm||!L[nm])return;if(!confirm(`Delete the saved dataset "${nm}"?`))return;delete L[nm];lsPut(LIBKEY,L);libRender();}
+function libExp(){const L=lsGet(LIBKEY)||{};if(!Object.keys(L).length){setStatus('No saved datasets','err');return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({_app:'radcap-data',sets:L},null,1)],{type:'application/json'}));a.download='radcap_datasets.json';a.click();}
+function libImp(f){const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o._app!=='radcap-data'||!o.sets)throw new Error('not a RADCAP dataset file');
+  const L=lsGet(LIBKEY)||{};let n=0;for(const k in o.sets){L[k]=o.sets[k];n++;}lsPut(LIBKEY,L);libRender();setStatus(`${n} dataset(s) imported.`);}catch(e){setStatus('Import failed: '+e.message,'err');}};r.readAsText(f);}
+$('lib_save').onclick=libSave;$('lib_load').onclick=libLoad;$('lib_del').onclick=libDel;$('lib_exp').onclick=libExp;
+$('lib_imp').onclick=()=>$('lib_file').click();$('lib_file').onchange=e=>{if(e.target.files[0])libImp(e.target.files[0]);e.target.value='';};
+$('lib_sel').ondblclick=libLoad;libRender();
+
+/* run-all */
+const goTab=t=>document.querySelector(`nav button[data-tab="${t}"]`).click();
+let RUNNING=false;
+async function runAll(){
+  if(RUNNING)return;RUNNING=true;const t0=performance.now(),box=$('runAllBox'),log=[];const st=(k,txt)=>setStatus(`Run all ${k}/4: ${txt}`,'run');
+  const fail=(step,msg)=>{throw new Error(`${step}: ${msg}`);};
+  try{
+    st(1,'bound state');await nextFrame();await runSolve();if(!lastWf||!(lastWf.res.E<0))fail('Bound state (tab 3)',($('boundMsg').innerText||'no bound state').slice(0,200));
+    st(2,'direct capture');await nextFrame();
+    if(CPK.some(k=>$('dc_'+k).value==='')){CPK.forEach(k=>$('dc_'+k).value=$(k).value);log.push('Continuum potential of tab 7 was empty: copied from tab 2.');}
+    dState=null;await dRun();if(!dState)fail('Capture (tab 7)',$('dMsg').innerText.slice(0,200));
+    st(3,'reaction rates');await nextFrame();if($('th_src').value!=='d')log.push('Tab 9 source set to the single-state panel of tab 7.');$('th_src').value='d';src9();res9=null;await run9();if(!res9)fail('Rates (tab 9)',$('msg9').innerText.slice(0,200));
+    st(4,'REACLIB fit and reverse rate');await nextFrame();
+    if(res9.c.nT>=10){rlFit();}else log.push('REACLIB fit skipped: fewer than 10 temperatures.');
+    if(parseFloat($('Eb').value)>0&&!res9.c.ident)rvRun();
+    const R=res9,r=dState.r,p=lastWf.p,A=window.radcapExtras.anc,rl=window.radcapExtras.rl,rv=window.radcapExtras.rv;
+    const near=T=>{let i=0;R.c.T9.forEach((t,k)=>{if(Math.abs(Math.log(t/T))<Math.abs(Math.log(R.c.T9[i]/T)))i=k;});return i;};
+    const kv=(a,b)=>`<div class="kv"><b>${a}</b><span>${b}</span></div>`;
+    let c=kv('Bound state E (MeV)',lastWf.res.E.toFixed(5))+(A?kv('ANC b (fm⁻¹ᐟ²), C²S·b²',A.b.toPrecision(4)+', '+(A.C2S*A.b*A.b).toPrecision(4)):'');
+    c+=r.charged?kv(`S(${r.E[0]} MeV) (eV b)`,(r.S[0]*1e4).toPrecision(4)):kv(`σ at ${r.E[0]} MeV (mb)`,(r.sigma[0]*FM2_TO_MB).toExponential(3));
+    [0.01,0.1,1].filter(T=>T>=R.c.Tmin*0.9&&T<=R.c.Tmax*1.1).forEach(T=>{const i=near(T);c+=kv(`N<sub>A</sub>⟨σv⟩, T₉ = ${R.c.T9[i].toPrecision(3)}`,R.NA[i].toExponential(3));});
+    if(rl)c+=kv('REACLIB fit, max deviation',(rl.mx*100).toPrecision(2)+' %');if(rv){const i=near(1);c+=kv(`λ<sub>γ</sub> (s⁻¹), T₉ = ${R.c.T9[i].toPrecision(3)}`,rv.lam[i].toExponential(3));}
+    const warn=[...document.querySelectorAll('#boundMsg .msg.bad,#boundMsg .msg.warn,#dMsg .msg.warn,#dMsg .msg.bad,#msg9 .msg.warn')].map(e=>e.innerHTML);
+    box.innerHTML=`<div class="card" style="border-left:4px solid var(--acc2)"><h2>Run all: ${esc(p.nameA)} + ${esc(p.nameB)} → ${esc(p.nameC)} + γ <span class="note">(${((performance.now()-t0)/1000).toFixed(1)} s, ${new Date().toLocaleTimeString()})</span></h2>
+      <p class="note">Bound state from tabs 1–3, direct capture from the top panel of tab 7 with its current channels and energy range, rates from tab 9 with its current temperature grid and resonance list. Settings were not changed except where noted.</p>
+      ${log.map(t=>`<div class="msg info">${t}</div>`).join('')}${warn.length?`<details><summary class="note">${warn.length} warning(s) in the individual tabs</summary>${warn.map(w=>`<div class="msg warn">${w}</div>`).join('')}</details>`:'<div class="msg ok">No warnings in tabs 3, 7 and 9.</div>'}
+      <div class="cards">${c}</div><div class="row">${[['t3','Bound state'],['t7','S-factor'],['t9','Rates'],['t10','Diagnostics']].map(([t,l])=>`<button class="sec" data-go="${t}">${l} →</button>`).join('')}<button class="sec" id="raReport">HTML report</button><button class="sec" id="raClose">Close summary</button></div></div>`;
+    box.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>goTab(b.dataset.go));$('raReport').onclick=()=>$('hdrReport').click();$('raClose').onclick=()=>box.innerHTML='';
+    goTab('t1');window.scrollTo(0,0);setStatus(`Run all done in ${((performance.now()-t0)/1000).toFixed(1)} s`);
+  }catch(e){box.innerHTML=`<div class="card"><div class="msg bad">Run all stopped. ${e.message}</div></div>`;goTab('t1');setStatus('Run all stopped','err');}
+  finally{RUNNING=false;}
+}
+$('hdrRunAll').onclick=runAll;
+
+/* Ctrl/Cmd + Enter: main button of the open tab */
+document.addEventListener('keydown',e=>{if(!(e.key==='Enter'&&(e.ctrlKey||e.metaKey)))return;const pane=document.querySelector('section.pane.active');if(!pane)return;
+  const b=[...pane.querySelectorAll('button:not(.sec):not(.tab)')].find(x=>x.offsetParent!==null);if(b){e.preventDefault();b.click();}});
+
+/* session autosave and restore */
+let sessT=null,sessReady=false;
+function sessSave(){if(!sessReady)return;try{const o=collectSettings();delete o.theme;lsPut(SESSKEY,o);}catch(e){}}
+['input','change'].forEach(ev=>document.querySelector('main').addEventListener(ev,()=>{clearTimeout(sessT);sessT=setTimeout(sessSave,800);}));
+window.addEventListener('beforeunload',sessSave);
+(function(){const o=lsGet(SESSKEY);if(!o||!o.values)return;const when=o._saved?new Date(o._saved).toLocaleString():'earlier';
+  $('sessBox').innerHTML=`<div class="msg info" style="margin:0 0 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">Your inputs from the last visit (${when}) are stored in this browser. <button id="sessRestore">Restore them</button><button class="sec" id="sessDrop">Dismiss</button></div>`;
+  $('sessRestore').onclick=()=>{try{delete o.theme;const r=applySettings(o);$('sessBox').innerHTML='';setStatus(`Session restored (${r.n} fields). Re-run the calculations.`);}catch(e){setStatus('Restore failed: '+e.message,'err');}};
+  $('sessDrop').onclick=()=>{$('sessBox').innerHTML='';};})();
+setTimeout(()=>{sessReady=true;},1500);
+
+/* ---------- site theme (shared with the rest of the site) ---------- */
+const KEY='siteTheme';
+window.siteThemePut=function(v){const m=v==='dark'?'night':'day';try{localStorage.setItem(KEY,m);}catch(e){}try{if(window.parent!==window&&window.parent.__siteThemeSync)window.parent.__siteThemeSync(m);}catch(e){}};
+function siteThemeApply(){let m='';try{m=localStorage.getItem(KEY)||'';}catch(e){}const v=m==='day'?'light':'dark';
+  if(document.documentElement.dataset.theme!==v){$('themeSel').value=v;$('themeSel').onchange({target:$('themeSel')});}}
+window.addEventListener('storage',e=>{if(e.key===KEY)siteThemeApply();});
+
+/* ---------- wiring ---------- */
+$('cmpRun').onclick=cmpRun;$('cmpExp').onclick=cmpExport;['cmpXs','cmpYs'].forEach(id=>$(id).onchange=()=>cmpPlot());
+$('cmpFile').onclick=()=>$('cmpFileIn').click();
+$('cmpFileIn').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{$('cmp_data').value=rd.result;$('cmp_lab').value=f.name.replace(/\.[^.]+$/,'');};rd.readAsText(f);e.target.value='';};
+$('rlFit').onclick=rlFit;$('rlExp').onclick=rlExport;
+window.afterRun9=function(R){try{$('msg9').insertAdjacentHTML('beforeend',rangeMsg(R));}catch(err){}if(rlLast||$('rlCards').innerHTML)rlFit();ciRender();rvDefaults();if(rvLast)rvRun();if(ciLast)ciRun();};
+$('th_src').onchange=()=>src9();
+siteThemeApply();
+})();
+
 </script>
 <script src="../../contrast-guard.js"></script>
 </body>
