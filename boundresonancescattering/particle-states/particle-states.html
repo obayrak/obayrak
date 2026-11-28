@@ -96,6 +96,16 @@ textarea{width:100%;background:var(--panel2);border:1px solid var(--border);colo
 input[type=range]{accent-color:var(--amber,#f5a623)}
 .chk{display:flex;flex-wrap:wrap;gap:6px 14px}.ck{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--tx,#c9d1dc);cursor:pointer}.ck input{width:auto;margin:0}
 tr.dim td{font-style:italic}
+/* MathJax in the Physics tab */
+#tab-phys .eq{font-family:inherit;font-size:1rem;padding:4px 12px}
+#tab-phys .eq mjx-container[display="true"]{margin:.45em 0!important}
+#tab-phys mjx-container{color:inherit}
+#tab-phys mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;padding:2px 0}
+#tab-phys .tbl mjx-container{font-size:95%}
+
+#tab-tools textarea{width:100%;box-sizing:border-box;font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;line-height:1.45;padding:8px 10px;border-radius:5px;resize:vertical}
+.xbar{margin:6px 0 10px;align-items:center}.xbar .btn.sm{padding:4px 10px;font-size:.8rem}.xbar .xmsg{font-size:.8rem;margin-top:0}
+.mdl .rv{font-family:inherit;font-size:.84rem;line-height:1.45}.mdl .rn{font-size:.78rem}
 </style>
 <style>
 html.day{--bg:#f3efe6;--panel:#fbf9f4;--panel2:#f1ede4;--border:rgba(30,28,24,.16);--text:#1d1f23;--dim:#4f5660;--cyan:#0a5f93;--amber:#9a5200;--green:#1d6e36;--red:#b3261e;--violet:#5b3fb0}
@@ -130,14 +140,6 @@ html.day .preset-btn.on{box-shadow:inset 3px 0 0 var(--amber)}
     document.body.appendChild(box);floating();apply();window.addEventListener('resize',floating);});
 })();
 </script>
-<style>
-/* MathJax in the Physics tab */
-#tab-phys .eq{font-family:inherit;font-size:1rem;padding:4px 12px}
-#tab-phys .eq mjx-container[display="true"]{margin:.45em 0!important}
-#tab-phys mjx-container{color:inherit}
-#tab-phys mjx-container[display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;padding:2px 0}
-#tab-phys .tbl mjx-container{font-size:95%}
-</style>
 <script>
 /* MathJax 3 for the Physics tab: \( … \) inline, \[ … \] display */
 window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
@@ -158,6 +160,11 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
   <button class="tb" data-tab="mol">Molecules &amp; exotic atoms</button>
   <button class="tb" data-tab="res">Resonances</button>
   <button class="tb" data-tab="sc">Scattering</button>
+  <button class="tb" data-tab="qm">Quark models</button>
+  <button class="tb" data-tab="cc">Coupled channels</button>
+  <button class="tb" data-tab="fv">Lattice &amp; kinematics</button>
+  <button class="tb" data-tab="nn">Nucleons, atoms, electroweak</button>
+  <button class="tb" data-tab="tools">Tools</button>
   <button class="tb" data-tab="val">Validation</button>
   <button class="tb" data-tab="phys">Physics</button>
   <button class="tb" data-tab="man">Manual</button>
@@ -253,6 +260,7 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
         <div class="f2"><label>M<sub>Z</sub>, Γ<sub>Z</sub> (GeV), sin²θ<sub>eff</sub></label><div class="pair"><input type="number" id="ee-MZ" step="any" value="91.1876"><input type="number" id="ee-GZ" step="any" value="2.4955"><input type="number" id="ee-sw" step="any" value="0.23153"></div></div>
         <div class="f2"><label>1/α, α<sub>s</sub></label><div class="pair"><input type="number" id="ee-ai" step="any" value="128.95"><input type="number" id="ee-as" step="any" value="0.118"></div></div>
         <div class="f2"><label>Narrow vector mesons, beam-energy spread (MeV)</label><div class="pair"><select id="ee-vm"><option value="1">include</option><option value="0">omit</option></select><input type="number" id="ee-spr" step="any" value="1"></div></div>
+        <div class="f2"><label>Initial-state radiation (Kuraev–Fadin)</label><select id="ee-isr"><option value="0">omit (Born)</option><option value="1">include</option></select></div>
         <div class="f2"><label>Plot</label><select id="ee-plot"><option value="xs">σ(√s) for μ⁺μ⁻ and hadrons</option><option value="R">R = σ(hadrons)/σ_QED(μ⁺μ⁻)</option><option value="afb">forward–backward asymmetry A_FB(μ⁺μ⁻)</option><option value="z">the Z line shape (√s = M_Z ± 5 GeV)</option></select></div>
       </div>
       <div class="btnrow"><button class="btn pri" id="sc-run">Compute</button><button class="btn" id="sc-exp">Export CSV</button></div>
@@ -261,6 +269,126 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
   <div>
     <div class="cc"><canvas id="c-sc" width="960" height="540"></canvas></div>
     <div class="panel"><div class="pt">Results</div><div id="sc-msg"></div><div class="rg" id="sc-res"></div></div>
+  </div>
+</div></div>
+
+<div id="tab-qm" class="tp"><div class="l2">
+  <div>
+    <div class="panel"><div class="pt">Quark models of hadrons</div>
+      <div class="f2"><label>Problem</label><select id="qm-p"><option value="mes">mesons from u to b: relativistic kinetic energy (spinless Salpeter)</option><option value="bar">baryons: three quarks (correlated Gaussians)</option><option value="hyb">charmonium hybrids: gluonic excitation Π_u</option><option value="mix">configuration mixing: ³S₁–³D₁ and ¹P₁–³P₁</option><option value="glob">global fit: charmonium and bottomonium together</option></select></div>
+      <div class="f2" data-p="mes,bar,hyb"><label>α_s, string tension σ (GeV²), constant C (GeV)</label><div class="pair"><input type="number" id="qm-as" step="any"><input type="number" id="qm-sig" step="any"><input type="number" id="qm-C" step="any"></div></div>
+      <div class="f2" data-p="mes,bar"><label>Smearing: Coulomb r_s (GeV⁻¹, mesons), contact σ_c (GeV)</label><div class="pair"><input type="number" id="qm-rs" step="any"><input type="number" id="qm-sm" step="any"></div></div>
+      <div class="f2" data-p="mes,bar"><label>Constituent masses m_u = m_d, m_s, m_c, m_b (GeV)</label><div class="pair"><input type="number" id="qm-mu" step="any"><input type="number" id="qm-ms" step="any"><input type="number" id="qm-mc" step="any"><input type="number" id="qm-mb" step="any"></div></div>
+      <div class="f2" data-p="mes"><label>Kinetic energy, grid points</label><div class="pair"><select id="qm-kin"><option value="rel">relativistic √(p² + m²)</option><option value="nr">non-relativistic m + p²/2m</option></select><input type="number" id="qm-N" step="20" value="200"></div></div>
+      <div class="f2" data-p="bar"><label>Correlated Gaussians per baryon, random seed</label><div class="pair"><input type="number" id="qm-K" step="4" value="28"><input type="number" id="qm-seed" step="1" value="11"></div></div>
+      <div class="f2" data-p="hyb"><label>Charm quark mass (GeV)</label><input type="number" id="qm-mq" step="any" value="1.48"></div>
+      <div class="f2" data-p="mix,glob"><label>The quarkonium potential of the Quarkonium tab is used (its current inputs).</label></div>
+      <div class="f2" data-p="glob"><label>Theory uncertainty per state in χ² (MeV), maximum iterations</label><div class="pair"><input type="number" id="qm-eps" step="any" value="10"><input type="number" id="qm-it" step="10" value="120"></div></div>
+      <div class="btnrow"><button class="btn pri" id="qm-run">Compute</button></div>
+    </div>
+    <div class="panel"><div class="pt">Model</div><div class="rg mdl" id="qm-model"></div></div>
+  </div>
+  <div>
+    <div class="cc"><canvas id="c-qm" width="960" height="540"></canvas></div>
+    <div class="panel"><div class="pt">Plot</div><div class="f2"><select id="qm-plot"><option value="mass">masses: model vs measured</option><option value="wf">radial wavefunctions / sizes</option><option value="extra">problem-specific view</option></select></div></div>
+    <div class="panel"><div class="pt">Results</div><div id="qm-msg"></div><div class="tw" id="qm-tab"></div><div class="rg" id="qm-res"></div></div>
+  </div>
+</div></div>
+
+<div id="tab-cc" class="tp"><div class="l2">
+  <div>
+    <div class="panel"><div class="pt">Coupled channels and poles</div>
+      <div class="f2"><label>Problem</label><select id="cc-p"><option value="cu">chiral unitary amplitudes: Λ(1405) two poles, σ and f₀(980)</option><option value="eft">near-threshold molecules: X(3872), T_cc⁺ (contact EFT, two channels)</option><option value="uq">unquenched quarkonium: a qq̄ state coupled to meson pairs</option><option value="km">K-matrix with production (P-vector)</option></select></div>
+      <div class="f2" data-p="cu"><label>System</label><select id="cc-cu"><option value="lam">K̄N – πΣ (I = 0): Λ(1405)</option><option value="sig">ππ – KK̄ (I = 0): σ, f₀(980)</option></select></div>
+      <div class="f2" data-p="cu"><label>Decay constant f (MeV); subtraction constants a_K̄N, a_πΣ (Λ) or cutoff q_max (GeV, ππ)</label><div class="pair"><input type="number" id="cc-f" step="any"><input type="number" id="cc-a1" step="any"><input type="number" id="cc-a2" step="any"></div></div>
+      <div class="f2" data-p="eft"><label>System</label><select id="cc-eft"><option value="X">χ_c1(3872): D⁰D̄*⁰, D⁺D*⁻</option><option value="T">T_cc⁺: D⁰D*⁺, D⁺D*⁰</option></select></div>
+      <div class="f2" data-p="eft"><label>Binding below the lower threshold (MeV), cutoff Λ (MeV), isovector strength V₁/V₀</label><div class="pair"><input type="number" id="cc-B" step="any"><input type="number" id="cc-L" step="any"><input type="number" id="cc-r1" step="any" value="0"></div></div>
+      <div class="f2" data-p="uq"><label>System</label><select id="cc-uq"><option value="psi">ψ(3770): 1³D₁ + DD̄</option><option value="X">χ_c1(2P) + DD̄*: X(3872)</option><option value="psi4">ψ(4040): 3³S₁ + four channels</option></select></div>
+      <div class="f2" data-p="uq"><label>Bare mass E₀ (GeV), coupling g, form-factor scale β (GeV)</label><div class="pair"><input type="number" id="cc-E0" step="any"><input type="number" id="cc-g" step="any"><input type="number" id="cc-be" step="any"></div></div>
+      <div class="f2" data-p="uq"><label>Fit E₀ and g to the measured pole (for X(3872): E₀ only)</label><select id="cc-fit"><option value="1">yes</option><option value="0">no: use the values above</option></select></div>
+      <div class="f2" data-p="km"><label>Pole 1: m (GeV), couplings g_ππ, g_KK̄, g_ηη (GeV)</label><div class="pair"><input type="number" id="cc-k1m" step="any"><input type="number" id="cc-k1a" step="any"><input type="number" id="cc-k1b" step="any"><input type="number" id="cc-k1c" step="any"></div></div>
+      <div class="f2" data-p="km"><label>Pole 2: m (GeV), couplings g_ππ, g_KK̄, g_ηη (GeV)</label><div class="pair"><input type="number" id="cc-k2m" step="any"><input type="number" id="cc-k2a" step="any"><input type="number" id="cc-k2b" step="any"><input type="number" id="cc-k2c" step="any"></div></div>
+      <div class="f2" data-p="km"><label>Background f_ππ,ππ; production strengths β₁, β₂</label><div class="pair"><input type="number" id="cc-kf" step="any"><input type="number" id="cc-kb1" step="any"><input type="number" id="cc-kb2" step="any"></div></div>
+      <div class="btnrow"><button class="btn pri" id="cc-run">Compute</button></div>
+      <div class="panel" id="cc-anim" style="padding:0;border:0;margin:0"><div class="f2"><label>Pole trajectory: scale the interaction by λ (animated)</label><div class="btnrow"><button class="btn" id="cc-play">Trajectory</button><input type="range" id="cc-lam" min="0" max="40" value="20" style="flex:1"><span class="hint" id="cc-laml" style="margin:0"></span></div></div></div>
+    </div>
+    <div class="panel"><div class="pt">Model</div><div class="rg mdl" id="cc-model"></div></div>
+  </div>
+  <div>
+    <div class="cc"><canvas id="c-cc" width="960" height="540"></canvas></div>
+    <div class="panel"><div class="pt">Plot</div><div class="f2"><select id="cc-plot"><option value="ls">line shapes in each channel</option><option value="ph">phase shifts, inelasticity</option><option value="pole">poles in the complex energy plane</option></select></div></div>
+    <div class="panel"><div class="pt">Results</div><div id="cc-msg"></div><div class="tw" id="cc-tab"></div><div class="rg" id="cc-res"></div></div>
+  </div>
+</div></div>
+
+<div id="tab-fv" class="tp"><div class="l2">
+  <div>
+    <div class="panel"><div class="pt">Finite volume and kinematic singularities</div>
+      <div class="f2"><label>Problem</label><select id="fv-p"><option value="lus">two hadrons in a periodic box: Lüscher's formula</option><option value="tri">triangle singularity: a peak without a resonance</option><option value="dz">Dalitz plot: D⁺ → K⁻π⁺π⁺ with interfering resonances</option></select></div>
+      <div class="f2" data-p="lus"><label>System</label><select id="fv-sys"><option value="d">np (³S₁): the deuteron</option><option value="s">np (¹S₀): virtual state</option><option value="pp">ππ (I = 2): weak repulsion</option><option value="c">custom effective-range parameters</option></select></div>
+      <div class="f2" data-p="lus"><label>Scattering length a, effective range r₀ (fm, k cot δ = −1/a + r₀k²/2), reduced mass μ (MeV)</label><div class="pair"><input type="number" id="fv-a" step="any"><input type="number" id="fv-r" step="any"><input type="number" id="fv-mu" step="any"></div></div>
+      <div class="f2" data-p="lus"><label>Box size L (fm): from, to; levels</label><div class="pair"><input type="number" id="fv-L0" step="any" value="4"><input type="number" id="fv-L1" step="any" value="20"><input type="number" id="fv-n" step="1" value="4"></div></div>
+      <div class="f2" data-p="tri"><label>Process</label><select id="fv-tri"><option value="a1">a₁(1260) → K*K̄ → f₀(980)π (a₁(1420))</option><option value="eta">η(1405) → K*K̄ → f₀(980)π</option></select></div>
+      <div class="f2" data-p="tri"><label>Width of the intermediate K* (MeV): try 0 to see the logarithm</label><input type="number" id="fv-G2" step="any" value="47"></div>
+      <div class="f2" data-p="dz"><label>Complex couplings: K̄*(892) (fixed 1), K̄₀*(1430) (re, im), K̄*(1680) (re, im), non-resonant (re, im)</label><div class="pair"><input type="number" id="fv-c1r" step="any" value="2"><input type="number" id="fv-c1i" step="any" value="-1"><input type="number" id="fv-c2r" step="any" value="0.6"><input type="number" id="fv-c2i" step="any" value="0.6"><input type="number" id="fv-nr" step="any" value="1.2"><input type="number" id="fv-ni" step="any" value="0"></div></div>
+      <div class="btnrow"><button class="btn pri" id="fv-run">Compute</button></div>
+    </div>
+    <div class="panel"><div class="pt">Model</div><div class="rg mdl" id="fv-model"></div></div>
+  </div>
+  <div>
+    <div class="cc"><canvas id="c-fv" width="960" height="540"></canvas></div>
+    <div class="panel"><div class="pt">Plot</div><div class="f2"><select id="fv-plot"><option value="main">main view</option><option value="aux">second view</option></select></div></div>
+    <div class="panel"><div class="pt">Results</div><div id="fv-msg"></div><div class="tw" id="fv-tab"></div><div class="rg" id="fv-res"></div></div>
+  </div>
+</div></div>
+
+<div id="tab-nn" class="tp"><div class="l2">
+  <div>
+    <div class="panel"><div class="pt">Nucleons, hadronic atoms and electroweak line shapes</div>
+      <div class="f2"><label>Problem</label><select id="nn-p"><option value="d">deuteron: one-pion exchange with the tensor force (³S₁–³D₁)</option><option value="s">np ¹S₀: the virtual state</option><option value="at">hadronic atoms: 1s and 2p levels, X-ray lines</option><option value="w">W → ℓν at a hadron collider: transverse mass (Jacobian peak)</option><option value="h">Higgs → ZZ* → 4ℓ: on-shell peak and off-shell tail</option></select></div>
+      <div class="f2" data-p="d"><label>OPEP regulator R_c (fm), tensor scale, short-range Gaussian range b (fm); depth fitted to B = 2.2246 MeV</label><div class="pair"><input type="number" id="nn-Rc" step="any" value="0.8"><input type="number" id="nn-tf" step="any" value="1.2"><input type="number" id="nn-b" step="any" value="0.8"></div></div>
+      <div class="f2" data-p="s"><label>OPEP regulator R_c (fm), Gaussian range b (fm); depth fitted to a = −23.74 fm</label><div class="pair"><input type="number" id="nn-Rc1" step="any" value="1.0"><input type="number" id="nn-b1" step="any" value="1.55"></div></div>
+      <div class="f2" data-p="at"><label>Atom</label><select id="nn-at"><option value="pi">pionic hydrogen π⁻p</option><option value="K">kaonic hydrogen K⁻p</option><option value="pbar">antiprotonic hydrogen p̄p</option><option value="Kd">kaonic deuterium K⁻d (prediction)</option></select></div>
+      <div class="f2" data-p="at"><label>Masses m₁, m₂ (MeV); optical potential −(V₀ + iW) e^{−(r/b)²}: V₀, W (MeV), b (fm)</label><div class="pair"><input type="number" id="nn-m1" step="any"><input type="number" id="nn-m2" step="any"><input type="number" id="nn-V0" step="any"><input type="number" id="nn-W" step="any"><input type="number" id="nn-bb" step="any"></div></div>
+      <div class="f2" data-p="w"><label>M_W, Γ_W (GeV), events</label><div class="pair"><input type="number" id="nn-MW" step="any" value="80.37"><input type="number" id="nn-GW" step="any" value="2.085"><input type="number" id="nn-nev" step="10000" value="200000"></div></div>
+      <div class="f2" data-p="h"><label>M_H (GeV), Γ_H (MeV), gluon-luminosity power n (∝ m⁻ⁿ)</label><div class="pair"><input type="number" id="nn-MH" step="any" value="125.2"><input type="number" id="nn-GH" step="any" value="4.1"><input type="number" id="nn-lum" step="any" value="4"></div></div>
+      <div class="btnrow"><button class="btn pri" id="nn-run">Compute</button></div>
+    </div>
+    <div class="panel"><div class="pt">Model</div><div class="rg mdl" id="nn-model"></div></div>
+  </div>
+  <div>
+    <div class="cc"><canvas id="c-nn" width="960" height="540"></canvas></div>
+    <div class="panel"><div class="pt">Plot</div><div class="f2"><select id="nn-plot"><option value="main">main view</option><option value="aux">second view</option></select></div></div>
+    <div class="panel"><div class="pt">Results</div><div id="nn-msg"></div><div class="tw" id="nn-tab"></div><div class="rg" id="nn-res"></div></div>
+  </div>
+</div></div>
+
+<div id="tab-tools" class="tp"><div class="l2">
+  <div>
+    <div class="panel"><div class="pt">Parameter sweep</div>
+      <div class="f2"><label>Tab</label><select id="ts-tab"></select></div>
+      <div class="f2"><label>Input to vary</label><select id="ts-in"></select></div>
+      <div class="f2"><label>From, to, number of points</label><div class="pair"><input type="number" id="ts-a" step="any" value="0.2"><input type="number" id="ts-b" step="any" value="0.5"><input type="number" id="ts-N" step="1" value="11"></div></div>
+      <div class="f2"><label>Output</label><select id="ts-out"></select></div>
+      <div class="f2" id="ts-nrow"><label>State or index</label><input type="text" id="ts-n" value="1"></div>
+      <div class="btnrow"><button class="btn pri" id="tl-sweep">Sweep</button><button class="btn" id="tl-stop" style="display:none">Stop</button></div>
+      <div class="hint">Every point is a full solution of that tab with its current inputs, only the chosen one changed; the inputs are restored afterwards.</div>
+    </div>
+    <div class="panel"><div class="pt">Fit to data (Nelder–Mead)</div>
+      <div class="f2"><label>Tab</label><select id="tf-tab"></select></div>
+      <div class="f2"><label>Abscissa x of the data (an input of that tab)</label><select id="tf-in"></select></div>
+      <div class="f2"><label>Ordinate y of the data (an output)</label><select id="tf-out"></select></div>
+      <div class="f2" id="tf-nrow"><label>State or index</label><input type="text" id="tf-n" value="1"></div>
+      <div class="f2"><label>Parameters to fit (up to three; start values are the current inputs)</label><select id="tf-p1"></select><select id="tf-p2"></select><select id="tf-p3"></select></div>
+      <div class="f2"><label>Data, one point per line: x y (lines starting with # are comments)</label><textarea id="tf-data" rows="7" spellcheck="false"></textarea></div>
+      <div class="f2"><label>Maximum iterations, residuals</label><div class="pair"><input type="number" id="tf-it" step="1" value="60"><label class="ck"><input type="checkbox" id="tf-log"> relative (ln y)</label></div></div>
+      <div class="btnrow"><button class="btn pri" id="tl-fit">Fit</button></div>
+      <div class="f2"><label>Example with synthetic data (generated by the model, not a measurement)</label><div class="pair"><select id="tf-demo"></select><button class="btn" id="tl-demo" style="flex:0 0 auto">Load</button></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="cc"><canvas id="c-tools" width="960" height="540"></canvas></div>
+    <div class="panel"><div class="pt">Results</div><div id="tools-msg"></div><div class="rg" id="tools-res"></div><div class="tw" id="tools-tab"></div></div>
   </div>
 </div></div>
 
@@ -276,7 +404,7 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
   <div class="card"><h3>Bound, Quasi-bound and Scattering States in Particle Physics — Theory</h3>
     <p>Most hadrons are not stable particles but resonances that live for 10⁻²³ s, and the stable ones are bound states of quarks that cannot be pulled apart. Between these extremes sit near-threshold molecules, exotic atoms and heavy-quark systems that are bound for practical purposes but decay weakly or electromagnetically. One framework covers all of them: the S-matrix and its singularities. Bound states are poles on the physical sheet below threshold, resonances are poles on an unphysical sheet, and scattering data measure the analytic function in between. This chapter covers the physics behind each tab and the methods used to compute it.</p>
     <div class="toc">
-      <a href="#pp1">1. Three classes of states</a><a href="#pp2">2. Units, kinematics and lifetimes</a><a href="#pp3">3. Heavy quarkonium and the QCD potential</a><a href="#pp4">4. Spectroscopic notation and J<sup>PC</sup></a><a href="#pp5">5. Spin-dependent forces</a><a href="#pp6">6. The wavefunction at the origin: annihilation widths</a><a href="#pp7">7. Radiative E1 transitions</a><a href="#pp8">8. Thresholds, string breaking and exotic states</a><a href="#pp9">9. Toponium: bound but unstable</a><a href="#pp10">10. Hadronic molecules and compositeness</a><a href="#pp11">11. Exotic atoms</a><a href="#pp12">12. Resonances: Breit–Wigner forms</a><a href="#pp13">13. Poles, sheets and the definition of mass</a><a href="#pp14">14. Partial waves, unitarity and isospin: πN</a><a href="#pp15">15. e⁺e⁻ annihilation: R, the Z and A<sub>FB</sub></a><a href="#pp16">16. Numerical methods</a><a href="#pp17">17. Formula summary</a><a href="#pp18">18. Practice problems</a><a href="#pp19">19. History</a><a href="#pp20">20. Limits of the models</a><a href="#pp21">21. References</a>
+      <a href="#pp1">1. Three classes of states</a><a href="#pp2">2. Units, kinematics and lifetimes</a><a href="#pp3">3. Heavy quarkonium and the QCD potential</a><a href="#pp4">4. Spectroscopic notation and J<sup>PC</sup></a><a href="#pp5">5. Spin-dependent forces</a><a href="#pp6">6. The wavefunction at the origin: annihilation widths</a><a href="#pp7">7. Radiative E1 transitions</a><a href="#pp8">8. Thresholds, string breaking and exotic states</a><a href="#pp9">9. Toponium: bound but unstable</a><a href="#pp10">10. Hadronic molecules and compositeness</a><a href="#pp11">11. Exotic atoms</a><a href="#pp12">12. Resonances: Breit–Wigner forms</a><a href="#pp13">13. Poles, sheets and the definition of mass</a><a href="#pp14">14. Partial waves, unitarity and isospin: πN</a><a href="#pp15">15. e⁺e⁻ annihilation: R, the Z and A<sub>FB</sub></a><a href="#pp16">16. Numerical methods</a><a href="#pp17">17. Formula summary</a><a href="#pp18">18. Practice problems</a><a href="#pp19">19. History</a><a href="#pp20">20. Limits of the models</a><a href="#pp21">21. Quark models</a><a href="#pp22">22. Coupled channels and compositeness</a><a href="#pp23">23. Finite volume, triangles, Dalitz plots</a><a href="#pp24">24. Nucleons and hadronic atoms</a><a href="#pp25">25. Electroweak line shapes</a><a href="#pp26">26. Tools</a><a href="#pp27">27. References</a>
     </div>
   </div>
 
@@ -449,18 +577,94 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
   </div>
 
   <div class="card" id="pp19"><h3>19. History</h3>
-    <p><strong>1936</strong>: Breit and Wigner describe neutron resonances. <strong>1952</strong>: Fermi, Anderson, Long and Nagle find the Δ(1232) in πp scattering; Blatt and Weisskopf introduce barrier factors. <strong>1954</strong>: Deser, Goldberger, Baumann and Thirring relate exotic-atom shifts to scattering lengths. <strong>1961</strong>: the ρ and ω are discovered. <strong>1965</strong>: Weinberg's compositeness criterion. <strong>1967</strong>: Van Royen and Weisskopf. <strong>November 1974</strong>: the J/ψ is found at SLAC and Brookhaven ("November revolution"), and the Cornell potential follows. <strong>1977</strong>: the Υ at Fermilab. <strong>1975–80</strong>: the χ<sub>cJ</sub> states at SPEAR, then the η<sub>c</sub> (Crystal Ball, 1980). <strong>1983</strong>: the W and Z at CERN. <strong>1989–2000</strong>: the Z line shape at LEP and SLC, N<sub>ν</sub> = 3. <strong>1995</strong>: the top quark at Fermilab. <strong>2003</strong>: X(3872) (Belle) and D*<sub>s0</sub>(2317) (BaBar) open the era of exotic hadrons. <strong>2011</strong>: SIDDHARTA settles the kaonic-hydrogen shift. <strong>2015</strong>: LHCb pentaquarks P<sub>c</sub>. <strong>2021</strong>: T<sub>cc</sub>⁺ at LHCb. <strong>2025</strong>: CMS observes the toponium threshold excess.</p>
+    <p><strong>1936</strong>: Breit and Wigner describe neutron resonances. <strong>1952</strong>: Fermi, Anderson, Long and Nagle find the Δ(1232) in πp scattering; Blatt and Weisskopf introduce barrier factors. <strong>1954</strong>: Deser, Goldberger, Baumann and Thirring relate exotic-atom shifts to scattering lengths. <strong>1961</strong>: the ρ and ω are discovered. <strong>1965</strong>: Weinberg's compositeness criterion. <strong>1967</strong>: Van Royen and Weisskopf. <strong>November 1974</strong>: the J/ψ is found at SLAC and Brookhaven ("November revolution"), and the Cornell potential follows. <strong>1977</strong>: the Υ at Fermilab. <strong>1975–80</strong>: the χ<sub>cJ</sub> states at SPEAR, then the η<sub>c</sub> (Crystal Ball, 1980). <strong>1953</strong>: Dalitz introduces his plot. <strong>1959–65</strong>: Landau, Coleman and Norton on triangle singularities. <strong>1975</strong>: De Rújula, Georgi and Glashow explain hadron hyperfine splittings by colour magnetism. <strong>1978</strong>: the Cornell coupled-channel model. <strong>1983</strong>: the W and Z at CERN. <strong>1985</strong>: Godfrey and Isgur's relativised quark model. <strong>1986–91</strong>: Lüscher's finite-volume formula. <strong>1997–2003</strong>: chiral unitary amplitudes; the σ pole and the two-pole Λ(1405). <strong>1989–2000</strong>: the Z line shape at LEP and SLC, N<sub>ν</sub> = 3. <strong>1995</strong>: the top quark at Fermilab. <strong>2003</strong>: X(3872) (Belle) and D*<sub>s0</sub>(2317) (BaBar) open the era of exotic hadrons. <strong>2011</strong>: SIDDHARTA settles the kaonic-hydrogen shift. <strong>2012</strong>: Higgs boson; lattice QCD predicts charmonium hybrids. <strong>2013</strong>: off-shell Higgs as a width constraint. <strong>2015</strong>: LHCb pentaquarks P<sub>c</sub>; the a₁(1420) is explained as a triangle singularity. <strong>2021</strong>: T<sub>cc</sub>⁺ at LHCb. <strong>2022</strong>: the CDF W-mass tension, not confirmed by ATLAS, CMS or LHCb. <strong>2025</strong>: CMS observes the toponium threshold excess.</p>
   </div>
 
   <div class="card" id="pp20"><h3>20. Limits of the Models</h3>
-    <p><strong>Quarkonium.</strong> Non-relativistic: v²/c² ≈ 0.25 for charmonium, so order-v² corrections are absorbed into effective parameters (the quark masses are not the MS̄ masses). Spin-dependent forces are first order, and for unequal masses (B<sub>c</sub>) only approximate (no ¹P₁–³P₁ mixing). No coupled channels: states near or above open-flavour thresholds are shifted by tens of MeV in reality. Annihilation widths carry large QCD corrections.</p>
-    <p><strong>Molecules and exotic atoms.</strong> Single channel, s wave, local energy-independent potentials. Real systems couple channels (D⁰D̄*⁰ and D⁺D*⁻ for X(3872); K̄N and πΣ for Λ(1405)), and some (X(3872), T<sub>cc</sub>) have widths from the decay of a constituent. The absorptive W only mimics inelastic channels. Electromagnetic corrections in exotic atoms (vacuum polarisation, finite size) are not included; the shift is defined relative to the point-Coulomb level.</p>
+    <p><strong>Quarkonium.</strong> Non-relativistic: v²/c² ≈ 0.25 for charmonium, so order-v² corrections are absorbed into effective parameters (the quark masses are not the MS̄ masses). Spin-dependent forces are first order; the Quark models tab adds exact ³S₁–³D₁ and ¹P₁–³P₁ mixing, a relativistic kinetic energy and an unquenched treatment of a single state (Coupled channels tab), but the main tab has no coupled channels. The light-quark sector misses chiral symmetry (the pion is far too heavy). Baryons use the ½ rule and a contact hyperfine term only; triply heavy baryons come out 0.1–0.6 GeV below lattice QCD. Hybrids use a model Π<sub>u</sub> potential, not lattice data. Annihilation widths carry large QCD corrections.</p>
+    <p><strong>Molecules and exotic atoms.</strong> Single channel, s wave, local energy-independent potentials. The Coupled channels tab treats two or three channels at leading order (contact EFT and chiral unitary amplitudes, no left-hand cuts, no one-pion exchange, no three-body DD̄π effects), and some (X(3872), T<sub>cc</sub>) have widths from the decay of a constituent. The absorptive W only mimics inelastic channels. Electromagnetic corrections in exotic atoms (vacuum polarisation, finite size) are not included; the shift is defined relative to the point-Coulomb level.</p>
     <p><strong>Resonances.</strong> Breit–Wigner forms are parametrisations, not theory. For overlapping resonances or strong thresholds, K-matrix or dispersive methods are required, and pole positions depend on how the amplitude is continued.</p>
-    <p><strong>Scattering.</strong> The πN model is a low-energy parametrisation (T<sub>π</sub> ≲ 400 MeV): no inelasticity, no higher resonances, no D waves. The e⁺e⁻ cross sections are Born level with a fixed α: no initial-state radiation (which shifts and lowers the Z peak), no running coupling, no hadronic resonance structure below 2 GeV except ρ, ω, φ as Breit–Wigners.</p>
+    <p><strong>Scattering.</strong> The πN model is a low-energy parametrisation (T<sub>π</sub> ≲ 400 MeV): no inelasticity, no higher resonances, no D waves. The e⁺e⁻ cross sections are Born level with a fixed α: initial-state radiation optional (leading-log, Kuraev–Fadin, not applied to the narrow vector mesons), no running coupling, no hadronic resonance structure below 2 GeV except ρ, ω, φ as Breit–Wigners.</p>
+    <p><strong>New tools.</strong> The Lüscher formula is used for S waves in the rest frame only (no partial-wave mixing, no moving frames, no three-body quantisation). The triangle loop is non-relativistic. The Dalitz model is an isobar sum with constant widths. The deuteron potential is OPEP plus a Gaussian, fitted to two numbers, not a high-precision NN force. W and Higgs line shapes are at parton level, without parton distributions, recoil or detector simulation.</p>
   </div>
 
-  <div class="card" id="pp21"><h3>21. References</h3>
-    <p>S. Navas et al. (Particle Data Group), Phys. Rev. D 110, 030001 (2024) and 2025 update. E. Eichten, K. Gottfried, T. Kinoshita, K. D. Lane and T.-M. Yan, Phys. Rev. D 17, 3090 (1978); 21, 203 (1980). T. Barnes, S. Godfrey and E. S. Swanson, Phys. Rev. D 72, 054026 (2005). A. Martin, Phys. Lett. B 93, 338 (1980). B.-Q. Li and K.-T. Chao, Phys. Rev. D 79, 094004 (2009) (screened potential). R. Van Royen and V. F. Weisskopf, Nuovo Cim. A 50, 617 (1967). S. Weinberg, Phys. Rev. 137, B672 (1965). I. Matuschek, V. Baru, F.-K. Guo and C. Hanhart, Eur. Phys. J. A 57, 101 (2021). S. Deser et al., Phys. Rev. 96, 774 (1954); T. L. Trueman, Nucl. Phys. 26, 57 (1961). M. Hennebach et al., Eur. Phys. J. A 50, 190 (2014); A. Hirtl et al., Eur. Phys. J. A 57, 70 (2021) (pionic hydrogen). M. Bazzi et al. (SIDDHARTA), Phys. Lett. B 704, 113 (2011). S. M. Flatté, Phys. Lett. B 63, 224 (1976). The ALEPH, DELPHI, L3, OPAL and SLD Collaborations, Phys. Rep. 427, 257 (2006). CMS Collaboration, Rep. Prog. Phys. 88, 087801 (2025). G. Höhler, <em>Pion–Nucleon Scattering</em>, Landolt–Börnstein I/9b2 (1983). F.-K. Guo et al., Rev. Mod. Phys. 90, 015004 (2018) (hadronic molecules).</p>
+  <div class="card" id="pp21"><h3>21. Quark Models of Light and Heavy Hadrons</h3>
+    <h4>21.1 Relativistic kinetic energy</h4>
+    <p>In light mesons the quarks move at relativistic speeds (\(\langle p^2\rangle \sim m^2\)), so \(m + p^2/2m\) fails. The spinless Salpeter (or "relativized") Hamiltonian keeps the square roots:</p>
+    <div class="eq">\[H = \sqrt{p^2 + m_1^2} + \sqrt{p^2 + m_2^2} - \frac{4\alpha_s}{3}\,\frac{\operatorname{erf}(r/r_s)}{r} + \sigma r + C\]</div>
+    <p>The square root of an operator is evaluated exactly in a discrete basis: on a sinc-DVR radial grid the matrix of \(p^2 = -d^2/dr^2 + l(l + 1)/r^2\) is diagonalised once, \(P = W\Lambda W^{\mathsf T}\), and \(T = W\,\mathrm{diag}\big(\sqrt{\lambda + m_1^2} + \sqrt{\lambda + m_2^2}\big)\,W^{\mathsf T}\). The Coulomb term must be smeared: with the relativistic kinetic energy a bare \(-\kappa/r\) with \(\kappa > 2/\pi\) has no ground state (Herbst 1977). One potential and one set of constituent masses then describe the mesons from the ρ to the Υ to about 30 MeV (Godfrey and Isgur 1985 refine the same idea). The pion stays far too heavy: it is the pseudo-Goldstone boson of spontaneously broken chiral symmetry, which no potential model contains.</p>
+    <h4>21.2 Baryons</h4>
+    <p>Three quarks in a colour singlet: each pair is in a colour \(\bar 3\) with half the colour factor of a quark–antiquark singlet, so \(V_{ij} = \frac12 V_{q\bar q}(r_{ij})\) (the "½ rule"). The spatial ground state is solved with explicitly correlated Gaussians in Jacobi coordinates (§ 23 of the solid-state module uses the same code), and the colour-magnetic hyperfine term</p>
+    <div class="eq">\[H_{hf} = \sum_{i<j}\frac{16\pi\alpha_s}{9m_im_j}\,\mathbf S_i\cdot\mathbf S_j\,\delta_\sigma(\mathbf r_{ij}),\qquad \langle\boldsymbol\sigma_i\cdot\boldsymbol\sigma_j\rangle:\ N\,(-1,-1,-1),\ \Delta\,(1,1,1),\ \Lambda\,(-3,0,0),\ \Sigma\,(1,-2,-2)\]</div>
+    <p>explains the N–Δ and Λ–Σ splittings (De Rújula, Georgi and Glashow 1975). The spin–flavour content enters only through \(\langle\boldsymbol\sigma_i\cdot\boldsymbol\sigma_j\rangle\) of each pair.</p>
+    <h4>21.3 Hybrids in the Born–Oppenheimer picture</h4>
+    <p>Heavy quarks move slowly compared with the gluon field, which adjusts to their separation like the electrons of a molecule. Its excited states \(\Lambda_\eta^\epsilon\) (here \(\Pi_u\), projection Λ = 1 of the gluonic angular momentum) give new potentials. The lab uses</p>
+    <div class="eq">\[V_{\Pi_u}(r) = \frac{\alpha_s}{6r} + \sqrt{\sigma^2r^2 + 2\pi\sigma\,\big(1 - \tfrac{1}{12}\big)} + C,\qquad \Big[-\frac{\nabla^2}{2\mu} + \frac{L(L + 1) - 2\Lambda^2 + J_g(J_g + 1)}{2\mu r^2} + V_{\Pi_u}\Big]\psi = E\psi\]</div>
+    <p>(colour-octet repulsion at short distance, the first transverse excitation of a Nambu–Goto string at long distance). The lowest multiplet (L = 1) contains \(J^{PC} = 1^{-+}\), which a quark–antiquark pair cannot have: an exotic hybrid, predicted near 4.2–4.4 GeV for charmonium by lattice QCD (Juge, Kuti and Morningstar 2003; Hadron Spectrum Collaboration 2012).</p>
+    <h4>21.4 Mixing beyond first order</h4>
+    <p>The tensor force mixes \(^3S_1\) and \(^3D_1\) (\(\langle{}^3S_1|S_{12}|{}^3D_1\rangle = \sqrt8\)); the lab diagonalises it in the basis of the computed radial states. For unequal masses the spin–orbit force has an antisymmetric part,</p>
+    <div class="eq">\[V = \Big(\frac{1}{2m_1^2} + \frac{1}{2m_2^2}\Big)f(r)\,\mathbf L\cdot\mathbf S + \Big(\frac{1}{2m_1^2} - \frac{1}{2m_2^2}\Big)f(r)\,\mathbf L\cdot(\mathbf S_1 - \mathbf S_2),\qquad f = \frac{2\alpha_s}{r^3} - \frac{\sigma}{2r}\]</div>
+    <p>which mixes \(^1P_1\) and \(^3P_1\) (\(\langle{}^1P_1|\mathbf L\cdot(\mathbf S_1 - \mathbf S_2)|{}^3P_1\rangle = \sqrt2\)). When one quark becomes infinitely heavy the light-quark angular momentum \(j = L + S_q\) is conserved and the mixing angle tends to \(\arctan(1/\sqrt2) = 35.3^\circ\) (or 54.7°, depending on the sign convention): heavy-quark symmetry.</p>
+    <h4>21.5 Flavour independence</h4>
+    <p>The global fit uses one α_s, σ and C for charmonium and bottomonium with two quark masses. The remaining pulls measure what a static, flavour-independent potential with first-order spin forces misses: the running of α_s, relativistic corrections and the coupling to open-flavour channels (§ 22).</p>
+  </div>
+
+  <div class="card" id="pp22"><h3>22. Coupled Channels, Poles and Compositeness</h3>
+    <h4>22.1 Chiral unitary amplitudes</h4>
+    <p>Chiral perturbation theory fixes the low-energy meson–meson and meson–baryon interactions, but a perturbative amplitude cannot have poles. Unitarisation in the on-shell factorised form</p>
+    <div class="eq">\[T = (1 - VG)^{-1}V,\qquad S = 1 - 2i\sqrt\rho\,T\sqrt\rho,\quad \rho = -\operatorname{Im}G\]</div>
+    <p>sums the s-channel loops. V is the lowest-order chiral amplitude (Weinberg–Tomozawa for K̄N–πΣ: \(V_{ij} = -C_{ij}(2\sqrt s - M_i - M_j)/4f^2\) times spinor factors) and G the two-particle loop, regularised dimensionally or with a cutoff. The second Riemann sheet is reached by \(G_{II} = G_I - 2i\rho\). Two results follow almost without parameters:</p>
+    <ul><li>In ππ–KK̄ (I = 0) the σ = f₀(500) appears as a pole near 470 − 190i MeV, so far from the real axis that no Breit–Wigner peak is seen, and the f₀(980) as a KK̄ quasi-bound state (Oller and Oset 1997).</li>
+      <li>In K̄N–πΣ there are <strong>two</strong> poles, near 1430 − 15i and 1390 − 70i MeV: the Λ(1405) is a two-pole structure, coupling mostly to K̄N and πΣ respectively (Oller and Meißner 2001; Jido et al. 2003). The PDG now lists the lower pole as Λ(1380).</li></ul>
+    <h4>22.2 Near-threshold molecules and compositeness</h4>
+    <p>For χ_c1(3872) and T_cc⁺ the relevant channels are the neutral and charged meson pairs, a few MeV apart. In leading-order pionless EFT</p>
+    <div class="eq">\[G_i(E) = -\frac{\mu_i}{2\pi}\Big(\frac{2\Lambda}{\pi} + ik_i\Big),\qquad k_i = \sqrt{2\mu_i(E - \Delta_i + i\Gamma_i/2)},\qquad X_i = -g_i^2\,\frac{dG_i}{dE}\Big|_{E_B}\]</div>
+    <p>with \(g_ig_j\) the residue of \(T_{ij}\) at the pole. For an energy-independent interaction \(\sum_i X_i = 1\) (Hyodo 2013): the state is entirely composite, and a shallow state lives mostly in the nearer channel. The widths of the D* make the bound state quasi-bound.</p>
+    <h4>22.3 Unquenched quarkonium</h4>
+    <p>A bare \(q\bar q\) state at \(E_0\) coupled to meson pairs has the propagator \([E - E_0 - \Sigma(E)]^{-1}\) with</p>
+    <div class="eq">\[\Sigma(E) = \sum_c\int_0^\infty \frac{2\mu_c\,f_c(q)}{q_c^2 - q^2}\,dq,\qquad f_c = g^2\gamma_c\,q^{2L+2}e^{-2q^2/\beta^2},\qquad q_c^2 = 2\mu_c(E - W_c)\]</div>
+    <p>The integral is taken on the rotated contour \(q = t\,e^{-i\varphi}\): this gives the physical value on the real axis and the second-sheet continuation below it, so poles are found directly. The loops shift ψ(3770) by about 10 MeV and give its 27 MeV width; for an S-wave coupling below threshold a χ_c1(2P) is pulled down to the D D̄* threshold and acquires a large meson–meson component \(1 - Z\), \(Z = [1 - \Sigma'(E_B)]^{-1}\) (Eichten et al. 1978; Kalashnikova 2005). The pole trajectory as the coupling grows shows how a bare state turns into a threshold-dominated one.</p>
+    <h4>22.4 K-matrix and production</h4>
+    <div class="eq">\[T = (1 - iK\rho)^{-1}K,\quad K_{ij} = \sum_\alpha\frac{g_{\alpha i}g_{\alpha j}}{m_\alpha^2 - s} + f_{ij},\qquad F = (1 - iK\rho)^{-1}P,\quad P_j = \sum_\alpha\frac{\beta_\alpha g_{\alpha j}}{m_\alpha^2 - s}\]</div>
+    <p>For real K the scattering amplitude is unitary; the P-vector (Aitchison 1972) gives production amplitudes with the same poles and final-state unitarity. The K-matrix poles \(m_\alpha\) are not the physical poles: the f₀(980) appears as a narrow dip in ππ at the KK̄ threshold.</p>
+  </div>
+
+  <div class="card" id="pp23"><h3>23. Finite Volume, Triangle Singularities and Dalitz Plots</h3>
+    <h4>23.1 Lüscher's formula</h4>
+    <p>Lattice QCD computes energies in a periodic box, not amplitudes. For two particles in an S wave below inelastic thresholds the levels obey</p>
+    <div class="eq">\[k\cot\delta_0(k) = \frac{2}{\sqrt\pi\,L}\,Z_{00}(1; q^2),\qquad q = \frac{kL}{2\pi},\qquad Z_{00}(1; q^2) = \frac{1}{\sqrt{4\pi}}\sum_{\mathbf n\in\mathbb Z^3}\frac{1}{\mathbf n^2 - q^2}\]</div>
+    <p>(Lüscher 1986, 1991). The sum is defined by analytic continuation; the lab splits it with a heat kernel, \(\sqrt{4\pi}Z_{00} = \sum_{\mathbf n} e^{-(\mathbf n^2 - q^2)}/(\mathbf n^2 - q^2) + \pi^{3/2}\big[\int_0^1(e^{tq^2} - 1)t^{-3/2}dt - 2\big] + \sum_{\mathbf m\neq0}\int_0^1(\pi/t)^{3/2}e^{tq^2 - \pi^2\mathbf m^2/t}dt\), whose regular part at \(q^2 = 0\) is −8.91363. For small |a|/L the lowest level shifts by \(\Delta E = (2\pi a/\mu L^3)[1 + 2.8373\,a/L + 6.3752\,a^2/L^2]\) (nuclear sign). Bound states approach their infinite-volume energy exponentially, \(\propto e^{-\kappa L}\). Inverting the formula level by level gives the phase shift at the box energies, the standard route to resonances in lattice QCD.</p>
+    <h4>23.2 Triangle singularities</h4>
+    <p>In a decay \(A \to 1 + 2\), \(2 \to 3 + B\), \(1 + 3 \to C\), the triangle loop</p>
+    <div class="eq">\[I(E) = \int\frac{d^3q}{(2\pi)^3}\,\frac{1}{\big(E - m_1 - m_2 - \frac{q^2}{2\mu_{12}} + \frac{i\Gamma_2}{2}\big)\big(E - E_B - m_1 - m_3 - \frac{q^2}{2m_1} - \frac{(\mathbf q + \mathbf p_B)^2}{2m_3}\big)}\]</div>
+    <p>has a logarithmic singularity when all three intermediate particles can be on shell and move collinearly (Landau 1959; Coleman and Norton 1965): a classical rescattering. It produces a peak with a resonance-like phase motion although no state exists. The a₁(1420) seen by COMPASS in f₀(980)π is most likely this effect in a₁(1260) → K*K̄ → (Kπ)K̄ → f₀π (Mikhasenko, Ketzer and Sarantsev 2015). The width of the intermediate K* smooths the logarithm.</p>
+    <h4>23.3 Dalitz plots</h4>
+    <p>A three-body decay at rest has two independent invariants; the density in the \((m^2_{12}, m^2_{13})\) plane is flat for pure phase space and shows each resonance as a band. In the isobar model \(A = \sum_r c_r\,\mathrm{BW}_r(m^2)\,Z_r + c_{NR}\), symmetrised over identical particles; the Zemach factor of a P wave has a node along its band. Fit fractions \(\int|c_r\mathrm{BW}_rZ_r|^2/\int|A|^2\) need not add up to 100 %: the rest is interference.</p>
+  </div>
+
+  <div class="card" id="pp24"><h3>24. Nucleons and Hadronic Atoms</h3>
+    <h4>24.1 The deuteron and the tensor force</h4>
+    <p>One-pion exchange contains a tensor part,</p>
+    <div class="eq">\[V_\pi = \frac{f^2}{4\pi}\,\frac{m_\pi}{3}\,(\boldsymbol\tau_1\cdot\boldsymbol\tau_2)\Big[\boldsymbol\sigma_1\cdot\boldsymbol\sigma_2\,Y(x) + S_{12}\Big(1 + \frac3x + \frac{3}{x^2}\Big)Y(x)\Big],\qquad Y = \frac{e^{-x}}{x},\ x = m_\pi r\]</div>
+    <p>which couples \(^3S_1\) and \(^3D_1\) (\(S_{12}\) = [[0, √8], [√8, −2]]). The lab regulates it at short distance, adds a Gaussian central term fitted to the binding and solves the coupled equations on a grid (block tridiagonal, inverse iteration). The D-state admixture (about 5 %) gives the quadrupole moment \(Q = \frac{\sqrt2}{10}\int r^2uw\,dr - \frac{1}{20}\int r^2w^2\,dr = 0.286\ \mathrm{fm}^2\) and the asymptotic ratio \(\eta = A_D/A_S \approx 0.026\): the deuteron is not spherical.</p>
+    <h4>24.2 The ¹S₀ virtual state</h4>
+    <p>With \(a = -23.74\) fm and \(r_0 = 2.77\) fm the effective-range amplitude has a pole at \(k = -i\kappa\), \(\kappa = [1 - \sqrt{1 - 2r_0/a}]/r_0 \approx -0.040\ \mathrm{fm}^{-1}\): a virtual state 66 keV "below" threshold on the second sheet, which makes the low-energy np cross section huge.</p>
+    <h4>24.3 Hadronic atoms beyond 1s</h4>
+    <p>The complex eigenvalue of \(-\nabla^2/2\mu - Z_1Z_2\alpha/r - (V_0 + iW)e^{-(r/b)^2}\) is found by shooting with complex energy (outward and inward log-grid Numerov solutions matched). The 1s result agrees with Deser–Trueman (§ 11) for small shifts and goes beyond it for large ones; the 2p and 3d shifts are smaller by powers of \(r_{\text{strong}}/a_B\). Antiprotonic hydrogen and kaonic deuterium have large 1s widths, so the Kα X-ray line is broad and weak; SIDDHARTA-2 is measuring kaonic deuterium.</p>
+  </div>
+
+  <div class="card" id="pp25"><h3>25. Electroweak Line Shapes</h3>
+    <p><strong>The W mass.</strong> In W → ℓν the neutrino escapes, so only transverse quantities are measured. For a W at rest, \(m_T = 2p_T^\ell\) and \(dN/dm_T \propto m_T/\sqrt{M_W^2 - m_T^2}\): a Jacobian edge at \(M_W\), smeared by \(\Gamma_W\), the W recoil and the detector. Template fits of this edge give M_W to about 10 MeV.</p>
+    <p><strong>The Higgs width.</strong> \(\Gamma_H \approx 4\) MeV is far below the detector resolution. In H → ZZ* → 4ℓ the running width \(\Gamma_{H\to ZZ^*}(m)\) grows steeply up to the 2M_Z threshold, so the off-shell tail above 2M_Z carries a sizeable fraction of the events; its ratio to the on-shell peak (with the continuum interference) measures Γ_H (Caola and Melnikov 2013; Kauer and Passarino 2012).</p>
+    <p><strong>Initial-state radiation.</strong> Electrons radiate before they annihilate: \(\sigma_{obs}(s) = \int_0^{x_{max}}dx\,G(x)\,\sigma(s(1 - x))\), \(G(x) = \beta x^{\beta-1}(1 + \tfrac34\beta) - \beta(1 - \tfrac x2)\), \(\beta = \frac{2\alpha}{\pi}[\ln(s/m_e^2) - 1]\) (Kuraev and Fadin 1985). The \(x^{\beta-1}\) singularity is integrated exactly by \(x = u^{1/\beta}\). At the Z the peak drops by about 26 % and moves up by about 0.1 GeV, with a radiative tail above it.</p>
+  </div>
+
+  <div class="card" id="pp26"><h3>26. Tools</h3>
+    <p>Every plot can be exported as CSV (one row per point), saved as PNG, and its model and results copied as text. The Tools tab sweeps any numeric input of the Quarkonium, Molecules, Resonances, Coupled channels and Nucleons tabs against a scalar output (a state's mass, a binding, a scattering length, a pole position, a compositeness, the deuteron quadrupole moment) and fits up to three inputs to pasted data by Nelder–Mead. The examples use synthetic data generated by the model, labelled as such.</p>
+  </div>
+
+  <div class="card" id="pp27"><h3>27. References</h3>
+    <p>S. Navas et al. (Particle Data Group), Phys. Rev. D 110, 030001 (2024) and 2025 update. E. Eichten, K. Gottfried, T. Kinoshita, K. D. Lane and T.-M. Yan, Phys. Rev. D 17, 3090 (1978); 21, 203 (1980). T. Barnes, S. Godfrey and E. S. Swanson, Phys. Rev. D 72, 054026 (2005). A. Martin, Phys. Lett. B 93, 338 (1980). B.-Q. Li and K.-T. Chao, Phys. Rev. D 79, 094004 (2009) (screened potential). R. Van Royen and V. F. Weisskopf, Nuovo Cim. A 50, 617 (1967). S. Weinberg, Phys. Rev. 137, B672 (1965). I. Matuschek, V. Baru, F.-K. Guo and C. Hanhart, Eur. Phys. J. A 57, 101 (2021). S. Deser et al., Phys. Rev. 96, 774 (1954); T. L. Trueman, Nucl. Phys. 26, 57 (1961). M. Hennebach et al., Eur. Phys. J. A 50, 190 (2014); A. Hirtl et al., Eur. Phys. J. A 57, 70 (2021) (pionic hydrogen). M. Bazzi et al. (SIDDHARTA), Phys. Lett. B 704, 113 (2011). S. M. Flatté, Phys. Lett. B 63, 224 (1976). The ALEPH, DELPHI, L3, OPAL and SLD Collaborations, Phys. Rep. 427, 257 (2006). CMS Collaboration, Rep. Prog. Phys. 88, 087801 (2025). G. Höhler, <em>Pion–Nucleon Scattering</em>, Landolt–Börnstein I/9b2 (1983). F.-K. Guo et al., Rev. Mod. Phys. 90, 015004 (2018) (hadronic molecules). I. W. Herbst, Commun. Math. Phys. 53, 285 (1977). S. Godfrey and N. Isgur, Phys. Rev. D 32, 189 (1985). A. De Rújula, H. Georgi and S. L. Glashow, Phys. Rev. D 12, 147 (1975). K. J. Juge, J. Kuti and C. Morningstar, Phys. Rev. Lett. 90, 161601 (2003); J. J. Dudek et al. (Hadron Spectrum), Phys. Rev. D 85, 014005 (2012) (hybrids). J. A. Oller and E. Oset, Nucl. Phys. A 620, 438 (1997). J. A. Oller and U.-G. Meißner, Phys. Lett. B 500, 263 (2001); D. Jido et al., Nucl. Phys. A 725, 181 (2003) (two-pole Λ(1405)). T. Hyodo, Int. J. Mod. Phys. A 28, 1330045 (2013) (compositeness). Yu. S. Kalashnikova, Phys. Rev. D 72, 034010 (2005). I. J. R. Aitchison, Nucl. Phys. A 189, 417 (1972) (P-vector). M. Lüscher, Commun. Math. Phys. 105, 153 (1986); Nucl. Phys. B 354, 531 (1991). L. D. Landau, Nucl. Phys. 13, 181 (1959); S. Coleman and R. E. Norton, Nuovo Cim. 38, 438 (1965). M. Mikhasenko, B. Ketzer and A. Sarantsev, Phys. Rev. D 91, 094015 (2015) (a₁(1420)). R. H. Dalitz, Phil. Mag. 44, 1068 (1953). R. Machleidt, Phys. Rev. C 63, 024001 (2001) (NN potential, deuteron). F. Caola and K. Melnikov, Phys. Rev. D 88, 054024 (2013); N. Kauer and G. Passarino, JHEP 08, 116 (2012) (Higgs off-shell). E. A. Kuraev and V. S. Fadin, Sov. J. Nucl. Phys. 41, 466 (1985) (ISR). CDF Collaboration, Science 376, 170 (2022); ATLAS Collaboration, Eur. Phys. J. C 84, 1309 (2024) (W mass).</p>
   </div>
 </div></div>
 
@@ -470,7 +674,12 @@ window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},
   <div class="mstep"><div class="mn">02</div><div class="mc"><h3>Molecules and exotic atoms</h3><p>Two hadrons with masses m₁, m₂ in an s wave, bound by a short-range potential (Gaussian, Yukawa, exponential or square) and, for exotic atoms, the Coulomb attraction (Z₁Z₂ = −1). <b>Fit</b> sets V₀ from a binding energy or a scattering length. The threshold panel gives the binding momentum κ and size 1/κ, the rms radius, the probability of finding the pair outside the range of the force, the scattering length (from the zero-energy solution) and effective range (from phase shifts), and the compositeness X̄ = 1/√(1 + |2r/a|). For exotic atoms it compares the numerical level shift of the 1s state with the Deser–Trueman formula and gives the width from the absorptive part W.</p></div></div>
   <div class="mstep"><div class="mn">03</div><div class="mc"><h3>Resonances</h3><p>Choose a resonance and a line shape. The mass-dependent width uses the break-up momentum q, the angular-momentum barrier q<sup>2l+1</sup> and Blatt–Weisskopf form factors with radius R; the Flatté form treats a resonance near a second threshold (f₀(980) and KK̄). The results give the S-matrix pole on the unphysical sheet (pole mass and width), the difference from the Breit–Wigner parameters, the lifetime τ = ħ/Γ and cτ, the break-up momenta and partial widths, and the peak cross section allowed by unitarity. Plots: line shapes, phase shift and time delay, Argand diagram, and Γ(√s).</p></div></div>
   <div class="mstep"><div class="mn">04</div><div class="mc"><h3>Scattering</h3><p><b>πN:</b> partial waves S₁₁, S₃₁ (scattering lengths), P₁₁, P₁₃, P₃₁ (scattering volumes) and the Δ(1232) in P₃₃, combined with isospin Clebsch–Gordan coefficients into π⁺p, π⁻p elastic and π⁻p → π⁰n; cross sections against T<sub>π</sub>, angular distributions, polarization, phase shifts and Argand diagrams. <b>e⁺e⁻:</b> the Born cross section for e⁺e⁻ → ff̄ with photon and Z exchange and their interference, A<sub>FB</sub>, R with the quark thresholds and the narrow ψ and Υ states (with a beam-energy spread), and the Z line shape with its partial widths.</p></div></div>
-  <div class="mstep"><div class="mn">05</div><div class="mc"><h3>Validation</h3><p>Exact Coulomb and Airy spectra, the S-wave identity |R(0)|² = 2μ⟨V′⟩, a second (DVR) solver, Deser–Trueman against the numerical level shift, scattering length from two methods, the Z pole–mass shift, Z partial widths and peak cross section, unitarity and the optical theorem in πN, and comparisons with measured masses, widths and cross sections.</p></div></div>
+  <div class="mstep"><div class="mn">05</div><div class="mc"><h3>Quark models</h3><p><b>Mesons:</b> one potential (smeared Coulomb plus linear) and constituent masses for light, heavy–light and heavy mesons, solved with the relativistic kinetic energy √(p² + m²) and, with the same parameters, its non-relativistic limit; the table shows both and the rms deviation from the PDG. <b>Baryons:</b> three quarks with the ½ rule, solved with correlated Gaussians, plus the colour-magnetic hyperfine term (N, Δ, Λ, Σ, Ξ, Ω, Ω<sub>ccc</sub>, Ω<sub>bbb</sub>). <b>Hybrids:</b> the Π<sub>u</sub> gluonic potential and the lowest multiplets, including the exotic 1⁻⁺. <b>Mixing:</b> exact ³S₁–³D₁ and ¹P₁–³P₁ mixing with the mixing angle against the heavy-quark mass (it tends to 35.3°). <b>Global fit:</b> one α<sub>s</sub>, σ, C for cc̄ and bb̄ with pulls and χ².</p></div></div>
+  <div class="mstep"><div class="mn">06</div><div class="mc"><h3>Coupled channels</h3><p><b>Chiral unitary:</b> K̄N–πΣ (two poles of the Λ(1405)) and ππ–KK̄ (σ and f₀(980)); poles on the second sheet, couplings, |T|² per channel; the slider scales the interaction and draws the pole trajectory. <b>Contact EFT:</b> X(3872) or T<sub>cc</sub> with charged and neutral channels and D* widths; V₀ is fitted to the binding, and the compositeness X<sub>i</sub> of each channel is given (it sums to 1). <b>Unquenched:</b> a bare cc̄ state dressed by meson loops; pole, Z factor and spectral function for ψ(3770), χ<sub>c1</sub>(2P) → X(3872) and ψ(4040). <b>K-matrix:</b> a three-channel K-matrix with a P-vector for production, its poles on the chosen sheets.</p></div></div>
+  <div class="mstep"><div class="mn">07</div><div class="mc"><h3>Lattice and kinematics</h3><p><b>Lüscher:</b> finite-volume levels against the box size L for an effective-range amplitude, a bound state or a resonance, compared with the asymptotic expansion; <b>Triangle:</b> the triangle loop and where the singularity sits for a₁(1420) and η(1405) → f₀(980)π; <b>Dalitz:</b> a three-body Dalitz plot from an isobar model, with projections and fit fractions.</p></div></div>
+  <div class="mstep"><div class="mn">08</div><div class="mc"><h3>Nucleons, atoms, electroweak</h3><p><b>Deuteron:</b> OPEP with a regulator and a Gaussian, coupled ³S₁–³D₁, giving B, P<sub>D</sub>, Q, the rms radius and η; <b>¹S₀:</b> the virtual state and phase shift; <b>Hadronic atoms:</b> complex 1s, 2p and 3d levels for πH, K⁻p, p̄p and K⁻d with the Kα line shape; <b>W:</b> the transverse-mass Jacobian peak; <b>Higgs:</b> the H → ZZ* line shape and its off-shell fraction for a chosen Γ<sub>H</sub>. In the Scattering tab the e⁺e⁻ cross sections can include initial-state radiation.</p></div></div>
+  <div class="mstep"><div class="mn">09</div><div class="mc"><h3>Tools</h3><p>Pick a tab, an input and an output; <b>Sweep</b> plots the output against the input. <b>Fit</b> adjusts up to three inputs to pasted x, y (σ) data. <b>Examples</b> load synthetic data generated by the model. Under each plot: CSV, PNG and copy model/results.</p></div></div>
+  <div class="mstep"><div class="mn">10</div><div class="mc"><h3>Validation</h3><p>Exact Coulomb and Airy spectra, the S-wave identity |R(0)|² = 2μ⟨V′⟩, a second (DVR) solver, Deser–Trueman against the numerical level shift, scattering length from two methods, the Z pole–mass shift, Z partial widths and peak cross section, unitarity and the optical theorem in πN, the Z₀₀ zeta function and the Lüscher expansion, S-matrix unitarity of the coupled-channel amplitudes, compositeness sums, the heavy-quark mixing limit, the deuteron and pionic hydrogen, the ISR peak shift, and comparisons with measured masses, widths and cross sections.</p></div></div>
 </div></div>
 
 <script>
@@ -1406,6 +1615,800 @@ function molFit(){try{const s=mSpec(),t=$('mol-ft').value,v=num('mol-fv');let V0
     if(t==='E'){const E=mEi(v);if(!(E<0))throw new Error('The binding target must be a negative energy.');V0=mFitE(s,E,0,{rmax:Math.max(200,40/Math.sqrt(2*s.m1*s.m2/(s.m1+s.m2)*(-E))*HC_M),N:Math.round(num('mol-N'))});}
     else{if(!(v<0))throw new Error('Fitting a scattering length is implemented for a < 0 (attraction without a bound state). For a > 0 fit the binding energy instead.');V0=mFitA(s,v);}
     $('mol-V0').value=+V0.toPrecision(7);molRun();$('mol-msg').insertAdjacentHTML('afterbegin',`<div class="msg ok">V₀ = ${V0.toPrecision(7)} MeV.</div>`);}catch(e){msg('mol-msg',[['bad',e.message]]);}}
+// ===================== particle app: shared numerics for the new tabs (copied from the solid-state module) =====================
+function eigSymV(A0,n){const a=[];for(let i=0;i<n;i++)a.push(Array.from(A0.slice(i*n,(i+1)*n)));const d=new Float64Array(n),e=new Float64Array(n);
+  for(let i=n-1;i>0;i--){const l=i-1;let h=0,sc=0;if(l>0){for(let k=0;k<=l;k++)sc+=Math.abs(a[i][k]);if(sc===0)e[i]=a[i][l];else{for(let k=0;k<=l;k++){a[i][k]/=sc;h+=a[i][k]*a[i][k];}let f=a[i][l],g=f>=0?-Math.sqrt(h):Math.sqrt(h);e[i]=sc*g;h-=f*g;a[i][l]=f-g;f=0;
+      for(let j=0;j<=l;j++){a[j][i]=a[i][j]/h;g=0;for(let k=0;k<=j;k++)g+=a[j][k]*a[i][k];for(let k=j+1;k<=l;k++)g+=a[k][j]*a[i][k];e[j]=g/h;f+=e[j]*a[i][j];}
+      const hh=f/(h+h);for(let j=0;j<=l;j++){f=a[i][j];e[j]=g=e[j]-hh*f;for(let k=0;k<=j;k++)a[j][k]-=(f*e[k]+g*a[i][k]);}}}else e[i]=a[i][l];d[i]=h;}
+  d[0]=0;e[0]=0;for(let i=0;i<n;i++){const l=i-1;if(d[i]){for(let j=0;j<=l;j++){let g=0;for(let k=0;k<=l;k++)g+=a[i][k]*a[k][j];for(let k=0;k<=l;k++)a[k][j]-=g*a[k][i];}}d[i]=a[i][i];a[i][i]=1;for(let j=0;j<=l;j++)a[j][i]=a[i][j]=0;}
+  for(let i=1;i<n;i++)e[i-1]=e[i];e[n-1]=0;
+  for(let l=0;l<n;l++){let iter=0,m;do{for(m=l;m<n-1;m++){const dd=Math.abs(d[m])+Math.abs(d[m+1]);if(Math.abs(e[m])<=1e-15*dd)break;}
+    if(m!==l){if(iter++===60)break;let g=(d[l+1]-d[l])/(2*e[l]),r=Math.hypot(g,1);g=d[m]-d[l]+e[l]/(g+(g>=0?Math.abs(r):-Math.abs(r)));let s=1,c=1,p=0,i;
+      for(i=m-1;i>=l;i--){let f=s*e[i];const b=c*e[i];e[i+1]=(r=Math.hypot(f,g));if(r===0){d[i+1]-=p;e[m]=0;break;}s=f/r;c=g/r;g=d[i+1]-p;r=(d[i]-g)*s+2*c*b;d[i+1]=g+(p=s*r);g=c*r-b;
+        for(let k=0;k<n;k++){f=a[k][i+1];a[k][i+1]=s*a[k][i]+c*f;a[k][i]=c*a[k][i]-s*f;}}
+      if(r===0&&i>=l)continue;d[l]-=p;e[l]=g;e[m]=0;}}while(m!==l);}
+  const idx=Array.from({length:n},(_,i)=>i).sort((x,y)=>d[x]-d[y]);return {E:idx.map(i=>d[i]),V:idx.map(i=>a.map(row=>row[i]))};}
+function genEigChol(H,S,n){const L=new Float64Array(n*n);for(let i=0;i<n;i++)for(let j=0;j<=i;j++){let s=S[i*n+j];for(let k=0;k<j;k++)s-=L[i*n+k]*L[j*n+k];if(i===j){if(!(s>0))return null;L[i*n+i]=Math.sqrt(s);}else L[i*n+j]=s/L[j*n+j];}
+  const Y=new Float64Array(n*n);for(let j=0;j<n;j++)for(let i=0;i<n;i++){let s=H[i*n+j];for(let k=0;k<i;k++)s-=L[i*n+k]*Y[k*n+j];Y[i*n+j]=s/L[i*n+i];}
+  const Hp=new Float64Array(n*n);for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=Y[i*n+j];for(let k=0;k<j;k++)s-=L[j*n+k]*Hp[i*n+k];Hp[i*n+j]=s/L[j*n+j];}
+  for(let i=0;i<n;i++)for(let j=0;j<i;j++){const v=0.5*(Hp[i*n+j]+Hp[j*n+i]);Hp[i*n+j]=Hp[j*n+i]=v;}
+  const R=eigSymV(Hp,n),C=R.V.map(v=>{const c=new Float64Array(n);for(let i=n-1;i>=0;i--){let s=v[i];for(let k=i+1;k<n;k++)s-=L[k*n+i]*c[k];c[i]=s/L[i*n+i];}return c;});return {E:R.E,C};}
+function smInv(M,n){const A=M.map(r=>r.slice()),I=M.map((r,i)=>r.map((_,j)=>i===j?1:0));let det=1;
+  for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;if(p!==c){[A[p],A[c]]=[A[c],A[p]];[I[p],I[c]]=[I[c],I[p]];det=-det;}const v=A[c][c];det*=v;
+    for(let j=0;j<n;j++){A[c][j]/=v;I[c][j]/=v;}for(let r=0;r<n;r++)if(r!==c){const f=A[r][c];if(f)for(let j=0;j<n;j++){A[r][j]-=f*A[c][j];I[r][j]-=f*I[c][j];}}}return {inv:I,det};}
+function cxInv(Ar,Ai,n){const R=Ar.map(r=>r.slice()),I=Ai.map(r=>r.slice()),Br=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0)),Bi=Array.from({length:n},()=>Array(n).fill(0));
+  for(let c=0;c<n;c++){let p=c,best=-1;for(let r=c;r<n;r++){const m=R[r][c]**2+I[r][c]**2;if(m>best){best=m;p=r;}}[R[p],R[c]]=[R[c],R[p]];[I[p],I[c]]=[I[c],I[p]];[Br[p],Br[c]]=[Br[c],Br[p]];[Bi[p],Bi[c]]=[Bi[c],Bi[p]];
+    const dr=R[c][c],di=I[c][c],dd=dr*dr+di*di,ir=dr/dd,ii=-di/dd;
+    for(let j=0;j<n;j++){let a=R[c][j],b=I[c][j];R[c][j]=a*ir-b*ii;I[c][j]=a*ii+b*ir;a=Br[c][j];b=Bi[c][j];Br[c][j]=a*ir-b*ii;Bi[c][j]=a*ii+b*ir;}
+    for(let r=0;r<n;r++)if(r!==c){const fr=R[r][c],fi=I[r][c];if(!fr&&!fi)continue;for(let j=0;j<n;j++){R[r][j]-=fr*R[c][j]-fi*I[c][j];I[r][j]-=fr*I[c][j]+fi*R[c][j];Br[r][j]-=fr*Br[c][j]-fi*Bi[c][j];Bi[r][j]-=fr*Bi[c][j]+fi*Br[c][j];}}}
+  return [Br,Bi];}
+const cadd=(a,b)=>[a[0]+b[0],a[1]+b[1]],csub=(a,b)=>[a[0]-b[0],a[1]-b[1]],csc=(k,a)=>[k*a[0],k*a[1]],cabs=a=>Math.hypot(a[0],a[1]);
+const clog=a=>[Math.log(Math.hypot(a[0],a[1])),Math.atan2(a[1],a[0])],cexp=a=>{const m=Math.exp(a[0]);return [m*Math.cos(a[1]),m*Math.sin(a[1])];};
+/* Nelder–Mead (async, with a stop flag), used by the fits of the new tabs */
+async function nmMinP(f,x0,step,opt){const n=x0.length,maxIt=opt.maxIt||200,S=[x0.slice()];for(let i=0;i<n;i++){const x=x0.slice();x[i]+=step[i];S.push(x);}
+  const F=[];for(const x of S)F.push(await f(x));let it=0;
+  for(;it<maxIt&&!(opt.stop&&opt.stop());it++){const ord=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]),S2=ord.map(i=>S[i]),F2=ord.map(i=>F[i]);S.splice(0,S.length,...S2);F.splice(0,F.length,...F2);
+    if(opt.prog&&it%3===0)await opt.prog(it,F[0],S[0]);if(Math.abs(F[n]-F[0])<=(opt.tol||1e-10)*(Math.abs(F[0])+1e-30)&&it>3)break;
+    const c=Array(n).fill(0);for(let i=0;i<n;i++)for(let j=0;j<n;j++)c[j]+=S[i][j]/n;const pt=t=>c.map((v,j)=>v+t*(S[n][j]-v));
+    const xr=pt(-1),fr=await f(xr);if(fr<F[0]){const xe=pt(-2),fe=await f(xe);if(fe<fr){S[n]=xe;F[n]=fe;}else{S[n]=xr;F[n]=fr;}continue;}
+    if(fr<F[n-1]){S[n]=xr;F[n]=fr;continue;}const out=fr<F[n],xc=pt(out?-0.5:0.5),fc=await f(xc);if(fc<(out?fr:F[n])){S[n]=xc;F[n]=fc;continue;}
+    for(let i=1;i<=n;i++){S[i]=S[i].map((v,j)=>S[0][j]+0.5*(v-S[0][j]));F[i]=await f(S[i]);}}
+  let b=0;for(let i=1;i<=n;i++)if(F[i]<F[b])b=i;return {x:S[b],f:F[b],it};}
+
+/* =====================================================================================================================
+   (1) QUARK MODELS: one radial solver for the non-relativistic and the relativistic (spinless Salpeter) kinetic energy
+   sinc DVR on r_i = i h (Colbert–Miller, u(0) = 0): p² = −d²/dr² + l(l+1)/r² is a matrix P; with P = WΛWᵀ,
+   T_rel = W diag(√(λ + m₁²) + √(λ + m₂²)) Wᵀ and T_NR = m₁ + m₂ + P/2μ. Units: GeV and GeV⁻¹ (1 fm = 5.0677 GeV⁻¹).
+   ===================================================================================================================== */
+const FM_GEV=1/HC_G;
+function qmGrid(R,N){const h=R/(N+1);return {h,N,r:Array.from({length:N},(_,i)=>(i+1)*h)};}
+function qmP2(G,l){const {h,N,r}=G,P=new Float64Array(N*N);for(let i=0;i<N;i++)for(let j=0;j<N;j++){const a=i+1,b=j+1;
+    P[i*N+j]=(i===j?Math.PI*Math.PI/3-1/(2*a*a):((i-j)%2?-1:1)*(2/((a-b)**2)-2/((a+b)**2)))/(h*h);}
+  for(let i=0;i<N;i++)P[i*N+i]+=l*(l+1)/(r[i]*r[i]);return P;}
+/* potential (GeV, r in GeV⁻¹): Cornell with optional erf smearing of the Coulomb part (needed with the relativistic kinetic energy) */
+function qmV(p){const k=4*p.as/3,rs=p.rs||0;return r=>(rs>0?-k*erfA(r/rs)/r:-k/r)+p.sig*r+p.C;}
+function erfA(x){const t=1/(1+0.5*Math.abs(x)),y=1-t*Math.exp(-x*x-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));return x>=0?y:-y;}
+const QM_PEIG={};
+function qmSolveL(p,l,o){const G=qmGrid(o.R||30,o.N||160),N=G.N,P=qmP2(G,l),V=p.Vfun||qmV(p),H=new Float64Array(N*N),rel=o.rel!==false;
+  if(rel){const key=[o.R||30,N,l].join('|'),E=QM_PEIG[key]||(QM_PEIG[key]=eigSymV(P,N));for(let a=0;a<N;a++){const lam=Math.max(0,E.E[a]),t=Math.sqrt(lam+p.m1*p.m1)+Math.sqrt(lam+p.m2*p.m2),w=E.V[a];for(let i=0;i<N;i++){const wi=w[i]*t;if(!wi)continue;for(let j=0;j<N;j++)H[i*N+j]+=wi*w[j];}}}
+  else{const mu=p.m1*p.m2/(p.m1+p.m2);for(let i=0;i<N*N;i++)H[i]=P[i]/(2*mu);for(let i=0;i<N;i++)H[i*N+i]+=p.m1+p.m2;}
+  for(let i=0;i<N;i++)H[i*N+i]+=V(G.r[i]);
+  const E=eigSymV(H,N),lev=[];for(let a=0;a<Math.min(o.nmax||3,N);a++){const u=E.V[a],nrm=Math.sqrt(u.reduce((s,x)=>s+x*x,0)),uu=u.map(x=>x/nrm);
+    const ex=f=>uu.reduce((s,x,i)=>s+x*x*f(G.r[i]),0);let p2=0;for(let i=0;i<N;i++){let t=0;for(let j=0;j<N;j++)t+=P[i*N+j]*uu[j];p2+=uu[i]*t;}
+    lev.push({n:a+1,l,M:E.E[a],u:uu,r:G.r,ex,p2,r2:ex(r=>r*r)});}
+  return {lev,G};}
+/* spin-dependent corrections in first order (Gaussian-smeared contact term, Breit–Fermi spin–orbit and tensor with the
+   Coulomb part; scalar confinement contributes −σ/2r with the Thomas term), for unequal masses */
+function qmSpin(p,L,S,J){const k=4*p.as/3,m1=p.m1,m2=p.m2,sm=p.sm||1.0,dl=r=>Math.pow(sm/Math.sqrt(Math.PI),3)*Math.exp(-sm*sm*r*r),l=L.l;
+  const SS=S===1?0.25:-0.75,LS=l&&S===1?(J*(J+1)-l*(l+1)-2)/2:0,S12=l&&S===1?(J===l+1?-2*l/(2*l+3):J===l?2:J===l-1?-2*(l+1)/(2*l-1):0):0;
+  const ehf=8*Math.PI*k/(3*m1*m2)*L.ex(dl)*SS,els=(1/(2*m1*m1)+1/(2*m2*m2))*L.ex(r=>2*p.as/(r*r*r)-p.sig/(2*r))*LS,ets=p.as/(3*m1*m2)*L.ex(r=>1/(r*r*r))*S12;
+  return {hf:ehf,ls:els,t:l?ets:0,tot:ehf+(l?els+ets:0)};}
+
+/* light, heavy-light and heavy mesons: Godfrey–Isgur-like constituent masses, one universal potential */
+const QM_MASS={u:0.22,d:0.22,s:0.419,c:1.628,b:4.977};
+const QM_MES=[
+ {k:'π',q:'ud',S:0,M:0.1380},{k:'ρ',q:'ud',S:1,M:0.7753},{k:'K',q:'us',S:0,M:0.4956},{k:'K*',q:'us',S:1,M:0.8917},{k:'φ',q:'ss',S:1,M:1.0195},
+ {k:'D',q:'cu',S:0,M:1.8672},{k:'D*',q:'cu',S:1,M:2.0086},{k:'D_s',q:'cs',S:0,M:1.9683},{k:'D_s*',q:'cs',S:1,M:2.1122},
+ {k:'η_c',q:'cc',S:0,M:2.9839},{k:'J/ψ',q:'cc',S:1,M:3.0969},{k:'B',q:'bu',S:0,M:5.2797},{k:'B*',q:'bu',S:1,M:5.3247},
+ {k:'B_s',q:'bs',S:0,M:5.3669},{k:'B_c',q:'bc',S:0,M:6.2745},{k:'η_b',q:'bb',S:0,M:9.3987},{k:'Υ',q:'bb',S:1,M:9.4603}];
+function qmMesons(p,o){const out=[],cache={};for(const m of QM_MES){const m1=QM_MASS[m.q[0]],m2=QM_MASS[m.q[1]],key=m.q+(o.rel?'r':'n');
+    if(!cache[key])cache[key]=qmSolveL(Object.assign({},p,{m1,m2}),0,{R:o.R||30,N:o.N||140,nmax:2,rel:o.rel});const L=cache[key].lev[0],sp=qmSpin(Object.assign({},p,{m1,m2}),L,m.S,m.S);
+    const v2=o.rel?L.p2/((m1*m2)**0+L.p2+Math.min(m1,m2)**2):L.p2/(Math.min(m1,m2)**2);
+    out.push(Object.assign({},m,{Mc:L.M+sp.tot,M0:L.M,hf:sp.hf,rms:Math.sqrt(L.r2)*HC_G,v2:L.p2/(L.p2+m1*m2)}));}return out;}
+
+/* =====================================================================================================================
+   (2) BARYONS: three constituent quarks, V_ij = ½ V_qq̄(r_ij) ("½ rule": colour factor of a qq pair in a baryon),
+   explicitly correlated Gaussians with the stochastic variational method; hyperfine (16πα_s/9m_im_j) S_i·S_j δ_σ(r_ij) in first order.
+   ===================================================================================================================== */
+function ecgSystem(ms,ids){const N=ms.length,n=N-1,U=[];for(let k=0;k<n;k++){const row=Array(N).fill(0);let M=0;for(let i=0;i<=k;i++)M+=ms[i];for(let i=0;i<=k;i++)row[i]=-ms[i]/M;row[k+1]=1;U.push(row);}
+  const Mt=ms.reduce((a,b)=>a+b,0);U.push(ms.map(m=>m/Mt));const Ui=smInv(U,N).inv,Lam=[];for(let k=0;k<n;k++){Lam.push([]);for(let l=0;l<n;l++){let s=0;for(let i=0;i<N;i++)s+=U[k][i]*U[l][i]/ms[i];Lam[k].push(s);}}
+  const pairs=[];for(let i=0;i<N;i++)for(let j=i+1;j<N;j++)pairs.push({i,j,w:Array.from({length:n},(_,k)=>Ui[i][k]-Ui[j][k])});
+  const perms=[];const rec=(p,used)=>{if(p.length===N){perms.push(p.slice());return;}for(let i=0;i<N;i++)if(!used[i]&&ids[i]===ids[p.length]){used[i]=1;p.push(i);rec(p,used);p.pop();used[i]=0;}};rec([],[]);
+  const T=perms.map(P=>{const X=[];for(let a=0;a<n;a++){X.push([]);for(let b=0;b<n;b++){let s=0;for(let i=0;i<N;i++)s+=U[a][i]*Ui[P[i]][b];X[a].push(s);}}return X;});
+  return {N,n,ms,ids,U,Ui,Lam,pairs,T,perms};}
+/* expectation of the pair potential in a normalised 3D Gaussian e^{−c r²}: ⟨1/r⟩ = 2√(c/π), ⟨r⟩ = 2/√(πc), ⟨1⟩ = 1 */
+function ecgElem(Sy,A,B,pot){const {n,T,Lam,pairs}=Sy;let S=0,H=0;
+  for(const X of T){const BP=[];for(let a=0;a<n;a++){BP.push([]);for(let b=0;b<n;b++){let s=0;for(let i=0;i<n;i++)for(let j=0;j<n;j++)s+=X[i][a]*B[i][j]*X[j][b];BP[a].push(s);}}
+    const C=A.map((r,i)=>r.map((v,j)=>v+BP[i][j])),{inv,det}=smInv(C,n),ov=Math.pow(Math.pow(Math.PI,n)/det,1.5);
+    let tr=0;for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=0;for(let k=0;k<n;k++)for(let l=0;l<n;l++)s+=BP[i][k]*inv[k][l]*A[l][j];tr+=s*Lam[j][i];}
+    let V=0;for(const p of pairs){let wq=0;for(let i=0;i<n;i++)for(let j=0;j<n;j++)wq+=p.w[i]*inv[i][j]*p.w[j];V+=pot(1/wq,p);}
+    S+=ov;H+=ov*(3*tr+V);}return [S,H];}
+function ecgRandA(Sy,rnd,bmax){const {n,pairs}=Sy,A=Array.from({length:n},()=>Array(n).fill(0));pairs.forEach(p=>{const b=bmax*Math.pow(rnd(),1.5)+0.02*bmax,al=1/(b*b);for(let i=0;i<n;i++)for(let j=0;j<n;j++)A[i][j]+=al*p.w[i]*p.w[j];});return A;}
+async function ecgSVM(Sy,pot,o){const K=o.K||40,ntry=o.ntry||8,rnd=o.rnd||Math.random,As=[],Sm=[],Hm=[];let cur=null;const hist=[];
+  for(let k=0,tries=0;As.length<K&&tries<3*K;k++,tries++){let best=null;
+    for(let t=0;t<(As.length?ntry:1);t++){const A=ecgRandA(Sy,rnd,o.bmax),row=As.map(B=>ecgElem(Sy,A,B,pot)),dg=ecgElem(Sy,A,A,pot);if(!(dg[0]>0))continue;let E;
+      if(!cur)E=dg[1]/dg[0];else{const m=cur.E.length,s=new Float64Array(m),h=new Float64Array(m);for(let i=0;i<m;i++){let a=0,b=0;const c=cur.C[i];for(let j=0;j<row.length;j++){a+=c[j]*row[j][0];b+=c[j]*row[j][1];}s[i]=a;h[i]=b;}
+        let nn=dg[0],e=dg[1];for(let i=0;i<m;i++){nn-=s[i]*s[i];e+=-2*s[i]*h[i]+cur.E[i]*s[i]*s[i];}if(!(nn>1e-9*dg[0]))continue;const bb=Array.from(h,(v,i)=>(v-cur.E[i]*s[i])/Math.sqrt(nn));e/=nn;
+        const f=x=>{let r=x-e;for(let i=0;i<m;i++)r+=bb[i]*bb[i]/(cur.E[i]-x);return r;};let hi=cur.E[0]-1e-12*Math.abs(cur.E[0]),lo=Math.min(e,cur.E[0])-Math.abs(cur.E[0])-1;while(f(lo)>0)lo=lo*2-1;for(let it=0;it<100;it++){const mid=(lo+hi)/2;if(f(mid)>0)hi=mid;else lo=mid;}E=(lo+hi)/2;}
+      if(!best||E<best.E)best={A,row,dg,E};}
+    if(!best)continue;As.push(best.A);const m=As.length;Sm.push(best.row.map(r=>r[0]).concat([best.dg[0]]));Hm.push(best.row.map(r=>r[1]).concat([best.dg[1]]));
+    const Sf=new Float64Array(m*m),Hf=new Float64Array(m*m);for(let i=0;i<m;i++)for(let j=0;j<=i;j++){Sf[i*m+j]=Sf[j*m+i]=Sm[i][j];Hf[i*m+j]=Hf[j*m+i]=Hm[i][j];}
+    const nr=Array.from({length:m},(_,i)=>1/Math.sqrt(Sf[i*m+i]));for(let i=0;i<m;i++)for(let j=0;j<m;j++){Sf[i*m+j]*=nr[i]*nr[j];Hf[i*m+j]*=nr[i]*nr[j];}
+    const G=genEigChol(Hf,Sf,m);if(!G){As.pop();Sm.pop();Hm.pop();continue;}cur={E:G.E,C:G.C.map(c=>c.map((v,i)=>v*nr[i]))};hist.push(cur.E[0]);
+    if(o.prog&&As.length%10===0)await o.prog(As.length,cur.E[0]);}
+  return {E:cur.E[0],hist,As,c:cur.C[0],K:As.length};}
+/* ⟨f(r_ij)⟩ for a pair class (pairs of the same quark flavours), from the Gaussian expansion */
+function ecgPairExp(Sy,R,pi,fc){const {n,T,pairs,ids}=Sy,p0=pairs[pi],cls=pairs.filter(p=>[ids[p.i],ids[p.j]].sort().join()===[ids[p0.i],ids[p0.j]].sort().join());let num=0,nrm=0;
+  for(let a=0;a<R.As.length;a++)for(let b=0;b<R.As.length;b++){const A=R.As[a],Bm=R.As[b];for(const X of T){const BP=[];for(let i=0;i<n;i++){BP.push([]);for(let j=0;j<n;j++){let s=0;for(let k=0;k<n;k++)for(let l=0;l<n;l++)s+=X[k][i]*Bm[k][l]*X[l][j];BP[i].push(s);}}
+    const Cm=A.map((r,i)=>r.map((v,j)=>v+BP[i][j])),{inv,det}=smInv(Cm,n),ov=Math.pow(Math.pow(Math.PI,n)/det,1.5)*R.c[a]*R.c[b];nrm+=ov;
+    cls.forEach(p=>{let wq=0;for(let i=0;i<n;i++)for(let j=0;j<n;j++)wq+=p.w[i]*inv[i][j]*p.w[j];num+=ov*fc(1/wq)/cls.length;});}}
+  return num/nrm;}
+/* baryons: flavour content and ⟨σ_i·σ_j⟩ of each pair for the ground state (spin-flavour wavefunctions) */
+const QM_BAR=[
+ {k:'N',q:'uud',S:0.5,ss:[-1,-1,-1],M:0.9389},{k:'Δ',q:'uuu',S:1.5,ss:[1,1,1],M:1.232},{k:'Λ',q:'uds',S:0.5,ss:[-3,0,0],M:1.1157},{k:'Σ',q:'uus',S:0.5,ss:[1,-2,-2],M:1.1932},
+ {k:'Σ*',q:'uus',S:1.5,ss:[1,1,1],M:1.3846},{k:'Ξ',q:'ssu',S:0.5,ss:[1,-2,-2],M:1.3183},{k:'Ξ*',q:'ssu',S:1.5,ss:[1,1,1],M:1.5334},{k:'Ω',q:'sss',S:1.5,ss:[1,1,1],M:1.6725},
+ {k:'Λ_c',q:'udc',S:0.5,ss:[-3,0,0],M:2.2865},{k:'Σ_c',q:'uuc',S:0.5,ss:[1,-2,-2],M:2.4529},{k:'Ξ_cc',q:'ccu',S:0.5,ss:[1,-2,-2],M:3.6216},{k:'Ω_ccc',q:'ccc',S:1.5,ss:[1,1,1],M:NaN},
+ {k:'Λ_b',q:'udb',S:0.5,ss:[-3,0,0],M:5.6196},{k:'Ω_bbb',q:'bbb',S:1.5,ss:[1,1,1],M:NaN}];
+const BM_MASS={u:0.33,d:0.33,s:0.55,c:1.70,b:5.04};
+async function qmBaryon(b,p,o){const ids=b.q.split('').map(c=>c==='d'?'u':c),ms=ids.map(c=>(o.mass||BM_MASS)[c]),Sy=ecgSystem(ms,ids),k=4*p.as/3;
+  /* ½V_qq̄ per pair; the constant C/2 per pair */
+  const pot=(c)=>0.5*(-k*2*Math.sqrt(c/Math.PI)+p.sig*2/Math.sqrt(Math.PI*c)+p.C);
+  const R=await ecgSVM(Sy,pot,{K:o.K||36,ntry:o.ntry||8,bmax:o.bmax||10,rnd:o.rnd,prog:o.prog});
+  /* hyperfine: Σ (16πα_s/9 m_i m_j)·(σ_i·σ_j/4)·⟨δ_σ(r_ij)⟩, ⟨δ_σ⟩ = (cσ²/π(c + σ²))^{3/2}; pairs ordered (01, 02, 12) */
+  const sm=p.smB||p.sm||1.0,del=c=>Math.pow(c*sm*sm/(Math.PI*(c+sm*sm)),1.5);let hf=0;
+  Sy.pairs.forEach((pp,i)=>{const d=ecgPairExp(Sy,R,i,del);hf+=16*Math.PI*p.as/(9*ms[pp.i]*ms[pp.j])*b.ss[i]/4*d;});
+  const r2=ecgPairExp(Sy,R,0,c=>1.5/c);return {M0:ms.reduce((a,c)=>a+c,0)+R.E,hf,M:ms.reduce((a,c)=>a+c,0)+R.E+hf,R,Sy,rms:Math.sqrt(r2)*HC_G};}
+
+/* =====================================================================================================================
+   (3) HYBRIDS (Born–Oppenheimer): Π_u gluonic excitation. V_Πu(r) = +α_s/6r (colour octet) + √(σ²r² + 2πσ·11/12) + C
+   (Nambu–Goto string with one transverse excitation; ≈ 1 GeV gluelump energy at r → 0). Centrifugal term with Λ = 1, J_g = 1:
+   [L(L + 1) − 2Λ² + J_g(J_g + 1)]/2μr² = L(L + 1)/2μr², L ≥ 1.
+   ===================================================================================================================== */
+function hybV(p){return r=>p.as/(6*r)+Math.sqrt(p.sig*p.sig*r*r+2*Math.PI*p.sig*11/12)+p.C;}
+function hybSolve(p,o){const m=p.m,par={m1:m,m2:m,Vfun:hybV(p)},sig={m1:m,m2:m,Vfun:r=>-(4*p.as/3)/r+p.sig*r+p.C},opt={R:o.R||25,N:o.N||200,nmax:3,rel:false};
+  const H1=qmSolveL(par,1,opt),H2=qmSolveL(par,2,opt),S0=qmSolveL(sig,0,opt),P1=qmSolveL(sig,1,opt);return {H1,H2,S0,P1};}
+
+/* =====================================================================================================================
+   (4) CONFIGURATION MIXING beyond first order: ³S₁–³D₁ (tensor force) and ¹P₁–³P₁ (antisymmetric spin–orbit, unequal masses),
+   diagonalised in the basis of the spin-averaged radial states of qSolve (same log grid).
+   ===================================================================================================================== */
+function qInt(La,Lb,f){const {r}=La,G=La.G,N=r.length,dx=G.dx;let s=0;for(let i=0;i<N;i++){const w=(i===0||i===N-1)?1:(i%2?4:2);s+=w*La.u[i]*Lb.u[i]*f(r[i])*r[i];}return s*dx/3;}
+function mixSD(s,R){const hc=HC_G,k=4*s.as/3*hc,m=s.m1,S=R.lev.filter(L=>L.l===0),D=R.lev.filter(L=>L.l===2),basis=S.map(L=>({L,lab:`${L.n+1}S`,w:'S'})).concat(D.map(L=>({L,lab:`${L.n+1}D`,w:'D'})));
+  const st=lab=>{const x=R.st.find(q=>q.lab===lab);return x?x.M:NaN;},n=basis.length,H=new Float64Array(n*n);
+  basis.forEach((b,i)=>{H[i*n+i]=st(`${b.L.n+1}³${b.w}₁`);});
+  /* tensor: V_T = (α_s/3m²r³)·S₁₂ (fm → GeV via ħc); ⟨³S₁|S₁₂|³D₁⟩ = √8 */
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){if(basis[i].w==='S'&&basis[j].w==='D'){const v=(s.as*hc*hc*hc/(3*m*m))*qInt(basis[i].L,basis[j].L,r=>1/(r*r*r))*Math.sqrt(8);H[i*n+j]=v;H[j*n+i]=v;}}
+  const E=eigSymV(H,n);return {basis,H,E:E.E,V:E.V};}
+function mixP1(s,R){const hc=HC_G,m1=s.m1,m2=s.m2,P=R.lev.filter(L=>L.l===1),out=[];
+  P.forEach(L=>{const n=L.n+1,g=lab=>R.st.find(q=>q.lab===`${n}${lab}`);const S0=g('¹P₁'),T=[g('³P₀'),g('³P₁'),g('³P₂')];if(!S0||T.some(x=>!x))return;
+    /* centre of gravity (all first-order spin terms average to zero), then the 2 × 2 problem with consistent coefficients */
+    const Mbar=(S0.M*3+T[0].M+3*T[1].M+5*T[2].M)/12,f=qInt(L,L,r=>2*s.as*hc*hc*hc/(r*r*r)-s.sig*hc/(2*r)),cT=s.as*hc*hc*hc/(3*m1*m2)*qInt(L,L,r=>1/(r*r*r));
+    const a=Mbar,b=Mbar-(1/(2*m1*m1)+1/(2*m2*m2))*f+2*cT,off=(1/(2*m1*m1)-1/(2*m2*m2))*f*Math.SQRT2,tr=(a+b)/2,dd=Math.sqrt(((a-b)/2)**2+off*off);
+    const th=0.5*Math.atan2(2*off,a-b);out.push({n,a,b,off,Elo:tr-dd,Ehi:tr+dd,th:th*180/Math.PI});});return out;}
+// ===================== particle app, engines (2): coupled channels — chiral unitary amplitudes, contact EFT, unquenched quarkonium, K-matrix =====================
+const cmulx=cmul,cdivx=cdiv;
+function csq(z){const r=csqrt(z);return r;}
+/* complex matrix helpers on arrays of [re, im] */
+const cmz=n=>Array.from({length:n},()=>Array.from({length:n},()=>[0,0]));
+function cmInv(M){const n=M.length,Ar=M.map(r=>r.map(z=>z[0])),Ai=M.map(r=>r.map(z=>z[1])),[Br,Bi]=cxInv(Ar,Ai,n);return Br.map((r,i)=>r.map((v,j)=>[v,Bi[i][j]]));}
+function cmMul(A,B){const n=A.length,m=B[0].length,k=B.length,C=Array.from({length:n},()=>Array.from({length:m},()=>[0,0]));for(let i=0;i<n;i++)for(let j=0;j<m;j++){let s=[0,0];for(let l=0;l<k;l++)s=cadd(s,cmul(A[i][l],B[l][j]));C[i][j]=s;}return C;}
+function cmDet(M){const n=M.length,A=M.map(r=>r.map(z=>z.slice()));let d=[1,0];for(let c=0;c<n;c++){let p=c;for(let r=c+1;r<n;r++)if(cabs(A[r][c])>cabs(A[p][c]))p=r;if(p!==c){[A[p],A[c]]=[A[c],A[p]];d=csc(-1,d);}
+    const v=A[c][c];d=cmul(d,v);if(cabs(v)<1e-300)return [0,0];for(let r=c+1;r<n;r++){const f=cdiv(A[r][c],v);for(let j=c;j<n;j++)A[r][j]=csub(A[r][j],cmul(f,A[c][j]));}}return d;}
+/* Newton–secant root of an analytic function in the complex plane */
+function cRoot(F,z0,o){let z=z0.slice(),h=[o&&o.h||1e-4,0];let f=F(z);for(let it=0;it<(o&&o.it||80);it++){const z2=cadd(z,h),f2=F(z2),d=cdiv(csub(f2,f),h);if(!isFinite(d[0])||cabs(d)===0)break;let dz=csc(-1,cdiv(f,d));
+    const lim=o&&o.lim||0.05;if(cabs(dz)>lim)dz=csc(lim/cabs(dz),dz);z=cadd(z,dz);f=F(z);h=csc(0.5,dz);if(cabs(h)<1e-12)h=[1e-9,0];if(cabs(dz)<(o&&o.tol||1e-11))return {z,ok:cabs(f)<1e-4*cabs(F(cadd(z,[1e-3,0]))),it};}
+  return {z,ok:false};}
+
+/* ---------- loop functions (W = √s, complex) ---------- */
+/* break-up momentum q(W) = √([s − (m₁+m₂)²][s − (m₁−m₂)²])/2W, branch with Im q ≥ 0 on the physical sheet */
+function cq2(W,m1,m2){const s=cmul(W,W),a=csub(s,[(m1+m2)**2,0]),b=csub(s,[(m1-m2)**2,0]);return cdiv(cmul(csqrt(a),csqrt(b)),csc(2,W));}
+/* meson–baryon loop in dimensional regularisation (Oset–Ramos; Oller–Meißner), M baryon, m meson, subtraction constant a at scale μ */
+function gMB(W,m,M,a,mu,sheet){const s=cmul(W,W),q=cq2(W,m,M),D=M*M-m*m,tq=cmul(csc(2,q),W);
+  const L=z=>clog(z),t1=[a+Math.log(M*M/(mu*mu)),0],t2=csc(Math.log(m*m/(M*M))/2,cdiv(cadd(s,[m*m-M*M,0]),s));
+  const lg=csub(cadd(L(cadd(csub(s,[D,0]),tq)),L(cadd(cadd(s,[D,0]),tq))),cadd(L(cadd(cadd(csc(-1,s),[D,0]),tq)),L(cadd(csub(csc(-1,s),[D,0]),tq))));
+  let G=csc(2*M/(16*Math.PI*Math.PI),cadd(cadd(t1,t2),cmul(cdiv(q,W),lg)));
+  if(sheet===2)G=cadd(G,cmul([0,-M/(2*Math.PI)],cdiv(q,W)));return G;}
+/* meson–meson loop with a three-momentum cutoff q_max (Oller–Oset 1999, analytic form) */
+function gMM(W,m1,m2,qm,sheet){const s=cmul(W,W),D=m2*m2-m1*m1,nu=cmul(csc(2,W),cq2(W,m1,m2)),a1=Math.sqrt(1+m1*m1/(qm*qm)),a2=Math.sqrt(1+m2*m2/(qm*qm));
+  const L=clog,t=[];let G=csc(-1,cdiv([D*Math.log(m1*m1/(m2*m2)),0],s));
+  const l1=L(cdiv(cadd(csub(s,[D,0]),csc(a1,nu)),cadd(cadd(csc(-1,s),[D,0]),csc(a1,nu)))),l2=L(cdiv(cadd(cadd(s,[D,0]),csc(a2,nu)),cadd(csub(csc(-1,s),[D,0]),csc(a2,nu))));
+  G=cadd(G,cmul(cdiv(nu,s),cadd(l1,l2)));G=cadd(G,csc(2*Math.log((1+a1)/(1+a2)),cdiv([D,0],s)));G=cadd(G,[-2*Math.log((1+a1)*(1+a2))+Math.log(m1*m1*m2*m2/(qm**4)),0]);
+  G=csc(1/(32*Math.PI*Math.PI),G);const q=cq2(W,m1,m2);
+  if(sheet===2)G=cadd(G,cmul([0,-1/(4*Math.PI)],cdiv(q,W)));return G;}
+/* direct numerical cutoff integral (below threshold), for checking gMM: G = ∫ q²dq/(2π²) (ω₁ + ω₂)/(2ω₁ω₂[s − (ω₁ + ω₂)²]) */
+function gMMnum(W,m1,m2,qm){const n=20000,h=qm/n;let s=0;for(let i=0;i<=n;i++){const q=i*h,w1=Math.hypot(q,m1),w2=Math.hypot(q,m2),f=q*q/(2*Math.PI*Math.PI)*(w1+w2)/(2*w1*w2*(W*W-(w1+w2)**2));s+=(i===0||i===n?1:i%2?4:2)*f;}return s*h/3;}
+
+/* ---------- chiral unitary models: T = (1 − V G)⁻¹ V, S = 1 − 2i √ρ T √ρ, ρ = −Im G ---------- */
+const CU_MODELS={
+  lam:{lab:'K̄N – πΣ, I = 0 (Λ(1405))',ch:[{k:'K̄N',m:0.4957,M:0.9389,a:-1.84,t:'mb'},{k:'πΣ',m:0.1384,M:1.1932,a:-2.00,t:'mb'}],f:1.123*0.0924,mu:0.630,C:[[3,-Math.sqrt(1.5)],[-Math.sqrt(1.5),4]],
+    W:[1.30,1.48],guess:[[1.426,-0.017],[1.39,-0.066]],ref:'Jido et al. 2003 (4 channels): 1390 − 66i and 1426 − 16i MeV; PDG 2024: Λ(1405) pole 1405 ± … and Λ(1380)'},
+  sig:{lab:'ππ – KK̄, I = 0 (σ = f₀(500), f₀(980))',ch:[{k:'ππ',m:0.1380,M:0.1380,t:'mm'},{k:'KK̄',m:0.4957,M:0.4957,t:'mm'}],f:0.0924,qm:1.03,
+    W:[0.28,1.2],guess:[[0.47,-0.20],[0.975,-0.015]],ref:'Oller and Oset 1997: σ at 469 − 203i MeV, f₀(980) at 973 − 14i MeV; PDG: f₀(500) (400–550) − i(200–350) MeV'}};
+function cuV(M,W){const n=M.ch.length,V=cmz(n);
+  if(M.ch[0].t==='mb'){const E=c=>cdiv(cadd(cmul(W,W),[c.M*c.M-c.m*c.m,0]),csc(2,W)),Nf=c=>csqrt(cdiv(cadd(E(c),[c.M,0]),[2*c.M,0])),k0=c=>csub(W,E(c));
+    for(let i=0;i<n;i++)for(let j=0;j<n;j++){const a=M.ch[i],b=M.ch[j];V[i][j]=cmul(csc(-M.C[i][j]/(4*M.f*M.f),cadd(k0(a),k0(b))),cmul(Nf(a),Nf(b)));}}
+  else{const s=cmul(W,W),mp=M.ch[0].m;V[0][0]=csc(-1/(M.f*M.f),csub(s,[mp*mp/2,0]));V[0][1]=V[1][0]=csc(-Math.sqrt(3)/(4*M.f*M.f),s);V[1][1]=csc(-3/(4*M.f*M.f),s);}
+  return V;}
+function cuG(M,W,sheets){return M.ch.map((c,i)=>c.t==='mb'?gMB(W,c.m,c.M,c.a,M.mu,sheets?sheets[i]:1):gMM(W,c.m,c.M,M.qm,sheets?sheets[i]:1));}
+function cuT(M,W,sheets){const V=cuV(M,W),G=cuG(M,W,sheets),n=V.length,A=cmz(n);for(let i=0;i<n;i++)for(let j=0;j<n;j++)A[i][j]=csub(i===j?[1,0]:[0,0],cmul(V[i][j],G[j]));return {T:cmMul(cmInv(A),V),G,V,A};}
+function cuS(M,Wr){const W=[Wr,1e-6],{T,G}=cuT(M,W),rho=G.map(g=>Math.max(0,-g[1])),n=T.length,S=cmz(n);for(let i=0;i<n;i++)for(let j=0;j<n;j++){const f=2*Math.sqrt(rho[i]*rho[j]);S[i][j]=csub(i===j?[1,0]:[0,0],cmul([0,f],T[i][j]));}return {S,T,rho};}
+/* pole on the sheet reached from the physical region above the channel thresholds below Re W */
+function cuPole(M,g){const sh=z=>M.ch.map(c=>z[0]>c.m+c.M?2:1),F=z=>{const V=cuV(M,z),G=cuG(M,z,sh(z)),n=V.length,A=cmz(n);for(let i=0;i<n;i++)for(let j=0;j<n;j++)A[i][j]=csub(i===j?[1,0]:[0,0],cmul(V[i][j],G[j]));return cmDet(A);};
+  const r=cRoot(F,g,{h:1e-4,lim:0.02,tol:1e-10});return Object.assign(r,{sheets:sh(r.z)});}
+
+/* ---------- contact (pionless) EFT for near-threshold molecules: E relative to the lowest threshold, MeV ----------
+   G_i(E) = −(μ_i/2π)(2Λ/π + i k_i), k_i = √(2μ_i(E − Δ_i + iΓ_i/2)); V in isospin: V₀ (I = 0), V₁ (I = 1) */
+const EFT_MODELS={
+  X:{lab:'χ_c1(3872): D⁰D̄*⁰ and D⁺D*⁻',ch:[{k:'D⁰D̄*⁰',m1:1864.84,m2:2006.85,G:0.055},{k:'D⁺D*⁻',m1:1869.66,m2:2010.26,G:0.0834}],B:0.04,Lam:500,V1:0,ref:'LHCb 2020: δE = 0.07 ± 0.12 MeV below D⁰D̄*⁰ (Flatté); binding below ~0.1 MeV'},
+  T:{lab:'T_cc⁺(3875): D⁰D*⁺ and D⁺D*⁰',ch:[{k:'D⁰D*⁺',m1:1864.84,m2:2010.26,G:0.0834},{k:'D⁺D*⁰',m1:1869.66,m2:2006.85,G:0.055}],B:0.36,Lam:500,V1:0,ref:'LHCb 2021: δm_U = −360 ± 40 keV, Γ_U = 48 ± 2 keV'}};
+function eftSetup(M){const t0=M.ch[0].m1+M.ch[0].m2;return M.ch.map(c=>({k:c.k,mu:c.m1*c.m2/(c.m1+c.m2),D:c.m1+c.m2-t0,G:c.G||0}));}
+function eftK(c,E,sheet){let k=csqrt(csc(2*c.mu,[E[0]-c.D,E[1]+c.G/2]));if(k[1]<0)k=csc(-1,k);if(sheet===2)k=csc(-1,k);return k;}
+function eftG(c,E,Lam,sheet){const k=eftK(c,E,sheet);return csc(-c.mu/(2*Math.PI),cadd([2*Lam/Math.PI,0],cmul([0,1],k)));}
+function eftV(V0,V1){const a=(V0+V1)/2,b=(V0-V1)/2;return [[[a,0],[b,0]],[[b,0],[a,0]]];}
+function eftT(ch,E,V0,V1,Lam,sheets){const V=eftV(V0,V1),G=ch.map((c,i)=>eftG(c,E,Lam,sheets?sheets[i]:1)),A=cmz(2);for(let i=0;i<2;i++)for(let j=0;j<2;j++)A[i][j]=csub(i===j?[1,0]:[0,0],cmul(V[i][j],G[j]));return {T:cmMul(cmInv(A),V),G,A};}
+function eftDet(ch,E,V0,V1,Lam,sheets){return cmDet(eftT(ch,E,V0,V1,Lam,sheets).A);}
+/* V₀ such that the bound state sits at E = −B (no widths) */
+function eftFitV0(ch,B,V1,Lam){const c0=ch.map(c=>Object.assign({},c,{G:0})),f=V0=>eftDet(c0,[-B,0],V0,V1,Lam)[0];let lo=-1e-2,hi=-1e-9;
+  /* scan for the sign change from weak to strong attraction */let a=-1e-8;for(let k=0;k<200;k++){const b=a*1.15;if(f(a)*f(b)<0){lo=b;hi=a;break;}a=b;}
+  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(f(lo)*f(m)<=0)hi=m;else lo=m;}return (lo+hi)/2;}
+/* couplings from the residue of T at a real bound-state pole, compositeness X_i = −g_i² dG_i/dE (sums to 1 for an energy-independent V) */
+function eftResidue(ch,Ep,V0,V1,Lam){const c0=ch.map(c=>Object.assign({},c,{G:0})),d=1e-7,Tp=eftT(c0,[Ep+d,0],V0,V1,Lam).T,Tm=eftT(c0,[Ep-d,0],V0,V1,Lam).T,g2=[0,1].map(i=>0.5*(Tp[i][i][0]*d-Tm[i][i][0]*d));
+  const gg=0.5*(Tp[0][1][0]*d-Tm[0][1][0]*d),X=[0,1].map(i=>{const dG=(eftG(c0[i],[Ep+1e-6,0],Lam)[0]-eftG(c0[i],[Ep-1e-6,0],Lam)[0])/2e-6;return -g2[i]*dG;});return {g2,gg,X};}
+
+/* ---------- unquenched quarkonium: a bare qq̄ state coupled to two-meson continua ----------
+   Σ(E) = Σ_c ∫ 2μ_c f_c(q)/(q_c² − q²) dq, f_c(q) = g²γ_c q^{2L+2} e^{−2q²/β²}, q_c² = 2μ_c(E − W_c); the contour q = t e^{−iφ}
+   gives the physical-sheet value on the real axis and its continuation to the second sheet below it. GeV units. */
+function uqSigma(E,M){let S=[0,0];const ph=0.35,ep=[Math.cos(ph),-Math.sin(ph)];
+  for(const c of M.ch){const mu=c.m1*c.m2/(c.m1+c.m2),W=c.m1+c.m2,q02=csc(2*mu,csub(E,[W,0])),n=240,tmax=5*M.beta;let s=[0,0];
+    for(let i=1;i<=n;i++){const t=tmax*i/n,q=csc(t,ep),q2=cmul(q,q);let f=cexp(csc(-2/(M.beta*M.beta),q2));for(let k=0;k<c.L+1;k++)f=cmul(f,q2);
+      const val=cmul(cdiv(csc(2*mu*M.g*M.g*c.gam,f),csub(q02,q2)),ep);s=cadd(s,csc((i===n?1:i%2?4:2)*tmax/(3*n),val));}S=cadd(S,s);}return S;}
+function uqPole(M,z0){return cRoot(z=>csub(csub(z,[M.E0,0]),uqSigma(z,M)),z0,{h:1e-5,lim:0.03,tol:1e-10});}
+const UQ_MODELS={
+  psi:{lab:'ψ(3770): 1³D₁ cc̄ coupled to DD̄ (P wave)',E0:3.80,beta:0.4,g:1.0,ch:[{k:'D⁰D̄⁰',m1:1.86484,m2:1.86484,L:1,gam:1},{k:'D⁺D⁻',m1:1.86966,m2:1.86966,L:1,gam:1}],W:[3.70,3.90],target:{M:3.7737,G:0.0272},ref:'PDG: M = 3773.7 MeV, Γ = 27.2 MeV'},
+  X:{lab:'χ_c1(2P) coupled to DD̄* (S wave): X(3872)',E0:3.95,beta:0.4,g:1.0,ch:[{k:'D⁰D̄*⁰',m1:1.86484,m2:2.00685,L:0,gam:1},{k:'D⁺D*⁻',m1:1.86966,m2:2.01026,L:0,gam:1}],W:[3.85,4.0],target:{M:3.87164,G:0.0012},ref:'PDG: m = 3871.64 MeV, Γ ≈ 1.2 MeV'},
+  psi4:{lab:'ψ(4040): 3³S₁ cc̄ coupled to DD̄, DD̄*, D*D̄*, D_sD̄_s (P waves)',E0:4.10,beta:0.45,g:0.6,ch:[{k:'DD̄',m1:1.867,m2:1.867,L:1,gam:0.25},{k:'DD̄*',m1:1.867,m2:2.008,L:1,gam:1},{k:'D*D̄*',m1:2.008,m2:2.008,L:1,gam:1.5},{k:'D_sD̄_s',m1:1.968,m2:1.968,L:1,gam:0.2}],W:[3.9,4.2],target:{M:4.039,G:0.080},ref:'PDG: M = 4039 MeV, Γ = 80 MeV'}};
+
+/* ---------- K-matrix with production (P-vector): T = (1 − iKρ)⁻¹K, F = (1 − iKρ)⁻¹P (Aitchison 1972) ---------- */
+const KM_MODEL={lab:'f₀(980) and f₀(1500) in ππ, KK̄, ηη (illustrative parameters)',ch:[{k:'ππ',m1:0.1396,m2:0.1396},{k:'KK̄',m1:0.4957,m2:0.4957},{k:'ηη',m1:0.5479,m2:0.5479}],
+  poles:[{m:0.95,g:[0.20,0.55,0.15],b:1.0},{m:1.52,g:[0.40,0.12,0.30],b:0.6}],f:[[0.3,0,0],[0,0,0],[0,0,0]],psheets:[[2,1,1],[2,2,2]],W:[0.3,1.9]};
+function kmRho(c,W,sheet){const s=cmul(W,W);let r=csqrt(cmul(csub([1,0],cdiv([(c.m1+c.m2)**2,0],s)),csub([1,0],cdiv([(c.m1-c.m2)**2,0],s))));if(r[1]<0)r=csc(-1,r);return sheet===2?csc(-1,r):r;}
+function kmAmp(Mo,W,sheets){const s=cmul(W,W),n=Mo.ch.length,K=cmz(n),P=Array.from({length:n},()=>[0,0]);
+  Mo.poles.forEach((p,a)=>{const d=cdiv([1,0],csub([p.m*p.m,0],s));for(let i=0;i<n;i++){P[i]=cadd(P[i],csc(p.b*p.g[i],d));for(let j=0;j<n;j++)K[i][j]=cadd(K[i][j],csc(p.g[i]*p.g[j],d));}});
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++)K[i][j]=cadd(K[i][j],[Mo.f[i][j],0]);
+  const rho=Mo.ch.map((c,i)=>kmRho(c,W,sheets?sheets[i]:1)),A=cmz(n);for(let i=0;i<n;i++)for(let j=0;j<n;j++)A[i][j]=csub(i===j?[1,0]:[0,0],cmul([0,1],cmul(K[i][j],rho[j])));
+  const Ai=cmInv(A),T=cmMul(Ai,K),F=Ai.map(r=>r.reduce((a,z,j)=>cadd(a,cmul(z,P[j])),[0,0]));return {T,F,rho,A,K};}
+function kmPole(Mo,g,fix){const sh=z=>fix||Mo.ch.map(c=>z[0]>c.m1+c.m2?2:1),F=z=>cmDet(kmAmp(Mo,z,sh(z)).A);const r=cRoot(F,g,{h:1e-4,lim:0.02});return Object.assign(r,{sheets:sh(r.z)});}
+/* fit the unquenched model: given the pole M − iΓ/2 (or a bound state with Γ = 0 and a fixed g), Σ ∝ g², so
+   g² = −(Γ/2)/Im Σ₁(E) and E₀ = Re[E − g²Σ₁(E)] */
+function uqFit(M,target,fixG){const E=[target.M,-(target.G||0)/2],S1=uqSigma(E,Object.assign({},M,{g:1}));let g2;
+  if(fixG||!(target.G>0)||Math.abs(S1[1])<1e-12)g2=M.g*M.g;else g2=-(target.G/2)/S1[1];if(!(g2>0))g2=M.g*M.g;
+  const E0=E[0]-g2*S1[0];return {g:Math.sqrt(g2),E0};}
+/* bare-state probability Z = 1/(1 − dΣ/dE) at a bound state below all thresholds */
+function uqZ(M,E){const h=1e-5,d=(uqSigma([E+h,0],M)[0]-uqSigma([E-h,0],M)[0])/(2*h);return 1/(1-d);}
+/* spectral function of the dressed state: A(E) = −(1/π) Im 1/(E − E₀ − Σ(E)), and the partial line shapes ∝ |G(E)|² Im Σ_c(E) */
+function uqSpectral(M,Es){return Es.map(E=>{const S=uqSigma([E,0],M),D=csub(csub([E,0],[M.E0,0]),S),G=cdiv([1,0],D);
+  const part=M.ch.map(c=>{const Sc=uqSigma([E,0],Object.assign({},M,{ch:[c]}));return -2*Sc[1]*(G[0]*G[0]+G[1]*G[1])/(2*Math.PI);});return {E,A:-G[1]/Math.PI,part,S};});}
+// ===================== particle app, engines (3): finite volume (Lüscher), triangle singularity, Dalitz plot, NN at low energy,
+// ===================== hadronic atoms beyond 1s, electroweak line shapes, initial-state radiation =====================
+
+/* ---------- Lüscher's zeta function Z₀₀(1; q²) (heat-kernel split; Poisson-resummed small-t part):
+   √(4π) Z₀₀ = Σ_n e^{−(n² − q²)}/(n² − q²) + π^{3/2}[∫₀¹ (e^{tq²} − 1)t^{−3/2}dt − 2] + Σ_{m≠0} ∫₀¹ (π/t)^{3/2} e^{tq²} e^{−π²m²/t} dt ---------- */
+const LZ_N=(()=>{const a=[];for(let x=-6;x<=6;x++)for(let y=-6;y<=6;y++)for(let z=-6;z<=6;z++){const n2=x*x+y*y+z*z;if(n2<=36)a.push(n2);}const c={};a.forEach(n=>c[n]=(c[n]||0)+1);return Object.entries(c).map(([n,m])=>[+n,m]);})();
+function z00(q2){let s=0;for(const [n2,m] of LZ_N){const d=n2-q2;s+=m*Math.exp(-d)/d;}
+  const g=(f,a,b,n)=>{let r=0;const h=(b-a)/n;for(let i=0;i<=n;i++){const x=a+i*h;r+=(i===0||i===n?1:i%2?4:2)*f(x);}return r*h/3;};
+  /* ∫₀¹ (e^{tq²} − 1)t^{−3/2} dt with t = u²: 2∫₀¹ (e^{u²q²} − 1)/u² du */
+  s+=Math.pow(Math.PI,1.5)*(g(u=>u<1e-12?2*q2:2*(Math.exp(u*u*q2)-1)/(u*u),0,1,200)-2);
+  for(const [m2,c] of LZ_N){if(!m2)continue;s+=c*g(t=>t<1e-9?0:Math.pow(Math.PI/t,1.5)*Math.exp(t*q2-Math.PI*Math.PI*m2/t),0,1,200);}
+  return s/Math.sqrt(4*Math.PI);}
+/* energy levels in a periodic box of side L (fm) from k cot δ₀(k); ħc in MeV fm; E = k²/2μ (non-relativistic) */
+function lusLevels(kcot,mu,L,nmax){const hc=HC_M,F=q2=>{const k2=q2*(2*Math.PI/L)**2;const k=Math.sqrt(Math.abs(k2))*(k2<0?-1:1);return kcot(k2)-2/(Math.sqrt(Math.PI)*L)*z00(q2);};
+  /* free levels q² = 0, 1, 2, 3, 4, 5, 6, 8, 9 …: one root in each interval, plus a bound state below 0 */
+  const shells=[-30,0,1,2,3,4,5,6,8,9],out=[];
+  for(let i=0;i<shells.length-1&&out.length<nmax;i++){let a=shells[i]+1e-7,b=shells[i+1]-1e-7;if(i===0){a=-30;}
+    let fa=F(a),fb=F(b);if(!(fa*fb<0)){/* scan */let found=false,x0=a,f0=fa;for(let k=1;k<=60;k++){const x=a+(b-a)*k/60,f=F(x);if(f0*f<0&&Math.abs(f-f0)<1e3){a=x0;b=x;fa=f0;fb=f;found=true;break;}x0=x;f0=f;}if(!found)continue;}
+    for(let it=0;it<80;it++){const m=(a+b)/2,fm=F(m);if(fa*fm<=0){b=m;fb=fm;}else{a=m;fa=fm;}}const q2=(a+b)/2,k2=q2*(2*Math.PI/L)**2;out.push({q2,k2,E:k2*hc*hc/(2*mu)});}
+  return out;}
+
+/* ---------- triangle singularity (non-relativistic triangle with an unstable intermediate particle) ----------
+   A(E) → 1 + 2, 2 → 3 + B, 1 + 3 → C; B and C are the observed pair of invariant mass E. The loop
+   I(E) = ∫ d³q/(2π)³ 1/[(E − m₁ − m₂ − q²/2μ₁₂ + iΓ₂/2)(E − E_B − m₁ − m₃ − q²/2m₁ − (q + p_B)²/2m₃ + iε)]  (angles analytic). */
+function triLoop(E,P){const {m1,m2,m3,mB,mC,G2}=P,pB=Math.max(0,Math.sqrt(Math.max(0,(E*E-(mB+mC)**2)*(E*E-(mB-mC)**2)))/(2*E)),EB=Math.sqrt(mB*mB+pB*pB),mu12=m1*m2/(m1+m2),n=3000,qmax=P.qmax||1.0;let s=[0,0];
+  for(let i=1;i<=n;i++){const q=qmax*i/n,d1=[E-m1-m2-q*q/(2*mu12),G2/2],a=E-EB-m1-m3-q*q/(2*m1)-(q*q+pB*pB)/(2*m3),b=q*pB/m3,eps=1e-6;
+    /* ∫ dcos 1/(a − b cos + iε) = (1/b) ln((a + b + iε)/(a − b + iε)) */
+    let ang;if(b<1e-12)ang=cdiv([2,0],[a,eps]);else ang=csc(1/b,csub(clog([a+b,eps]),clog([a-b,eps])));
+    const f=cdiv(ang,d1),w=(i===n?1:i%2?4:2)*qmax/(3*n);s=cadd(s,csc(w*q*q/(4*Math.PI*Math.PI),f));}return s;}
+/* location of the singularity (Landau): with q on shell in the first propagator, a(q) + b(q) = 0 (q antiparallel to p_B) */
+function triTS(P,Elo,Ehi){const f=E=>{const {m1,m2,m3,mB,mC}=P,mu12=m1*m2/(m1+m2),q2=2*mu12*(E-m1-m2);if(q2<0)return NaN;const q=Math.sqrt(q2),pB=Math.sqrt(Math.max(0,(E*E-(mB+mC)**2)*(E*E-(mB-mC)**2)))/(2*E),EB=Math.sqrt(mB*mB+pB*pB);
+    const a=E-EB-m1-m3-q*q/(2*m1)-(q*q+pB*pB)/(2*m3),b=q*pB/m3;return a+b;};/* the singularity sits where a + b vanishes; in the non-relativistic kinematics it may only come close: return the closest approach */
+  let best=null,bv=Infinity;const n=4000;for(let i=0;i<=n;i++){const E=Elo+(Ehi-Elo)*i/n,v=Math.abs(f(E));if(isFinite(v)&&v<bv){bv=v;best=E;}}return {E:best,gap:bv};}
+const TRI_MODELS={a1:{lab:'a₁(1260) → K*K̄ → (K π) K̄ → f₀(980) π: the "a₁(1420)"',m1:0.4957,m2:0.8955,m3:0.4957,mB:0.13957,mC:0.990,G2:0.047,W:[1.30,1.56],ref:'COMPASS 2015 a₁(1420); Mikhasenko, Ketzer and Sarantsev 2015'},
+  eta:{lab:'η(1405) → K*K̄ → (K π) K̄ → f₀(980) π: isospin-violating η → 3π',m1:0.4957,m2:0.8955,m3:0.4957,mB:0.1350,mC:0.990,G2:0.047,W:[1.30,1.52],ref:'BESIII 2012; Wu, Liu, Zhao, Zou 2012'}};
+
+/* ---------- Dalitz plot: D⁺ → K⁻π⁺π⁺ isobar model with Bose symmetrisation (GeV) ---------- */
+const DZ={M:1.86966,mK:0.49368,mpi:0.13957,res:[{k:'K̄*(892)⁰',M:0.8955,G:0.0473,J:1,c:[1,0],R:1.5},{k:'K̄₀*(1430)⁰',M:1.425,G:0.270,J:0,c:[2.0,-1.0],R:1.5},{k:'K̄*(1680)⁰',M:1.718,G:0.322,J:1,c:[0.6,0.6],R:1.5}],nr:[1.2,0.0]};
+function dzKin(m12){const {M,mK,mpi}=DZ;/* m12 = m(Kπ₁)²: m(Kπ₂)² range */const E1=(m12+mK*mK-mpi*mpi)/(2*Math.sqrt(m12)),E3=(M*M-m12-mpi*mpi)/(2*Math.sqrt(m12));if(E1<mK||E3<mpi)return null;
+  const p1=Math.sqrt(E1*E1-mK*mK),p3=Math.sqrt(E3*E3-mpi*mpi);return [(E1+E3)**2-(p1+p3)**2,(E1+E3)**2-(p1-p3)**2];}
+function dzBW(r,s,mAB){const {mK,mpi}=DZ,q=x=>Math.sqrt(Math.max(0,(x-(mK+mpi)**2)*(x-(mK-mpi)**2)))/(2*Math.sqrt(x)),q0=q(r.M*r.M),qq=q(s),z=(qq*r.R/HC_G*0+qq*r.R)**2,z0=(q0*r.R)**2;
+  const B=r.J===1?Math.sqrt((1+z0)/(1+z)):1,G=r.G*Math.pow(qq/q0,2*r.J+1)*(r.M/Math.sqrt(s))*(r.J===1?(1+z0)/(1+z):1);return csc(B,cdiv([1,0],[r.M*r.M-s,-r.M*G]));}
+function dzAmp(s12,s13,cs){const {M,mK,mpi}=DZ,s23=M*M+mK*mK+2*mpi*mpi-s12-s13;let A=[cs.nr?cs.nr[0]:DZ.nr[0],cs.nr?cs.nr[1]:DZ.nr[1]];
+  DZ.res.forEach((r,i)=>{const c=cs.c?cs.c[i]:r.c;if(!c)return;[[s12,s13],[s13,s12]].forEach(([sa,sb])=>{let f=dzBW(r,sa);if(r.J===1){const Z=sb-s23+(M*M-mpi*mpi)*(mpi*mpi-mK*mK)/sa;f=csc(Z,f);}A=cadd(A,cmul(c,f));});});return A;}
+
+/* ---------- NN at low energy (MeV, fm): one-pion exchange + Gaussian short-range parts; coupled ³S₁–³D₁ deuteron ----------
+   −(ħ²/m_N)[u″ − L(L+1)u/r²] + Σ V_LL′ u_L′ = E u_L, ħ²/m_N = 41.47 MeV fm² */
+const NN={hm:41.4713,mpi:138.039,f2:0.075};
+function opep(r,ss,tt,Rc){const x=NN.mpi*r/HC_M,Y=Math.exp(-x)/x,T=(1+3/x+3/(x*x))*Y,reg=Math.pow(1-Math.exp(-((r/Rc)**2)),2),c=NN.f2*NN.mpi/3*tt;return {C:c*ss*Y*reg,T:c*T*reg*reg};}
+/* deuteron on a uniform grid with a 2×2 block-tridiagonal Hamiltonian; inverse iteration for the lowest level */
+function deuteron(p){const R=p.R||25,N=p.N||1250,h=R/N,r=Array.from({length:N},(_,i)=>(i+1)*h),t=NN.hm/(h*h);
+  const D=r.map(x=>{const o=opep(x,1,-3,p.Rc),Vc=o.C-p.Vs*Math.exp(-((x/p.b)**2)),Vt=o.T*p.tf;return [[2*t+Vc,Math.sqrt(8)*Vt],[Math.sqrt(8)*Vt,2*t+6*NN.hm/(x*x)+Vc-2*Vt]];});
+  const solve=(E,b)=>{const G=[],y=[];for(let i=0;i<N;i++){let A=D[i].map((row,a)=>row.map((v,c)=>v-(a===c?E:0)));let rr=b[i].slice();if(i){const P=G[i-1];A=A.map((row,a)=>row.map((v,c)=>v-t*t*P[a][c]));rr=rr.map((v,a)=>v+t*y[i-1][a]);}
+      const det=A[0][0]*A[1][1]-A[0][1]*A[1][0],I=[[A[1][1]/det,-A[0][1]/det],[-A[1][0]/det,A[0][0]/det]];G.push(I);y.push([I[0][0]*rr[0]+I[0][1]*rr[1],I[1][0]*rr[0]+I[1][1]*rr[1]]);}
+    const x=Array(N);for(let i=N-1;i>=0;i--){let v=y[i].slice();if(i<N-1){const I=G[i];v=[v[0]+t*(I[0][0]*x[i+1][0]+I[0][1]*x[i+1][1]),v[1]+t*(I[1][0]*x[i+1][0]+I[1][1]*x[i+1][1])];}x[i]=v;}return x;};
+  const apply=v=>v.map((c,i)=>{const A=D[i];let a=A[0][0]*c[0]+A[0][1]*c[1],bb=A[1][0]*c[0]+A[1][1]*c[1];if(i){a-=t*v[i-1][0];bb-=t*v[i-1][1];}if(i<N-1){a-=t*v[i+1][0];bb-=t*v[i+1][1];}return [a,bb];});
+  let v=r.map(x=>[x*Math.exp(-x/4),0.1*x*x*Math.exp(-x/4)]),E=p.E0||-3;const nrm=v=>{let s=0;v.forEach(c=>s+=(c[0]*c[0]+c[1]*c[1])*h);s=Math.sqrt(s);return v.map(c=>[c[0]/s,c[1]/s]);};v=nrm(v);
+  let vmin=Infinity;D.forEach(A=>{vmin=Math.min(vmin,A[0][0]-2*t,A[1][1]-2*t);});const sh0=Math.min(E,vmin)-1;let a=E;for(let it=0;it<80;it++){v=nrm(solve(it<25?sh0:E,v));const Hv=apply(v);a=0;v.forEach((c,i)=>a+=(c[0]*Hv[i][0]+c[1]*Hv[i][1])*h);if(it>=25&&Math.abs(a-E)<1e-10){E=a;break;}if(it>=24)E=a-1e-9*Math.max(1,Math.abs(a));}E=a;
+  let PD=0,Q=0,r2=0;v.forEach((c,i)=>{const x=r[i];PD+=c[1]*c[1]*h;Q+=(Math.sqrt(8)*c[0]*c[1]-c[1]*c[1])*x*x*h/20;r2+=(c[0]*c[0]+c[1]*c[1])*x*x*h;});
+  const kap=Math.sqrt(-E/NN.hm),i0=Math.floor(0.6*N),x0=r[i0],eta=v[i0][1]/v[i0][0]/(1+3/(kap*x0)+3/(kap*x0)**2),AS=v[i0][0]/Math.exp(-kap*x0);
+  return {E,PD,Q,rm:0.5*Math.sqrt(r2),eta,AS,u:v.map(c=>c[0]),w:v.map(c=>c[1]),r,kap};}
+/* binding fixes the short-range depth (bisection on E(V_s)) */
+function deutFit(p,B){let lo=0,hi=p.hi||600;const f=Vs=>deuteron(Object.assign({},p,{Vs,E0:-B})).E+B;for(let i=0;i<50;i++){const m=(lo+hi)/2;if(f(m)>0)lo=m;else hi=m;}const Vs=(lo+hi)/2;return Object.assign(deuteron(Object.assign({},p,{Vs,E0:-B})),{Vs});}
+/* ¹S₀ (S = 0, T = 1): central OPEP (σ·σ = −3, τ·τ = 1) + Gaussian; scattering length from the E = 0 solution, effective range from k cot δ at small k */
+function nn1S0(p){const R=30,N=30000,h=R/N,V=r=>opep(r,-3,1,p.Rc).C-p.Vs*Math.exp(-((r/p.b)**2));
+  const zeroE=()=>{let u0=0,u1=h;for(let i=1;i<N;i++){const r=i*h,u2=2*u1-u0+h*h*V(r)/NN.hm*u1;u0=u1;u1=u2;}const up=(u1-u0)/h,r=R;return r-u1/up;};
+  const dl=k=>{const kk=k/HC_M;let u0=0,u1=h;for(let i=1;i<N;i++){const r=i*h,u2=2*u1-u0+h*h*(V(r)/NN.hm-kk*kk)*u1;u0=u1;u1=u2;}const up=(u1-u0)/h,um=(u0+u1)/2,r=R-h/2;let d=Math.atan2(kk*um,up)-kk*r;d-=Math.PI*Math.round(d/Math.PI);return d;};
+  const a=zeroE();return {a,dl};}
+function nn1S0r0(p){const r=nn1S0(p),k1=8/HC_M,k2=16/HC_M,f=k=>k/Math.tan(r.dl(k*HC_M));return {a:r.a,r0:2*(f(k2)-f(k1))/(k2*k2-k1*k1),dl:r.dl};}
+function nn1S0Fit2(p,a0,r00){let lo=0.5,hi=2.0;const g=b=>{const q=Object.assign({},p,{b});q.Vs=nn1S0Fit(q,a0);return nn1S0r0(q).r0-r00;};let glo=g(lo);for(let i=0;i<30;i++){const m=(lo+hi)/2,gm=g(m);if(glo*gm<=0)hi=m;else{lo=m;glo=gm;}}const b=(lo+hi)/2,q=Object.assign({},p,{b});q.Vs=nn1S0Fit(q,a0);return q;}
+function nn1S0Fit(p,a0){let lo=0,hi=500;const f=Vs=>nn1S0(Object.assign({},p,{Vs})).a;/* a passes from small negative through −∞ to +∞ when binding appears: bisect on 1/a */
+  const g=Vs=>1/f(Vs)-1/a0;let fa=g(lo);/* first crossing only: a deeper well gives the same a with an extra bound state */for(let v=5;v<=500;v+=5){const gv=g(v);if(fa*gv<=0){lo=v-5;hi=v;break;}fa=gv;}fa=g(lo);for(let i=0;i<50;i++){const m=(lo+hi)/2,fm=g(m);if(fa*fm<=0)hi=m;else{lo=m;fa=fm;}}return (lo+hi)/2;}
+
+/* ---------- hadronic atoms: complex eigenvalue of Coulomb + optical potential, l = 0, 1 (MeV, fm) ----------
+   Numerov outward on a log grid, matched at r_m to the exact decaying Coulomb solution integrated inward; secant on complex E */
+function hatLevel(s,l,n){const mu=s.m1*s.m2/(s.m1+s.m2),hc=HC_M,ka=ALPHA*hc,aB=hc/(mu*ALPHA),E0=-mu*ALPHA*ALPHA/(2*n*n),Vs=r=>{const f=s.t==='gau'?Math.exp(-((r/s.b)**2)):Math.exp(-r/s.b);return [-s.V0*f,-s.W*f];};
+  const x0=Math.log(1e-4),x1=Math.log(40*n*n*aB),N=20000,dx=(x1-x0)/N,c=dx*dx/12,tm=2*mu/(hc*hc);
+  const g=(x,E)=>{const r=Math.exp(x),v=Vs(r),Vr=v[0]-ka/r;return [(l+0.5)**2+tm*r*r*(Vr-E[0]),tm*r*r*(v[1]-E[1])];};
+  const mis=E=>{/* outward to the middle, inward from the end, compare log derivatives of φ (u = r^{1/2}φ) */const xm=Math.log(n*n*aB);const im=Math.round((xm-x0)/dx);
+    let p0=[Math.exp((l+0.5)*x0),0],p1=[Math.exp((l+0.5)*(x0+dx)),0];let g0=g(x0,E),g1=g(x0+dx,E);for(let i=1;i<im;i++){const x=x0+(i+1)*dx,g2=g(x,E),A=cadd([2,0],csc(10*c,g1)),B=csub([1,0],csc(c,g0)),Cc=csub([1,0],csc(c,g2)),p2=cdiv(csub(cmul(A,p1),cmul(B,p0)),Cc);p0=p1;p1=p2;g0=g1;g1=g2;const m=cabs(p1);if(m>1e100){p0=csc(1e-100,p0);p1=csc(1e-100,p1);}}
+    const Lo=cdiv(csub(p1,p0),cadd(p1,p0));let q1=[1e-30,0],q0=[1e-30*Math.exp(0),0];/* inward */q0=[0,0];q1=[1e-30,0];let h1=g(x1,E),h0=g(x1-dx,E);let Q0=[0,0],Q1=[1e-30,0];
+    for(let i=N-1;i>im-1;i--){const x=x0+(i-1)*dx,g2=g(x,E),A=cadd([2,0],csc(10*c,h0)),B=csub([1,0],csc(c,h1)),Cc=csub([1,0],csc(c,g2)),q2=cdiv(csub(cmul(A,Q1),cmul(B,Q0)),Cc);Q0=Q1;Q1=q2;h1=h0;h0=g2;const m=cabs(Q1);if(m>1e100){Q0=csc(1e-100,Q0);Q1=csc(1e-100,Q1);}}
+    const Li=cdiv(csub(Q0,Q1),cadd(Q0,Q1));return csub(Lo,Li);};
+  const r=cRoot(mis,[E0,0],{h:Math.abs(E0)*1e-6,lim:Math.abs(E0)*0.05,tol:Math.abs(E0)*1e-12});return {E:r.z,E0,ok:r.ok,aB};}
+
+/* ---------- electroweak line shapes ---------- */
+/* W → ℓν at a hadron collider: transverse mass m_T = 2p_T (W at rest), angular distribution (1 + cos θ)² averaged with (1 − cos θ)² */
+function wMT(MW,GW,n,seed){let x=seed||7;const rnd=()=>{x=(x*16807)%2147483647;return x/2147483647;},out=[];
+  for(let i=0;i<n;i++){/* Breit–Wigner in s via tangent mapping */const u=rnd(),s=MW*MW+MW*GW*Math.tan(Math.PI*(u-0.5)),m=Math.sqrt(Math.max(s,1));
+    let c;do{c=2*rnd()-1;}while(rnd()*4>(1+c)**2+(1-c)**2);const pT=m/2*Math.sqrt(1-c*c);out.push(2*pT);}return out;}
+/* Higgs line shape to four leptons with the running width Γ_H→ZZ*(m) (two-body with one off-shell Z; normalised shape)
+   and a gluon-luminosity factor ∝ m^{−n}: the off-shell tail above 2M_Z */
+function hLine(m,P){const MH=P.MH,GH=P.GH,MZ=91.1876,GZ=2.4955,ps=m2=>{/* Γ_ZZ*(m)/m³ with one Z off shell: ∫ ds BW(s) β(m,MZ,√s)(…) — approximated by on-shell above 2M_Z, convolution below */
+    let s=0;const n=200;for(let i=1;i<n;i++){const m2s=(m-MZ)*i/n;if(m2s<=0)continue;const s2=m2s*m2s,lam=(1-(MZ+m2s)**2/(m*m))*(1-(MZ-m2s)**2/(m*m));if(lam<=0)continue;const b=Math.sqrt(lam),f=b*(b*b+12*MZ*MZ*s2/(m**4))*MZ*GZ/Math.PI/((s2-MZ*MZ)**2+MZ*MZ*GZ*GZ)*2*m2s;s+=f*(m-MZ)/n;}return s;};
+  const G=ps(m)*m*m*m,D=(m*m-MH*MH)**2+MH*MH*GH*GH;return m*m*G/D*Math.pow(MH/m,P.lum||4);}
+
+/* ---------- initial-state radiation for e⁺e⁻ (Kuraev–Fadin, leading order with soft exponentiation):
+   σ_obs(s) = ∫₀^{x_max} dx G(x) σ(s(1 − x)), G(x) = β x^{β−1}(1 + 3β/4) − β(1 − x/2), β = (2α/π)[ln(s/m_e²) − 1] */
+function isrConv(sig,s,xmax){const me=0.000510999,be=2*ALPHA/Math.PI*(Math.log(s/(me*me))-1),n=600;let r=0;
+  /* x = u^{1/β}: β x^{β−1}dx = du */const umax=Math.pow(xmax,be);for(let i=0;i<n;i++){const u=umax*(i+0.5)/n,x=Math.pow(u,1/be);r+=sig(s*(1-x))*(1+0.75*be)*umax/n;}
+  const m=400;for(let i=0;i<m;i++){const x=xmax*(i+0.5)/m;r-=be*(1-x/2)*sig(s*(1-x))*xmax/m;}return r;}
+
+// ===================== particle app, interface (1): Quark models and Coupled channels tabs =====================
+const WP=['#4cc3ff','#f5a623','#36e09a','#b48cff','#ffd166','#8fd3ff','#ff9f7a','#9be564'];
+Object.assign(ST,{qm:null,cc:null,fv:null,nn:null});
+const pFields=(tab,sel)=>{const v=$(sel).value;document.querySelectorAll(`#tab-${tab} [data-p]`).forEach(e=>e.style.display=e.dataset.p.split(',').includes(v)?'':'none');};
+const noData=(ctx,B,t)=>{ctx.fillStyle='#9aa4b2';ctx.font='15px Inter,system-ui,sans-serif';ctx.fillText(t,B.x0+20,B.y0+40);};
+const BOX={x0:80,y0:30,x1:930,y1:500};
+const fMeV=v=>isFinite(v)?(v*1000).toFixed(1):'—';
+
+/* ======================= Quark models ======================= */
+const QM_DEF={mes:{as:0.7212,sig:0.18,C:-0.5067,rs:0.172,sm:0.5237,mu:0.3999,ms:0.5949,mc:1.9312,mb:5.4898},
+  bar:{as:0.4995,sig:0.18,C:-0.9052,rs:0,sm:1.769,mu:0.1978,ms:0.6151,mc:1.8816,mb:5.1517},hyb:{as:0.4,sig:0.18,C:-0.25,rs:0,sm:1,mu:0.33,ms:0.55,mc:1.48,mb:4.9}};
+const QM_PLOTS={mes:{mass:'masses: model vs measured (relativistic and non-relativistic)',wf:'radial wavefunctions u(r) of the S-wave ground states',extra:'⟨v²⟩ and sizes: why light mesons are relativistic'},
+  bar:{mass:'baryon masses: model vs measured',wf:'convergence of the variational energy',extra:'hyperfine splittings: N–Δ, Λ–Σ, Σ–Σ*'},
+  hyb:{mass:'spectrum: ordinary charmonium (Σ_g⁺) and hybrids (Π_u)',wf:'the two Born–Oppenheimer potentials and the wavefunctions',extra:'J^PC content of the lowest hybrid multiplets'},
+  mix:{mass:'³S₁–³D₁ mixing: unmixed and mixed levels',wf:'radial wavefunctions of the mixed states',extra:'¹P₁–³P₁ mixing angle vs the heavy-quark mass'},
+  glob:{mass:'pulls (M_calc − M_PDG)/ε for all states',wf:'spectra of cc̄ and bb̄ with one set of parameters',extra:'χ² history of the fit'}};
+function qmFields(){pFields('qm','qm-p');const p=$('qm-p').value,set=QM_PLOTS[p],sel=$('qm-plot');sel.innerHTML=Object.entries(set).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  const d=QM_DEF[p];if(d)Object.entries({as:'qm-as',sig:'qm-sig',C:'qm-C',rs:'qm-rs',sm:'qm-sm',mu:'qm-mu',ms:'qm-ms',mc:'qm-mc',mb:'qm-mb'}).forEach(([k,id])=>$(id).value=d[k]);
+  qmModel();}
+function qmPars(){return {as:num('qm-as'),sig:num('qm-sig'),C:num('qm-C'),rs:Math.abs(num('qm-rs')),sm:Math.abs(num('qm-sm'))};}
+function qmMasses(){return {u:num('qm-mu'),d:num('qm-mu'),s:num('qm-ms'),c:num('qm-mc'),b:num('qm-mb')};}
+let QM_BUSY=false;
+async function qmRun(){if(QM_BUSY)return;QM_BUSY=true;$('qm-run').disabled=true;const p=$('qm-p').value,t0=performance.now();
+  try{
+    if(p==='mes'){const P=qmPars(),M=qmMasses();Object.assign(QM_MASS,M);const N=Math.max(60,Math.min(300,Math.round(num('qm-N'))));
+      msg('qm-msg',[['info','Solving 9 flavour combinations with both kinetic energies…']]);await frame();
+      const rel=qmMesons(P,{rel:true,R:30,N}),nr=qmMesons(P,{rel:false,R:30,N}),wf={};['ud','cc','bb'].forEach(q=>{wf[q]=qmSolveL(Object.assign({},P,{m1:M[q[0]],m2:M[q[1]]}),0,{R:30,N,nmax:1,rel:$('qm-kin').value==='rel'}).lev[0];});
+      ST.qm={p,P,M,rel,nr,wf,N};msg('qm-msg',[['info',`17 mesons from one potential in ${(performance.now()-t0).toFixed(0)} ms: sinc-DVR (${N} points to 30 GeV⁻¹ ≈ 5.9 fm); the relativistic kinetic energy √(p² + m₁²) + √(p² + m₂²) is a function of the p² matrix through its eigenvectors.`]]);}
+    else if(p==='bar'){const P=qmPars(),M=qmMasses(),K=Math.max(12,Math.min(60,Math.round(num('qm-K')))),seed=Math.round(num('qm-seed')),out=[];
+      for(const b of QM_BAR){let x=seed;const rnd=()=>{x=(x*16807)%2147483647;return x/2147483647;};msg('qm-msg',[['info',`Solving ${b.k} (${b.q}) with ${K} correlated Gaussians…`]]);await frame();
+        const r=await qmBaryon(b,P,{K,ntry:8,rnd,mass:M,bmax:10});out.push(Object.assign({},b,r));}
+      ST.qm={p,P,M,out,K};msg('qm-msg',[['info',`${out.length} baryons in ${((performance.now()-t0)/1000).toFixed(1)} s: three-body problem in Jacobi coordinates, stochastic variational method; hyperfine interaction in first order.`]]);}
+    else if(p==='hyb'){const P=Object.assign(qmPars(),{m:num('qm-mq')}),R=hybSolve(P,{R:25,N:200});ST.qm={p,P,R};
+      msg('qm-msg',[['info',`Ordinary (Σ_g⁺) and hybrid (Π_u) charmonium in ${(performance.now()-t0).toFixed(0)} ms (non-relativistic, sinc-DVR).`]]);}
+    else if(p==='mix'){const D=ST.qq;if(!D)throw new Error('Solve a quarkonium system in the Quarkonium tab first.');
+      const s=D.s,R=qSolve(s,Object.assign({},D.o,{lmax:Math.max(2,D.o.lmax),nmax:Math.max(3,D.o.nmax)})),sd=mixSD(s,R);
+      /* ¹P₁–³P₁ mixing vs the heavier quark mass: light quark of the current system with mass m₁ fixed */
+      const curve=[];for(const m2 of [s.m1,s.m1*1.5,s.m1*2.5,s.m1*4,s.m1*8,s.m1*20,s.m1*60]){const s2=Object.assign({},s,{m2}),R2=qSolve(s2,{lmax:1,nmax:1,N:D.o.N,rmax:D.o.rmax}),mx=mixP1(s2,R2)[0];if(mx)curve.push({r:m2/s.m1,th:mx.th});}
+      const p1=s.m1!==s.m2?mixP1(s,R):[];ST.qm={p,s,R,sd,curve,p1};msg('qm-msg',[['info',`Mixing computed for ${D.p&&D.p.n?D.p.n:'the current system'} in ${(performance.now()-t0).toFixed(0)} ms: tensor matrix elements ⟨nS|α_s/3m²r³|n′D⟩·√8 between the spin-averaged radial states.`]]);}
+    else if(p==='glob'){const cc=QQS.find(q=>q.q[0]==='c'&&q.q[1]==='c'&&q.t==='cornell'),bb=QQS.find(q=>q.q[0]==='b'&&q.q[1]==='b'&&q.t==='cornell');if(!cc||!bb)throw new Error('Cornell presets missing.');
+      const eps=Math.max(1e-4,num('qm-eps')/1000),it=Math.max(10,Math.round(num('qm-it'))),o={lmax:2,nmax:4,N:3000,rmax:8},hist=[];
+      const chi=v=>{const a={t:'cornell',as:v[0],sig:v[1],m1:v[2],m2:v[2],C:v[4],q1:'c',q2:'c'},b={t:'cornell',as:v[0],sig:v[1],m1:v[3],m2:v[3],C:v[4],q1:'b',q2:'b'};if(!(v[0]>0&&v[1]>0&&v[2]>0&&v[3]>0))return 1e9;
+        return (qChi2(a,cc.exp,o)+qChi2(b,bb.exp,o))/(eps*eps);};
+      const x0=[cc.p.as,cc.p.sig,cc.p.m1,bb.p.m1,(cc.p.C+bb.p.C)/2],r=await nelderMead(chi,x0,[0.03,0.01,0.05,0.05,0.03],{maxit:it,onIter:async(k,f)=>{hist.push(f);msg('qm-msg',[['info',`Global fit: iteration ${k}, χ² = ${fp(f,5)}…`]]);await frame();}});
+      const v=r.x,a={t:'cornell',as:v[0],sig:v[1],m1:v[2],m2:v[2],C:v[4],q1:'c',q2:'c'},b={t:'cornell',as:v[0],sig:v[1],m1:v[3],m2:v[3],C:v[4],q1:'b',q2:'b'},Ra=qSolve(a,o),Rb=qSolve(b,o);
+      const pulls=[];[[Ra,cc.exp,'cc̄'],[Rb,bb.exp,'bb̄']].forEach(([R,ex,f])=>Object.entries(ex).forEach(([lab,M])=>{const st=R.st.find(x=>x.lab===lab);if(st)pulls.push({f,lab,M,Mc:st.M,pull:(st.M-M)/eps});}));
+      ST.qm={p,v,Ra,Rb,pulls,chi2:r.f,ndf:pulls.length-5,hist,eps,cc,bb};msg('qm-msg',[['ok',`Global fit of ${pulls.length} states with 5 shared parameters in ${((performance.now()-t0)/1000).toFixed(1)} s.`]]);}
+    qmTables();qmModel();drawQM();}
+  catch(e){msg('qm-msg',[['bad',e.message]]);console.error(e);}finally{QM_BUSY=false;$('qm-run').disabled=false;}}
+function qmTables(){const D=ST.qm;if(!D)return;let t='',o='';
+  if(D.p==='mes'){t='<table><tr><th>meson</th><th>quarks</th><th>S</th><th>PDG (MeV)</th><th>relativistic (MeV)</th><th>non-relativistic (MeV)</th><th>hyperfine (MeV)</th><th>rms radius (fm)</th><th>⟨p²⟩/(⟨p²⟩ + m₁m₂)</th></tr>'+
+      D.rel.map((m,i)=>`<tr><td>${m.k}</td><td>${m.q}</td><td>${m.S}</td><td>${fMeV(m.M)}</td><td>${fMeV(m.Mc)}</td><td>${fMeV(D.nr[i].Mc)}</td><td>${fMeV(m.hf)}</td><td>${m.rms.toFixed(3)}</td><td>${m.v2.toFixed(3)}</td></tr>`).join('')+'</table>';
+    const rms=a=>Math.sqrt(a.filter(m=>m.k!=='π').reduce((s,m)=>s+(m.Mc-m.M)**2,0)/(a.length-1));
+    o=ri('rms deviation (π excluded)',`${fMeV(rms(D.rel))} MeV (relativistic), ${fMeV(rms(D.nr))} MeV (non-relativistic, same parameters)`,'the same potential and masses: the kinetic energy alone changes the light-meson masses by hundreds of MeV')+
+      ri('The pion',`${fMeV(D.rel[0].Mc)} MeV vs 138 MeV`,'a pseudo-Goldstone boson of chiral symmetry breaking: no potential model gets it right, the hyperfine term would have to cancel most of the quark masses')+
+      ri('ρ–π, K*–K, D*–D, J/ψ–η_c splittings (model)',['ρ|π','K*|K','D*|D','J/ψ|η_c'].map(x=>{const [a,b]=x.split('|'),A=D.rel.find(m=>m.k===a),Bm=D.rel.find(m=>m.k===b);return fMeV(A.Mc-Bm.Mc);}).join(', ')+' MeV','measured 637, 396, 141, 113 MeV: the hyperfine force falls as 1/(m₁m₂)');}
+  if(D.p==='bar'){t='<table><tr><th>baryon</th><th>quarks</th><th>J</th><th>PDG (MeV)</th><th>model (MeV)</th><th>hyperfine (MeV)</th><th>rms radius of the first pair (fm)</th></tr>'+
+      D.out.map(b=>`<tr><td>${b.k}</td><td>${b.q}</td><td>${b.S===0.5?'1/2':'3/2'}</td><td>${isFinite(b.M)?fMeV(b.M):'—'}</td><td>${fMeV(b.M0+b.hf)}</td><td>${fMeV(b.hf)}</td><td>${b.rms.toFixed(3)}</td></tr>`).join('')+'</table>';
+    const g=k=>D.out.find(b=>b.k===k);o=ri('N–Δ splitting',`${fMeV(g('Δ').M-g('N').M)} MeV (measured 293)`,'all three pairs flip from σ·σ = −1 to +1: the colour-magnetic interaction')+
+      ri('Σ–Λ splitting',`${fMeV(g('Σ').M-g('Λ').M)} MeV (measured 77)`,'Λ has its ud pair in spin 0 (σ·σ = −3), Σ in spin 1: the lighter pair carries the stronger hyperfine force')+
+      ri('Predictions without data',`Ω_ccc ${fMeV(g('Ω_ccc').M)} MeV, Ω_bbb ${fMeV(g('Ω_bbb').M)} MeV`,'lattice QCD: Ω_ccc ≈ 4.80 GeV, Ω_bbb ≈ 14.37 GeV (Brown et al. 2014). The simple ½-rule model with these fitted constants underbinds less than it should for the heaviest systems: treat these as model-dependent.');}
+  if(D.p==='hyb'){const R=D.R,lev=[...R.S0.lev.map(L=>({k:`${L.n}S (Σ_g⁺)`,M:L.M,t:'S'})),...R.P1.lev.slice(0,2).map(L=>({k:`${L.n}P (Σ_g⁺)`,M:L.M,t:'S'})),...R.H1.lev.map(L=>({k:`H, L = 1, n = ${L.n} (Π_u)`,M:L.M,t:'H'})),...R.H2.lev.slice(0,2).map(L=>({k:`H, L = 2, n = ${L.n} (Π_u)`,M:L.M,t:'H'}))];
+    t='<table><tr><th>level</th><th>M (MeV)</th><th>rms radius (fm)</th></tr>'+lev.map((x,i)=>`<tr><td>${x.k}</td><td>${fMeV(x.M)}</td><td></td></tr>`).join('')+'</table>';
+    o=ri('Lowest hybrid (L = 1): J^PC = 1⁻⁻, (0, 1, 2)⁻⁺',`${fMeV(R.H1.lev[0].M)} MeV`,'contains 1⁻⁺, impossible for qq̄: an exotic. Lattice QCD (Hadron Spectrum 2012): lightest cc̄ hybrid supermultiplet near 4.2–4.4 GeV')+
+      ri('Hybrid − 1S',`${fMeV(R.H1.lev[0].M-R.S0.lev[0].M)} MeV`,'the gluon excitation costs about 1 GeV at short distance (gluelump) and π/r-like energy at long distance');}
+  if(D.p==='mix'){const {sd}=D;t='<table><tr><th>state</th><th>unmixed (MeV)</th><th>mixed (MeV)</th><th>S-wave content</th><th>Γ_ee / Γ_ee(unmixed nS)</th></tr>'+
+      sd.basis.map((b,i)=>{const k=sd.E.map((E,j)=>({E,j})).sort((x,y)=>Math.abs(sd.V[x.j][i])>Math.abs(sd.V[y.j][i])?-1:1)[0].j,vec=sd.V[k];const Sw=sd.basis.reduce((s,bb,q)=>s+(bb.w==='S'?vec[q]**2:0),0);
+        const R0=sd.basis.reduce((a,bb,q)=>a+(bb.w==='S'?vec[q]*Math.sign(bb.L.u[1]||1)*Math.sqrt(bb.L.R0id):0),0)**2,R0u=b.w==='S'?b.L.R0id:NaN;
+        return `<tr><td>${b.lab} ³${b.w}₁</td><td>${fMeV(sd.H[i*sd.basis.length+i])}</td><td>${fMeV(sd.E[k])}</td><td>${fp(Sw,3)}</td><td>${b.w==='S'?fp(R0/R0u,3):fp(R0/sd.basis.find(x=>x.w==='S'&&x.L.n===1)?.L.R0id,3)+' (vs 2S)'}</td></tr>`;}).join('')+'</table>';
+    const i2=sd.basis.findIndex(b=>b.w==='S'&&b.L.n===1),i1d=sd.basis.findIndex(b=>b.w==='D'&&b.L.n===0);
+    if(i2>=0&&i1d>=0){const n=sd.basis.length,k=sd.E.map((E,j)=>j).sort((a,b)=>Math.abs(sd.V[b][i1d])-Math.abs(sd.V[a][i1d]))[0],th=Math.atan2(Math.abs(sd.V[k][i2]),Math.abs(sd.V[k][i1d]))*180/Math.PI*Math.sign(sd.V[k][i2]*sd.V[k][i1d]||1);
+      o+=ri('2S–1D mixing angle from the tensor force',`${fp(th,3)}°`,'phenomenology of Γ_ee(ψ(3770)) needs about 12° (Rosner): the tensor force alone gives much less, coupled channels (DD̄ loops) supply the rest — see the Coupled channels tab');}
+    if(D.p1&&D.p1.length)o+=ri('¹P₁–³P₁ mixing (unequal masses)',D.p1.map(x=>`${x.n}P: θ = ${fp(x.th,3)}°, ${fMeV(x.Elo)} and ${fMeV(x.Ehi)} MeV`).join('; '),'antisymmetric spin–orbit term (1/2m₁² − 1/2m₂²)⟨2α_s/r³ − σ/2r⟩ L·(S₁ − S₂)');
+    o+=ri('Heavy-quark limit','θ → 35.3° (or 54.7°): j_light = 1/2 and 3/2','with one infinitely heavy quark the light-quark total angular momentum is conserved (validated)');}
+  if(D.p==='glob'){t='<table><tr><th>system</th><th>state</th><th>PDG (MeV)</th><th>fit (MeV)</th><th>pull</th></tr>'+D.pulls.map(x=>`<tr><td>${x.f}</td><td>${x.lab}</td><td>${fMeV(x.M)}</td><td>${fMeV(x.Mc)}</td><td>${fp(x.pull,3)}</td></tr>`).join('')+'</table>';
+    o=ri('Shared parameters',`α_s = ${fp(D.v[0],4)}, σ = ${fp(D.v[1],4)} GeV², C = ${fp(D.v[4],4)} GeV`,`m_c = ${fp(D.v[2],4)} GeV, m_b = ${fp(D.v[3],4)} GeV`)+ri('χ²/ndf',`${fp(D.chi2,4)} / ${D.ndf} = ${fp(D.chi2/D.ndf,3)}`,`with ε = ${D.eps*1000} MeV per state: flavour independence holds to this accuracy (a running α_s would improve it)`);}
+  $('qm-tab').innerHTML=t;$('qm-res').innerHTML=o;}
+function qmModel(){const p=$('qm-p').value,M={mes:[['System','17 mesons from π to Υ','one potential, one set of constituent masses'],['Hamiltonian','H = √(p² + m₁²) + √(p² + m₂²) − (4α_s/3r) erf(r/r_s) + σr + C','spinless Salpeter: the smeared Coulomb term keeps the relativistic problem bounded below'],['Spin','32πα_s/9m₁m₂ · (σ_c/√π)³exp(−σ_c²r²) S₁·S₂','first order; Godfrey and Isgur (1985) use the same ideas with more smearing and a running α_s'],['Method','sinc-DVR, T = W f(Λ) Wᵀ','the relativistic kinetic energy is evaluated as a function of the p² matrix']],
+    bar:[['System','N, Δ, Λ, Σ, Ξ, Ω and charmed and bottom baryons','constituent quarks, colour antisymmetric: spatial ⊗ spin ⊗ flavour symmetric'],['Interaction','V_ij = ½[−(4α_s/3)/r_ij + σr_ij + C]','the ½-rule: a qq pair in a colour singlet baryon has half the colour factor of qq̄'],['Hyperfine','Σ (16πα_s/9m_im_j) S_i·S_j δ_σ(r_ij)','⟨σ_i·σ_j⟩ from the spin-flavour wavefunction: N −1, Δ +1, Λ (−3, 0, 0), Σ (1, −2, −2)'],['Method','correlated Gaussians, SVM','the same code as the exciton complexes of the solid-state module; validated on three harmonically bound particles']],
+    hyb:[['System','cc̄ with an excited gluon field (Born–Oppenheimer)','the quarks move in the potential of the gluonic state Π_u'],['Potentials','Σ_g⁺: −4α_s/3r + σr + C;  Π_u: +α_s/6r + √(σ²r² + 2πσ·11/12) + C','colour-octet repulsion at short distance, Nambu–Goto string with one excitation at long distance'],['Centrifugal term','[L(L + 1) − 2Λ² + J_g(J_g + 1)]/2μr², Λ = 1, J_g = 1','gives L(L + 1)/2μr² with L ≥ 1']],
+    mix:[['System','the current Quarkonium tab','spin-averaged levels and wavefunctions from its solver'],['³S₁–³D₁','tensor force V_T = (α_s/3m²r³) S₁₂, ⟨³S₁|S₁₂|³D₁⟩ = √8','diagonalised in the basis of the computed nS and nD states'],['¹P₁–³P₁','(1/2m₁² − 1/2m₂²)⟨2α_s/r³ − σ/2r⟩·L·(S₁ − S₂), ⟨¹P₁|L·(S₁ − S₂)|³P₁⟩ = √2','only for unequal masses (B_c, D_s, D)']],
+    glob:[['System','charmonium and bottomonium together','flavour independence of the static potential: one α_s, σ and C, two quark masses'],['Fit','Nelder–Mead on χ² = Σ(M − M_PDG)²/ε²','ε is a theory uncertainty (relativistic and coupled-channel corrections), not an experimental error']]}[p]||[];
+  $('qm-model').innerHTML=M.map(x=>ri(...x)).join('');}
+function drawQM(){const D=ST.qm,cv=$('c-qm'),ctx=bg(cv),B=BOX,pl=$('qm-plot').value;if(!D)return noData(ctx,B,'Press Compute.');
+  if(D.p==='mes'){if(pl==='mass'){const x=D.rel.map((_,i)=>i+1),pdg=D.rel.map(m=>m.M),rel=D.rel.map(m=>m.Mc),nr=D.nr.map(m=>m.Mc);
+      chart(ctx,B,{series:[{x,y:pdg,c:'#f5a623',w:0,pts:true,lab:'PDG'},{x,y:pdg,c:'#f5a623',w:12,sticks:false,d:false,lab:''},{x,y:rel,c:WP[0],w:2,lab:'relativistic model'},{x,y:rel,c:WP[0],pts:true},{x,y:nr,c:'#9aa4b2',w:1.5,d:true,lab:'non-relativistic, same parameters'}].filter(s=>s.w!==12),
+        title:'Mesons from one potential: '+D.rel.map(m=>m.k).join(' · '),xlab:'meson (index, in the order of the table)',ylab:'M (GeV)',ylog:true});return;}
+    if(pl==='wf'){const ser=Object.entries(D.wf).map(([q,L],i)=>{const m=Math.max(...L.u.map(Math.abs));return {x:L.r.map(r=>r*HC_G),y:L.u.map(v=>Math.abs(v)/m),c:WP[i],w:2.2,lab:`${q}: √⟨r²⟩ = ${(Math.sqrt(L.r2)*HC_G).toFixed(3)} fm`};});
+      chart(ctx,B,{series:ser,title:'Radial wavefunctions u(r) of the lowest S states (normalised to their maxima)',xlab:'r (fm)',ylab:'|u(r)|',xr:[0,2]});return;}
+    const x=D.rel.map(m=>m.rms),y=D.rel.map(m=>m.v2);chart(ctx,B,{series:[{x,y,c:WP[0],w:0,pts:true,lab:'mesons'}],title:'⟨p²⟩/(⟨p²⟩ + m₁m₂) against size: light quarks move relativistically',xlab:'rms radius (fm)',ylab:'⟨p²⟩/(⟨p²⟩ + m₁m₂)'});
+    D.rel.forEach(m=>{});return;}
+  if(D.p==='bar'){if(pl==='mass'){const L=D.out,x=L.map((_,i)=>i+1);chart(ctx,B,{series:[{x,y:L.map(b=>b.M),c:'#f5a623',w:0,pts:true,lab:'PDG'},{x,y:L.map(b=>b.M0+b.hf),c:WP[0],w:2,lab:'model'},{x,y:L.map(b=>b.M0+b.hf),c:WP[0],pts:true}],title:'Baryons: '+L.map(b=>b.k).join(' · '),xlab:'baryon (index)',ylab:'M (GeV)',ylog:true});return;}
+    if(pl==='wf'){const ser=D.out.slice(0,8).map((b,i)=>({x:b.R.hist.map((_,j)=>j+1),y:b.R.hist.map(E=>E-b.R.hist[b.R.hist.length-1]),c:WP[i%8],w:1.8,lab:b.k}));chart(ctx,B,{series:ser,title:'Variational energy minus its final value vs basis size',xlab:'basis size K',ylab:'E − E_final (GeV)',ylog:true});return;}
+    const g=k=>D.out.find(b=>b.k===k),pairs=[['N–Δ','N','Δ',0.2931],['Λ–Σ','Λ','Σ',0.0775],['Σ–Σ*','Σ','Σ*',0.1914],['Ξ–Ξ*','Ξ','Ξ*',0.2151],['Λ_c–Σ_c','Λ_c','Σ_c',0.1664]];
+    chart(ctx,B,{series:[{x:pairs.map((_,i)=>i+1),y:pairs.map(p=>p[3]*1000),c:'#f5a623',w:0,pts:true,lab:'measured'},{x:pairs.map((_,i)=>i+1),y:pairs.map(p=>(g(p[2]).M0+g(p[2]).hf-g(p[1]).M0-g(p[1]).hf)*1000),c:WP[0],w:0,pts:true,sticks:true,lab:'model'}],xr:[0.5,pairs.length+0.5],yr:[0,Math.max(...pairs.map(p=>p[3]*1000))*1.3],title:'Hyperfine splittings: '+pairs.map(p=>p[0]).join(' · '),xlab:'pair (index)',ylab:'ΔM (MeV)'});return;}
+  if(D.p==='hyb'){const R=D.R;if(pl==='wf'){const rr=Array.from({length:300},(_,i)=>0.02+2*i/299),P=D.P,Vs=r=>-(4*P.as/3)/(r/HC_G)+P.sig*r/HC_G+P.C,Vh=hybV(P);
+      const ser=[{x:rr,y:rr.map(Vs),c:'#ff6b6b',w:2,lab:'Σ_g⁺ (ground-state flux tube)'},{x:rr,y:rr.map(r=>Vh(r/HC_G)),c:'#ff9f7a',w:2,d:true,lab:'Π_u (one gluonic excitation)'}];
+      [[R.S0.lev[0],'1S'],[R.H1.lev[0],'hybrid, L = 1']].forEach(([L,l],i)=>{const m=Math.max(...L.u.map(Math.abs));ser.push({x:L.r.map(r=>r*HC_G),y:L.u.map(v=>L.M-2*D.P.m+0.25*Math.abs(v)/m),c:WP[i],w:2,lab:l});});
+      chart(ctx,B,{series:ser,title:'Born–Oppenheimer potentials (minus 2m_c) and wavefunctions drawn at their energies',xlab:'r (fm)',ylab:'V, E − 2m_c (GeV)',xr:[0,2],yr:[-1.5,2.5]});return;}
+    const lv=[...R.S0.lev.map(L=>[0,L.M]),...R.P1.lev.slice(0,2).map(L=>[1,L.M]),...R.H1.lev.map(L=>[2,L.M]),...R.H2.lev.slice(0,2).map(L=>[3,L.M])],ser=lv.map(([k,M],i)=>({x:[k+0.6,k+1.4],y:[M,M],c:k<2?WP[0]:WP[1],w:2.4,lab:i===0?'Σ_g⁺: ordinary cc̄':(k===2&&lv.findIndex(q=>q[0]===2)===i?'Π_u: hybrids':'')}));
+    ser.push({x:[0.4,4.6],y:[3.7297,3.7297],c:'#9aa4b2',w:1,d:true,lab:'DD̄ threshold'});chart(ctx,B,{series:ser,title:pl==='mass'?'Charmonium and hybrid charmonium: S, P | hybrid L = 1, L = 2':'Lowest hybrid multiplets contain J^PC = 1⁻⁺ (exotic)',xlab:'S, P (ordinary) | L = 1, L = 2 (hybrid)',ylab:'M (GeV)',xr:[0.4,4.6]});return;}
+  if(D.p==='mix'){const {sd}=D;if(pl==='extra'){if(!D.curve.length)return noData(ctx,B,'Needs P-wave states (l_max ≥ 1) in the Quarkonium tab.');chart(ctx,B,{series:[{x:D.curve.map(c=>c.r),y:D.curve.map(c=>Math.abs(c.th)),c:WP[0],w:2.2,lab:'mixing angle |θ|'},{x:D.curve.map(c=>c.r),y:D.curve.map(c=>Math.abs(c.th)),c:WP[0],pts:true}],title:'¹P₁–³P₁ mixing as one quark gets heavier (heavy-quark limit 35.3° or 54.7°)',xlab:'m₂/m₁',ylab:'|θ| (degrees)',xlog:true,hl:[{y:35.26,lab:'35.3°'},{y:54.74,lab:'54.7°'}]});return;}
+    if(pl==='wf'){const ser=[];sd.E.slice(0,4).forEach((E,k)=>{const vec=sd.V[k],L0=sd.basis[0].L,u=L0.u.map((_,i)=>sd.basis.reduce((a,b,q)=>a+(b.w==='S'?vec[q]*b.L.u[i]:0),0)),w=L0.u.map((_,i)=>sd.basis.reduce((a,b,q)=>a+(b.w==='D'?vec[q]*b.L.u[i]:0),0));
+        ser.push({x:L0.r,y:u.map(v=>v+k*1.2),c:WP[k],w:2,lab:`${fMeV(E)} MeV: S part`},{x:L0.r,y:w.map(v=>v+k*1.2),c:WP[k],w:1.5,d:true,lab:'D part'});});chart(ctx,B,{series:ser,title:'Mixed ³S₁/³D₁ states (offset): S part solid, D part dashed',xlab:'r (fm)',ylab:'u(r)',xr:[0,3]});return;}
+    const n=sd.basis.length,ser=[];sd.basis.forEach((b,i)=>ser.push({x:[0.6,1.4],y:[sd.H[i*n+i],sd.H[i*n+i]],c:b.w==='S'?WP[0]:WP[1],w:2.2,lab:i===0?'unmixed S':b.w==='D'&&sd.basis.findIndex(x=>x.w==='D')===i?'unmixed D':''}));sd.E.forEach((E,i)=>ser.push({x:[1.6,2.4],y:[E,E],c:WP[2],w:2.2,lab:i?'':'mixed'}));
+    chart(ctx,B,{series:ser,title:'³S₁–³D₁ levels before and after the tensor mixing',xlab:'unmixed | mixed',ylab:'M (GeV)',xr:[0.4,2.6]});return;}
+  if(D.p==='glob'){if(pl==='mass'){const x=D.pulls.map((_,i)=>i+1);chart(ctx,B,{series:[{x,y:D.pulls.map(p=>p.pull),c:WP[0],w:0,pts:true,lab:'pull'},{x,y:D.pulls.map(p=>p.pull),c:WP[0],w:1,sticks:true}],title:'Pulls of the global fit: '+D.pulls.map(p=>p.lab).join(' '),xlab:'state (index)',ylab:'(M_fit − M_PDG)/ε',hl:[{y:0},{y:1,d:true},{y:-1,d:true}]});return;}
+    if(pl==='extra'){chart(ctx,B,{series:[{x:D.hist.map((_,i)=>5*(i+1)),y:D.hist,c:WP[0],w:2,lab:'χ²'}],title:'χ² during the fit',xlab:'iteration',ylab:'χ²',ylog:true});return;}
+    const ser=[];D.pulls.forEach((p,i)=>{const x0=p.f==='cc̄'?0:2;ser.push({x:[x0+0.6,x0+1.0],y:[p.M,p.M],c:'#f5a623',w:2,lab:i?'':'PDG'},{x:[x0+1.0,x0+1.4],y:[p.Mc,p.Mc],c:WP[0],w:2,lab:i?'':'global fit'});});chart(ctx,B,{series:ser,title:'Charmonium (left) and bottomonium (right) with one potential',xlab:'cc̄ | bb̄',ylab:'M (GeV)',xr:[0.4,3.6]});}}
+
+/* ======================= Coupled channels ======================= */
+const CC_PLOTS={cu:{ls:'line shapes |T|²·ρ in each channel (two-pole structure)',ph:'phase shifts and inelasticity',pole:'poles on the unphysical sheets'},
+  eft:{ls:'line shapes in the two channels (production by a short-distance source)',ph:'compositeness and couplings: isospin breaking',pole:'pole positions (with the D* widths)'},
+  uq:{ls:'spectral function of the dressed state and the partial line shapes',ph:'self-energy: mass shift Re Σ and width −2 Im Σ',pole:'pole trajectory as the coupling grows (slider)'},
+  km:{ls:'production |F|² (P-vector) and scattering |T|² in ππ',ph:'ππ phase shift and inelasticity η',pole:'poles of the K-matrix amplitude'}};
+function ccFields(){pFields('cc','cc-p');const p=$('cc-p').value,sel=$('cc-plot');sel.innerHTML=Object.entries(CC_PLOTS[p]).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');$('cc-anim').style.display=p==='uq'||p==='eft'?'':'none';ccLoad();}
+function ccLoad(){const p=$('cc-p').value;
+  if(p==='cu'){const M=CU_MODELS[$('cc-cu').value];$('cc-f').value=(M.f*1000).toFixed(2);if(M.ch[0].t==='mb'){$('cc-a1').value=M.ch[0].a;$('cc-a2').value=M.ch[1].a;}else{$('cc-a1').value=M.qm;$('cc-a2').value='';}}
+  if(p==='eft'){const M=EFT_MODELS[$('cc-eft').value];$('cc-B').value=M.B;$('cc-L').value=M.Lam;$('cc-r1').value=0;}
+  if(p==='uq'){const M=UQ_MODELS[$('cc-uq').value];$('cc-E0').value=M.E0;$('cc-g').value=M.k==='X'||$('cc-uq').value==='X'?0.336:M.g;$('cc-be').value=M.beta;$('cc-fit').value='1';}
+  if(p==='km'){const M=KM_MODEL;['cc-k1','cc-k2'].forEach((id,i)=>{$(id+'m').value=M.poles[i].m;$(id+'a').value=M.poles[i].g[0];$(id+'b').value=M.poles[i].g[1];$(id+'c').value=M.poles[i].g[2];});$('cc-kf').value=M.f[0][0];$('cc-kb1').value=M.poles[0].b;$('cc-kb2').value=M.poles[1].b;}
+  ccModel();}
+let CC_BUSY=false;
+async function ccRun(){if(CC_BUSY)return;CC_BUSY=true;$('cc-run').disabled=true;const p=$('cc-p').value,t0=performance.now();
+  try{
+    if(p==='cu'){const k=$('cc-cu').value,M=JSON.parse(JSON.stringify(CU_MODELS[k]));M.f=num('cc-f')/1000;if(M.ch[0].t==='mb'){M.ch[0].a=num('cc-a1');M.ch[1].a=num('cc-a2');}else M.qm=num('cc-a1');
+      const n=400,Ws=Array.from({length:n},(_,i)=>M.W[0]+(M.W[1]-M.W[0])*i/(n-1)),rows=Ws.map(W=>{const r=cuS(M,W),T=r.T;return {W,T,S:r.S,rho:r.rho};});
+      const poles=M.guess.map(g=>cuPole(M,g));ST.cc={p,k,M,rows,poles};msg('cc-msg',[['info',`${M.lab}: ${n} energies and ${poles.length} pole searches in ${(performance.now()-t0).toFixed(0)} ms. Unitarity S S† = 1 holds to the precision of the iε used on the real axis.`]]);}
+    if(p==='eft'){const k=$('cc-eft').value,M=EFT_MODELS[k],ch=eftSetup(M),B=num('cc-B'),Lam=num('cc-L'),r1=num('cc-r1');if(!(B>0))throw new Error('The binding must be positive.');
+      const V0=eftFitV0Gen(ch,B,r1,Lam),V1=V0*r1,res=eftResidue(ch,-B,V0,V1,Lam),poleW=cRoot(z=>eftDet(ch,z,V0,V1,Lam,[1,1]),[-B,-0.01],{h:1e-5,lim:0.05});
+      const Es=Array.from({length:500},(_,i)=>-2*B-0.5+(ch[1].D+3+2*B)*i/499),rows=Es.map(E=>{const r=eftT(ch,[E,1e-9],V0,V1,Lam);/* production by a short-distance source: amplitude (1 − VG)⁻¹ P with P = (1, 1)/√2 */
+        const Ai=cmInv(r.A),P=[[1/Math.SQRT2,0],[1/Math.SQRT2,0]],F=[0,1].map(i=>cadd(cmul(Ai[i][0],P[0]),cmul(Ai[i][1],P[1])));return {E,F,k:ch.map(c=>{const kk=eftK(c,[E,0],1);return Math.max(0,kk[0]);})};});
+      ST.cc={p,k,M,ch,B,Lam,V0,V1,res,poleW,rows};msg('cc-msg',[['info',`${M.lab}: contact interaction fitted to a binding of ${B} MeV (cutoff ${Lam} MeV); the D* widths enter as complex thresholds.`]]);}
+    if(p==='uq'){const k=$('cc-uq').value,M=Object.assign({},UQ_MODELS[k],{E0:num('cc-E0'),g:num('cc-g'),beta:num('cc-be')});let fit=null;
+      if($('cc-fit').value==='1'){fit=uqFit(M,M.target,k==='X');M.E0=fit.E0;M.g=fit.g;$('cc-E0').value=+fit.E0.toFixed(5);$('cc-g').value=+fit.g.toFixed(5);}
+      const pole=uqPole(M,[M.target.M,-(M.target.G||0.001)/2]),Es=Array.from({length:500},(_,i)=>M.W[0]+(M.W[1]-M.W[0])*i/499);msg('cc-msg',[['info','Self-energies on the real axis…']]);await frame();
+      const sp=uqSpectral(M,Es),Z=pole.z[1]===0||Math.abs(pole.z[1])<1e-9?uqZ(M,pole.z[0]):NaN,Sp=uqSigma(pole.z,M);
+      ST.cc={p,k,M,pole,sp,Z,fit,traj:null};msg('cc-msg',[['info',`${M.lab}: Σ(E) on a rotated contour q = t exp(−0.35i) (physical sheet on the real axis, second sheet below it), ${((performance.now()-t0)/1000).toFixed(1)} s.`]]);}
+    if(p==='km'){const M=JSON.parse(JSON.stringify(KM_MODEL));['cc-k1','cc-k2'].forEach((id,i)=>{M.poles[i].m=num(id+'m');M.poles[i].g=[num(id+'a'),num(id+'b'),num(id+'c')];});M.f[0][0]=num('cc-kf');M.poles[0].b=num('cc-kb1');M.poles[1].b=num('cc-kb2');
+      const n=600,rows=Array.from({length:n},(_,i)=>{const W=M.W[0]+(M.W[1]-M.W[0])*i/(n-1),A=kmAmp(M,[W,0]);return {W,A};}),poles=[kmPole(M,[0.98,-0.02],M.psheets[0]),kmPole(M,[1.5,-0.05],M.psheets[1])];
+      ST.cc={p,M,rows,poles};msg('cc-msg',[['info','K-matrix: T = (1 − iKρ)⁻¹K and F = (1 − iKρ)⁻¹P with three channels; illustrative parameters, not a fit to data.']]);}
+    ccTables();ccModel();drawCC();}
+  catch(e){msg('cc-msg',[['bad',e.message]]);console.error(e);}finally{CC_BUSY=false;$('cc-run').disabled=false;}}
+/* the isovector part V₁ = r₁V₀: generalise the fit of V₀ */
+function eftFitV0Gen(ch,B,r1,Lam){const c0=ch.map(c=>Object.assign({},c,{G:0})),f=V0=>eftDet(c0,[-B,0],V0,r1*V0,Lam)[0];let a=-1e-8,lo=null,hi=null;for(let k=0;k<260;k++){const b=a*1.12;if(f(a)*f(b)<0){lo=b;hi=a;break;}a=b;}if(lo===null)throw new Error('No bound state found for these parameters.');
+  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(f(lo)*f(m)<=0)hi=m;else lo=m;}return (lo+hi)/2;}
+function ccTables(){const D=ST.cc;if(!D)return;let t='',o='';
+  if(D.p==='cu'){t='<table><tr><th>pole</th><th>Re √s (MeV)</th><th>−2 Im √s (MeV)</th><th>sheet (per channel)</th><th>converged</th></tr>'+D.poles.map((q,i)=>`<tr><td>${i+1}</td><td>${(q.z[0]*1000).toFixed(1)}</td><td>${(-2*q.z[1]*1000).toFixed(1)}</td><td>${q.sheets.map(s=>s===1?'I':'II').join(', ')}</td><td>${q.ok?'yes':'check'}</td></tr>`).join('')+'</table>';
+    o=ri('Reference',D.M.ref,'two channels only here: the four-channel results of the literature differ by tens of MeV, the two-pole pattern survives');
+    if(D.k==='lam')o+=ri('Two poles, one peak',`the K̄N channel couples mostly to the higher pole, πΣ to the lower one`,'the πΣ line shape depends on how the state is produced: π⁻p → K⁰πΣ and K⁻p → πΣ γ peak at different energies (Jido et al. 2003; Hyodo and Jido 2012)');
+    else o+=ri('The σ',`${(D.poles[0].z[0]*1000).toFixed(0)} − ${(-D.poles[0].z[1]*1000).toFixed(0)}i MeV`,'a pole so far from the real axis gives no Breit–Wigner peak: the ππ phase rises slowly through 90° near 800 MeV. The Adler zero at s = m_π²/2 is built into V.');}
+  if(D.p==='eft'){const r=D.res,pw=D.poleW.z;t=`<table><tr><th>channel</th><th>threshold above the first (MeV)</th><th>coupling² (arb.)</th><th>compositeness X_i</th></tr>`+D.ch.map((c,i)=>`<tr><td>${c.k}</td><td>${c.D.toFixed(3)}</td><td>${fp(r.g2[i],4)}</td><td>${fp(r.X[i],4)}</td></tr>`).join('')+'</table>';
+    o=ri('Compositeness ΣX_i',fp(r.X[0]+r.X[1],6),'= 1 for an energy-independent contact interaction: the state is entirely made of the two meson pairs (validated)')+ri('Isospin breaking g_charged/g_neutral',fp(Math.sqrt(r.g2[1]/r.g2[0]),4),'1 for V₁ = 0 at the pole; the wavefunctions at the origin still differ, ∝ g_iG_i(E), which drives the observed X → J/ψρ⁰ (isospin 1) decays')+
+      ri('Pole with the D* widths',`E = ${fp(pw[0]*1000,4)} keV relative to ${D.ch[0].k}, Γ = ${fp(-2*pw[1]*1000,3)} keV`,D.M.ref)+ri('Size',`1/κ = ${fp(HC_M/Math.sqrt(2*D.ch[0].mu*D.B),3)} fm`,'κ = √(2μB): the universal molecular size');}
+  if(D.p==='uq'){const M=D.M,pz=D.pole.z;o=ri('Pole',`${(pz[0]*1000).toFixed(2)} − ${(-pz[1]*1000).toFixed(2)}i MeV`,D.M.ref+(D.pole.ok?'':' (pole search did not converge: change the start values)'))+ri('Bare state and coupling',`E₀ = ${(M.E0*1000).toFixed(1)} MeV, g = ${fp(M.g,4)}`,D.fit?'fitted to the measured pole':'as given')+
+      ri('Mass shift by the meson loops',`${((pz[0]-M.E0)*1000).toFixed(1)} MeV`,'the continuum pulls the state down (second-order perturbation theory, made exact here)');
+    if(isFinite(D.Z))o+=ri('Bare (qq̄) probability Z',fp(D.Z,4),`1 − Z = ${fp(1-D.Z,4)} is the meson–meson component: X(3872) as a χ_c1(2P) dressed by D D̄* loops`);
+    t='<table><tr><th>channel</th><th>threshold (MeV)</th><th>L</th><th>relative coupling γ</th><th>partial width at the pole (MeV)</th></tr>'+M.ch.map(c=>{const S=uqSigma(D.pole.z,Object.assign({},M,{ch:[c]}));return `<tr><td>${c.k}</td><td>${((c.m1+c.m2)*1000).toFixed(1)}</td><td>${c.L}</td><td>${c.gam}</td><td>${fp(-2*uqSigma([pz[0],0],Object.assign({},M,{ch:[c]}))[1]*1000,4)}</td></tr>`;}).join('')+'</table>';}
+  if(D.p==='km'){t='<table><tr><th>pole</th><th>Re √s (MeV)</th><th>−2 Im √s (MeV)</th><th>sheet (ππ, KK̄, ηη)</th></tr>'+D.poles.map((q,i)=>`<tr><td>${i?'f₀(1500)':'f₀(980)'}</td><td>${(q.z[0]*1000).toFixed(1)}</td><td>${(-2*q.z[1]*1000).toFixed(1)}</td><td>${q.sheets.map(s=>s===1?'I':'II').join(', ')}</td></tr>`).join('')+'</table>';
+    o=ri('K-matrix poles vs amplitude poles',`bare ${D.M.poles.map(p=>(p.m*1000).toFixed(0)).join(', ')} MeV → ${D.poles.map(q=>(q.z[0]*1000).toFixed(0)).join(', ')} MeV`,'the physical poles move away from the K-matrix poles; near the KK̄ threshold the f₀(980) becomes a narrow dip in ππ')+ri('Production vs scattering','the same poles, different line shapes','F = (1 − iKρ)⁻¹P keeps unitarity in the final state for any production vector P: the basis of Dalitz-plot and D/B-decay analyses (Aitchison 1972)');}
+  $('cc-tab').innerHTML=t;$('cc-res').innerHTML=o;}
+function ccModel(){const p=$('cc-p').value,M={cu:[['Amplitude','T = (1 − VG)⁻¹V, S = 1 − 2i√ρ T √ρ','on-shell factorisation of the Bethe–Salpeter equation (Oller, Oset, Ramos, Meißner)'],['Interaction','lowest-order chiral Lagrangian (Weinberg–Tomozawa for meson–baryon)','no free parameters except f and the regularisation of G'],['Loop G','dimensional regularisation (meson–baryon) or a three-momentum cutoff (meson–meson)','second sheet: G_II = G_I − 2iρ (continued across the cut)']],
+    eft:[['Amplitude','T = (1 − VG)⁻¹V, G_i = −(μ_i/2π)(2Λ/π + ik_i)','leading-order pionless EFT with a sharp cutoff'],['Channels','neutral and charged meson pairs, thresholds 8.2 MeV (X) or 1.4 MeV (T_cc) apart','V₀ (I = 0) fitted to the binding; V₁ (I = 1) optional'],['Widths','k_i = √(2μ_i(E − Δ_i + iΓ_i/2))','the D* widths make the bound state quasi-bound']],
+    uq:[['Amplitude','propagator 1/[E − E₀ − Σ(E)]','a bare qq̄ state dressed by meson–meson loops (unquenched quark model)'],['Self-energy','Σ(E) = Σ_c ∫ 2μ_c f_c(q)/(q_c² − q²) dq, f_c = g²γ_c q²ᴸ⁺²exp(−2q²/β²)','form factor of the ³P₀ type'],['Method','contour rotation q → texp(−0.35i)','one formula for the physical sheet on the real axis and the second sheet below it']],
+    km:[['Amplitude','T = (1 − iKρ)⁻¹K, K_ij = Σ_α g_αig_αj/(m_α² − s) + f_ij','unitary for real K; ρ_i = 2q_i/√s, analytic below threshold'],['Production','F = (1 − iKρ)⁻¹P, P_j = Σ_α β_αg_αj/(m_α² − s)','the P-vector of Aitchison (1972)']]}[p]||[];
+  $('cc-model').innerHTML=M.map(x=>ri(...x)).join('');}
+function drawCC(){const D=ST.cc,cv=$('c-cc'),ctx=bg(cv),B=BOX,pl=$('cc-plot').value;if(!D)return noData(ctx,B,'Press Compute.');
+  if(D.p==='cu'){const x=D.rows.map(r=>r.W*1000),n=D.M.ch.length;
+    if(pl==='ls'){const ser=[];for(let i=0;i<n;i++)for(let j=i;j<n;j++){ser.push({x,y:D.rows.map(r=>(r.T[i][j][0]**2+r.T[i][j][1]**2)*Math.sqrt(r.rho[i]*r.rho[j])*1e3),c:WP[ser.length],w:2,lab:`${D.M.ch[i].k} → ${D.M.ch[j].k}`});}
+      chart(ctx,B,{series:ser,title:`${D.M.lab}: |T_ij|² √(ρ_iρ_j) (arbitrary units)`,xlab:'√s (MeV)',ylab:'|T|² ρ',vl:D.M.ch.map(c=>({x:(c.m+c.M)*1000,lab:c.k}))});return;}
+    if(pl==='ph'){const ser=[];for(let i=0;i<n;i++){ser.push({x,y:D.rows.map(r=>{const S=r.S[i][i],a=Math.atan2(S[1],S[0])/2;return a*180/Math.PI;}),c:WP[i],w:2,lab:`δ(${D.M.ch[i].k}) (mod 180°)`});ser.push({x,y:D.rows.map(r=>cabs(r.S[i][i])*100),c:WP[i],w:1.4,d:true,lab:`inelasticity η × 100`});}
+      chart(ctx,B,{series:ser,title:'Phase shifts (degrees, modulo 180) and inelasticities',xlab:'√s (MeV)',ylab:'δ (°), 100η'});return;}
+    const ser=D.poles.map((q,i)=>({x:[q.z[0]*1000],y:[q.z[1]*1000],c:WP[i],w:0,pts:true,lab:`${(q.z[0]*1000).toFixed(0)} − ${(-q.z[1]*1000).toFixed(0)}i MeV`}));D.M.ch.forEach((c,i)=>ser.push({x:[(c.m+c.M)*1000,D.M.W[1]*1000+100],y:[0,0],c:WP[4+i],w:3,lab:`${c.k} cut`}));
+    chart(ctx,B,{series:ser,title:'Poles in the complex √s plane (below the cuts: unphysical sheets)',xlab:'Re √s (MeV)',ylab:'Im √s (MeV)',xr:[D.M.W[0]*1000-50,D.M.W[1]*1000+50],yr:[Math.min(...D.poles.map(q=>q.z[1]*1000))*1.4-10,20]});return;}
+  if(D.p==='eft'){const x=D.rows.map(r=>r.E);if(pl==='ls'){chart(ctx,B,{series:D.ch.map((c,i)=>({x,y:D.rows.map(r=>(r.F[i][0]**2+r.F[i][1]**2)*r.k[i]),c:WP[i],w:2.2,lab:`${c.k}: |F|² k`})),title:'Production line shapes above the thresholds (short-distance source)',xlab:'E − E(first threshold) (MeV)',ylab:'rate (arb.)',vl:D.ch.map(c=>({x:c.D,lab:c.k}))});return;}
+    if(pl==='ph'){const bs=[0.01,0.02,0.05,0.1,0.2,0.4,0.8,1.5,3],X=bs.map(b=>{const V0=eftFitV0Gen(D.ch,b,num('cc-r1'),D.Lam);return eftResidue(D.ch,-b,V0,V0*num('cc-r1'),D.Lam).X;});
+      chart(ctx,B,{series:[{x:bs,y:X.map(v=>v[0]),c:WP[0],w:2,lab:D.ch[0].k},{x:bs,y:X.map(v=>v[1]),c:WP[1],w:2,lab:D.ch[1].k}],title:'Compositeness of each channel vs binding: the nearer channel dominates a shallow state',xlab:'binding B (MeV)',ylab:'X_i',xlog:true,vl:[{x:D.B,lab:'B'}]});return;}
+    const pw=D.poleW.z;chart(ctx,B,{series:[{x:[pw[0]],y:[pw[1]*1000],c:WP[0],w:0,pts:true,lab:`with widths: ${fp(pw[0]*1000,4)} − ${fp(-pw[1]*1000,3)}i keV`},{x:[-D.B],y:[0],c:WP[1],w:0,pts:true,lab:'without widths'},{x:[0,3],y:[0,0],c:WP[4],w:3,lab:'cut'}],title:'Pole of the molecule (energies relative to the first threshold)',xlab:'Re E (MeV)',ylab:'Im E (keV)',xr:[-2*D.B-0.1,1],yr:[-100,20]});return;}
+  if(D.p==='uq'){const x=D.sp.map(r=>r.E*1000);if(pl==='ls'){const ser=[{x,y:D.sp.map(r=>r.A),c:WP[0],w:2.4,lab:'spectral function A(E)'}];D.M.ch.forEach((c,i)=>ser.push({x,y:D.sp.map(r=>r.part[i]),c:WP[i+1],w:1.6,d:true,lab:c.k}));
+      chart(ctx,B,{series:ser,title:'Dressed state: −(1/π) Im 1/[E − E₀ − Σ(E)] and the channel contributions',xlab:'E (MeV)',ylab:'A (1/GeV)',vl:D.M.ch.map(c=>({x:(c.m1+c.m2)*1000,lab:c.k}))});return;}
+    if(pl==='ph'){chart(ctx,B,{series:[{x,y:D.sp.map(r=>r.S[0]*1000),c:WP[0],w:2.2,lab:'Re Σ (mass shift)'},{x,y:D.sp.map(r=>-2*r.S[1]*1000),c:WP[1],w:2.2,lab:'−2 Im Σ (width)'},{x,y:D.sp.map(r=>(r.E-D.M.E0)*1000),c:'#9aa4b2',w:1,d:true,lab:'E − E₀'}],title:'Self-energy: the pole sits where E − E₀ − Σ(E) = 0',xlab:'E (MeV)',ylab:'MeV'});return;}
+    if(!D.traj)return noData(ctx,B,'Press "Trajectory" to follow the pole as the coupling is scaled by λ = 0 … 2.');const T=D.traj,il=+$('cc-lam').value;
+    chart(ctx,B,{series:[{x:T.map(q=>q.z[0]*1000),y:T.map(q=>q.z[1]*1000),c:WP[0],w:2,lab:'pole as g → λg'},{x:[T[Math.min(il,T.length-1)].z[0]*1000],y:[T[Math.min(il,T.length-1)].z[1]*1000],c:'#f5a623',w:0,pts:true,lab:`λ = ${T[Math.min(il,T.length-1)].lam.toFixed(2)}`},...D.M.ch.map((c,i)=>({x:[(c.m1+c.m2)*1000,(c.m1+c.m2)*1000+300],y:[0,0],c:WP[3+i],w:3,lab:c.k+' cut'}))],title:'Pole trajectory: from the bare state (λ = 0) into the complex plane',xlab:'Re E (MeV)',ylab:'Im E (MeV)'});return;}
+  if(D.p==='km'){const x=D.rows.map(r=>r.W*1000);if(pl==='ls'){chart(ctx,B,{series:[{x,y:D.rows.map(r=>(r.A.F[0][0]**2+r.A.F[0][1]**2)*cabs(r.A.rho[0])),c:WP[0],w:2.2,lab:'production |F_ππ|² ρ_ππ'},{x,y:D.rows.map(r=>(r.A.T[0][0][0]**2+r.A.T[0][0][1]**2)*cabs(r.A.rho[0])**2*4),c:WP[1],w:1.8,d:true,lab:'scattering 4ρ²|T_ππ|² (≤ 1)'}],title:'One set of poles, two line shapes',xlab:'√s (MeV)',ylab:'(arb.)',vl:D.M.ch.map(c=>({x:(c.m1+c.m2)*1000,lab:c.k}))});return;}
+    if(pl==='ph'){chart(ctx,B,{series:[{x,y:D.rows.map(r=>{const t=cmul(csc(2,r.A.rho[0]),r.A.T[0][0]),S=cadd([1,0],cmul([0,1],t));return (Math.atan2(S[1],S[0])/2*180/Math.PI+180)%180;}),c:WP[0],w:2.2,lab:'δ_ππ (degrees, mod 180)'},{x,y:D.rows.map(r=>{const t=cmul(csc(2,r.A.rho[0]),r.A.T[0][0]);return cabs(cadd([1,0],cmul([0,1],t)))*100;}),c:WP[1],w:1.8,d:true,lab:'η × 100'}],title:'ππ phase shift and inelasticity',xlab:'√s (MeV)',ylab:'δ (°), 100η'});return;}
+    chart(ctx,B,{series:D.poles.map((q,i)=>({x:[q.z[0]*1000],y:[q.z[1]*1000],c:WP[i],w:0,pts:true,lab:`${(q.z[0]*1000).toFixed(0)} − ${(-q.z[1]*1000).toFixed(0)}i MeV`})),title:'Poles of the K-matrix amplitude',xlab:'Re √s (MeV)',ylab:'Im √s (MeV)',xr:[800,1700],yr:[-150,10]});}}
+async function ccTraj(){const D=ST.cc;if(!D||D.p!=='uq'){msg('cc-msg',[['warn','The trajectory is available for the unquenched model: compute it first.']]);return;}
+  const M=D.M,T=[];let z=[M.E0,-1e-4];for(let k=0;k<=40;k++){const lam=0.02+2*k/40,Mk=Object.assign({},M,{g:M.g*lam}),r=uqPole(Mk,z);if(r.ok||k===0){z=r.z;}T.push({lam,z:r.z,ok:r.ok});if(k%5===0){msg('cc-msg',[['info',`Following the pole: λ = ${lam.toFixed(2)}…`]]);await frame();}}
+  D.traj=T;$('cc-plot').value='pole';$('cc-lam').max=T.length-1;$('cc-lam').value=Math.round(T.length/2);drawCC();msg('cc-msg',[['ok','Drag the slider to move along the trajectory. λ = 1 is the fitted coupling.']]);}
+(function ccInit(){$('qm-p').onchange=qmFields;$('qm-run').onclick=qmRun;$('qm-plot').onchange=drawQM;$('cc-p').onchange=ccFields;['cc-cu','cc-eft','cc-uq'].forEach(id=>$(id).onchange=ccLoad);$('cc-run').onclick=ccRun;$('cc-plot').onchange=drawCC;$('cc-play').onclick=ccTraj;
+  $('cc-lam').oninput=()=>{const D=ST.cc;if(D&&D.traj){$('cc-laml').textContent='λ = '+D.traj[Math.min(+$('cc-lam').value,D.traj.length-1)].lam.toFixed(2);drawCC();}};qmFields();ccFields();})();
+
+// ===================== particle app, interface (2): Lattice & kinematics and Nucleons, atoms, electroweak tabs; ISR in e⁺e⁻ =====================
+const FV_PLOTS={lus:{main:'energy levels E_n(L) in the box (dashed: free levels)',aux:'k cot δ from the box levels (points) vs the input (line)'},
+  tri:{main:'|I(√s)|²: the triangle peak, with and without the K* width',aux:'phase and Argand diagram of the loop I(√s)'},
+  dz:{main:'Dalitz plot density |A|² in m²(K⁻π⁺) × m²(K⁻π⁺)',aux:'projections: m²(K⁻π⁺) low and high combination'}};
+const FV_SYS={d:{a:5.419,r:1.753,mu:469.46,lab:'np ³S₁ (deuteron bound by 2.22 MeV)'},s:{a:-23.74,r:2.77,mu:469.46,lab:'np ¹S₀ (virtual state at −0.07 MeV)'},pp:{a:0.0635,r:0,mu:69.785,lab:'ππ I = 2 (a m_π = −0.044 in the particle convention: weak repulsion)'},c:null};
+function fvFields(){pFields('fv','fv-p');const p=$('fv-p').value;$('fv-plot').innerHTML=Object.entries(FV_PLOTS[p]).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');fvSys();fvModel();}
+function fvSys(){const S=FV_SYS[$('fv-sys').value];if(S){$('fv-a').value=S.a;$('fv-r').value=S.r;$('fv-mu').value=S.mu;}}
+function fvRun(){const p=$('fv-p').value,t0=performance.now();try{
+    if(p==='lus'){const a=num('fv-a'),r0=num('fv-r'),mu=num('fv-mu'),L0=num('fv-L0'),L1=num('fv-L1'),nl=Math.max(1,Math.min(6,Math.round(num('fv-n'))));if(!(L1>L0&&L0>0))throw new Error('Give 0 < L_from < L_to.');
+      const kc=k2=>-1/a+0.5*r0*k2,Kmax=r0>0?1/r0:5,Ls=Array.from({length:33},(_,i)=>L0+(L1-L0)*i/32),lev=Ls.map(L=>lusLevels(kc,mu,L,nl+1).filter(l=>l.k2>-Kmax*Kmax).slice(0,nl)),pts=[];/* the second root of the effective-range form at κ ≈ 2/r₀ is outside its range: dropped */
+      lev.forEach((ls,i)=>ls.forEach(l=>{const L=Ls[i];pts.push({k2:l.k2,kc:2/(Math.sqrt(Math.PI)*L)*z00(l.q2)});}));
+      const kap=a>0&&r0<a?(1-Math.sqrt(Math.max(0,1-2*r0/a)))/r0||1/a:NaN,EB=isFinite(kap)?-kap*kap*HC_M*HC_M/(2*mu):NaN;
+      ST.fv={p,a,r0,mu,Ls,lev,pts,EB,kap};msg('fv-msg',[['info',`Lüscher's quantisation condition k cot δ₀(k) = 2Z₀₀(1; q²)/(√π L), q = kL/2π, solved in each interval between free levels (${(performance.now()-t0).toFixed(0)} ms).`]]);}
+    if(p==='tri'){const P=Object.assign({},TRI_MODELS[$('fv-tri').value],{G2:Math.max(0,num('fv-G2'))/1000}),n=260,Ws=Array.from({length:n},(_,i)=>P.W[0]+(P.W[1]-P.W[0])*i/(n-1));
+      const I=Ws.map(W=>triLoop(W,P)),I0=Ws.map(W=>triLoop(W,Object.assign({},P,{G2:0.005}))),ts=triTS(P,P.W[0],P.W[1]);let im=0;I.forEach((z,i)=>{if(cabs(z)>cabs(I[im]))im=i;});
+      ST.fv={p,P,Ws,I,I0,ts,peak:Ws[im]};msg('fv-msg',[['info',`Non-relativistic triangle loop with the angular integral done analytically (${(performance.now()-t0).toFixed(0)} ms). ${P.ref}.`]]);}
+    if(p==='dz'){const cs={c:[[1,0],[num('fv-c1r'),num('fv-c1i')],[num('fv-c2r'),num('fv-c2i')]],nr:[num('fv-nr'),num('fv-ni')]},{M,mK,mpi}=DZ,lo=(mK+mpi)**2,hi=(M-mpi)**2,n=170,grid=[];let mx=0;
+      for(let i=0;i<n;i++){const s12=lo+(hi-lo)*(i+0.5)/n,row=[];const kin=dzKin(s12);for(let j=0;j<n;j++){const s13=lo+(hi-lo)*(j+0.5)/n;if(!kin||s13<kin[0]||s13>kin[1]){row.push(NaN);continue;}const A=dzAmp(s12,s13,cs),v=A[0]*A[0]+A[1]*A[1];row.push(v);mx=Math.max(mx,v);}grid.push(row);}
+      /* fit fractions: |c_r BW_r (sym)|² / |A|² integrated over the plot */const ff=DZ.res.map((r,ri)=>{let a=0,t=0;for(let i=0;i<n;i++){const s12=lo+(hi-lo)*(i+0.5)/n;for(let j=0;j<n;j++){if(!isFinite(grid[i][j]))continue;const s13=lo+(hi-lo)*(j+0.5)/n,one={c:cs.c.map((c,k)=>k===ri?c:null),nr:[0,0]},A=dzAmp(s12,s13,one);a+=A[0]*A[0]+A[1]*A[1];t+=grid[i][j];}}return a/t;});
+      let ffn=0,tt=0;for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(isFinite(grid[i][j])){ffn+=cs.nr[0]**2+cs.nr[1]**2;tt+=grid[i][j];}ffn/=tt;
+      ST.fv={p,grid,mx,lo,hi,n,cs,ff,ffn};msg('fv-msg',[['info',`Isobar model on a ${n} × ${n} grid, symmetrised in the two identical π⁺ (${(performance.now()-t0).toFixed(0)} ms).`]]);}
+    fvTables();fvModel();drawFV();}catch(e){msg('fv-msg',[['bad',e.message]]);console.error(e);}}
+function fvTables(){const D=ST.fv;if(!D)return;let t='',o='';
+  if(D.p==='lus'){const Li=[0,8,16,24,32];t='<table><tr><th>L (fm)</th>'+D.lev[0].map((_,n)=>`<th>E_${n} (MeV)</th>`).join('')+'</tr>'+Li.map(i=>`<tr><td>${D.Ls[i].toFixed(2)}</td>${D.lev[i].map(l=>`<td>${fp(l.E,5)}</td>`).join('')}</tr>`).join('')+'</table>';
+    o=ri('Small-a expansion of the lowest level',`ΔE ≈ (2πa/μL³)[1 + 2.8373 a/L + 6.3752 (a/L)²]`,'a gentle check of Z₀₀ (Validation tab); valid only for |a| ≪ L');
+    if(isFinite(D.EB))o+=ri('Bound state in infinite volume',`${fp(D.EB,5)} MeV`,'in the box the bound level sits deeper by ΔE ≈ −(3|A|²/μL) exp(−κL): exponentially small finite-volume effects');
+    o+=ri('Lattice QCD practice','compute E_n(L) in a box → k cot δ₀ at those energies → poles','the only systematic way to resonances and bound states from lattice QCD');}
+  if(D.p==='tri'){o=ri('Peak of |I|²',`${(D.peak*1000).toFixed(1)} MeV`,'no resonance in the a₁ → f₀π channel: the peak comes from the triangle kinematics')+ri('Landau condition (closest approach)',`${(D.ts.E*1000).toFixed(1)} MeV`,'all three intermediate particles on shell and moving collinearly (Coleman–Norton): a classical rescattering process');
+    o+=ri('Role of the K* width','smooths the logarithmic singularity into a peak','set Γ = 0 to see it sharpen; a genuine resonance would not depend on the width of another particle');}
+  if(D.p==='dz'){t='<table><tr><th>component</th><th>fit fraction</th></tr>'+DZ.res.map((r,i)=>`<tr><td>${r.k}</td><td>${fp(D.ff[i]*100,4)} %</td></tr>`).join('')+`<tr><td>non-resonant</td><td>${fp(D.ffn*100,4)} %</td></tr><tr><td>sum</td><td>${fp((D.ff.reduce((a,b)=>a+b,0)+D.ffn)*100,4)} %</td></tr></table>`;
+    o=ri('Fit fractions need not add up to 100 %','interference between overlapping bands','the sum differs from 100 % by the interference terms; Bose symmetry of the two π⁺ doubles every band')+ri('Spin of the K*','P wave: |A|² ∝ cos²θ along the band (a node in the middle)','the K₀*(1430) S wave has no node: the Dalitz plot measures spins');}
+  $('fv-tab').innerHTML=t;$('fv-res').innerHTML=o;}
+function fvModel(){const p=$('fv-p').value,M={lus:[['Quantisation condition','k cot δ₀(k) = 2Z₀₀(1; q²)/(√πL), q = kL/2π','Lüscher 1986/1991: S wave, rest frame, below inelastic thresholds'],['Zeta function','Z₀₀(1; q²) = (1/√4π) Σ_n (n² − q²)⁻¹ (continued)','heat-kernel splitting with Poisson resummation; √4π Z₀₀ → −1/q² − 8.9136… as q² → 0'],['Input','effective range: k cot δ₀ = −1/a + r₀k²/2','nuclear sign: a > 0 for a bound state or repulsion']],
+    tri:[['Loop','I(E) = ∫d³q/(2π)³ 1/[(E − m₁ − m₂ − q²/2μ₁₂ + iΓ₂/2)(E − E_B − m₁ − m₃ − q²/2m₁ − (q + p_B)²/2m₃)]','non-relativistic, angular integration analytic'],['Singularity','logarithmic branch point on the physical boundary','when the Landau equations have a solution with all internal particles on shell']],
+    dz:[['Amplitude','A = Σ_r c_r [BW_r(m²₁₂) Z_r + BW_r(m²₁₃) Z_r] + c_NR','Bose-symmetrised in the two π⁺; Zemach factor Z for the P waves'],['Line shape','Breit–Wigner with Blatt–Weisskopf barrier, R = 1.5 GeV⁻¹','mass-dependent widths']]}[p]||[];$('fv-model').innerHTML=M.map(x=>ri(...x)).join('');}
+function drawFV(){const D=ST.fv,cv=$('c-fv'),ctx=bg(cv),B=BOX,pl=$('fv-plot').value;if(!D)return noData(ctx,B,'Press Compute.');
+  if(D.p==='lus'){if(pl==='aux'){const ks=Array.from({length:200},(_,i)=>-0.05+(Math.max(...D.pts.map(p=>p.k2))+0.05)*i/199);chart(ctx,B,{series:[{x:ks,y:ks.map(k=>-1/D.a+0.5*D.r0*k),c:WP[0],w:2,lab:'input k cot δ₀'},{x:D.pts.map(p=>p.k2),y:D.pts.map(p=>p.kc),c:'#f5a623',w:0,pts:true,lab:'from the box levels: 2Z₀₀/(√πL)'}],title:'The inverse problem: phase shifts from finite-volume energies',xlab:'k² (fm⁻²)',ylab:'k cot δ₀ (fm⁻¹)',yr:[-1/D.a-1.5,-1/D.a+1.5]});return;}
+    const nl=D.lev[0].length,ser=[];for(let n=0;n<nl;n++)ser.push({x:D.Ls,y:D.lev.map(l=>l[n]?l[n].E:NaN),c:WP[n%8],w:2.2,lab:`level ${n}`});
+    [0,1,2,3].forEach(m=>ser.push({x:D.Ls,y:D.Ls.map(L=>m*(2*Math.PI/L)**2*HC_M*HC_M/(2*D.mu)),c:'#9aa4b2',w:1,d:true,lab:m?'':'free levels n² (2π/L)²/2μ'}));if(isFinite(D.EB))ser.push({x:D.Ls,y:D.Ls.map(()=>D.EB),c:'#ff6b6b',w:1,d:true,lab:'infinite-volume bound state'});
+    chart(ctx,B,{series:ser,title:'Two-particle energies in a periodic box',xlab:'L (fm)',ylab:'E (MeV)',yr:[Math.min(isFinite(D.EB)?D.EB*1.5:0,...D.lev.map(l=>l[0]?l[0].E:0))-0.5,Math.max(...D.lev[0].map((_,n)=>D.lev[0][n]?D.lev[0][n].E:0))*1.1+1]});return;}
+  if(D.p==='tri'){const x=D.Ws.map(W=>W*1000);if(pl==='aux'){chart(ctx,B,{series:[{x:D.I.map(z=>z[0]),y:D.I.map(z=>z[1]),c:WP[0],w:2,lab:'I(√s) in the complex plane'}],title:'Argand diagram of the triangle loop: it circles like a resonance',xlab:'Re I',ylab:'Im I'});return;}
+    const n=v=>{const m=Math.max(...v);return v.map(x=>x/m);};chart(ctx,B,{series:[{x,y:n(D.I.map(z=>z[0]*z[0]+z[1]*z[1])),c:WP[0],w:2.4,lab:`|I|², Γ(K*) = ${num('fv-G2')} MeV`},{x,y:n(D.I0.map(z=>z[0]*z[0]+z[1]*z[1])),c:WP[1],w:1.5,d:true,lab:'Γ(K*) = 5 MeV'}],title:'Triangle singularity: a peak near 1.42 GeV without a resonance',xlab:'√s (MeV)',ylab:'|I|² (normalised)',vl:[{x:D.ts.E*1000,lab:'Landau'},{x:(D.P.m1+D.P.m2)*1000,lab:'K*K̄ threshold'}]});return;}
+  if(D.p==='dz'){const {grid,n,lo,hi,mx}=D;if(pl==='aux'){const xs=Array.from({length:n},(_,i)=>lo+(hi-lo)*(i+0.5)/n),pl1=Array(n).fill(0),pl2=Array(n).fill(0);for(let i=0;i<n;i++)for(let j=0;j<n;j++){const v=grid[i][j];if(!isFinite(v))continue;const a=Math.min(i,j),b=Math.max(i,j);pl1[a]+=v;pl2[b]+=v;}
+      chart(ctx,B,{series:[{x:xs,y:pl1,c:WP[0],w:2,lab:'lower m²(K⁻π⁺)'},{x:xs,y:pl2,c:WP[1],w:2,lab:'higher m²(K⁻π⁺)'}],title:'Projections of the Dalitz plot',xlab:'m²(K⁻π⁺) (GeV²)',ylab:'events (arb.)'});return;}
+    const P={x0:200,y0:30,x1:680,y1:510},w=(P.x1-P.x0)/n,h=(P.y1-P.y0)/n;for(let i=0;i<n;i++)for(let j=0;j<n;j++){const v=grid[i][j];if(!isFinite(v))continue;const t=Math.pow(v/mx,0.5),c=Math.round(255*t);ctx.fillStyle=`rgb(${Math.round(20+235*t)},${Math.round(30+150*t*t)},${Math.round(60+60*(1-t))})`;ctx.fillRect(P.x0+i*w,P.y1-(j+1)*h,w+0.6,h+0.6);}
+    chart(ctx,P,{series:[{x:[lo,hi],y:[lo,lo],c:'rgba(0,0,0,0)',w:0}],title:'D⁺ → K⁻π⁺π⁺ (symmetric in the two π⁺)',xlab:'m²(K⁻π⁺₁) (GeV²)',ylab:'m²(K⁻π⁺₂) (GeV²)',xr:[lo,hi],yr:[lo,hi],legend:false});
+    ctx.fillStyle='#c9d1dc';ctx.font='12px Inter,system-ui,sans-serif';ctx.fillText('bands: K̄*(892) at m² ≈ 0.80, K̄₀*(1430) at ≈ 2.0 GeV²',700,80);}}
+
+/* ======================= Nucleons, atoms, electroweak ======================= */
+const NN_PLOTS={d:{main:'deuteron wavefunctions u(r) (S) and w(r) (D)',aux:'potentials: central, tensor (OPEP + short range)'},s:{main:'¹S₀ phase shift δ(k) and the effective-range form',aux:'k cot δ vs k²: the virtual-state pole at k = −iκ'},
+  at:{main:'Coulomb + strong levels: shifts and widths of 1s and 2p',aux:'the Kα X-ray line (2p → 1s): strong shift and width'},w:{main:'transverse-mass distribution: the Jacobian peak at M_W',aux:'sensitivity: M_W ± 100 MeV'},h:{main:'m(4ℓ) line shape: peak and off-shell tail (log scale)',aux:'the running width Γ_H→ZZ*(m) and the 2M_Z threshold'}};
+const NN_AT={pi:{m1:139.57039,m2:938.272,V0:76.6266,W:4.075,b:0.8,exp:'measured ε₁s = −7.086 eV (attractive), Γ₁s = 0.856 eV (Hennebach et al. 2014, Hirtl et al. 2021)'},
+  K:{m1:493.677,m2:938.272,V0:580.36,W:120,b:0.66,exp:'SIDDHARTA: shift 283 eV upward (repulsive-like), Γ = 541 eV'},pbar:{m1:938.272,m2:938.272,V0:68.8586,W:156.9635,b:1.0,exp:'PS207 (spin-averaged): 721 eV upward, Γ = 1097 eV'},
+  Kd:{m1:493.677,m2:1875.613,V0:31.1999,W:146.3304,b:1.5,exp:'theory (e.g. Hoshino et al. 2017): about 670–800 eV upward, Γ ≈ 750–1000 eV; SIDDHARTA-2 is measuring it'}};
+function nnFields(){pFields('nn','nn-p');const p=$('nn-p').value;$('nn-plot').innerHTML=Object.entries(NN_PLOTS[p]).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');nnAt();nnModel();}
+function nnAt(){const A=NN_AT[$('nn-at').value];$('nn-m1').value=A.m1;$('nn-m2').value=A.m2;$('nn-V0').value=A.V0;$('nn-W').value=A.W;$('nn-bb').value=A.b;}
+let NN_BUSY=false;
+async function nnRun(){if(NN_BUSY)return;NN_BUSY=true;$('nn-run').disabled=true;const p=$('nn-p').value,t0=performance.now();try{
+    if(p==='d'){msg('nn-msg',[['info','Fitting the short-range depth to the deuteron binding…']]);await frame();const P={Rc:num('nn-Rc'),tf:num('nn-tf'),b:num('nn-b'),R:20,N:800},d=deutFit(P,2.22457);
+      ST.nn={p,P,d};msg('nn-msg',[['info',`Coupled ³S₁–³D₁ equations on an 800-point grid (2 × 2 block-tridiagonal), inverse iteration; depth fitted by bisection (${((performance.now()-t0)/1000).toFixed(1)} s).`]]);}
+    if(p==='s'){const P={Rc:num('nn-Rc1'),b:num('nn-b1')};P.Vs=nn1S0Fit(P,-23.74);const r=nn1S0r0(P),ks=Array.from({length:120},(_,i)=>2+400*i/119),dl=ks.map(k=>r.dl(k));
+      const kap=(1-Math.sqrt(1-2*r.r0/r.a))/r.r0,Ev=-kap*kap*NN.hm;ST.nn={p,P,r,ks,dl,kap,Ev};msg('nn-msg',[['info',`Single channel, depth fitted to a = −23.74 fm (${(performance.now()-t0).toFixed(0)} ms).`]]);}
+    if(p==='at'){const s={m1:num('nn-m1'),m2:num('nn-m2'),t:'gau',b:num('nn-bb'),V0:num('nn-V0'),W:num('nn-W')},L1=hatLevel(s,0,1),L2=hatLevel(s,1,2),L3=hatLevel(Object.assign({},s,{V0:s.V0,W:s.W}),2,3);
+      const sl=scatLen({m1:s.m1,m2:s.m2,t:'gau',b:s.b,V0:s.V0,W:s.W,zz:0}),mu=s.m1*s.m2/(s.m1+s.m2),aF=[sl[0],sl[1]],ds=cmul([2*ALPHA**3*mu*mu/HC_M,0],cmul(aF,cadd([1,0],csc(2*ALPHA*mu/HC_M*(Math.log(ALPHA)-1),aF))));
+      ST.nn={p,s,L1,L2,L3,ds,A:NN_AT[$('nn-at').value]};msg('nn-msg',[['info',`Complex Coulomb + optical potential: log-grid Numerov, outward and inward solutions matched, secant in complex E (${(performance.now()-t0).toFixed(0)} ms).`]]);}
+    if(p==='w'){const MW=num('nn-MW'),GW=num('nn-GW'),n=Math.max(2e4,Math.min(1e6,Math.round(num('nn-nev')))),hist=(arr)=>{const nb=120,lo=40,hi=100,h=Array(nb).fill(0);arr.forEach(v=>{const i=Math.floor((v-lo)/(hi-lo)*nb);if(i>=0&&i<nb)h[i]++;});return h.map(x=>x/arr.length/((hi-lo)/nb));};
+      const H=hist(wMT(MW,GW,n,7)),H0=hist(wMT(MW,0.001,n,7)),Hp=hist(wMT(MW+0.1,GW,n,7)),Hm=hist(wMT(MW-0.1,GW,n,7)),x=Array.from({length:120},(_,i)=>40+60*(i+0.5)/120);ST.nn={p,MW,GW,n,H,H0,Hp,Hm,x};
+      msg('nn-msg',[['info',`${n} W decays (Breit–Wigner mass, V − A angular distribution, W at rest: no recoil, no detector smearing) in ${(performance.now()-t0).toFixed(0)} ms.`]]);}
+    if(p==='h'){const P={MH:num('nn-MH'),GH:num('nn-GH')/1000,lum:num('nn-lum')},ms=[];for(let m=100;m<=600;m+=m<130?0.02:1)ms.push(m);const y=ms.map(m=>hLine(m,P));let tot=0,off=0;for(let i=1;i<ms.length;i++){const dm=ms[i]-ms[i-1],v=0.5*(y[i]+y[i-1])*dm;tot+=v;if(ms[i]>2*91.1876)off+=v;}
+      ST.nn={p,P,ms,y,off:off/tot};msg('nn-msg',[['info',`Line shape with the running width Γ_H→ZZ*(m) and a gluon-luminosity factor m⁻ⁿ (${(performance.now()-t0).toFixed(0)} ms).`]]);}
+    nnTables();nnModel();drawNN();}catch(e){msg('nn-msg',[['bad',e.message]]);console.error(e);}finally{NN_BUSY=false;$('nn-run').disabled=false;}}
+function nnTables(){const D=ST.nn;if(!D)return;let t='',o='';
+  if(D.p==='d'){const d=D.d,row=(k,v,e,u)=>`<tr><td>${k}</td><td>${v}</td><td>${e}</td><td>${u}</td></tr>`;t='<table><tr><th>quantity</th><th>model</th><th>measured</th><th></th></tr>'+row('binding B',fp(-d.E,6)+' MeV','2.224575 MeV','fitted')+row('D-state probability P_D',fp(d.PD*100,4)+' %','not observable','4–7 % in realistic potentials')+row('quadrupole moment Q',fp(d.Q,4)+' fm²','0.2859 fm²','tensor force')+row('asymptotic D/S ratio η',fp(d.eta,4),'0.0256','from w/u at large r')+row('matter radius r_m',fp(d.rm,4)+' fm','1.967 fm','')+row('asymptotic S normalisation A_S',fp(Math.abs(d.AS),4)+' fm⁻¹ᐟ²','0.8845 fm⁻¹ᐟ²','')+'</table>';
+    o=ri('Short-range depth',`${fp(d.Vs,5)} MeV (Gaussian, b = ${D.P.b} fm)`,'fitted to the binding')+ri('Why Q ≠ 0','the tensor force of one-pion exchange mixes ³D₁ into the ³S₁ ground state','without it the deuteron would be spherical; with tensor scale 0 the D state and Q vanish');}
+  if(D.p==='s'){o=ri('Scattering length (fitted), effective range',`a = ${fp(D.r.a,5)} fm, r₀ = ${fp(D.r.r0,4)} fm`,'measured a = −23.74 fm, r₀ = 2.77 fm')+ri('Virtual state',`κ = ${fp(D.kap,4)} fm⁻¹, E = −${fp(-D.Ev,4)} MeV on the second sheet`,'pole at k = −iκ: not normalisable, but it makes the np ¹S₀ cross section near threshold enormous (σ = 4πa² ≈ 70 b)');}
+  if(D.p==='at'){const sh=L=>(L.E[0]-L.E0)*1e6,wd=L=>-2*L.E[1]*1e6;t='<table><tr><th>level</th><th>E_Coulomb (keV)</th><th>shift ε (eV)</th><th>width Γ (eV)</th></tr>'+[['1s',D.L1],['2p',D.L2],['3d',D.L3]].map(([k,L])=>`<tr><td>${k}</td><td>${(L.E0*1000).toFixed(4)}</td><td>${fp(sh(L),4)}</td><td>${fp(wd(L),4)}</td></tr>`).join('')+'</table>';
+    o=ri('Deser–Trueman with the computed scattering length',`ε − iΓ/2 = ${fp(D.ds[0]*1e6,4)} − ${fp(-D.ds[1]*1e6,4)}i eV`,'leading order in α; agreement with the exact 1s level tests both')+ri('Measured or predicted',D.A.exp,'positive ε here: level pushed up (repulsive-like), negative: pulled down')+
+      ri('2p strong shift','smaller by ≈ (r_strong/a_B)² … orders of magnitude','for heavy constituents the 2p width competes with the radiative 2p → 1s rate: the yield of the Kα line drops (kaonic deuterium, antiprotonic hydrogen)');}
+  if(D.p==='w'){let im=0;D.H.forEach((v,i)=>{if(v>D.H[im])im=i;});o=ri('Jacobian peak',`m_T peaks at ${D.x[im].toFixed(2)} GeV, edge at M_W = ${D.MW} GeV`,'dN/dm_T ∝ m_T/√(M² − m_T²) for a fixed mass: a square-root singularity smeared by Γ_W')+ri('Why m_T','the neutrino escapes: only its transverse momentum is measured (missing p_T)','CDF 2022, ATLAS 2024, CMS 2024 fit m_T, p_T^ℓ and p_T^ν templates; the edge position measures M_W');}
+  if(D.p==='h'){o=ri('Fraction of events above 2M_Z',fp(D.off*100,4)+' %','this simplified shape gives a percent-level tail; the full calculation with the gg luminosity and the continuum interference gives about 8 % for ZZ (Kauer and Passarino 2012). CMS and ATLAS use the on-shell/off-shell ratio to measure Γ_H')+ri('Total width',`${D.P.GH*1000} MeV`,'far below the detector resolution: the peak itself cannot measure it');}
+  $('nn-tab').innerHTML=t;$('nn-res').innerHTML=o;}
+function nnModel(){const p=$('nn-p').value,M={d:[['Hamiltonian','−(ħ²/m_N)∇² + V_C(r) + V_T(r) S₁₂','³S₁–³D₁ coupled: ⟨S₁₂⟩ = [[0, √8], [√8, −2]]'],['One-pion exchange','(f²/4π)(m_π/3)(τ·τ)[σ·σ Y(x) + S₁₂ T(x)], Y = exp(−x)/x, T = (1 + 3/x + 3/x²)Y','f²/4π = 0.075; regulated by (1 − exp(−(r/R_c)²))²'],['Short range','−V_s exp(−(r/b)²) (central)','V_s fitted to B = 2.2246 MeV']],
+    s:[['Hamiltonian','central OPEP (σ·σ = −3, τ·τ = 1) + Gaussian','single channel ¹S₀'],['Observables','a, r₀, virtual state','k cot δ = −1/a + r₀k²/2']],at:[['Potential','−Z₁Z₂αħc/r − (V₀ + iW) exp(−(r/b)²)','the imaginary part removes flux (absorption into other channels)'],['Method','complex eigenvalue by shooting','2p and 3d states include the centrifugal barrier']],
+    w:[['Kinematics','W at rest, m_T = 2p_T','no recoil, no detector: the ideal Jacobian peak'],['Angular distribution','(1 ± cos θ)² for the two helicities','V − A coupling']],h:[['Line shape','m²Γ(m)/[(m² − M²)² + M²Γ²] · (M/m)ⁿ','Γ_H→ZZ*(m) with one off-shell Z, integrated numerically'],['Caveat','no interference with gg → ZZ continuum, no detector','qualitative shape of the off-shell region']]}[p]||[];$('nn-model').innerHTML=M.map(x=>ri(...x)).join('');}
+function drawNN(){const D=ST.nn,cv=$('c-nn'),ctx=bg(cv),B=BOX,pl=$('nn-plot').value;if(!D)return noData(ctx,B,'Press Compute.');
+  if(D.p==='d'){const d=D.d;if(pl==='aux'){const r=Array.from({length:300},(_,i)=>0.05+5*i/299),o=r.map(x=>opep(x,1,-3,D.P.Rc));chart(ctx,B,{series:[{x:r,y:r.map((x,i)=>o[i].C-d.Vs*Math.exp(-((x/D.P.b)**2))),c:'#ff6b6b',w:2,lab:'central V_C'},{x:r,y:o.map(v=>v.T*D.P.tf),c:'#ff9f7a',w:2,d:true,lab:'tensor V_T'},{x:r,y:o.map(v=>v.C),c:'#9aa4b2',w:1,d:true,lab:'central OPEP alone'}],title:'Potentials in the ³S₁–³D₁ channel',xlab:'r (fm)',ylab:'V (MeV)',yr:[-200,50]});return;}
+    chart(ctx,B,{series:[{x:d.r,y:d.u,c:WP[0],w:2.4,lab:'u(r) (³S₁)'},{x:d.r,y:d.w,c:WP[1],w:2.2,lab:'w(r) (³D₁)'}],title:`Deuteron: P_D = ${fp(d.PD*100,3)} %, Q = ${fp(d.Q,3)} fm²`,xlab:'r (fm)',ylab:'u, w (fm⁻¹ᐟ²)',xr:[0,15]});return;}
+  if(D.p==='s'){if(pl==='aux'){const k2=D.ks.map(k=>(k/HC_M)**2),kc=D.ks.map((k,i)=>k/HC_M/Math.tan(D.dl[i]));chart(ctx,B,{series:[{x:k2,y:kc,c:WP[0],w:2.2,lab:'k cot δ (model)'},{x:k2,y:k2.map(q=>-1/D.r.a+0.5*D.r.r0*q),c:WP[1],w:1.5,d:true,lab:'effective-range form'}],title:'¹S₀: k cot δ against k²',xlab:'k² (fm⁻²)',ylab:'k cot δ (fm⁻¹)'});return;}
+    chart(ctx,B,{series:[{x:D.ks,y:D.dl.map(v=>(v<0?v+Math.PI:v)*180/Math.PI),c:WP[0],w:2.4,lab:'δ(¹S₀) (model)'}],title:'np ¹S₀ phase shift: large near threshold, no bound state',xlab:'k (MeV/c)',ylab:'δ (degrees)'});return;}
+  if(D.p==='at'){const L=[['1s',D.L1],['2p',D.L2],['3d',D.L3]];if(pl==='aux'){const a=D.L2,b=D.L1,E=(a.E[0]-b.E[0])*1e6,E0=(a.E0-b.E0)*1e6,G=-2*(a.E[1]+b.E[1])*1e6+1e-9,w=Math.max(5*G,1.5*Math.abs(E-E0),1e-3),xs=Array.from({length:600},(_,j)=>Math.min(E,E0)-w+(Math.abs(E-E0)+2*w)*j/599);
+      const ser=[{x:xs.map(x=>x-E0),y:xs.map(x=>(G/2)**2/((x-E)**2+(G/2)**2)),c:WP[0],w:2.2,lab:`2p → 1s: shifted by ${fp(E-E0,4)} eV, Γ = ${fp(G,4)} eV`}];
+      chart(ctx,B,{series:ser,title:`Kα line (2p → 1s) relative to the electromagnetic value ${fp(E0/1000,6)} keV`,xlab:'E_γ − E_γ(EM) (eV)',ylab:'intensity (arb.)',vl:[{x:0,lab:'EM'}]});return;}
+    chart(ctx,B,{series:L.map(([k,Lv],i)=>({x:[i+0.7,i+1.3],y:[(Lv.E[0]-Lv.E0)*1e6,(Lv.E[0]-Lv.E0)*1e6],c:WP[i],w:3,lab:`${k}: ε = ${fp((Lv.E[0]-Lv.E0)*1e6,3)} eV, Γ = ${fp(-2*Lv.E[1]*1e6,3)} eV`})),title:'Strong-interaction shifts of the hadronic-atom levels',xlab:'1s | 2p | 3d',ylab:'ε (eV)',xr:[0.4,3.6]});return;}
+  if(D.p==='w'){if(pl==='aux'){chart(ctx,B,{series:[{x:D.x,y:D.Hm,c:WP[0],w:2,lab:`M_W − 100 MeV`},{x:D.x,y:D.H,c:'#9aa4b2',w:1.4,d:true,lab:'M_W'},{x:D.x,y:D.Hp,c:WP[1],w:2,lab:`M_W + 100 MeV`}],title:'The edge moves with M_W: the basis of the W-mass measurement',xlab:'m_T (GeV)',ylab:'1/N dN/dm_T (GeV⁻¹)',xr:[70,90]});return;}
+    chart(ctx,B,{series:[{x:D.x,y:D.H,c:WP[0],w:2.4,lab:`Γ_W = ${D.GW} GeV`},{x:D.x,y:D.H0,c:WP[1],w:1.5,d:true,lab:'Γ_W → 0'}],title:'Transverse mass of W → ℓν',xlab:'m_T (GeV)',ylab:'1/N dN/dm_T (GeV⁻¹)',vl:[{x:D.MW,lab:'M_W'}]});return;}
+  if(D.p==='h'){if(pl==='aux'){const ms=D.ms.filter(m=>m>110),G=ms.map(m=>hLine(m,Object.assign({},D.P,{lum:0}))*((m*m-D.P.MH**2)**2+D.P.MH**2*D.P.GH**2)/(m*m));chart(ctx,B,{series:[{x:ms,y:G,c:WP[0],w:2.2,lab:'Γ_H→ZZ*(m) (arb.)'}],title:'The ZZ* width grows rapidly with m and jumps at 2M_Z',xlab:'m (GeV)',ylab:'Γ(m) (arb.)',ylog:true,vl:[{x:2*91.1876,lab:'2M_Z'}]});return;}
+    chart(ctx,B,{series:[{x:D.ms,y:D.y,c:WP[0],w:2,lab:'dσ/dm (arb.)'}],title:'H → ZZ* → 4ℓ: the narrow peak and the off-shell tail above 2M_Z',xlab:'m(4ℓ) (GeV)',ylab:'dσ/dm (arb.)',ylog:true,vl:[{x:2*91.1876,lab:'2M_Z'}]});}}
+
+/* ======================= initial-state radiation for e⁺e⁻ (Scattering tab) ======================= */
+const _eeRun0=eeRun;eeRun=function(){const r=_eeRun0.apply(this,arguments);if($('ee-isr')&&$('ee-isr').value==='1'&&ST.sc&&ST.sc.mode==='ee'){const D=ST.sc,e=D.e;
+    const sh=s=>['u','d','s','c','b'].reduce((a,f)=>a+eeXS(s,f,e).sig,0),sm=s=>eeXS(s,'mu',e).sig;
+    D.rows.forEach(R=>{const s=R.W*R.W,xm=Math.max(0,1-(0.3*0.3)/s);R.hadB=R.had;R.muB=R.mu;R.cont=isrConv(sh,s,xm);R.had=R.cont+(R.had-sh(s));R.mu=isrConv(sm,s,xm);});
+    const pk=D.rows.reduce((a,b)=>b.had>a.had?b:a,D.rows[0]);if(D.pl==='z'){$('sc-res').innerHTML=ri('With initial-state radiation',`peak σ_had = ${pk.had.toFixed(2)} nb at √s = ${pk.W.toFixed(3)} GeV`,'Born: 41.5 nb at M_Z; radiation lowers the peak by about 26 % and shifts it up by about 0.1 GeV, and adds the radiative tail above the peak')+$('sc-res').innerHTML;}
+    drawSC();}return r;};
+(function fvInit(){$('fv-p').onchange=fvFields;$('fv-sys').onchange=fvSys;$('fv-run').onclick=fvRun;$('fv-plot').onchange=drawFV;$('nn-p').onchange=nnFields;$('nn-at').onchange=nnAt;$('nn-run').onclick=nnRun;$('nn-plot').onchange=drawNN;fvFields();nnFields();})();
+// ===================== particle app: Tools tab (export, sweeps, fits), ported from the solid-state module =====================
+/* ---------- (1) every chart remembers its series, so any plot can be exported as CSV ---------- */
+const _bg0=bg,_chart0=chart;
+bg=function(cv){cv._charts=[];return _bg0(cv);};
+chart=function(ctx,B,o){if(o.vl)o=Object.assign({},o,{vl:o.vl.map(v=>v.t===undefined&&v.lab?Object.assign({},v,{t:v.lab}):v)});const cv=ctx.canvas;if(cv){(cv._charts=cv._charts||[]).push({title:o.title||'',xlab:o.xlab||'x',ylab:o.ylab||'y',series:(o.series||[]).filter(s=>s&&s.x&&s.x.length).map(s=>({lab:s.lab||'',x:Array.from(s.x),y:Array.from(s.y)}))});}return _chart0(ctx,B,o);};
+const csvQ=v=>{const t=String(v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+function chartCSV(cv){const C=cv._charts||[];if(!C.length)return '';const rows=[['panel','panel title','series','x quantity','x','y quantity','y']];
+  C.forEach((c,i)=>c.series.forEach((s,j)=>{const n=Math.min(s.x.length,s.y.length);for(let k=0;k<n;k++)rows.push([i+1,c.title,s.lab||('series '+(j+1)),c.xlab,s.x[k],c.ylab,s.y[k]]);}));
+  return rows.map(r=>r.map(csvQ).join(',')).join('\n');}
+const MODEL_OF={qq:['qq-tab','qq-lev','qq-e1'],mol:['mol-res','mol-tab'],res:['res-out'],sc:['sc-res'],qm:['qm-model','qm-res','qm-tab'],cc:['cc-model','cc-res','cc-tab'],fv:['fv-model','fv-res','fv-tab'],nn:['nn-model','nn-res','nn-tab'],tools:['tools-res','tools-tab']};
+function modelText(tab){const ids=MODEL_OF[tab]||[],sel=$(tab+'-preset'),out=[];if(sel&&sel.selectedIndex>=0)out.push('System: '+sel.options[sel.selectedIndex].text);
+  ids.forEach(id=>{const e=$(id);if(!e)return;e.querySelectorAll('.ri').forEach(r=>{const l=r.querySelector('.rl'),v=r.querySelector('.rv'),n=r.querySelector('.rn');out.push((l?l.innerText.trim():'')+': '+(v?v.innerText.trim():'')+(n?'  ('+n.innerText.trim().replace(/\s+/g,' ')+')':''));});
+    e.querySelectorAll('table').forEach(t=>{out.push('');t.querySelectorAll('tr').forEach(tr=>out.push(Array.from(tr.children).map(c=>c.innerText.trim()).join('\t')));});});
+  return out.join('\n');}
+function exportBar(){document.querySelectorAll('.tp canvas[id^="c-"]').forEach(cv=>{const tab=cv.id.slice(2),cc=cv.closest('.cc');if(!cc||cc.nextElementSibling&&cc.nextElementSibling.classList.contains('xbar'))return;
+  const d=document.createElement('div');d.className='btnrow xbar';d.innerHTML=`<button class="btn sm" data-x="csv">Export data (CSV)</button><button class="btn sm" data-x="png">Save plot (PNG)</button><button class="btn sm" data-x="model">Copy model and results</button><span class="hint xmsg"></span>`;cc.after(d);
+  const say=t=>{const s=d.querySelector('.xmsg');s.textContent=t;clearTimeout(s._t);s._t=setTimeout(()=>s.textContent='',4000);};
+  const plotName=()=>{const p=$(tab+'-plot');return 'pps_'+tab+(p&&p.value?'_'+p.value:'');};
+  d.querySelector('[data-x=csv]').onclick=()=>{const t=chartCSV(cv);if(!t){say('This plot has no tabulated series (draw a plot first).');return;}dl(plotName()+'.csv',t);say('CSV saved: one row per point (panel, series, x, y).');};
+  d.querySelector('[data-x=png]').onclick=()=>{const a=document.createElement('a');a.href=cv.toDataURL('image/png');a.download=plotName()+'.png';a.click();say('PNG saved ('+cv.width+' × '+cv.height+').');};
+  d.querySelector('[data-x=model]').onclick=async()=>{const t=modelText(tab);if(!t.trim()){say('Nothing to copy yet.');return;}
+    try{await navigator.clipboard.writeText(t);say('Model, results and tables copied as text.');}catch(e){dl(plotName()+'_model.txt',t);say('Clipboard not available: saved as a text file instead.');}};});}
+
+
+function goTab(t){const b=document.querySelector(`.tb[data-tab="${t}"]`);if(b)b.click();}
+
+
+
+/* ---------- registry of sweepable inputs and scalar outputs (particle module) ---------- */
+const labOf=id=>{const e=$(id);const l=e&&e.closest('.f2')?.querySelector('label');return l?l.innerText.replace(/\s+/g,' ').slice(0,60):id;};
+const pd=(D,i,k)=>{const q=D&&D.poles&&D.poles[i-1];return q&&q.z?(k==='m'?q.z[0]*1000:-2*q.z[1]*1000):NaN;};
+const TREG={
+ qq:{lab:'Quarkonium',inputs:()=>[...document.querySelectorAll('#qq-pars input')].map(e=>[e.id,labOf(e.id)]),run:async()=>{ST.qq=null;qqRun();},read:()=>ST.qq,
+  outputs:[{k:'M',lab:'mass of a state (give its label, e.g. 1³S₁) (GeV)',idx:true,def:'1³S₁',f:(D,n)=>{const st=D.R.st.find(x=>x.lab===String(n));return st?st.M:NaN;}},
+    {k:'d21',lab:'2S − 1S (spin-averaged) (GeV)',f:D=>{const S=D.R.lev.filter(L=>L.l===0);return S.length>1?S[1].E-S[0].E:NaN;}},{k:'d1p',lab:'1P − 1S (spin-averaged) (GeV)',f:D=>{const S=D.R.lev.find(L=>L.l===0&&L.n===0),Pp=D.R.lev.find(L=>L.l===1&&L.n===0);return S&&Pp?Pp.E-S.E:NaN;}}]},
+ mol:{lab:'Molecules & exotic atoms',inputs:()=>[['mol-V0','depth V₀ (MeV)'],['mol-b','range b (fm)'],['mol-W','absorption W (MeV)'],['mol-m1','mass m₁ (MeV)'],['mol-m2','mass m₂ (MeV)']],run:async()=>{ST.mol=null;molRun();},read:()=>ST.mol,
+  outputs:[{k:'E',lab:'bound level n without Coulomb (MeV)',idx:true,f:(D,n)=>{const L=D.Bs.levels[n-1];return L?L.E:NaN;}},{k:'a',lab:'scattering length Re a (fm)',f:D=>D.a[0]},{k:'ai',lab:'scattering length Im a (fm)',f:D=>D.a[1]}]},
+ res:{lab:'Resonances',inputs:()=>[['res-M','mass M (MeV)'],['res-G','width Γ (MeV)'],['res-R','radius R (fm)']],run:async()=>{ST.res=null;resRun();},read:()=>ST.res,
+  outputs:[{k:'pm',lab:'pole mass (MeV)',f:D=>D.pole?D.pole.m:NaN},{k:'pg',lab:'pole width (MeV)',f:D=>D.pole?D.pole.G:NaN}]},
+ cc:{lab:'Coupled channels',inputs:()=>[['cc-f','decay constant f (MeV)'],['cc-a1','a_K̄N or q_max'],['cc-a2','a_πΣ'],['cc-B','molecule binding (MeV)'],['cc-L','EFT cutoff (MeV)'],['cc-r1','V₁/V₀'],['cc-E0','bare mass E₀ (GeV)'],['cc-g','coupling g'],['cc-be','form factor β (GeV)']].filter(a=>{const e=$(a[0]);return e&&e.closest('.f2').style.display!=='none';}),
+  run:async()=>{ST.cc=null;await ccRun();},read:()=>ST.cc,
+  outputs:[{k:'pm',lab:'pole n: Re √s (MeV)',idx:true,f:(D,n)=>D.p==='uq'?D.pole.z[0]*1000:pd(D,n,'m')},{k:'pg',lab:'pole n: width −2 Im √s (MeV)',idx:true,f:(D,n)=>D.p==='uq'?-2*D.pole.z[1]*1000:pd(D,n,'g')},{k:'X',lab:'compositeness X of channel n (EFT)',idx:true,f:(D,n)=>D.res?D.res.X[n-1]:NaN}]},
+ nn:{lab:'Nucleons (deuteron)',inputs:()=>[['nn-Rc','OPEP regulator R_c (fm)'],['nn-tf','tensor scale'],['nn-b','short-range b (fm)']],run:async()=>{ST.nn=null;$('nn-p').value='d';await nnRun();},read:()=>ST.nn,
+  outputs:[{k:'Q',lab:'deuteron quadrupole moment Q (fm²)',f:D=>D.d?D.d.Q:NaN},{k:'PD',lab:'D-state probability P_D',f:D=>D.d?D.d.PD:NaN},{k:'eta',lab:'asymptotic D/S ratio η',f:D=>D.d?D.d.eta:NaN}]}};
+function tlN(v){v=String(v).trim();return /^[0-9]+$/.test(v)?Math.max(1,parseInt(v)):v;}
+
+function tlGet(tab,key){const v=$(key).value.trim();return v==='inf'||v==='∞'?Infinity:parseFloat(v);}
+function tlSet(tab,key,v){$(key).value=+(+v).toPrecision(10);}
+function tabSnap(tab){const o={};document.querySelectorAll(`#tab-${tab} input,#tab-${tab} select,#tab-${tab} textarea`).forEach(e=>{if(e.id)o[e.id]=e.value;});return o;}
+function tabRestore(tab,o){Object.keys(o).forEach(id=>{const e=$(id);if(e)e.value=o[id];});}
+function tlOutputs(tab){return TREG[tab].outputs;}
+function tlEnsure(tab){if(ST[tab])return;try{if(tab==='mol')loadMol(0);if(tab==='res')loadRes(0);}catch(e){console.error(e);}}
+function tlFill(pre){const tab=$(pre+'-tab').value;if(!TL.busy)tlEnsure(tab);const R=TREG[tab],ins=R.inputs(),opt=a=>a.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
+  const keep=(id,html)=>{const e=$(id);if(!e)return;const v=e.value;e.innerHTML=html;if([...e.options].some(o=>o.value===v))e.value=v;};
+  keep(pre+'-in',opt(ins));keep(pre+'-out',tlOutputs(tab).map(o=>`<option value="${o.k}">${o.lab}</option>`).join(''));
+  if(pre==='ts')tlRange();if(pre==='tf')['tf-p1','tf-p2','tf-p3'].forEach((id,j)=>keep(id,'<option value="">—</option>'+opt(ins)));tlIdx(pre);}
+function tlRange(){const k=$('ts-tab').value+'|'+$('ts-in').value;if(TL.rk===k)return;TL.rk=k;const e=$($('ts-in').value),v=e?parseFloat(e.value):NaN;if(!isFinite(v))return;const r=x=>+x.toPrecision(3);if(v===0){$('ts-a').value=-1;$('ts-b').value=1;}else{$('ts-a').value=r(v*0.8);$('ts-b').value=r(v*1.2);}}
+function tlIdx(pre){const tab=$(pre+'-tab').value,o=TREG[tab].outputs.find(x=>x.k===$(pre+'-out').value);$(pre+'-nrow').style.display=o&&o.idx?'':'none';if(o&&o.idx){const e=$(pre+'-n'),v=e.value.trim();if(o.def&&/^\d*$/.test(v))e.value=o.def;else if(!o.def&&!/^\d+$/.test(v))e.value='1';}}
+async function tlEval(tab,outK,n){const R=TREG[tab],O=R.outputs.find(o=>o.k===outK);await R.run(!!(O.opt||O.iv));const D=R.read();if(!D)return NaN;try{const v=O.f(D,n);return isFinite(v)?v:NaN;}catch(e){return NaN;}}
+let TL={sweep:null,fit:null,busy:false};
+function tlBusy(b){TL.busy=b;['tl-sweep','tl-fit','tl-demo'].forEach(id=>{const e=$(id);if(e)e.disabled=b;});$('tl-stop').style.display=b?'':'none';}
+async function tlSweep(){if(TL.busy)return;const tab=$('ts-tab').value,key=$('ts-in').value,outK=$('ts-out').value,n=tlN($('ts-n').value),a=parseFloat($('ts-a').value),b=parseFloat($('ts-b').value),N=Math.max(2,Math.min(80,Math.round(parseFloat($('ts-N').value)||11)));
+  if(!key||!outK){msg('tools-msg',[['bad','Choose an input and an output.']]);return;}if(!(isFinite(a)&&isFinite(b)&&a!==b)){msg('tools-msg',[['bad','Give two different end values for the sweep.']]);return;}
+  const snap=tabSnap(tab),O=TREG[tab].outputs.find(o=>o.k===outK),xs=[],ys=[],t0=performance.now();tlBusy(true);TL.stop=false;
+  try{for(let i=0;i<N&&!TL.stop;i++){const x=a+(b-a)*i/(N-1);tlSet(tab,key,x);const y=await tlEval(tab,outK,n);xs.push(x);ys.push(y);msg('tools-msg',[['info',`Sweep ${i+1}/${N}: ${$('ts-in').selectedOptions[0].text} = ${fp(x,5)} → ${fp(y,6)}`]]);await frame();}}
+  finally{tabRestore(tab,snap);await TREG[tab].run(!!(O.opt||O.iv));tlBusy(false);}
+  TL.sweep={tab,key,outK,n,xs,ys,xl:$('ts-in').selectedOptions[0].text,yl:O.lab.replace(/ n\b/,' '+n)};TL.last='sweep';
+  const bad=ys.filter(v=>!isFinite(v)).length;msg('tools-msg',[['ok',`Sweep of ${xs.length} points in ${((performance.now()-t0)/1000).toFixed(1)} s; the inputs of the ${TREG[tab].lab} tab were restored afterwards.`]].concat(bad?[['warn',`${bad} point(s) gave no value (the requested level or resonance does not exist there, or the model failed): they are left out of the plot.`]]:[]));tlDraw();tlTables();}
+
+
+/* ---------- (4) fit: Nelder–Mead on up to three inputs, least squares against pasted data ---------- */
+function nmMin(f,x0,step,opt){const n=x0.length,maxIt=opt.maxIt||60,S=[x0.slice()];for(let i=0;i<n;i++){const x=x0.slice();x[i]+=step[i];S.push(x);}
+  return (async()=>{const F=[];for(const x of S)F.push(await f(x));let it=0;
+    for(;it<maxIt&&!TL.stop;it++){const ord=F.map((v,i)=>i).sort((a,b)=>F[a]-F[b]),S2=ord.map(i=>S[i]),F2=ord.map(i=>F[i]);S.splice(0,S.length,...S2);F.splice(0,F.length,...F2);
+      if(opt.prog)opt.prog(it,F[0],S[0]);if(Math.abs(F[n]-F[0])<=1e-10*(Math.abs(F[0])+1e-30)&&it>3)break;
+      const c=Array(n).fill(0);for(let i=0;i<n;i++)for(let j=0;j<n;j++)c[j]+=S[i][j]/n;const pt=t=>c.map((v,j)=>v+t*(S[n][j]-v));
+      const xr=pt(-1),fr=await f(xr);if(fr<F[0]){const xe=pt(-2),fe=await f(xe);if(fe<fr){S[n]=xe;F[n]=fe;}else{S[n]=xr;F[n]=fr;}continue;}
+      if(fr<F[n-1]){S[n]=xr;F[n]=fr;continue;}const out=fr<F[n],xc=pt(out?-0.5:0.5),fc=await f(xc);if(fc<(out?fr:F[n])){S[n]=xc;F[n]=fc;continue;}
+      for(let i=1;i<=n;i++){S[i]=S[i].map((v,j)=>S[0][j]+0.5*(v-S[0][j]));F[i]=await f(S[i]);}}
+    let b=0;for(let i=1;i<=n;i++)if(F[i]<F[b])b=i;return {x:S[b],f:F[b],it};})();}
+function tfData(){const P=$('tf-data').value.split('\n').map(l=>l.trim()).filter(l=>l&&!/^[#%]/.test(l)).map(l=>l.split(/[\s,;]+/).map(parseFloat)).filter(a=>a.length>=2&&isFinite(a[0])&&isFinite(a[1]));
+  if(P.length<2)throw new Error('Paste at least two data lines "x y" (x: the input chosen as the abscissa, y: the output).');return P;}
+async function tlFit(){if(TL.busy)return;let snap,tab;try{tab=$('tf-tab').value;const xk=$('tf-in').value,outK=$('tf-out').value,n=tlN($('tf-n').value),P=tfData(),lg=$('tf-log').checked,maxIt=Math.max(5,Math.min(300,Math.round(parseFloat($('tf-it').value)||60)));
+    const pk=['tf-p1','tf-p2','tf-p3'].map(id=>$(id).value).filter(Boolean).filter((k,i,a)=>a.indexOf(k)===i);if(!pk.length)throw new Error('Choose at least one parameter to fit.');if(pk.includes(xk))throw new Error('The abscissa input cannot also be a fit parameter.');
+    if(lg&&P.some(p=>!(p[1]>0)))throw new Error('Logarithmic residuals need positive data.');
+    snap=tabSnap(tab);const p0=pk.map(k=>tlGet(tab,k));if(p0.some(v=>!isFinite(v)))throw new Error('A start value is missing: fill the parameter in its tab first.');
+    const sc=p0.map(v=>Math.abs(v)>1e-12?Math.abs(v):1),O=TREG[tab].outputs.find(o=>o.k===outK);let nev=0;const t0=performance.now();tlBusy(true);TL.stop=false;
+    const model=async u=>{const ys=[];pk.forEach((k,i)=>tlSet(tab,k,p0[i]+u[i]*sc[i]));for(const [x] of P){tlSet(tab,xk,x);ys.push(await tlEval(tab,outK,n));}nev++;await frame();return ys;};
+    const cost=async u=>{const ys=await model(u);let s=0;for(let i=0;i<P.length;i++){const y=ys[i],d=P[i][1];if(!isFinite(y)||(lg&&!(y>0)))return 1e30;const r=lg?Math.log(y/d):(y-d);s+=r*r;}return s/P.length;};
+    const y0=await model(pk.map(()=>0)),R=await nmMin(cost,pk.map(()=>0),pk.map(()=>0.1),{maxIt,prog:(it,f)=>msg('tools-msg',[['info',`Nelder–Mead iteration ${it+1}/${maxIt}: rms residual ${fp(Math.sqrt(f),4)}${lg?' (in ln y)':''}, ${nev} model sweeps so far…`]])});
+    const best=pk.map((k,i)=>p0[i]+R.x[i]*sc[i]),yf=await model(R.x);
+    tabRestore(tab,snap);best.forEach((v,i)=>tlSet(tab,pk[i],v));await TREG[tab].run(!!(O.opt||O.iv));$(tab+'-preset')&&($(tab+'-preset').value='-1');
+    const lab=k=>{const o=$('tf-p1').querySelector(`option[value="${CSS.escape(k)}"]`);return o?o.text:k;};
+    TL.fit={tab,xk,outK,n,P,y0,yf,pk,p0,best,rms:Math.sqrt(R.f),lg,it:R.it,nev,xl:$('tf-in').selectedOptions[0].text,yl:O.lab.replace(/ n\b/,' '+n),plab:pk.map(lab),t:(performance.now()-t0)/1000};TL.last='fit';
+    msg('tools-msg',[['ok',`Fit converged after ${R.it} iterations (${nev} model sweeps, ${TL.fit.t.toFixed(1)} s). The fitted values are now set in the ${TREG[tab].lab} tab (marked as a custom system).`]].concat(R.f>=1e29?[['bad','The model could not be evaluated at the data points: check the output and the data range.']]:[]));tlDraw();tlTables();}
+  catch(e){if(snap)tabRestore(tab,snap);msg('tools-msg',[['bad',e.message]]);console.error(e);}finally{tlBusy(false);}}
+
+const TDEMO=[
+ {n:'Synthetic: binding energy vs range b, recover the depth (true V₀ = 40 MeV)',tab:'mol',preset:0,x:'mol-b',out:'E',p:['mol-V0'],truth:[40],start:[33],xs:[1.6,1.8,2.0,2.2,2.4],lg:false,setW:0},
+ {n:'Synthetic: resonance pole width vs input width, recover the radius (true R = 1.2 fm)',tab:'res',preset:0,x:'res-G',out:'pg',p:['res-R'],truth:[1.2],start:[0.6],xs:[100,130,160,190,220],lg:false}];
+async function tlDemo(){if(TL.busy)return;const D=TDEMO[+$('tf-demo').value];tlBusy(true);try{
+  if(D.tab==='mol'){loadMol(D.preset);$('mol-W').value=0;$('mol-zz').value=0;}else if(D.tab==='res'){loadRes(D.preset);}
+  const snap=tabSnap(D.tab),lab=k=>(TREG[D.tab].inputs().find(a=>a[0]===k)||[k,k])[1];let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647-0.5;};
+  D.p.forEach((k,i)=>tlSet(D.tab,k,D.truth[i]));const lines=[`# SYNTHETIC data generated by this model at ${D.p.map((k,i)=>lab(k)+' = '+D.truth[i]).join(', ')}, with 1 % random noise`];
+  for(const x of D.xs){tlSet(D.tab,D.x,x);const y=await tlEval(D.tab,D.out,D.n1||1);lines.push(`${x} ${+(y*(1+0.02*rnd())).toPrecision(5)}`);msg('tools-msg',[['info','Generating the synthetic data set…']]);await frame();}
+  tabRestore(D.tab,snap);D.p.forEach((k,i)=>tlSet(D.tab,k,D.start[i]));await TREG[D.tab].run();
+  $('tf-tab').value=D.tab;tlFill('tf');$('tf-in').value=D.x;$('tf-out').value=D.out;tlIdx('tf');$('tf-n').value=D.n1||1;['tf-p1','tf-p2','tf-p3'].forEach((id,i)=>$(id).value=D.p[i]||'');$('tf-log').checked=D.lg;$('tf-data').value=lines.join('\n');
+  msg('tools-msg',[['ok',`Synthetic data loaded (not a measurement). Start values: ${D.p.map((k,i)=>lab(k)+' = '+D.start[i]).join(', ')}. Press "Fit" to recover ${D.truth.join(', ')}.`]]);}
+  catch(e){msg('tools-msg',[['bad',e.message]]);}finally{tlBusy(false);}}
+
+
+/* ---------- (5) drawing and tables of the tools tab ---------- */
+function tlDraw(){const cv=$('c-tools'),ctx=bg(cv),B={x0:84,y0:34,x1:cv.width-24,y1:cv.height-50},mode=TL.last;
+  if(mode==='sweep'&&TL.sweep){const S=TL.sweep,x=[],y=[];S.xs.forEach((v,i)=>{if(isFinite(S.ys[i])){x.push(v);y.push(S.ys[i]);}});const pos=y.length&&y.every(v=>v>0),lg=pos&&Math.max(...y)/Math.min(...y)>200;
+    chart(ctx,B,{series:[{x,y,c:WP[0],w:2.2,lab:S.yl},{x,y,c:WP[0],pts:true}],title:`${TREG[S.tab].lab}: ${S.yl} vs ${S.xl}`,xlab:S.xl,ylab:S.yl,ylog:lg});return;}
+  if(mode==='fit'&&TL.fit){const F=TL.fit,xs=F.P.map(p=>p[0]),ord=xs.map((v,i)=>i).sort((a,b)=>xs[a]-xs[b]),pos=F.P.every(p=>p[1]>0)&&F.lg;
+    chart(ctx,B,{series:[{x:ord.map(i=>xs[i]),y:ord.map(i=>F.y0[i]),c:'#9aa4b2',w:1.4,d:true,lab:'start values'},{x:ord.map(i=>xs[i]),y:ord.map(i=>F.yf[i]),c:WP[0],w:2.2,lab:'fitted model'},{x:ord.map(i=>xs[i]),y:ord.map(i=>F.P[i][1]),c:'#f5a623',w:0,pts:true,lab:'data'}],
+      title:`Fit: ${F.plab.map((l,i)=>l.replace(/ \([^()]*\)$/,'')+' = '+fp(F.best[i],5)).join(', ')} (rms ${fp(F.rms,3)}${F.lg?' in ln y':''})`,xlab:F.xl,ylab:F.yl,ylog:pos});return;}
+  ctx.fillStyle='#9aa4b2';ctx.font='15px Inter,system-ui,sans-serif';ctx.textAlign='center';ctx.fillText('Run a parameter sweep or a fit: the result is plotted here.',cv.width/2,cv.height/2);ctx.textAlign='left';}
+function tlTables(){let o='',t='';if(TL.last==='sweep'&&TL.sweep){const S=TL.sweep,ok=S.ys.filter(isFinite);o=ri('Sweep',`${S.xl}: ${fp(S.xs[0],5)} → ${fp(S.xs[S.xs.length-1],5)}`,`${S.xs.length} points; output: ${S.yl}`)+(ok.length?ri('Output range',`${fp(Math.min(...ok),5)} … ${fp(Math.max(...ok),5)}`,''):'');
+    t=`<table><tr><th>${S.xl}</th><th>${S.yl}</th></tr>`+S.xs.map((x,i)=>`<tr><td>${fp(x,6)}</td><td>${fp(S.ys[i],7)}</td></tr>`).join('')+'</table>';}
+  if(TL.last==='fit'&&TL.fit){const F=TL.fit;o=F.plab.map((l,i)=>ri('Fitted: '+l,fp(F.best[i],6),`start ${fp(F.p0[i],5)}`)).join('')+ri('rms residual',fp(F.rms,4)+(F.lg?' (ln y: relative)':''),`${F.P.length} data points, ${F.it} Nelder–Mead iterations, ${F.nev} model sweeps`);
+    t=`<table><tr><th>${F.xl}</th><th>data</th><th>fitted model</th><th>residual</th></tr>`+F.P.map((p,i)=>`<tr><td>${fp(p[0],6)}</td><td>${fp(p[1],6)}</td><td>${fp(F.yf[i],6)}</td><td>${fp(F.lg?Math.log(F.yf[i]/p[1]):F.yf[i]-p[1],3)}</td></tr>`).join('')+'</table>';}
+  $('tools-res').innerHTML=o||ri('Tools','—','run a sweep or a fit');$('tools-tab').innerHTML=t;}
+
+(function tlInit(){const tabs=Object.keys(TREG).map(k=>`<option value="${k}">${TREG[k].lab}</option>`).join('');['ts-tab','tf-tab'].forEach(id=>$(id).innerHTML=tabs);
+  $('tf-demo').innerHTML=TDEMO.map((d,i)=>`<option value="${i}">${d.n}</option>`).join('');
+  $('ts-in').onchange=tlRange;['ts','tf'].forEach(p=>{$(p+'-tab').onchange=()=>tlFill(p);$(p+'-out').onchange=()=>tlIdx(p);});
+  $('tl-sweep').onclick=tlSweep;$('tl-fit').onclick=tlFit;$('tl-stop').onclick=()=>{TL.stop=true;};$('tl-demo').onclick=tlDemo;
+  const showTools=()=>{['ts','tf'].forEach(p=>tlFill(p));if(!TL.last)tlDraw();tlTables();};
+  document.querySelectorAll('.tb').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='tools')setTimeout(showTools,0);}));
+  $('ts-in').onfocus=()=>tlFill('ts');$('tf-in').onfocus=()=>tlFill('tf');showTools();exportBar();})();
 // ===================== resonances, scattering, validation, wiring =====================
 const RES=[
  {n:'ρ(770)⁰ → π⁺π⁻ (P wave)',shape:'ed',M:775.26,G:149.1,R:0.6,ch:[[MPI,MPI,1,1],[0,0,0,0]],W:[300,1300],J:1,note:'The ρ is the archetypal hadronic resonance: almost 100 % ππ in a P wave, so the width grows as q³ above threshold and the line shape is skewed. Its pole lies about 15–20 MeV below the Breit–Wigner mass. It is the dominant feature of e⁺e⁻ → π⁺π⁻ and of the hadronic contribution to the muon g − 2.'},
@@ -1574,6 +2577,39 @@ async function valRun(){const rows=[],add=(a,b,c,d,ok)=>rows.push([a,b,c,d,ok]);
      add('πN: unitarity |S_l| = 1 below inelastic thresholds, and the optical theorem for π⁺p','identities','1e-10',`${w.toExponential(1)}, ${wo.toExponential(1)}`,w<1e-10&&wo<1e-10);
      let pk={s:0,T:0};for(let T=150;T<=240;T+=1){const s=piNobs(WofT(T),'+',{ang:3}).sig;if(s>pk.s)pk={s,T};}add('Δ(1232) peak in σ(π⁺p)','≈ 200 mb at T_π ≈ 190 MeV','±10 %, ±15 MeV',`${pk.s.toFixed(1)} mb at ${pk.T} MeV`,Math.abs(pk.s/200-1)<0.1&&Math.abs(pk.T-190)<=15);
      const W=WofT(pk.T),a=piNobs(W,'+',{only:'P33',ang:3}).sig,b=piNobs(W,'-',{only:'P33',ang:3}).sig,c=piNobs(W,'0',{only:'P33',ang:3}).sig;add('Isospin: pure I = 3/2 resonance gives σ(π⁺p) : σ(π⁻p el) : σ(π⁰n) = 9 : 1 : 2','exact (Clebsch–Gordan)','1e-12',`${(a/b).toFixed(6)} : 1 : ${(c/b).toFixed(6)}`,Math.abs(a/b-9)<1e-9&&Math.abs(c/b-2)<1e-9);}
+    await frame();
+    {/* quark models */
+     const R=qmSolveL({m1:1,m2:1,as:0.3,sig:0,C:0},0,{R:120,N:300,nmax:1,rel:false}),e=Math.abs((R.lev[0].M-2)/(-0.04)-1);
+     add('Quark-model solver (sinc-DVR), non-relativistic Coulomb: 1S at −μκ²/2 (κ = 0.4, μ = 0.5)','exact','1 %',(R.lev[0].M-2).toFixed(6),e<0.01);
+     const a=qmSolveL({m1:60,m2:60,as:0.3,sig:0.18,C:0},0,{R:20,N:200,nmax:1,rel:false}).lev[0].M-120,b=qmSolveL({m1:60,m2:60,as:0.3,sig:0.18,C:0},0,{R:20,N:200,nmax:1,rel:true}).lev[0].M-120;
+     add('Relativistic kinetic energy → non-relativistic limit for heavy quarks (m = 60 GeV)','same binding','1 %',`${b.toFixed(5)} vs ${a.toFixed(5)} GeV`,Math.abs(b/a-1)<0.01);
+     let x=3;const rnd=()=>{x=(x*16807)%2147483647;return x/2147483647;},Sy=ecgSystem([1,1,1],['q','q','q']),H=await ecgSVM(Sy,c=>0.5*1.5/c,{K:12,bmax:3,rnd});
+     add('Three-quark solver (correlated Gaussians): three equal masses bound harmonically, E = 3√(3k/m)','exact (5.196152)','1e-3',H.E.toFixed(6),Math.abs(H.E/(3*Math.sqrt(3))-1)<1e-3);
+     const s0={t:'cornell',as:0.4,sig:0.18,m1:0.3,m2:200,C:0,q1:'c',q2:'b'},R2=qSolve(s0,{lmax:1,nmax:1,N:3000,rmax:8}),mx=mixP1(s0,R2)[0],th=mx?Math.abs(mx.th):NaN,dth=Math.min(Math.abs(th-35.264),Math.abs(th-54.736));
+     add('¹P₁–³P₁ mixing in the heavy-quark limit (m₂ = 200 GeV): j_light = 1/2, 3/2 eigenstates','35.26° or 54.74°','0.5°',fp(th,5)+'°',dth<0.5);}
+    await frame();
+    {/* coupled channels */
+     const Mc=CU_MODELS.sig;let w=0;for(const W of [0.4,0.8,1.1]){const {S}=cuS(Mc,W),n=S.length;for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=[0,0];for(let k=0;k<n;k++)s=cadd(s,cmul(S[i][k],[S[j][k][0],-S[j][k][1]]));w=Math.max(w,Math.abs(s[0]-(i===j?1:0)),Math.abs(s[1]));}}
+     add('Chiral unitary ππ–KK̄ amplitude: S S† = 1 (two open channels above 0.99 GeV)','1','1e-4',w.toExponential(2),w<1e-4);
+     const Gn=gMMnum(0.2,0.138,0.138,1.03),Ga=gMM([0.2,0],0.138,0.138,1.03,1)[0];add('Meson–meson loop G(s): closed cutoff formula vs direct integration below threshold','independent','1e-8',`${Ga.toExponential(6)} vs ${Gn.toExponential(6)}`,Math.abs(Ga/Gn-1)<1e-8);
+     const pl=cuPole(CU_MODELS.lam,[1.39,-0.066]);add('Λ(1405) lower pole (K̄N–πΣ, Weinberg–Tomozawa, two channels)','≈ 1390 − 66i MeV (Jido et al. 2003, four channels)','±20 MeV',`${(pl.z[0]*1000).toFixed(1)} − ${(-pl.z[1]*1000).toFixed(1)}i`,pl.ok&&Math.abs(pl.z[0]-1.39)<0.02&&Math.abs(pl.z[1]+0.066)<0.02);
+     const ch=eftSetup(EFT_MODELS.X),V0=eftFitV0(ch,0.04,0,500),r=eftResidue(ch,-0.04,V0,0,500),sx=r.X[0]+r.X[1];add('Contact EFT, two channels: compositeness X₁ + X₂ = 1 for an energy-independent interaction (X(3872), B = 40 keV)','1','1e-6',sx.toFixed(8),Math.abs(sx-1)<1e-6);
+     const M=Object.assign({},UQ_MODELS.psi),f=uqFit(M,M.target);M.E0=f.E0;M.g=f.g;const p=uqPole(M,[M.target.M,-M.target.G/2]),Sa=uqSigma([3.85,0],M),Sb=uqSigma([3.85,1e-4],M);
+     add('Unquenched ψ(3770): fitted pole reproduces the target M − iΓ/2','3773.7 − 13.6i MeV','0.1 MeV',`${(p.z[0]*1000).toFixed(2)} − ${(-p.z[1]*1000).toFixed(2)}i`,Math.abs(p.z[0]-3.7737)<1e-4&&Math.abs(p.z[1]+0.0136)<1e-4);
+     add('Self-energy on the rotated contour: real axis vs just above it (physical sheet continuity)','same','1e-3 relative',`${(Sa[1]*1000).toFixed(4)} vs ${(Sb[1]*1000).toFixed(4)} MeV`,Math.abs(Sa[1]/Sb[1]-1)<1e-3);
+     let wk=0;for(const W of [1.1,1.6]){const {T,rho}=kmAmp(KM_MODEL,[W,0]),n=3,S=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>cadd(i===j?[1,0]:[0,0],cmul(cmul([0,2],csqrt(cmul(rho[i],rho[j]))),T[i][j]))));for(let i=0;i<n;i++)for(let j=0;j<n;j++){let s=[0,0];for(let k=0;k<n;k++)s=cadd(s,cmul(S[i][k],[S[j][k][0],-S[j][k][1]]));wk=Math.max(wk,Math.abs(s[0]-(i===j?1:0)),Math.abs(s[1]));}}
+     add('K-matrix amplitude (three channels open): S S† = 1','1','1e-10',wk.toExponential(2),wk<1e-10);}
+    await frame();
+    {/* finite volume, kinematics, nucleons, atoms, ISR */
+     const z=0.5*((z00(1e-4)*Math.sqrt(4*Math.PI)+1/1e-4)+(z00(-1e-4)*Math.sqrt(4*Math.PI)-1/1e-4));add('Lüscher zeta function: regular part of √4π Z₀₀(1; q²) at q² = 0 (average of q² = ±10⁻⁴, removes the linear term)','−8.91363292','1e-3',z.toFixed(6),Math.abs(z+8.91363292)<1e-3);
+     const a=0.3,mu=469.46,L=8,lv=lusLevels(k2=>-1/a,mu,L,2),dE=2*Math.PI*a/(mu*L**3)*(1+2.837297*a/L+6.375183*(a/L)**2)*HC_M*HC_M;add('Lüscher levels vs the large-L expansion ΔE = (2πa/μL³)[1 + 2.837a/L + 6.375(a/L)²] (a = 0.3 fm, L = 8 fm)','expansion','0.5 %',`${lv[1].E.toFixed(5)} vs ${dE.toFixed(5)} MeV`,Math.abs(lv[1].E/dE-1)<0.005);
+     const T=TRI_MODELS.a1;let im=0,best=0;for(let E=1.35;E<=1.5;E+=0.002){const v=cabs(triLoop(E,T));if(v>best){best=v;im=E;}}add('Triangle loop K*K̄K: peak position (a₁(1420) effect)','1.40–1.44 GeV','window',im.toFixed(3)+' GeV',im>1.40&&im<1.44);
+     const d=deuteron({Rc:0.8,tf:0,b:0.8,Vs:150,R:20,N:800,E0:-5}),Ps={t:'gau',b:0.8,V0:150,W:0,m1:938.918,m2:938.918,zz:0};
+     add('Deuteron solver without tensor force: P_D = 0 (S and D decouple)','0','1e-10',d.PD.toExponential(2),d.PD<1e-10);
+     const dd=deutFit({Rc:0.8,tf:1.2,b:0.8,R:20,N:800},2.22457);add('Deuteron with OPEP tensor force: quadrupole moment (depth fitted to B)','0.2859 fm² (measured)','±5 %',dd.Q.toFixed(4)+' fm²',Math.abs(dd.Q/0.2859-1)<0.05);
+     const L1=hatLevel({m1:139.57039,m2:938.272,t:'gau',b:0.8,V0:76.6266,W:4.075},0,1),sh=(L1.E[0]-L1.E0)*1e6;add('Pionic hydrogen 1s shift: complex shooting (this tab) vs the Molecules tab solver (same potential)','−7.086 eV','1 %',sh.toFixed(4)+' eV',Math.abs(sh/-7.086-1)<0.01);
+     const e={MZ:91.1876,GZ:2.4955,sw2:0.23153,ainv:128.95,as:0.118},sig=s=>['u','d','s','c','b'].reduce((a,f)=>a+eeXS(s,f,e).sig,0);let pk=0,Wp=0;for(let W=91.0;W<=91.6;W+=0.01){const v=isrConv(sig,W*W,0.99);if(v>pk){pk=v;Wp=W;}}
+     const born=sig(91.1876**2);add('Initial-state radiation: Z peak reduced and shifted (σ_obs/σ_Born at the peak)','≈ 0.74, shift ≈ +0.1 GeV','±0.03, 0.05–0.15 GeV',`${(pk/born).toFixed(3)}, +${(Wp-91.1876).toFixed(3)} GeV`,Math.abs(pk/born-0.74)<0.03&&Wp-91.1876>0.05&&Wp-91.1876<0.15);}
   }catch(e){add('Error while running the checks','—','—',e.message,false);console.error(e);}
   const np=rows.filter(r=>r[4]).length;$('val-sum').innerHTML=`<div class="msg ${np===rows.length?'ok':'warn'}">${np} of ${rows.length} checks pass.</div>`;
   $('val-tab').innerHTML='<table><tr><th>check</th><th>reference</th><th>tolerance</th><th>result</th><th>status</th></tr>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]?'<span class="pill ok">pass</span>':'<span class="pill bad">fail</span>'}</td></tr>`).join('')+'</table>';$('val-run').disabled=false;}
